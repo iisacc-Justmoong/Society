@@ -22,7 +22,7 @@ LVRS `~/.local/SDK/LVRS` 설치본을 사용한다.
 
 | 필수 SDK | 소비자 테스트에서 확인하는 공개 API |
 | --- | --- |
-| iiFilePreview | `helloWorld()` |
+| iiFileProvider | `helloWorld()` |
 | iiGeneralDocument | 문서 생성과 메타데이터 접근 |
 | iiLicenseManager | `LicenseClient` 메타 객체와 상태 열거형 |
 | iiLocalDiffusion | 연산 장치 이름 조회 |

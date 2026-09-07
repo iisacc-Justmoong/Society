@@ -1,4 +1,4 @@
-#include <iiFilePreview.h>
+#include <iiFileProvider.h>
 #include <iiGeneralDocument/Model/Document.h>
 #include <iiLicenseManager/LicenseClient.h>
 #include <Compute/ComputeRuntime.hpp>
@@ -26,7 +26,7 @@ private slots:
     void bootstrapSdkSymbols_data()
     {
         QTest::addColumn<GreetingFunction>("greeting");
-        QTest::newRow("iiFilePreview") << &iiFilePreview::helloWorld;
+        QTest::newRow("iiFileProvider") << &iiFileProvider::helloWorld;
         QTest::newRow("iiLocalLLM") << &iiLocalLLM::helloWorld;
         QTest::newRow("iiServerHost") << &iiServerHost::helloWorld;
         QTest::newRow("iiSocietyContainer") << &iiSocietyContainer::helloWorld;

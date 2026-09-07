@@ -10,7 +10,7 @@ find_package(LVRS CONFIG REQUIRED HINTS "$ENV{HOME}/.local/SDK/LVRS")
 qt_standard_project_setup(REQUIRES 6.8)
 
 set(society_sdk_packages
-    iiFilePreview
+    iiFileProvider
     iiGeneralDocument
     iiLicenseManager
     iiLocalDiffusion
