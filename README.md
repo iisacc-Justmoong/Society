@@ -63,8 +63,13 @@ CLion에서도 CMake 빌드 디렉터리를 `build/`로 지정했다. 실행 대
 
 - `main.cpp`: LVRS 런타임 초기화와 `Society.Main` QML 로드
 - `App/Main.qml`: LVRS 창과 인사 문구
+- `App/AI/`: Civitai·Hugging Face·Ollama 연동 클래스의 빈 초기 골격
 - `tests/tst_hello.cpp`: 창·문구 표시, 세 가지 크기에서 중앙 정렬, QML 로드 경고 검사
 - `tests/tst_dependencies.cpp`: 실제 앱의 링크 설정을 공유하여 13개 SDK의 헤더·심볼·실행 시 로드를 검사
+
+AI 클래스의 소스와 헤더는 `SocietyDependencyTests`에 등록되어 빌드에 포함된다.
+현재 클래스에는 API나 실행 동작이 없고 앱과 연결되어 있지 않으므로 별도의 기능
+단언은 추가하지 않는다. 기존 의존성·GUI 테스트와 전체 빌드로 이번 골격 추가를 검증한다.
 
 `ctest --preset debug`는 화면 없는 소프트웨어 렌더링 환경에서 GUI 동작을 검사한다.
 `Society.Dependencies` 테스트는 13개 SDK의 공개 심볼을 호출한다. 추론 모델 다운로드,

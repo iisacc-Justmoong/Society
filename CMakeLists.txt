@@ -66,7 +66,13 @@ if(BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)
         TIMEOUT 30
     )
 
-    qt_add_executable(SocietyDependencyTests tests/tst_dependencies.cpp)
+    qt_add_executable(SocietyDependencyTests tests/tst_dependencies.cpp
+            App/AI/HuggingFaceIntergration.cpp
+            App/AI/HuggingFaceIntergration.h
+            App/AI/CivitaiIntergration.cpp
+            App/AI/CivitaiIntergration.h
+            App/AI/OllamaIntergration.cpp
+            App/AI/OllamaIntergration.h)
     # Compile the consumer against the app's actual direct link dependencies.
     get_target_property(society_app_link_libraries Society LINK_LIBRARIES)
     target_link_libraries(SocietyDependencyTests PRIVATE Qt6::Test ${society_app_link_libraries})
