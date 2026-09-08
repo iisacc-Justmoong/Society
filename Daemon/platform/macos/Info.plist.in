@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+    <key>CFBundleExecutable</key><string>SocietyDaemon</string>
+    <key>CFBundleIdentifier</key><string>com.iisacc.society.daemon</string>
+    <key>CFBundleName</key><string>Society Daemon</string>
+    <key>CFBundlePackageType</key><string>APPL</string>
+    <key>CFBundleVersion</key><string>@PROJECT_VERSION@</string>
+    <key>CFBundleShortVersionString</key><string>@PROJECT_VERSION@</string>
+    <key>LSBackgroundOnly</key><true/>
+</dict></plist>

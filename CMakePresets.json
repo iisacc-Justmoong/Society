@@ -12,16 +12,75 @@
         "Qt6_DIR": "/Volumes/Storage/Qt/6.8.3/macos/lib/cmake/Qt6",
         "LVRS_DIR": "$env{HOME}/.local/SDK/LVRS"
       }
+    },
+    {
+      "name": "ios-base",
+      "hidden": true,
+      "generator": "Xcode",
+      "cacheVariables": {
+        "CMAKE_SYSTEM_NAME": "iOS",
+        "CMAKE_OSX_DEPLOYMENT_TARGET": "16.0",
+        "CMAKE_TOOLCHAIN_FILE": "/Volumes/Storage/Qt/6.8.3/ios/lib/cmake/Qt6/qt.toolchain.cmake",
+        "QT_HOST_PATH": "/Volumes/Storage/Qt/6.8.3/macos",
+        "BUILD_TESTING": "OFF",
+        "SOCIETY_IOS_APP_GROUP": "group.com.iisacc.society",
+        "SOCIETY_IOS_TEAM": "$env{SOCIETY_IOS_TEAM}"
+      }
+    },
+    {
+      "name": "ios-device",
+      "displayName": "Society iOS device",
+      "inherits": "ios-base",
+      "binaryDir": "${sourceDir}/build/ios-device",
+      "cacheVariables": {
+        "CMAKE_OSX_SYSROOT": "iphoneos",
+        "CMAKE_OSX_ARCHITECTURES": "arm64",
+        "CMAKE_PREFIX_PATH": "${sourceDir}/../../build/ios-device/install",
+        "LVRS_DIR": "${sourceDir}/../../build/ios-device/install/lib/cmake/LVRS",
+        "iiSocietyContainer_DIR": "${sourceDir}/../../build/ios-device/install/lib/cmake/iiSocietyContainer",
+        "iiSocietyHelper_DIR": "${sourceDir}/../../build/ios-device/install/lib/cmake/iiSocietyHelper",
+        "QT_ADDITIONAL_PACKAGES_PREFIX_PATH": "${sourceDir}/../../build/ios-device/install"
+      }
+    },
+    {
+      "name": "ios-simulator",
+      "displayName": "Society iOS simulator",
+      "inherits": "ios-base",
+      "binaryDir": "${sourceDir}/build/ios-simulator",
+      "cacheVariables": {
+        "CMAKE_OSX_SYSROOT": "iphonesimulator",
+        "CMAKE_OSX_ARCHITECTURES": "arm64",
+        "CMAKE_PREFIX_PATH": "${sourceDir}/../../build/ios-simulator/install",
+        "LVRS_DIR": "${sourceDir}/../../build/ios-simulator/install/lib/cmake/LVRS",
+        "iiSocietyContainer_DIR": "${sourceDir}/../../build/ios-simulator/install/lib/cmake/iiSocietyContainer",
+        "iiSocietyHelper_DIR": "${sourceDir}/../../build/ios-simulator/install/lib/cmake/iiSocietyHelper",
+        "QT_ADDITIONAL_PACKAGES_PREFIX_PATH": "${sourceDir}/../../build/ios-simulator/install"
+      }
     }
   ],
   "buildPresets": [
-    { "name": "debug", "configurePreset": "debug" }
+    {
+      "name": "debug",
+      "configurePreset": "debug"
+    },
+    {
+      "name": "ios-device",
+      "configurePreset": "ios-device",
+      "configuration": "Debug"
+    },
+    {
+      "name": "ios-simulator",
+      "configurePreset": "ios-simulator",
+      "configuration": "Debug"
+    }
   ],
   "testPresets": [
     {
       "name": "debug",
       "configurePreset": "debug",
-      "output": { "outputOnFailure": true }
+      "output": {
+        "outputOnFailure": true
+      }
     }
   ]
 }
