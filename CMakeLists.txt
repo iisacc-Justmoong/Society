@@ -211,13 +211,13 @@ set_target_properties(Society PROPERTIES
 )
 if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
     target_sources(Society PRIVATE App/Files/AppleModelSource.mm App/Files/AppleModelSource.h
-        App/Account/IosDeviceInfo.mm App/Network/IosQrScanner.mm
+        App/Account/IosDeviceInfo.mm App/Network/IosQrScanner.mm App/Network/AppleQrDecoder.mm App/Network/AppleQrDecoder.h
         App/Files/IosModelDrop.mm App/Files/IosModelDrop.h
         App/Files/IosFileAccess.mm App/Files/IosFileAccess.h)
-    set_source_files_properties(App/Account/IosDeviceInfo.mm App/Network/IosQrScanner.mm App/Files/AppleModelSource.mm App/Files/IosModelDrop.mm App/Files/IosFileAccess.mm
+    set_source_files_properties(App/Account/IosDeviceInfo.mm App/Network/IosQrScanner.mm App/Network/AppleQrDecoder.mm App/Files/AppleModelSource.mm App/Files/IosModelDrop.mm App/Files/IosFileAccess.mm
         PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
     target_link_libraries(Society PRIVATE "-framework UIKit" "-framework Foundation" "-framework AVFoundation"
-        "-framework QuickLook" "-framework UniformTypeIdentifiers")
+        "-framework QuickLook" "-framework UniformTypeIdentifiers" "-framework Vision" "-framework CoreVideo" "-framework CoreMedia")
     # The installed iOS Qt package does not ship FFmpeg's native dependencies.
     # Use its AVFoundation backend for the app's native media integration.
     qt_import_plugins(Society INCLUDE Qt6::QSQLiteDriverPlugin Qt6::QDarwinMediaPlugin
@@ -266,9 +266,9 @@ if(BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)
         SOCIETY_PAIRING_QML_FILE="${CMAKE_CURRENT_SOURCE_DIR}/App/Network/PairingPanel.qml"
         SOCIETY_LVRS_QML_IMPORT_PATH="${LVRS_QML_IMPORT_PATH}")
     if(APPLE)
-        target_sources(SocietyPairingTests PRIVATE tests/DecodeQr.mm)
-        set_source_files_properties(tests/DecodeQr.mm PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
-        target_link_libraries(SocietyPairingTests PRIVATE "-framework CoreImage" "-framework Foundation")
+        target_sources(SocietyPairingTests PRIVATE tests/DecodeQr.mm App/Network/AppleQrDecoder.mm App/Network/AppleQrDecoder.h)
+        set_source_files_properties(tests/DecodeQr.mm App/Network/AppleQrDecoder.mm PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
+        target_link_libraries(SocietyPairingTests PRIVATE "-framework CoreImage" "-framework Foundation" "-framework Vision" "-framework CoreVideo")
     endif()
     add_test(NAME Society.Pairing COMMAND SocietyPairingTests)
     set_tests_properties(Society.Pairing PROPERTIES TIMEOUT 60

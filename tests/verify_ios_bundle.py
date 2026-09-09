@@ -30,6 +30,7 @@ def verify(app, device):
             assert 'QR' in info.get('NSCameraUsageDescription', ''), 'Missing pairing camera purpose'
             assert 'NSMicrophoneUsageDescription' not in info, 'QR pairing must not request microphone access'
             assert '/AVFoundation.framework/' in output('otool', '-L', str(executable)).decode(), 'Missing native QR camera framework'
+            assert '/Vision.framework/' in output('otool', '-L', str(executable)).decode(), 'Missing camera-frame QR decoder'
         assert 'platform IOS\n' in output('xcrun', 'vtool', '-show-build', str(executable)).decode()
         assert 'arm64' in output('lipo', '-archs', str(executable)).decode()
         rights = plistlib.loads(output('codesign', '-d', '--entitlements', ':-', str(bundle)))
@@ -43,6 +44,8 @@ def verify(app, device):
     # Qt's static plugin entry points may have local visibility after linking.
     # Release LTO may inline qInitResources into the retained qrc constructor.
     symbols = output('nm', str(app / 'Society')).decode()
+    assert 'VNDetectBarcodesRequest' in symbols, 'Missing Vision QR recognition request'
+    assert 'captureOutput:didOutputSampleBuffer:fromConnection:' in symbols, 'Camera frames are not connected to QR recognition'
     assert 'society_ios_files_integration_test' not in symbols, 'Disable the Files integration probe before shipping'
     assert 'qml_register_types_LVRS' in symbols, 'Missing LVRS QML registration'
     assert ('qInitResources_qmake_LVRS' in symbols

@@ -3,6 +3,7 @@
 #include "App/Network/QrScanner.h"
 #include "FakeDiscoveryService.h"
 #include <QGuiApplication>
+#include <QImageReader>
 #include <QQmlComponent>
 #include <QQmlEngine>
 #include <QQuickWindow>
@@ -14,6 +15,7 @@
 
 #ifdef Q_OS_MACOS
 QString decodePairingQrImage(const QImage &image);
+QString decodePairingQrCameraFrame(const QImage &image);
 #endif
 namespace {
 QQuickItem *visualItem(QQuickItem *root, const QString &name) {
@@ -46,6 +48,35 @@ private slots:
         qmlRegisterType<QrScanner>("Society", 1, 0, "QrScanner");
     }
     void init() { QSettings(QSettings::IniFormat, QSettings::UserScope, "iisacc", "SocietyPairing").clear(); }
+    void cameraFrameDecoderReadsQrAndIgnoresBlankFrames() {
+#ifdef Q_OS_MACOS
+        Fixture fixture; QVERIFY(fixture.start());
+        DevicePairing pairing; pairing.setNetwork(&fixture.host); pairing.showHostQr();
+        const auto payload = pairing.qrText(); QVERIFY(!payload.isEmpty());
+        const auto image = PairingQr::encode(payload, 4);
+        QCOMPARE(decodePairingQrCameraFrame(image), payload);
+        QImage blank(640, 480, QImage::Format_RGB32); blank.fill(Qt::white);
+        QVERIFY(decodePairingQrCameraFrame(blank).isEmpty());
+#else
+        QSKIP("Apple camera decoder requires macOS.");
+#endif
+    }
+    void cameraFrameDecoderReadsUserPhotograph() {
+#ifdef Q_OS_MACOS
+        const auto path = qEnvironmentVariable("SOCIETY_QR_REGRESSION_IMAGE");
+        if (path.isEmpty()) QSKIP("Set SOCIETY_QR_REGRESSION_IMAGE to the supplied photograph; it is not committed.");
+        QImageReader reader(path); reader.setAutoTransform(true); const auto image = reader.read();
+        QVERIFY2(!image.isNull(), qPrintable(reader.errorString()));
+        const auto payload = decodePairingQrCameraFrame(image);
+        QVERIFY2(!payload.isEmpty(), "The camera frame decoder could not read the photographed Society QR.");
+        iiServerHost::LanLink link; QVERIFY(iiServerHost::LanLink::decode(payload, &link));
+        // Inspect the expired photograph only. Never connect using a user's captured offer.
+        QVERIFY(link.expiresAt < QDateTime::currentDateTimeUtc());
+        qInfo("Photographed Society QR decoded: %lld characters; no connection attempted.", qlonglong(payload.size()));
+#else
+        QSKIP("Apple camera decoder requires macOS.");
+#endif
+    }
     void discoverySelectionAcceptAndCodeConfirmationExposeFiles() {
         FakeDiscoveryService a, b;
         NetworkDriveController desktop(&a, QHostAddress::LocalHost), phone(&b, QHostAddress::LocalHost);
@@ -204,6 +235,8 @@ private slots:
         QVERIFY(QMetaObject::invokeMethod(panel.get(), "open")); QTRY_COMPARE(pairing.phase(), QString("showing"));
         QVERIFY(panel->property("width").toReal() <= size.width()); QVERIFY(panel->property("height").toReal() <= size.height());
         auto *qr = panel->findChild<PairingQr *>("pairingQr"); QVERIFY(qr); QTRY_VERIFY(qr->valid() && qr->isVisible());
+        QVERIFY(!qr->smooth());
+        if (size.width() == 1120) QTRY_VERIFY(qr->width() >= 400);
         QSignalSpy captured(&scanner, &QrScanner::codeCaptured);
         scanner.captured(pairing.qrText()); QCOMPARE(captured.size(), 0); // No stale camera callback after stop.
         const auto screenshot = qEnvironmentVariable("SOCIETY_PAIRING_SCREENSHOT");
@@ -211,6 +244,7 @@ private slots:
             QTest::qWait(150); const auto frame = window.grabWindow(); QVERIFY(frame.save(screenshot));
 #ifdef Q_OS_MACOS
             QCOMPARE(decodePairingQrImage(frame), pairing.qrText()); // Decode the actual rendered window, too.
+            QCOMPARE(decodePairingQrCameraFrame(frame), pairing.qrText());
 #endif
         }
         DevicePairing client; client.setNetwork(&fixture.client);

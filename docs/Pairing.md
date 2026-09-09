@@ -1,5 +1,17 @@
 # 로컬 네트워크 기기 탐색·페어링
 
+## 카메라 QR 인식
+
+iPhone 스캐너는 AVFoundation의 QR 메타데이터 인식과 실제 카메라 프레임의 Vision 해독을 함께 사용한다. 메타데이터 콜백만 기다리면 화면에서 촬영한 조밀한 QR을 읽지 못한 채 미리보기만 계속 보일 수 있다. 2026-09-09 제공된 282×612 사진은 기존 Core Image 검증에서 해독되지 않았지만 Vision은 같은 사진에서 322자의 유효한 로컬 페어링 링크를 읽었다. 사진의 코드는 비어 있지 않았으며, 이 관측만으로 실기기 카메라 전체 흐름을 검증했다고 간주하지 않는다.
+
+`AppleQrDecoder`가 `CVPixelBuffer`를 동기 해독하고, iOS의 `AVCaptureVideoDataOutput`이 카메라 프레임을 이 함수로 전달한다. 메타데이터 인식은 빠른 경로로 유지한다. 1080p가 가능한 카메라는 해당 프리셋을 사용하고 연속 자동 초점·노출을 설정한다. Vision은 별도 직렬 큐에서 초당 최대 4회 실행하며 밀린 프레임을 버린다. 종료 후 완료된 해독 결과는 무시하여 취소한 스캔이 다시 연결되지 않는다. 픽셀과 해독 데이터는 저장·업로드·로그 출력하지 않는다.
+
+스캔 프레임과 인식 상태를 표시하고, 8초 이상 인식되지 않거나 QR에 읽을 수 있는 문자열이 없으면 거리·반사광·QR 재발급 안내를 표시한다. 인식한 문자열은 기존 `DevicePairing::scanCode()`의 링크·수명 검사로 보내며 만료·잘못된 코드·연결 실패는 페어링 화면에 표시한다. 데스크톱 QR 표시 폭은 최대 432로 넓히고 정수 모듈 배율과 최근접 샘플링을 유지한다. 링크 형식·TLS 핀·60초 수명은 그대로이며 기존 모바일/데스크톱 링크와 호환된다.
+
+외부 패키지 대신 iOS 16 이상에 포함된 [Apple Vision](https://developer.apple.com/documentation/vision/vndetectbarcodesrequest)과 [AVCaptureVideoDataOutput](https://developer.apple.com/documentation/avfoundation/avcapturevideodataoutput)을 재사용한다. 추가 다운로드·서버·라이브러리 배포 고지는 없으며 유지보수는 Apple OS API에 따른다. QR 생성은 기존 MIT 라이선스의 Nayuki를 계속 사용한다.
+
+`Society.Pairing`의 카메라 프레임 검사는 실제 앱의 `AppleQrDecoder`에 픽셀 버퍼를 전달하여 새 QR 해독·빈 프레임 무시를 검사한다. `SOCIETY_QR_REGRESSION_IMAGE=<사진 경로>`를 설정하면 같은 경로로 제공된 만료 QR 사진을 해독하고 링크 구조를 검사한다. 이 검사는 사진의 주소에 연결하지 않으며 개인 사진을 저장소에 복사하지 않는다. `tests/verify_ios_bundle.py`는 최종 서명 바이너리에 Vision과 카메라 프레임 콜백이 포함되어 있는지도 확인한다.
+
 ## 같은 계정의 주변 기기 탐색
 
 로그인된 계정의 세션이 유효하면 앱이 `_society-pair._udp` 서비스를 등록하고 탐색을 계속한다. 데스크탑은 창·페어링 패널이 닫혀 있어도 앱이 실행 중이면 탐색한다. iPhone/iPad/Android는 Society가 전경에 있을 때 자신을 알리고 요청을 받으며 백그라운드에서는 중지한다. 전경 복귀·자동 로그인 완료 시 다시 시작한다. 로그아웃·계정 변경·세션 만료 시 광고, 기기 목록과 대기 중 요청을 지운다. 탐색만으로 Files 호스트를 시작하지 않는다.
@@ -43,7 +55,7 @@ QR 수명은 60초이고 한 번만 소비한다. 재발급·창 닫기·취소�
 | `iiServerHost::LanPeer` | 직접 TLS 리스너/클라이언트, 일회용 키, Files 확인, 연결 수명, 요청·응답 |
 | `iiServerHost::LanLink` | 버전 2 QR의 사설 IPv4 주소·포트·인증서 지문·코드·만료 정보 검증 |
 | `PairingQr` | 고정된 Nayuki C++ 라이브러리로 QR 행렬 생성·정수 배율 렌더링 |
-| `IosQrScanner.mm` | AVFoundation QR 캡처, 권한·중단·취소 |
+| `IosQrScanner.mm` / `AppleQrDecoder` | AVFoundation 메타데이터·실제 프레임의 Vision QR 해독, 초점·안내·권한·중단·취소 |
 | `AndroidQrScanner.cpp` / `SocietyActivity.java` | JNI 콜백과 앱 내부 QR 카메라, 권한·중단·취소 |
 
 주소는 활성 Wi-Fi/Ethernet을 우선하여 최대 8개 사설 IPv4 주소를 포함한다. 모바일은 이 주소만 순서대로 시도한다. DNS 이름, 공인 인터넷 주소와 링크 로컬 metadata 주소를 QR 연결 대상으로 허용하지 않는다. 자동 감지에는 loopback을 넣지 않으며 SDK 테스트는 명시한 loopback TLS 주소를 사용할 수 있다. IPv6 전용 LAN은 현재 지원하지 않는다. 공유기의 client isolation, VPN 분리, 방화벽 또는 로컬 네트워크 권한 거부로 접속이 막힐 수 있다.

@@ -14,7 +14,7 @@ Controls.Popup {
     signal filesRequested()
     readonly property bool desktop: pairing.network && pairing.network.hostModeAvailable
     property bool useQr: true
-    width: Math.max(0, Math.min(parent.width - 24, 440))
+    width: Math.max(0, Math.min(parent.width - 24, desktop && useQr ? 512 : 440))
     height: Math.max(0, Math.min(parent.height - 24, contentColumn.implicitHeight + topPadding + bottomPadding))
     x: (parent.width - width) / 2
     y: (parent.height - height) / 2
@@ -156,7 +156,7 @@ Controls.Popup {
                 id: qrImage
                 objectName: "pairingQr"
                 Layout.alignment: Qt.AlignHCenter
-                Layout.preferredWidth: Math.min(scroll.availableWidth, 320)
+                Layout.preferredWidth: Math.min(scroll.availableWidth, 432)
                 Layout.preferredHeight: qrImage.width
                 text: panel.pairing.qrText
                 visible: valid && panel.pairing.phase === "showing"

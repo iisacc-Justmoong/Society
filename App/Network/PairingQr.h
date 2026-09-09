@@ -9,7 +9,7 @@ class PairingQr : public QQuickPaintedItem {
     Q_PROPERTY(QString text READ text WRITE setText NOTIFY textChanged)
     Q_PROPERTY(bool valid READ valid NOTIFY textChanged)
 public:
-    explicit PairingQr(QQuickItem *parent = nullptr) : QQuickPaintedItem(parent) { setAntialiasing(false); }
+    explicit PairingQr(QQuickItem *parent = nullptr) : QQuickPaintedItem(parent) { setAntialiasing(false); setSmooth(false); }
     QString text() const { return m_text; }
     bool valid() const { return !m_modules.isNull(); }
     void setText(const QString &text);
