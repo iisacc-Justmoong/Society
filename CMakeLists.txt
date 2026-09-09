@@ -52,7 +52,7 @@ foreach(society_sdk IN LISTS society_sdk_packages)
         endif()
     endif()
     if(society_sdk STREQUAL "iiAcountManager")
-        find_package(iiAcountManager 0.2.3 CONFIG REQUIRED COMPONENTS Quick HINTS "$ENV{HOME}/.local/SDK/iiAcountManager")
+        find_package(iiAcountManager 0.2.4 CONFIG REQUIRED COMPONENTS Quick HINTS "$ENV{HOME}/.local/SDK/iiAcountManager")
     elseif(society_sdk STREQUAL "iiSocietyContainer")
         find_package(iiSocietyContainer 0.9.1 CONFIG REQUIRED HINTS "$ENV{HOME}/.local/SDK/iiSocietyContainer")
     elseif(society_sdk STREQUAL "iiServerHost")
@@ -202,7 +202,10 @@ if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
         PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
     target_link_libraries(Society PRIVATE "-framework UIKit" "-framework Foundation" "-framework AVFoundation"
         "-framework QuickLook" "-framework UniformTypeIdentifiers")
-    qt_import_plugins(Society INCLUDE Qt6::QSQLiteDriverPlugin)
+    # The installed iOS Qt package does not ship FFmpeg's native dependencies.
+    # Use its AVFoundation backend for the app's native media integration.
+    qt_import_plugins(Society INCLUDE Qt6::QSQLiteDriverPlugin Qt6::QDarwinMediaPlugin
+        EXCLUDE Qt6::QFFmpegMediaPlugin)
     # The installed static LVRS package has no separate plugin archive. Keep
     # its QML registration, resources and bundled fonts in the device binary.
     get_target_property(society_lvrs_type LVRS::LVRS TYPE)
@@ -238,7 +241,7 @@ if(BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)
     target_link_libraries(SocietyPairingTests PRIVATE iiAcountManager::Quick Qt6::Test Qt6::Quick Qt6::QuickControls2
         iiServerHost::iiServerHost iiAcountManager::iiAcountManager iiSocietyContainer::iiSocietyContainer)
     lvrs_configure_qml_app(SocietyPairingTests NO_PLATFORM_RUNTIME_TARGETS)
-    target_compile_definitions(SocietyPairingTests PRIVATE SOCIETY_APP_VERSION="${PROJECT_VERSION}"
+    target_compile_definitions(SocietyPairingTests PRIVATE SOCIETY_DISABLE_SESSION_RESTORE SOCIETY_APP_VERSION="${PROJECT_VERSION}"
         SOCIETY_TEST_DIRECTORY="${CMAKE_CURRENT_BINARY_DIR}"
         SOCIETY_PAIRING_QML_FILE="${CMAKE_CURRENT_SOURCE_DIR}/App/Network/PairingPanel.qml"
         SOCIETY_LVRS_QML_IMPORT_PATH="${LVRS_QML_IMPORT_PATH}")
@@ -398,7 +401,7 @@ if(BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)
     foreach(account_consumer SocietyAccountTests SocietyNetworkTests SocietyClientOnlyNetworkTests SocietyDriveTests)
         target_sources(${account_consumer} PRIVATE ${society_account_sources})
         target_link_libraries(${account_consumer} PRIVATE iiAcountManager::Quick)
-        target_compile_definitions(${account_consumer} PRIVATE SOCIETY_APP_VERSION="${PROJECT_VERSION}")
+        target_compile_definitions(${account_consumer} PRIVATE SOCIETY_DISABLE_SESSION_RESTORE SOCIETY_APP_VERSION="${PROJECT_VERSION}")
     endforeach()
 
     if("iiFileProvider" IN_LIST society_sdk_packages)

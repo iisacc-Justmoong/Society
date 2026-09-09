@@ -35,6 +35,7 @@ private slots:
         auto environment = QProcessEnvironment::systemEnvironment();
         environment.insert("SOCIETY_HELPER_DIRECTORY", presence.path());
         environment.insert("SOCIETY_STORAGE_SETTINGS_PATH", presence.filePath("storage.json"));
+        environment.insert("SOCIETY_DISABLE_SESSION_RESTORE", "1");
         environment.insert("QT_QPA_PLATFORM", "offscreen");
         environment.insert("QT_QUICK_BACKEND", "software");
         environment.insert("QML_DISABLE_DISK_CACHE", "1");

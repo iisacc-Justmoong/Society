@@ -46,6 +46,11 @@ def verify(app, device):
     assert ('qInitResources_qmake_LVRS' in symbols
             or '__GLOBAL__sub_I_qrc_qmake_LVRS.cpp' in symbols), 'Missing LVRS QML resources'
     assert 'qt_static_plugin_QSQLiteDriverPlugin' in symbols, 'Missing static SQLite driver'
+    assert 'qt_static_plugin_QDarwinMediaPlugin' in symbols, 'Missing native AVFoundation media backend'
+    assert 'qt_static_plugin_QFFmpegMediaPlugin' not in symbols, 'Unpackaged FFmpeg backend must not be imported'
+    assert 'restoreSession' in symbols, 'Missing account session restoration API'
+    assert ('qInitResources_account_session_license' in symbols
+            or '__GLOBAL__sub_I_qrc_account_session_license.cpp' in symbols), 'Missing secure storage license resource'
     assert ('qInitResources_qrcodegen_license' in symbols
             or '__GLOBAL__sub_I_qrc_qrcodegen_license.cpp' in symbols), 'Missing QR generator license resource'
     return {'bundle': str(app), 'appGroup': group, 'signedBundles': results}
