@@ -1,5 +1,23 @@
 # Society
 
+iiAccountManager SDK가 소유하는 로그인·회원가입 화면을 데스크톱·iPhone·Android에서 호출한다.
+공통 계정 화면에서 iisacc.com 이메일과 비밀번호로 바로 로그인한다. 전체 계정 객체와 기기 세션을 같은 응답으로 받는다. [계정 연결 계약](docs/Account.md)을 참고한다.
+
+데스크톱 **Devices → Pair iPhone**의 QR을 iPhone Society의 **Devices → Pair desktop → Scan QR code**로 읽으면 같은 계정의 호스트와 연결된다. 실제 Files 접근 확인 후 양쪽에 완료를 표시한다. [페어링 절차·서버 계약·검증 범위](docs/Pairing.md)를 참고한다.
+
+## iisacc 계정
+
+모든 Society 플랫폼에 공통 LVRS 계정 화면을 제공한다. 데스크톱 상단 계정 아이콘 또는 모바일의
+Sign in 버튼에서 이메일·비밀번호만으로 바로 로그인한다. 계정 패널·Devices·iiSocietyHelper는
+같은 iiAccountManager 객체를 공유한다. PC 2대·태블릿 2대·휴대폰 2대의 독립 한도를 사용하며,
+로그인에는 릴레이 주소가 필요하지 않다. [인증 흐름·기기 식별·검증 범위](docs/Account.md)를 참고한다.
+
+데스크톱은 [Figma 대시보드](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=18-14)를 `LV.ApplicationWindow`의 `content` 슬롯에 `SocietyView`로 배치하며, LVRS 기본 창 프레임과 창 제어를 사용한다.
+상단 **Storage**에서 기존 Society 드라이브를 열며, 탭을 오가도 현재 폴더와 프롬프트가 유지된다.
+실제 최근 파일·생성 이력, 화면 구성과 동작 범위는 [Dashboard 문서](docs/Dashboard.md)에 정리했다.
+
+앱 제목·드라이브 홈·경로 표시와 OS의 드라이브 표시 이름은 `Society`이다. iiSocietyContainer 0.9.1은 이전 이름의 기존 드라이브도 UUID와 파일을 유지하며 읽는다. macOS에서 기존 원본을 다시 등록하면 동일한 File Provider 도메인의 표시 이름을 갱신한다. `Society.Drive`가 앱 제목, 홈과 경로 표시를 검증한다.
+
 컨테이너 원본으로 Finder의 `~/Library/CloudStorage/` 복제본이나 기존 Society 컨테이너 내부를 선택하면 오류를 표시하고 기존 원본과 공통 저장 설정을 유지한다. 이 검증은 iiSocietyContainer의 생성·열기 경계에 적용되어 Helper 소비 앱에도 전달된다. `Society.Drive`의 `rejectsPublicFilesAsANewContainer`가 `Files/`를 잘못 선택해도 새 영역이나 매니페스트가 만들어지지 않는지 검증한다.
 
 iiSocietyHelper 0.4.0의 `societyHelper.fileSystem`은 Society 원본의 8개 영역을 일반 파일 시스템 경로로 제공한다. SDK가 iiSocietyContainer 0.8.0을 재사용하므로 iOS 빌드 도구는 Container 설치 후 Helper를 구성하고 동일 ABI의 Container 패키지를 명시한다. `Society.IosBuildContract`는 이 순서와 패키지 경로를 검증한다. 파일 접근 자체와 iOS 서명·실기기 권한 검증은 구분한다.
@@ -14,7 +32,7 @@ Society는 iisacc 앱들의 공통 원본 스토리지이다. 컨테이너를 �
 
 `Society.Drive` 테스트는 컨테이너 선택 후 공통 저장소의 UUID가 일치하고 새 컨트롤러가 같은 드라이브를 다시 여는지 검사한다. 설정 파일은 테스트별 `build/` 임시 경로로 분리한다.
 
-Qt Quick와 LVRS를 사용하는 Society Container 드라이브 탐색 앱이다. 폴더 경로를
+Qt Quick와 LVRS를 사용하는 Society 드라이브 탐색 앱이다. 폴더 경로를
 받아 `iiSocietyContainer`의 영속 드라이브로 열고 8개 논리 영역을 분리해 보여준다.
 기본 창 크기는 1120 × 720,
 최소 크기는 360 × 320이다.
@@ -127,7 +145,7 @@ FileGridView {
 - CMake 3.31 이상, Ninja, C++20 컴파일러
 - Qt 6.8.3: Quick, QuickControls2, Qt.labs.folderlistmodel, 테스트용 Test 모듈
 - 설치된 LVRS CMake 패키지와 QML 모듈
-- iiSocietyContainer 0.6.0 이상; macOS 네이티브 연결은 서명된 어댑터와 macOS 15 이상
+- iiSocietyContainer 0.9.1 이상; macOS 네이티브 연결은 서명된 어댑터와 macOS 15 이상
 
 기존 Qt/LVRS의 창, 글꼴, 테마, 앱 부트스트랩을 재사용한다.
 파일 열거·정렬·폴더 변경 감지는 Qt에 포함된
@@ -237,7 +255,7 @@ AI 클래스의 소스와 헤더는 `SocietyDependencyTests`에 등록되어 빌
 
 ## iOS / iPadOS
 
-iOS 16 이상에서는 앱을 열 때 공유 App Group의 Society Container를 자동으로 열고 파일 앱에 등록한다. 앱의 홈에는 8개 영역을 모두 유지한다. 파일 앱에서 Society Container를 열면 `Files/`의 내용이 바로 보이며 나머지 7개 영역은 노출하지 않는다. iOS의 `Open in Files`는 이 공개 루트에서 시작하는 시스템 문서 탐색기를 연다.
+iOS 16 이상에서는 앱을 열 때 공유 App Group의 Society를 자동으로 열고 파일 앱에 등록한다. 앱의 홈에는 8개 영역을 모두 유지한다. 파일 앱에서 Society를 열면 `Files/`의 내용이 바로 보이며 나머지 7개 영역은 노출하지 않는다. iOS의 `Open in Files`는 이 공개 루트에서 시작하는 시스템 문서 탐색기를 연다.
 
 `ios-device`, `ios-simulator` CMake preset과 내장 `SocietyFileProvider.appex`를 사용한다. 전체 Xcode 16 이상, Qt 6.8.3 iOS, LVRS·iiSocietyContainer·iiSocietyHelper의 해당 iOS 대상 패키지가 필요하다. `python3 -B tools/build_ios.py --platform ios-simulator`가 SDK 빌드·설치부터 앱과 확장 빌드까지 수행한다. 기기 패키지는 Workspace의 `build/ios-device/install`, 시뮬레이터 패키지는 `build/ios-simulator/install`을 사용한다. iOS 구성에서는 누락된 패키지를 데스크톱 설치로 대체하지 않는다.
 
@@ -273,3 +291,7 @@ python3 tools/build_android.py --qt <Qt-6.8.3-Android-ABI> --qt-host <Qt-6.8.3-h
 결과는 앱의 `Documents/ios-files-integration.json`과 `SOCIETY_FILES_INTEGRATION` 콘솔 로그에 남는다. 성공하면 기존 `Open in Files` 기능으로 공개 루트를 연다. `devicectl device copy from`의 `appDataContainer` 도메인으로 결과를 가져올 수 있다. 확인 뒤 옵션을 OFF로 바꾸고 다시 빌드·설치한다. 이 검사는 연결된 기기에서 실제 File Provider를 호출하며 호스트의 plist·Swift 구문 검사와 별개이다. 실패한 단계에 테스트 폴더가 남으면 해당 UUID 폴더만 확인한다. 서명 번들 검사 `tests/verify_ios_bundle.py`는 이 진단 함수가 포함된 빌드를 배포용 검사에서 거부한다.
 
 기기 연결이 끊겨 빈 테스트 폴더가 남았다면, 다음 검사 실행에 `SOCIETY_FILES_TEST_CLEANUP` 환경 변수로 그 정확한 `Society Files Test <UUID>` 이름을 전달할 수 있다. 이 처리는 해당 이름의 빈 일반 폴더만 삭제하며 다른 파일을 검색해 정리하지 않는다.
+
+## 같은 계정의 로컬·원격 기기 파일
+
+상단 Devices에서 로그인한 뒤 같은 계정의 Society 호스트 `Files/`를 탐색하고 다운로드한다. 데스크톱은 독립 [Preferences 창](docs/Preferences.md)에서 Client mode / Host mode를 전환한다. 상단 Preferences 버튼 또는 ⌘+, / Ctrl+,로 열며 변경은 즉시 적용된다. 앱 시작 시 기본값은 클라이언트이다. 호스트 모드에서만 현재 컨테이너의 `Files/`를 공개한다. iOS/Android는 항상 클라이언트이며 C++ 진입점에서도 호스팅을 차단한다. iiServerHost 0.2.0은 로컬 TLS 연결을 우선하고 실패하면 원격 중계로 전환한다. 중계 주소와 기기 TLS 설정, 인증·공개 범위·모바일 제한 및 검증 방법은 [NetworkDrive.md](docs/NetworkDrive.md)를 따른다.

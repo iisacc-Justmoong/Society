@@ -37,6 +37,8 @@
         "CMAKE_OSX_ARCHITECTURES": "arm64",
         "CMAKE_PREFIX_PATH": "${sourceDir}/../../build/ios-device/install",
         "LVRS_DIR": "${sourceDir}/../../build/ios-device/install/lib/cmake/LVRS",
+        "iiAcountManager_DIR": "${sourceDir}/../../build/ios-device/install/lib/cmake/iiAcountManager",
+        "iiServerHost_DIR": "${sourceDir}/../../build/ios-device/install/lib/cmake/iiServerHost",
         "iiSocietyContainer_DIR": "${sourceDir}/../../build/ios-device/install/lib/cmake/iiSocietyContainer",
         "iiSocietyHelper_DIR": "${sourceDir}/../../build/ios-device/install/lib/cmake/iiSocietyHelper",
         "QT_ADDITIONAL_PACKAGES_PREFIX_PATH": "${sourceDir}/../../build/ios-device/install"
@@ -52,6 +54,8 @@
         "CMAKE_OSX_ARCHITECTURES": "arm64",
         "CMAKE_PREFIX_PATH": "${sourceDir}/../../build/ios-simulator/install",
         "LVRS_DIR": "${sourceDir}/../../build/ios-simulator/install/lib/cmake/LVRS",
+        "iiAcountManager_DIR": "${sourceDir}/../../build/ios-simulator/install/lib/cmake/iiAcountManager",
+        "iiServerHost_DIR": "${sourceDir}/../../build/ios-simulator/install/lib/cmake/iiServerHost",
         "iiSocietyContainer_DIR": "${sourceDir}/../../build/ios-simulator/install/lib/cmake/iiSocietyContainer",
         "iiSocietyHelper_DIR": "${sourceDir}/../../build/ios-simulator/install/lib/cmake/iiSocietyHelper",
         "QT_ADDITIONAL_PACKAGES_PREFIX_PATH": "${sourceDir}/../../build/ios-simulator/install"

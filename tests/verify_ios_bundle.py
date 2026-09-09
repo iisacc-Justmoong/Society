@@ -24,6 +24,10 @@ def verify(app, device):
         assert info['CFBundleSupportedPlatforms'] == ['iPhoneOS']
         assert info['SocietyAppGroup'] == group
         executable = bundle / info['CFBundleExecutable']
+        if bundle == app:
+            assert 'QR' in info.get('NSCameraUsageDescription', ''), 'Missing pairing camera purpose'
+            assert 'NSMicrophoneUsageDescription' not in info, 'QR pairing must not request microphone access'
+            assert '/AVFoundation.framework/' in output('otool', '-L', str(executable)).decode(), 'Missing native QR camera framework'
         assert 'platform IOS\n' in output('xcrun', 'vtool', '-show-build', str(executable)).decode()
         assert 'arm64' in output('lipo', '-archs', str(executable)).decode()
         rights = plistlib.loads(output('codesign', '-d', '--entitlements', ':-', str(bundle)))
@@ -40,6 +44,7 @@ def verify(app, device):
     assert 'qml_register_types_LVRS' in symbols, 'Missing LVRS QML registration'
     assert 'qInitResources_qmake_LVRS' in symbols, 'Missing LVRS QML resources'
     assert 'qt_static_plugin_QSQLiteDriverPlugin' in symbols, 'Missing static SQLite driver'
+    assert 'qInitResources_qrcodegen_license' in symbols, 'Missing QR generator license resource'
     return {'bundle': str(app), 'appGroup': group, 'signedBundles': results}
 
 

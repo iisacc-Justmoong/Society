@@ -1,0 +1,3 @@
+# Preserve the byte-identical vendored upstream files.
+ThirdParty/qrcodegen/qrcodegen.cpp -whitespace
+ThirdParty/qrcodegen/qrcodegen.hpp -whitespace

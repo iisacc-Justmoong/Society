@@ -23,6 +23,10 @@ class IosBuildTest(unittest.TestCase):
             self.assertLess(container_install, helper_index)
             prefix = build_ios.WORKSPACE / 'build' / mode / 'install'
             self.assertIn(f'-DiiSocietyContainer_DIR={prefix}/lib/cmake/iiSocietyContainer', plan[helper_index])
+            account_install = next(i for i, step in enumerate(plan)
+                                   if '--install' in step and 'iiAcountManager' in step[2])
+            self.assertLess(account_install, helper_index)
+            self.assertIn(f'-DiiAcountManager_DIR={prefix}/lib/cmake/iiAcountManager', plan[helper_index])
 
     def test_command_line_tools_do_not_count_as_an_ios_sdk(self):
         with tempfile.TemporaryDirectory(dir=SOURCE / 'build') as directory:
@@ -42,7 +46,7 @@ class IosBuildTest(unittest.TestCase):
         for mode, sdk in (('ios-device', 'iphoneos'), ('ios-simulator', 'iphonesimulator')):
             plan = build_ios.commands(mode, Path('/Volumes/Storage/Qt/6.8.3'), 'TESTTEAM', 'Debug')
             configurations = [step for step in plan if '-S' in step]
-            self.assertEqual(len(configurations), 4)
+            self.assertEqual(len(configurations), 6)
             for command in configurations:
                 self.assertIn(f'-DCMAKE_OSX_SYSROOT={sdk}', command)
                 output = Path(command[command.index('-B') + 1])
@@ -50,10 +54,15 @@ class IosBuildTest(unittest.TestCase):
                 self.assertEqual(output.parent.name, 'build')
                 self.assertNotIn('/Users/', ' '.join(command))
             self.assertIn('-DLVRS_BUILD_SHARED_LIBS=OFF', configurations[0])
+            account = next(c for c in configurations if Path(c[c.index('-S') + 1]).name == 'iiAcountManager')
+            self.assertIn('-DIIACCOUNTMANAGER_BUILD_QUICK=ON', account)
+            self.assertIn(f'-DLVRS_DIR={build_ios.WORKSPACE}/build/{mode}/install/lib/cmake/LVRS', account)
             variables = next(p['cacheVariables'] for p in presets if p['name'] == mode)
             self.assertEqual(variables['CMAKE_OSX_SYSROOT'], sdk)
             self.assertEqual({k for k in variables if k.startswith('ii')},
-                             {'iiSocietyContainer_DIR', 'iiSocietyHelper_DIR'})
+                             {'iiAcountManager_DIR', 'iiServerHost_DIR', 'iiSocietyContainer_DIR', 'iiSocietyHelper_DIR'})
+            hosting = next(c for c in configurations if Path(c[c.index('-S') + 1]).name == 'iiServerHost')
+            self.assertIn('-DBUILD_SHARED_LIBS=OFF', hosting)
             self.assertIn(mode, variables['LVRS_DIR'])
 
 

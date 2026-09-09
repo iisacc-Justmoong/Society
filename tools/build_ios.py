@@ -47,15 +47,20 @@ def commands(mode, qt, team, configuration):
               f'-DCMAKE_BUILD_TYPE={configuration}', '-DBUILD_TESTING=OFF',
               f'-DCMAKE_INSTALL_PREFIX={prefix}', f'-DQT_ADDITIONAL_PACKAGES_PREFIX_PATH={prefix}']
     steps = []
-    for name in ('LVRS', 'iiSocietyContainer', 'iiSocietyHelper'):
+    for name in ('LVRS', 'iiAcountManager', 'iiServerHost', 'iiSocietyContainer', 'iiSocietyHelper'):
         source = WORKSPACE / 'SDK' / name
         build = source / 'build' / mode
         options = []
         if name == 'LVRS':
             options = ['-DLVRS_BUILD_SHARED_LIBS=OFF', '-DLVRS_BUILD_EXAMPLES=OFF',
                        '-DLVRS_BUILD_TESTS=OFF', '-DLVRS_ENABLE_FRAMEWORK_BOOTSTRAP_TARGETS=OFF']
+        elif name == 'iiAcountManager':
+            options = ['-DIIACCOUNTMANAGER_BUILD_QUICK=ON', f'-DLVRS_DIR={prefix}/lib/cmake/LVRS']
         elif name == 'iiSocietyHelper':
-            options = [f'-DiiSocietyContainer_DIR={prefix}/lib/cmake/iiSocietyContainer']
+            options = [f'-DiiSocietyContainer_DIR={prefix}/lib/cmake/iiSocietyContainer',
+                       f'-DiiAcountManager_DIR={prefix}/lib/cmake/iiAcountManager']
+        elif name == 'iiServerHost':
+            options = ['-DBUILD_SHARED_LIBS=OFF']
         steps.extend([
             ['cmake', '-S', str(source), '-B', str(build), '-G', 'Ninja', *common, *options],
             ['cmake', '--build', str(build), '--parallel', '2'],
@@ -64,6 +69,8 @@ def commands(mode, qt, team, configuration):
     build = PRODUCT / 'build' / mode
     steps.append(['cmake', '-S', str(PRODUCT), '-B', str(build), '-G', 'Xcode', *common,
                   f'-DLVRS_DIR={prefix}/lib/cmake/LVRS',
+                  f'-DiiAcountManager_DIR={prefix}/lib/cmake/iiAcountManager',
+                  f'-DiiServerHost_DIR={prefix}/lib/cmake/iiServerHost',
                   f'-DiiSocietyContainer_DIR={prefix}/lib/cmake/iiSocietyContainer',
                   f'-DiiSocietyHelper_DIR={prefix}/lib/cmake/iiSocietyHelper',
                   '-DSOCIETY_IOS_APP_GROUP=group.com.iisacc.society', f'-DSOCIETY_IOS_TEAM={team}'])

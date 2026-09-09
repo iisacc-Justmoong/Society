@@ -4,9 +4,13 @@
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include "App/Services/SocietyRuntime.h"
+#include "App/Account/AccountController.h"
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QTextStream>
+#ifdef SOCIETY_ACCOUNT_RUNTIME_PROBE
+void societyAccountRuntimeProbe(QObject *root);
+#endif
 #ifdef SOCIETY_IOS_FILES_INTEGRATION_TEST
 #include <QTimer>
 extern "C" void society_ios_files_integration_test();
@@ -17,6 +21,9 @@ extern "C" void society_ios_files_integration_test();
 
 int main(int argc, char *argv[])
 {
+#ifdef Q_OS_ANDROID
+    qputenv("ANDROID_OPENSSL_SUFFIX", "_3");
+#endif
 #ifdef Q_OS_MACOS
     if (argc >= 2 && QString::fromLocal8Bit(argv[1]) == "--daemon-service") {
         QCoreApplication app(argc, argv);
@@ -45,6 +52,16 @@ int main(int argc, char *argv[])
         auto *helper = runtime->helper();
         helper->setObjectName(QStringLiteral("societyHelper"));
         engine.rootContext()->setContextProperty(QStringLiteral("societyHelper"), helper);
+        QObject::connect(&engine, &QQmlApplicationEngine::objectCreated, runtime,
+            [helper](QObject *root, const QUrl &) {
+                if (root) {
+                    if (auto *account = root->findChild<AccountController *>(QStringLiteral("societyAccount")))
+                        helper->setAccountManager(account->manager());
+#ifdef SOCIETY_ACCOUNT_RUNTIME_PROBE
+                    societyAccountRuntimeProbe(root);
+#endif
+                }
+            });
         auto *inbox = runtime->inbox();
         inbox->setObjectName(QStringLiteral("societyInbox"));
         engine.rootContext()->setContextProperty(QStringLiteral("societyInbox"), inbox);

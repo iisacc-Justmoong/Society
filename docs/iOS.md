@@ -1,14 +1,16 @@
 # Society iOS / iPadOS
 
-현재 Society에 연결된 저장소·탐색·모델 가져오기·Helper 관측·데이터 수신을 iOS 16 이상에서 사용하는 구현이다. Qt 6.8.3과 LVRS UI, Apple의 Foundation·UIKit·QuickLook·FileProvider, Qt SQL의 SQLite 드라이버를 사용한다. 새 외부 라이브러리나 유료 서비스는 추가하지 않는다. AI 공급자·계정·원격 동기화의 빈 클래스는 동작하는 앱 기능으로 계산하지 않는다.
+현재 Society에 연결된 저장소·탐색·모델 가져오기·Helper 관측·데이터 수신과 iisacc 계정 로그인을 iOS 16 이상에서 사용하는 구현이다. Qt 6.8.3과 LVRS UI, Apple의 Foundation·UIKit·QuickLook·FileProvider, Qt SQL의 SQLite 드라이버를 사용한다. QR 카메라는 Apple AVFoundation을 사용하며 QR 생성에는 MIT 라이선스의 Nayuki 소스를 고정 버전으로 포함한다. 유료 서비스는 추가하지 않는다. 계정 UI·SDK 구현과 운영 API 배포 상태는 [Account.md](Account.md)에 구분해 기록한다.
 
 공통 화면은 LVRS가 제공하는 기기의 상하좌우 안전 영역을 적용하여 iPhone의 상태 표시줄·노치·홈 표시 영역에 제목이나 하단 버튼이 겹치지 않게 한다. 별도 모바일 QML 화면은 두지 않는다.
 
 | 기능 | iOS 동작 |
 | --- | --- |
+| iisacc 계정 | 공통 LVRS 패널에서 이메일·비밀번호만 입력한다. 계정 SDK가 전체 프로필을 받아 Helper·기기 연결과 공유한다. iPhone은 phone, iPad는 tablet으로 보고하며 각각 2대 제한이다. |
+| QR 페어링 | Devices → Pair desktop → Scan QR code에서 데스크톱 코드를 촬영한다. 같은 계정·호스트의 Files 접근 후 완료를 표시한다. 카메라 권한 거부 시 설정 열기를 제공하고 영상은 저장·전송하지 않는다. [Pairing.md](Pairing.md) 참조. |
 | 원본 저장소 | 동일 App Group의 `Library/Application Support/Society`에 UUID와 8개 영역을 유지한다. |
 | 앱 탐색 | 8개 영역을 모두 탐색한다. 파일·폴더를 한 번 탭하여 열며 이미지·문서는 QuickLook으로 표시한다. 미리보기를 지원하지 않는 파일에는 오류를 표시한다. |
-| OS 드라이브 | 앱에 File Provider 확장을 포함한다. 파일 앱의 Society Container 루트는 `Society/Files/`이다. 나머지 7개 영역과 Helper 데이터는 공개하지 않는다. |
+| OS 드라이브 | 앱에 File Provider 확장을 포함한다. 파일 앱의 Society 루트는 `Society/Files/`이다. 나머지 7개 영역과 Helper 데이터는 공개하지 않는다. |
 | 모델 입력 | `Import models…`와 파일 앱의 드래그를 지원한다. 두 확장자 `.safetensor`·`.safetensors`를 `Models/`로 복사한다. |
 | 파일 제공자 접근 | 선택기에서 받은 원본 NSURL을 유지하고 보안 범위·파일 조정 안에서 복사한다. 취소·중복 이름·다중 입력·원자적 완료 처리는 기존 importer와 공유한다. |
 | 앱 간 공유 | 같은 App Group entitlement와 `SocietyAppGroup`을 가진 iisacc 앱이 `SharedStorage::open()`으로 동일 원본 모델·생성 기록을 이용한다. 다른 소비 앱에는 File Provider를 중복 설치하지 않는다. |
@@ -38,16 +40,16 @@ python3 -B tools/build_ios.py --platform ios-simulator
 python3 -B tools/build_ios.py --platform ios-device --team <Apple-team-id>
 ```
 
-스크립트는 Workspace의 SDK 소스에서 LVRS(static), iiSocietyHelper, iiSocietyContainer를 각각 `build/ios-device` 또는 `build/ios-simulator`에 빌드하고, `Workspace/build/<대상>/install`에 설치한 뒤 Society와 확장을 Xcode로 빌드한다. `--qt`로 Qt 6.8.3 경로를 지정할 수 있다. 사전 점검 결과와 명령은 `Society/build/<대상>/preflight.json`에 기록한다. 개발자 경로 선택은 `DEVELOPER_DIR` 또는 기존 `xcode-select` 설정을 따른다.
+스크립트는 Workspace의 SDK 소스에서 LVRS(static), iiAcountManager(static), iiServerHost, iiSocietyContainer, iiSocietyHelper를 각각 `build/ios-device` 또는 `build/ios-simulator`에 빌드하고, `Workspace/build/<대상>/install`에 설치한 뒤 Society와 확장을 Xcode로 빌드한다. `--qt`로 Qt 6.8.3 경로를 지정할 수 있다. 사전 점검 결과와 명령은 `Society/build/<대상>/preflight.json`에 기록한다. 개발자 경로 선택은 `DEVELOPER_DIR` 또는 기존 `xcode-select` 설정을 따른다.
 
-현재 앱이 호출하는 SDK는 Container와 Helper이다. iOS는 이 둘과 LVRS를 필수로 연결한다. 나머지 11개 SDK는 데스크톱의 기존 의존성·호환성 테스트로 유지하며, 앱에서 아직 사용하지 않는 추론·문서·서버 구현을 iOS에 억지로 링크하지 않는다. 설치 후 직접 `cmake --preset ios-device` 또는 `ios-simulator`를 사용해도 같은 설치 위치를 참조한다.
+현재 앱이 호출하는 계정·네트워크·저장소 SDK는 iiAcountManager, iiServerHost, iiSocietyContainer와 iiSocietyHelper이다. iOS는 이들과 LVRS를 필수로 연결한다. 나머지 SDK는 데스크톱의 기존 의존성·호환성 테스트로 유지한다. 설치 후 직접 `cmake --preset ios-device` 또는 `ios-simulator`를 사용해도 같은 설치 위치를 참조한다.
 
 앱 ID `com.iisacc.society`와 확장 ID `com.iisacc.society.fileprovider`는 동일 개발자 팀의 `group.com.iisacc.society` 권한으로 프로비저닝해야 한다. 스크립트는 Apple 계정의 식별자나 프로필을 임의 생성하지 않는다. [App Group 설정](https://developer.apple.com/documentation/xcode/configuring-app-groups)
 
 ## 검증 범위
 
 서명된 기기 앱의 플랫폼·arm64·App Group·기기 프로파일·File Provider 포함 여부와
-LVRS QML 등록·리소스·SQLite 초기화 심볼을 설치 전에 검사한다.
+LVRS QML 등록·리소스·SQLite 초기화 심볼을 설치 전에 검사한다. QR 카메라 사용 목적, AVFoundation 링크, 마이크 권한 미요청과 QR 라이선스 리소스도 확인한다.
 
 ```sh
 DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer \
@@ -65,3 +67,8 @@ python3 -B tests/verify_ios_bundle.py build/ios-device/bin/Debug/Society.app \
 2026-09-08 Xcode 27 beta 6(27A5252f)와 Qt 6.8.3으로 Society와 File Provider를 arm64 기기용으로 빌드·서명하고 iPhone 15 Pro Max(iOS 27)에 설치했다. 기기 앱 목록·실행 프로세스·실제 화면, 8개 영역 생성, Dreamscapes와 동일 App Group 경로 사용 및 Helper 이벤트 전달을 확인했다. 정적 LVRS 누락으로 첫 실행이 종료되는 문제와 상태 표시줄에 제목이 겹치는 문제를 수정한 빌드로 검증했다. 설치 로그·패키지 검증·화면 캡처는 `Workspace/build/ios-install/`에 있다.
 
 iPad는 사용자 지시로 이번 설치에서 제외했다. 파일 앱 위치 활성화와 파일 작업, 모델 가져오기·미리보기, 기기 재부팅 후 복원은 별도 실기기 검증 범위로 남아 있다.
+
+
+2026-09-09 계정 화면 소유권 변경: iOS 빌드도 iiAccountManager 0.2.3 Quick 모듈을 포함한다.
+로그인·회원가입 화면 QML과 대화상자는 SDK가 소유하며 Society는 공용 manager와 overlay를 연결한다.
+화면 전환·가입 API와 인증 요청을 제외한 검증 범위는 [Account.md](Account.md)를 따른다.

@@ -147,7 +147,7 @@ bool ModelImporter::importFiles(const QList<QUrl> &urls)
     if (busy())
         return false;
     if (!accepts(urls)) {
-        m_error = m_containerPath.isEmpty() ? tr("Open a Society Container before importing models.")
+        m_error = m_containerPath.isEmpty() ? tr("Open a Society drive before importing models.")
             : tr("Drop local .safetensor or .safetensors files. Other file types are not supported yet.");
         m_status.clear();
         emit stateChanged();
@@ -247,7 +247,7 @@ bool ModelImporter::importSources(const QList<ModelImportSource> &sources)
                 seen.insert(canonical);
                 // Revalidate the original drive identity and section paths before each write.
                 if (!drive->isValid()) {
-                    result->errors.append(tr("The Society Container changed or Models is unavailable."));
+                    result->errors.append(tr("The Society drive changed or Models is unavailable."));
                     return;
                 }
                 if (canonical.startsWith(models + '/')) {
@@ -294,7 +294,7 @@ bool ModelImporter::importSources(const QList<ModelImportSource> &sources)
                 if (error.isEmpty() && !copy.flush())
                     error = copy.errorString();
                 if (error.isEmpty() && !drive->isValid())
-                    error = tr("The Society Container changed while the model was being copied.");
+                    error = tr("The Society drive changed while the model was being copied.");
                 if (error.isEmpty()) {
                     const auto destination = publishCopy(copy, models, name);
                     if (destination.isEmpty())

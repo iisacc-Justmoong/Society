@@ -1,25 +1,84 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
-import QtQuick.Layouts
 import QtQuick.Dialogs
 import QtQuick.Controls as Controls
 import LVRS 1.0 as LV
 import Society
+import "Network"
+import "Preferences"
+import iiAccountManager as Accounts
 
 LV.ApplicationWindow {
     id: root
     objectName: "societyWindow"
     property string initialContainerPath: ""
+    property PreferencesWindow preferencesWindow: null
+    readonly property AccountController accountSession: session
+    readonly property DriveController storageDrive: drive
+    readonly property ModelImporter storageImporter: modelImporter
+    property string selectedTab: isMobilePlatform ? "Storage" : "Dashboard"
+    readonly property real contentTopInset: Math.max(mobileSystemSafeTopInset,
+        windowChromeInteractionsEnabled && windowDragHandleEnabled && visibility !== Window.FullScreen
+            ? Math.max(0, windowDragHandleTopMargin + windowDragHandleHeight) : 0)
+    signal generateRequested(string prompt, string mediaType, string aspectRatio, int count)
 
-    title: drive.hasDrive ? "Society Container — Society" : "Society"
-    width: 1120
-    height: 720
+    function openAccount() {
+        pairingPanel.close()
+        networkDevices.close()
+        if (preferencesWindow) preferencesWindow.close()
+        root.accountSession.manager.showAccount()
+    }
+
+    function showStorage(section) {
+        if (section.length > 0) drive.openSection(section)
+        else drive.goHome()
+        selectedTab = "Storage"
+    }
+
+    function showNotice(title, message) {
+        notice.title = title
+        notice.message = message
+        notice.open = true
+    }
+
+    function openPreferences() {
+        if (!networkDrive.hostModeAvailable)
+            return
+        pairingPanel.close()
+        root.accountSession.manager.closeView()
+        networkDevices.close()
+        if (!preferencesWindow)
+            preferencesWindow = preferencesComponent.createObject(root)
+        if (preferencesWindow)
+            preferencesWindow.open()
+    }
+
+    function openDevices() {
+        pairingPanel.close()
+        root.accountSession.manager.closeView()
+        if (preferencesWindow)
+            preferencesWindow.close()
+        root.raise()
+        root.requestActivate()
+        networkDevices.open()
+    }
+
+    onClosing: {
+        if (root.preferencesWindow)
+            root.preferencesWindow.close()
+    }
+
+    title: "Society"
+    width: 1440
+    height: 900
     desktopMinWidth: 360
     desktopMinHeight: 320
     visible: true
-    solidChrome: false
     useInternalPageStack: false
+    windowColor: LV.Theme.panelBackground04
+    onActiveChanged: if (active && selectedTab === "Dashboard" && dashboardFiles) dashboardFiles.refresh()
+    onSelectedTabChanged: if (selectedTab === "Dashboard" && dashboardFiles) dashboardFiles.refresh()
 
     Component.onCompleted: {
         modelImporter.attachWindow(root)
@@ -33,20 +92,86 @@ LV.ApplicationWindow {
     }
 
     DriveController { id: drive; objectName: "driveController" }
+    DashboardFiles {
+        id: dashboardFiles
+        objectName: "dashboardFiles"
+        containerPath: root.isDesktopPlatform ? drive.rootPath : ""
+        query: societyView.query
+    }
+    AccountController { id: session; objectName: "societyAccount" }
+    Accounts.AccountViews {
+        objectName: "accountViews"
+        manager: root.accountSession.manager
+        parent: Controls.Overlay.overlay
+        anchors.fill: parent
+    }
+    NetworkDriveController {
+        id: networkDrive
+        objectName: "networkDriveController"
+        containerPath: drive.rootPath
+        accountSession: root.accountSession
+    }
+    NetworkDevices {
+        id: networkDevices
+        objectName: "networkDevices"
+        network: networkDrive
+        parent: Controls.Overlay.overlay
+        onPreferencesRequested: root.openPreferences()
+        onAccountRequested: root.openAccount()
+        onPairingRequested: {
+            networkDevices.close()
+            pairingPanel.open()
+        }
+    }
+    DevicePairing { id: devicePairing; objectName: "devicePairing"; network: networkDrive }
+    QrScanner { id: qrScanner; objectName: "qrScanner" }
+    PairingPanel {
+        id: pairingPanel
+        objectName: "pairingPanel"
+        pairing: devicePairing
+        scanner: qrScanner
+        appWindow: root
+        parent: Controls.Overlay.overlay
+        onAccountRequested: root.openAccount()
+        onFilesRequested: { if (!networkDrive.hostModeAvailable) networkDevices.open() }
+    }
+    Component {
+        id: preferencesComponent
+        PreferencesWindow {
+            network: networkDrive
+            transientParent: root
+            onDevicesRequested: root.openDevices()
+        }
+    }
+    Shortcut {
+        objectName: "preferencesShortcut"
+        sequence: "Ctrl+,"
+        context: Qt.ApplicationShortcut
+        enabled: networkDrive.hostModeAvailable
+        onActivated: root.openPreferences()
+    }
+    Shortcut {
+        sequences: [StandardKey.Close]
+        enabled: !root.preferencesWindow || !root.preferencesWindow.visible
+        onActivated: root.close()
+    }
 
     ModelImporter {
         id: modelImporter
         objectName: "modelImporter"
         containerPath: drive.rootPath
         onFinished: function(containerPath, paths) {
-            if (containerPath === drive.rootPath && paths.length > 0)
+            if (containerPath === drive.rootPath && paths.length > 0) {
                 drive.openSection("models")
+                root.selectedTab = "Storage"
+                dashboardFiles.refresh()
+            }
         }
     }
 
     FolderDialog {
         id: folderDialog
-        title: qsTr("Choose a folder for Society Container")
+        title: qsTr("Choose a folder for Society")
         onAccepted: drive.openContainerUrl(selectedFolder)
     }
 
@@ -59,323 +184,58 @@ LV.ApplicationWindow {
         onAccepted: modelImporter.importFiles(selectedFiles)
     }
 
-    ColumnLayout {
-        objectName: "driveContent"
+    content: SocietyView {
+        id: societyView
         anchors.fill: parent
-        anchors.topMargin: root.mobileSystemSafeTopInset
+        anchors.topMargin: root.contentTopInset
         anchors.bottomMargin: root.mobileSystemSafeBottomInset
         anchors.leftMargin: root.mobileSystemSafeLeftInset
         anchors.rightMargin: root.mobileSystemSafeRightInset
-        spacing: 0
-
-        RowLayout {
-            Layout.fillWidth: true
-            Layout.margins: 16
-            spacing: 16
-            LV.Label {
-                Layout.fillWidth: true
-                style: header
-                text: "Society Container"
-                elide: Text.ElideRight
-            }
-            LV.PushButton {
-                objectName: "chooseContainer"
-                visible: !drive.managedContainer || !drive.hasDrive
-                text: drive.managedContainer ? qsTr("Retry")
-                    : (drive.hasDrive ? qsTr("Open container…") : qsTr("Choose folder…"))
-                enabled: !drive.busy && !modelImporter.busy && !modelImporter.choosingFiles
-                onClicked: drive.managedContainer ? drive.openDefaultContainer() : folderDialog.open()
-            }
+        drive: root.storageDrive
+        modelImporter: root.storageImporter
+        files: dashboardFiles
+        desktop: root.isDesktopPlatform
+        hostModeAvailable: networkDrive.hostModeAvailable
+        signedIn: session.signedIn
+        selectedTab: root.selectedTab
+        deviceStatus: networkDrive.connected ? qsTr("Online") : drive.hasDrive ? qsTr("Local") : qsTr("Unavailable")
+        onTabRequested: function(tab) { root.selectedTab = tab }
+        onDevicesRequested: root.openDevices()
+        onPreferencesRequested: root.openPreferences()
+        onAccountRequested: root.openAccount()
+        onChooseContainerRequested: folderDialog.open()
+        onImportModelsRequested: modelDialog.open()
+        onSectionRequested: function(section) { root.showStorage(section) }
+        onFileRequested: function(path) { drive.openFile(path) }
+        onRevealRequested: function(path) {
+            if (drive.navigate(path)) root.selectedTab = "Storage"
         }
-
-        Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: LV.Theme.panelBackground10 }
-
-        RowLayout {
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            spacing: 0
-
-            Rectangle {
-                objectName: "driveSidebar"
-                visible: drive.hasDrive && root.width >= 760
-                Layout.preferredWidth: 216
-                Layout.fillHeight: true
-                color: LV.Theme.panelBackground06
-
-                ColumnLayout {
-                    anchors.fill: parent
-                    anchors.margins: 16
-                    spacing: 6
-                    LV.AbstractButton {
-                        Layout.fillWidth: true
-                        text: qsTr("Society Container")
-                        onClicked: drive.goHome()
-                    }
-                    LV.Label {
-                        Layout.topMargin: 20
-                        Layout.bottomMargin: 6
-                        style: caption
-                        text: qsTr("SECTIONS")
-                    }
-                    Repeater {
-                        model: drive.sections
-                        LV.AbstractButton {
-                            id: sectionButton
-                            required property var modelData
-                            Layout.fillWidth: true
-                            implicitHeight: 36
-                            text: modelData.name
-                            Accessible.name: modelData.name
-                            Accessible.selected: drive.currentSection === modelData.name
-                            onClicked: drive.openSection(modelData.key)
-                            background: Rectangle {
-                                radius: LV.Theme.radiusMd
-                                color: drive.currentSection === sectionButton.text ? LV.Theme.accentTint : "transparent"
-                            }
-                        }
-                    }
-                    Item { Layout.fillHeight: true }
-                    LV.Label {
-                        Layout.fillWidth: true
-                        style: caption
-                        text: drive.rootPath
-                        textFormat: Text.PlainText
-                        elide: Text.ElideMiddle
-                    }
-                }
-            }
-
-            ColumnLayout {
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                spacing: 0
-
-                RowLayout {
-                    visible: drive.hasDrive
-                    Layout.fillWidth: true
-                    Layout.margins: 16
-                    spacing: 10
-                    LV.PushButton {
-                        objectName: "driveUp"
-                        text: qsTr("Up")
-                        enabled: !drive.atRoot
-                        onClicked: drive.goUp()
-                    }
-                    Controls.ScrollView {
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: 32
-                        clip: true
-                        Controls.ScrollBar.vertical.policy: Controls.ScrollBar.AlwaysOff
-                        Row {
-                            spacing: 6
-                            Repeater {
-                                model: drive.breadcrumbs
-                                LV.AbstractButton {
-                                    required property var modelData
-                                    text: modelData.name
-                                    onClicked: drive.navigate(modelData.path)
-                                }
-                            }
-                        }
-                    }
-                }
-
-                Item {
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-
-                    ColumnLayout {
-                        anchors.centerIn: parent
-                        width: Math.min(440, parent.width - 48)
-                        visible: !drive.hasDrive
-                        spacing: 16
-                        LV.Label {
-                            Layout.fillWidth: true
-                            style: title2
-                            text: qsTr("Your Society Container")
-                            horizontalAlignment: Text.AlignHCenter
-                        }
-                        LV.Label {
-                            Layout.fillWidth: true
-                            style: description
-                            text: drive.managedContainer
-                                ? qsTr("Opening your Society Container…")
-                                : qsTr("Choose a folder to open your drive and its eight sections.")
-                            horizontalAlignment: Text.AlignHCenter
-                            wrapMode: Text.WordWrap
-                            sizeToContentHeight: true
-                        }
-                    }
-
-                    GridView {
-                        id: sectionsGrid
-                        objectName: "sectionsGrid"
-                        anchors.fill: parent
-                        anchors.margins: 16
-                        visible: drive.hasDrive && drive.atRoot
-                        model: drive.sections
-                        cellWidth: width / Math.max(1, Math.floor(width / 174))
-                        cellHeight: 150
-                        clip: true
-                        currentIndex: -1
-                        Controls.ScrollBar.vertical: Controls.ScrollBar {}
-                        delegate: LV.AbstractButton {
-                            id: sectionTile
-                            required property var modelData
-                            objectName: "sectionTile"
-                            width: sectionsGrid.cellWidth - 12
-                            height: sectionsGrid.cellHeight - 12
-                            text: modelData.name
-                            Accessible.name: modelData.name
-                            onClicked: drive.openSection(modelData.key)
-                            contentItem: ColumnLayout {
-                                spacing: 12
-                                Image {
-                                    Layout.alignment: Qt.AlignHCenter
-                                    Layout.preferredWidth: 68
-                                    Layout.preferredHeight: 68
-                                    source: LV.Theme.iconPath("nodesfolder")
-                                    sourceSize: Qt.size(136, 136)
-                                }
-                                LV.Label {
-                                    Layout.fillWidth: true
-                                    style: body
-                                    text: sectionTile.modelData.name
-                                    horizontalAlignment: Text.AlignHCenter
-                                    elide: Text.ElideRight
-                                }
-                            }
-                        }
-                    }
-
-                    FileGridView {
-                        objectName: "fileGridView"
-                        anchors.fill: parent
-                        visible: drive.hasDrive && !drive.atRoot
-                        path: drive.currentPath
-                        heading: drive.currentSection
-                        imagesOnly: drive.currentSection === "Generation History"
-                        onActivated: function(path, isDirectory) {
-                            if (isDirectory)
-                                drive.navigate(path)
-                            else
-                                drive.openFile(path)
-                        }
-                    }
-                }
-            }
+        onFeatureRequested: function(feature) {
+            root.showNotice(feature, qsTr("%1 is not connected to a workspace service yet.").arg(feature))
         }
-
-        LV.Label {
-            objectName: "driveError"
-            visible: drive.errorString.length > 0
-            Layout.fillWidth: true
-            Layout.margins: 12
-            style: description
-            text: drive.errorString
-            textFormat: Text.PlainText
-            wrapMode: Text.WordWrap
-            sizeToContentHeight: true
+        onGenerateRequested: function(prompt, mediaType, aspectRatio, count) {
+            root.generateRequested(prompt, mediaType, aspectRatio, count)
+            root.showNotice(qsTr("Generate"), qsTr("No generation provider is connected to Society yet. Your prompt, aspect ratio, and image count remain in this window."))
         }
+    }
 
-        ColumnLayout {
-            visible: drive.hasDrive
-            Layout.fillWidth: true
-            Layout.margins: 12
-            spacing: 6
-            RowLayout {
-                Layout.fillWidth: true
-                LV.PushButton {
-                    objectName: "importModels"
-                    text: qsTr("Import models…")
-                    enabled: !modelImporter.busy && !modelImporter.choosingFiles && !drive.busy
-                    onClicked: {
-                        if (Qt.platform.os === "ios")
-                            modelImporter.chooseFiles()
-                        else
-                            modelDialog.open()
-                    }
-                }
-                LV.Label {
-                    objectName: "modelImportStatus"
-                    Layout.fillWidth: true
-                    style: caption
-                    text: modelImporter.status.length > 0 ? modelImporter.status
-                        : qsTr("Drop .safetensor or .safetensors files here to import into Models.")
-                    textFormat: Text.PlainText
-                    elide: Text.ElideMiddle
-                }
-                LV.PushButton {
-                    objectName: "cancelModelImport"
-                    visible: modelImporter.busy
-                    text: qsTr("Cancel")
-                    onClicked: modelImporter.cancel()
-                }
-            }
-            Rectangle {
-                visible: modelImporter.busy
-                Layout.fillWidth: true
-                implicitHeight: 3
-                color: LV.Theme.panelBackground10
-                Rectangle {
-                    width: parent.width * modelImporter.progress
-                    height: parent.height
-                    color: LV.Theme.accent
-                }
-            }
-            LV.Label {
-                objectName: "modelImportError"
-                visible: modelImporter.errorString.length > 0
-                Layout.fillWidth: true
-                style: description
-                text: modelImporter.errorString
-                textFormat: Text.PlainText
-                wrapMode: Text.WordWrap
-                maximumLineCount: 3
-                elide: Text.ElideRight
-                sizeToContentHeight: true
-            }
-        }
-
-        Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: LV.Theme.panelBackground10 }
-        ColumnLayout {
-            visible: drive.hasDrive
-            Layout.fillWidth: true
-            Layout.margins: 12
-            spacing: 8
-            LV.Label {
-                objectName: "systemStatus"
-                Layout.fillWidth: true
-                style: caption
-                text: drive.systemStatus
-                textFormat: Text.PlainText
-                elide: Text.ElideRight
-            }
-            RowLayout {
-                Layout.fillWidth: true
-                LV.Label { Layout.fillWidth: true; style: caption; text: root.width >= 440 ? qsTr("8 sections") : "" }
-                LV.PushButton {
-                    objectName: "connectToSystem"
-                    visible: drive.systemSupported
-                    enabled: !drive.busy
-                    text: drive.systemPath.length > 0 ? qsTr("Reconnect") : qsTr("Connect to %1").arg(drive.systemName)
-                    onClicked: drive.connectToSystem()
-                }
-                LV.PushButton {
-                    objectName: "revealInSystem"
-                    visible: drive.systemPath.length > 0 || (drive.managedContainer && drive.hasDrive)
-                    enabled: !drive.busy
-                    text: qsTr("Open in %1").arg(drive.systemName)
-                    onClicked: drive.revealInSystem()
-                }
-            }
-        }
+    LV.Alert {
+        id: notice
+        objectName: "dashboardNotice"
+        parent: Controls.Overlay.overlay
+        title: ""
+        message: ""
+        primaryText: qsTr("OK")
+        secondaryText: ""
+        showIcon: false
+        onPrimaryClicked: open = false
+        onDismissed: open = false
     }
 
     DropArea {
         id: modelDropArea
         objectName: "modelDropArea"
-        anchors.fill: parent
+        anchors.fill: societyView
         enabled: drive.hasDrive && !modelImporter.busy
         onEntered: function(drag) {
             drag.accepted = (drag.supportedActions & Qt.CopyAction) !== 0

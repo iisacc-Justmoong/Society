@@ -158,7 +158,7 @@ bool DriveController::fail(const QString &message)
 
 bool DriveController::openContainerUrl(const QUrl &url)
 {
-    return url.isLocalFile() ? openContainer(url.toLocalFile()) : fail(tr("Select a local folder for Society Container."));
+    return url.isLocalFile() ? openContainer(url.toLocalFile()) : fail(tr("Select a local folder for Society."));
 }
 
 bool DriveController::openContainer(const QString &path)
@@ -293,7 +293,7 @@ void DriveController::startNative(const QString &action, bool registerBundle)
     if (busy() || (!m_drive && !(managedContainer() && action == QStringLiteral("default"))))
         return;
     if (!systemSupported()) {
-        fail(tr("The native Society Container adapter is not installed."));
+        fail(tr("The native Society adapter is not installed."));
         return;
     }
     if (m_drive && !m_drive->isValid()) {
@@ -381,7 +381,7 @@ void DriveController::finishNative(bool success, const QByteArray &output)
         if (result.contains("systemPath"))
             m_systemPath = result.value("systemPath").toString();
         m_systemStatus = result.contains("enabled") && !result.value("enabled").toBool()
-            ? tr("Open %1 and enable Society Container in Locations.").arg(systemName())
+            ? tr("Open %1 and enable Society in Locations.").arg(systemName())
             : tr("Connected to %1").arg(systemName());
 #if !defined(Q_OS_IOS) && !defined(Q_OS_ANDROID)
         if (action == QStringLiteral("path") && !m_systemPath.isEmpty())
