@@ -6,6 +6,8 @@ function(society_add_android_qr target)
     file(WRITE "${package}/AndroidManifest.xml" "${manifest}")
     configure_file("${CMAKE_CURRENT_SOURCE_DIR}/platform/android/src/com/iisacc/society/SocietyActivity.java"
         "${package}/src/com/iisacc/society/SocietyActivity.java" COPYONLY)
+    configure_file("${CMAKE_CURRENT_SOURCE_DIR}/platform/android/src/com/iisacc/society/SocietyDiscovery.java"
+        "${package}/src/com/iisacc/society/SocietyDiscovery.java" COPYONLY)
     get_filename_component(qt_prefix "${Qt6_DIR}/../../.." ABSOLUTE)
     file(READ "${qt_prefix}/src/android/templates/build.gradle" gradle)
     string(REPLACE "implementation fileTree" "implementation 'com.journeyapps:zxing-android-embedded:4.3.0'\n    implementation fileTree" gradle "${gradle}")

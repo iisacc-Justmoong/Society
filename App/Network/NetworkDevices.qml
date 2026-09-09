@@ -65,14 +65,14 @@ Controls.Popup {
         }
         LV.Label {
             Layout.fillWidth: true
-            text: qsTr("Connect both devices to the same Wi-Fi or LAN. The desktop displays a QR code and the mobile app scans it.")
+            text: qsTr("Sign in to the same iisacc account and select a nearby device on your desktop, or scan the desktop QR code. Use the same Wi-Fi or LAN.")
             wrapMode: Text.Wrap
             sizeToContentHeight: true
         }
         LV.PushButton {
             objectName: "networkPairing"
             Layout.fillWidth: true
-            text: panel.network.hostModeAvailable ? qsTr("Pair mobile device") : qsTr("Pair desktop")
+            text: panel.network.hostModeAvailable ? qsTr("Pair a device") : qsTr("Pair desktop")
             onClicked: panel.pairingRequested()
         }
         LV.PushButton {

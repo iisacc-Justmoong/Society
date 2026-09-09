@@ -1,6 +1,7 @@
 #pragma once
 #include <iiServerHost.h>
 #include "App/Account/AccountController.h"
+#include "NearbyDevices.h"
 #include <SharedStorage.h>
 #include <QPointer>
 #include <QSaveFile>
@@ -29,10 +30,14 @@ class NetworkDriveController : public QObject {
     Q_PROPERTY(QString currentPath READ currentPath NOTIFY entriesChanged)
     Q_PROPERTY(QString nextCursor READ nextCursor NOTIFY entriesChanged)
     Q_PROPERTY(QString transport READ transport NOTIFY stateChanged)
+    Q_PROPERTY(QVariantList nearbyDevices READ nearbyDevices NOTIFY discoveryChanged)
+    Q_PROPERTY(bool discovering READ discovering NOTIFY discoveryChanged)
+    Q_PROPERTY(QString discoveryStatus READ discoveryStatus NOTIFY discoveryChanged)
 public:
     enum Mode { ClientMode, HostMode };
     Q_ENUM(Mode)
     explicit NetworkDriveController(QObject *parent = nullptr);
+    NetworkDriveController(DiscoveryService *service, QHostAddress bindAddress, QObject *parent = nullptr);
     ~NetworkDriveController() override;
     Mode mode() const { return m_mode; }
     void setMode(Mode mode);
@@ -44,6 +49,10 @@ public:
     QUrl activeRelayUrl() const { return m_session.relayUrl.isEmpty() ? m_relayUrl : m_session.relayUrl; }
     iiServerHost::Peer *peer() { return &m_peer; }
     iiServerHost::LanPeer *localPeer() { return &m_local; }
+    NearbyDevices *discovery() { return &m_nearby; }
+    QVariantList nearbyDevices() const;
+    bool discovering() const { return m_nearby.active(); }
+    QString discoveryStatus() const { return m_nearby.status(); }
     bool startLocalHost();
     bool joinLocalHost(const QString &qr);
     void setRelayUrl(const QUrl &url);
@@ -78,6 +87,7 @@ signals:
     void stateChanged();
     void hostsChanged();
     void entriesChanged();
+    void discoveryChanged();
     void downloadFinished(QUrl file);
 private:
     bool startSessionImpl(iiServerHost::PeerOptions options, bool accountSession);
@@ -86,10 +96,14 @@ private:
     void response(const QString &id, const QJsonObject &result, const QString &transport);
     void fail(const QString &message);
     void nextChunk();
+    void updateDiscovery();
     QString request(const QString &host, const QJsonObject &payload);
     QPointer<AccountController> m_account;
     iiServerHost::Peer m_peer;
     iiServerHost::LanPeer m_local;
+    NearbyDevices m_nearby;
+    QHostAddress m_localBindAddress;
+    QTimer m_discoveryTimer;
     bool m_localActive = false;
     std::optional<iiSocietyContainer::SharedStorage> m_storage;
     QString m_container, m_status, m_host, m_path, m_cursor, m_transport;

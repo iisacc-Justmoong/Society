@@ -13,3 +13,8 @@ Files 공개 범위·심볼릭 링크 차단·디렉터리 교체 검사는 기�
 ## 빌드와 확인
 
 `iiServerHost 0.4.0`을 설치한 뒤 `cmake -S . -B build`, `cmake --build build --parallel 4`로 빌드한다. 로그인 테스트를 제외할 때 `ctest --test-dir build -E '^Society.Account$' --output-on-failure`를 사용한다. `Society.Pairing`과 `Society.ClientOnlyNetwork`가 실제 사용 경로를 검사하며, `Society.NetworkDrive`는 기존 네이티브 Peer 소비자의 모드 전환·파일 경계를 검사한다. 실제 모바일 카메라 검증은 빌드 성공이나 테스트용 QR 해독으로 대체하지 않는다.
+
+
+## 주변 기기 선택
+
+동일 계정 기기 목록과 직접 초대·코드 확인 방식도 지원한다. 탐색 수명, 플랫폼 API, 계정 범위 필터와 최종 Files 접근 승인 경계는 [Pairing.md](Pairing.md)의 주변 기기 탐색 계약을 따른다. 모바일은 UDP 초대만 수신하고 Files 리스너는 만들지 않는다.

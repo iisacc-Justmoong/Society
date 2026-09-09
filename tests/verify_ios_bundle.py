@@ -25,6 +25,8 @@ def verify(app, device):
         assert info['SocietyAppGroup'] == group
         executable = bundle / info['CFBundleExecutable']
         if bundle == app:
+            assert '_society-pair._udp' in info.get('NSBonjourServices', []), 'Missing Society discovery service declaration'
+            assert info.get('NSLocalNetworkUsageDescription'), 'Missing local discovery purpose'
             assert 'QR' in info.get('NSCameraUsageDescription', ''), 'Missing pairing camera purpose'
             assert 'NSMicrophoneUsageDescription' not in info, 'QR pairing must not request microphone access'
             assert '/AVFoundation.framework/' in output('otool', '-L', str(executable)).decode(), 'Missing native QR camera framework'
@@ -49,6 +51,9 @@ def verify(app, device):
     assert 'qt_static_plugin_QDarwinMediaPlugin' in symbols, 'Missing native AVFoundation media backend'
     assert 'qt_static_plugin_QFFmpegMediaPlugin' not in symbols, 'Unpackaged FFmpeg backend must not be imported'
     assert 'restoreSession' in symbols, 'Missing account session restoration API'
+    assert 'DNSServiceBrowse' in symbols and 'DNSServiceRegister' in symbols, 'Missing native device discovery'
+    # The iOS client strips host-only offer creation during Release linking.
+    assert 'verificationCode' in symbols and 'acceptInvitation' in symbols, 'Missing discovery acceptance and code comparison'
     assert ('qInitResources_account_session_license' in symbols
             or '__GLOBAL__sub_I_qrc_account_session_license.cpp' in symbols), 'Missing secure storage license resource'
     assert ('qInitResources_qrcodegen_license' in symbols

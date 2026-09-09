@@ -123,7 +123,12 @@ LV.ApplicationWindow {
             pairingPanel.open()
         }
     }
-    DevicePairing { id: devicePairing; objectName: "devicePairing"; network: networkDrive }
+    DevicePairing {
+        id: devicePairing
+        objectName: "devicePairing"
+        network: networkDrive
+        onInvitationReceived: { qrScanner.stop(); networkDevices.close(); pairingPanel.open() }
+    }
     QrScanner { id: qrScanner; objectName: "qrScanner" }
     PairingPanel {
         id: pairingPanel
@@ -133,7 +138,7 @@ LV.ApplicationWindow {
         appWindow: root
         parent: Controls.Overlay.overlay
         onAccountRequested: root.openAccount()
-        onFilesRequested: { if (!networkDrive.hostModeAvailable) networkDevices.open() }
+        onFilesRequested: { if (!networkDrive.hosting) networkDevices.open() }
     }
     Component {
         id: preferencesComponent

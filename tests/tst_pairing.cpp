@@ -1,6 +1,7 @@
 #include "App/Network/DevicePairing.h"
 #include "App/Network/PairingQr.h"
 #include "App/Network/QrScanner.h"
+#include "FakeDiscoveryService.h"
 #include <QGuiApplication>
 #include <QQmlComponent>
 #include <QQmlEngine>
@@ -15,6 +16,11 @@
 QString decodePairingQrImage(const QImage &image);
 #endif
 namespace {
+QQuickItem *visualItem(QQuickItem *root, const QString &name) {
+    if (root->objectName() == name) return root;
+    for (auto *child : root->childItems()) if (auto *found = visualItem(child, name)) return found;
+    return nullptr;
+}
 struct Fixture {
     QTemporaryDir container{SOCIETY_TEST_DIRECTORY "/pairing-files-XXXXXX"};
     NetworkDriveController host, client;
@@ -40,6 +46,77 @@ private slots:
         qmlRegisterType<QrScanner>("Society", 1, 0, "QrScanner");
     }
     void init() { QSettings(QSettings::IniFormat, QSettings::UserScope, "iisacc", "SocietyPairing").clear(); }
+    void discoverySelectionAcceptAndCodeConfirmationExposeFiles() {
+        FakeDiscoveryService a, b;
+        NetworkDriveController desktop(&a, QHostAddress::LocalHost), phone(&b, QHostAddress::LocalHost);
+        QTemporaryDir root(SOCIETY_TEST_DIRECTORY "/discovered-files-XXXXXX");
+        QVERIFY(iiSocietyContainer::SocietyDrive::create(root.path())); desktop.setContainerPath(root.path());
+        const auto scope = NearbyDevices::accountScope("test", "noncredential-device-discovery");
+        desktop.discovery()->setIdentity(scope, "desktop", "Desktop", "pc", true);
+        phone.discovery()->setIdentity(scope, "phone", "Phone", "phone", false);
+        a.announceTo(b); b.announceTo(a);
+        DevicePairing host, client; host.setNetwork(&desktop); client.setNetwork(&phone);
+        QQmlEngine engine; engine.addImportPath(SOCIETY_LVRS_QML_IMPORT_PATH);
+        QQuickWindow hostWindow, clientWindow; hostWindow.resize(1120, 720); clientWindow.resize(390, 844);
+        hostWindow.show(); clientWindow.show(); QrScanner hostScanner, clientScanner;
+        QQmlComponent component(&engine, QUrl::fromLocalFile(SOCIETY_PAIRING_QML_FILE));
+        QVERIFY2(component.isReady(), qPrintable(component.errorString()));
+        auto makePanel = [&](DevicePairing *pairing, QrScanner *scanner, QQuickWindow *window) {
+            return std::unique_ptr<QObject>(component.createWithInitialProperties({{"pairing", QVariant::fromValue(pairing)},
+                {"scanner", QVariant::fromValue(scanner)}, {"appWindow", QVariant::fromValue(window)},
+                {"parent", QVariant::fromValue(window->contentItem())}}));
+        };
+        auto hostPanel = makePanel(&host, &hostScanner, &hostWindow), clientPanel = makePanel(&client, &clientScanner, &clientWindow);
+        QVERIFY(hostPanel && clientPanel); QVERIFY(QMetaObject::invokeMethod(hostPanel.get(), "open"));
+        QQuickItem *pairButton = nullptr;
+        QTRY_VERIFY((pairButton = visualItem(hostWindow.contentItem(), "pairingNearbyDevice")) != nullptr);
+        QTRY_VERIFY(pairButton->isVisible());
+        QVERIFY(!hostPanel->property("useQr").toBool());
+        const auto screenshotDir = qEnvironmentVariable("SOCIETY_DISCOVERY_SCREENSHOT_DIR");
+        if (!screenshotDir.isEmpty()) {
+            QVERIFY(QDir().mkpath(screenshotDir)); QTest::qWait(100);
+            QVERIFY(hostWindow.grabWindow().save(screenshotDir + "/nearby-devices.png"));
+        }
+        QSignalSpy received(&client, &DevicePairing::invitationReceived);
+        QVERIFY(QMetaObject::invokeMethod(pairButton, "clicked")); QCOMPARE(host.phase(), "inviting"); QVERIFY(host.qrText().isEmpty());
+        QTRY_COMPARE(received.size(), 1); QCOMPARE(client.phase(), "invited");
+        QVERIFY(QMetaObject::invokeMethod(clientPanel.get(), "open"));
+        auto *acceptButton = clientPanel->findChild<QQuickItem *>("pairingAcceptInvitation");
+        QVERIFY(acceptButton); QTRY_VERIFY(acceptButton->isVisible());
+        QVERIFY(!phone.connected()); QVERIFY(QMetaObject::invokeMethod(acceptButton, "clicked"));
+        QTRY_COMPARE(host.phase(), "confirming"); QTRY_COMPARE(client.phase(), "confirming");
+        QCOMPARE(host.verificationCode(), client.verificationCode()); QVERIFY(host.canConfirm()); QVERIFY(!client.canConfirm());
+        auto *allowButton = hostPanel->findChild<QQuickItem *>("pairingConfirmDevice");
+        auto *code = clientPanel->findChild<QQuickItem *>("pairingVerificationCode");
+        QVERIFY(allowButton && code); QTRY_VERIFY(allowButton->isVisible() && code->isVisible());
+        QCOMPARE(code->property("text").toString(), host.verificationCode());
+        QVERIFY(clientPanel->property("width").toInt() <= 390);
+        if (!screenshotDir.isEmpty()) {
+            QTest::qWait(100);
+            QVERIFY(hostWindow.grabWindow().save(screenshotDir + "/desktop-confirmation.png"));
+            QVERIFY(clientWindow.grabWindow().save(screenshotDir + "/client-confirmation.png"));
+        }
+        QVERIFY(phone.entries().isEmpty()); QVERIFY(QMetaObject::invokeMethod(allowButton, "clicked"));
+        QTRY_COMPARE(host.phase(), "paired"); QTRY_COMPARE(client.phase(), "paired");
+        QTRY_VERIFY(!phone.busy()); QCOMPARE(phone.currentHost(), "desktop"); QCOMPARE(phone.transport(), "local");
+        QVERIFY(desktop.nearbyDevices()[0].toMap().value("connected").toBool());
+        host.cancel(); QVERIFY(desktop.hosting()); QVERIFY(phone.connected());
+    }
+    void endingDiscoveryIdentityCancelsUnconfirmedConnection() {
+        FakeDiscoveryService a, b;
+        NetworkDriveController desktop(&a, QHostAddress::LocalHost), phone(&b, QHostAddress::LocalHost);
+        QTemporaryDir root(SOCIETY_TEST_DIRECTORY "/ending-discovery-XXXXXX");
+        QVERIFY(iiSocietyContainer::SocietyDrive::create(root.path())); desktop.setContainerPath(root.path());
+        const auto scope = NearbyDevices::accountScope("test", "noncredential-identity");
+        desktop.discovery()->setIdentity(scope, "desktop", "Desktop", "pc", true);
+        phone.discovery()->setIdentity(scope, "phone", "Phone", "phone", false);
+        a.announceTo(b); b.announceTo(a);
+        DevicePairing host, client; host.setNetwork(&desktop); client.setNetwork(&phone);
+        host.inviteDevice("phone"); QTRY_COMPARE(client.phase(), "invited");
+        client.acceptInvitation(); QTRY_COMPARE(host.phase(), "confirming");
+        desktop.discovery()->clear(); QTRY_COMPARE(client.phase(), "error");
+        QVERIFY(!host.canConfirm()); QVERIFY(!phone.connected()); QVERIFY(desktop.nearbyDevices().isEmpty());
+    }
     void qrScanPairsBothSidesAndReadsFiles() {
         Fixture fixture; QVERIFY(fixture.start());
         QVERIFY(!fixture.host.signedIn()); QVERIFY(fixture.host.relayUrl().isEmpty());

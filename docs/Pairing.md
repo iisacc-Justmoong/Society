@@ -1,4 +1,22 @@
-# 로컬 네트워크 QR 페어링
+# 로컬 네트워크 기기 탐색·페어링
+
+## 같은 계정의 주변 기기 탐색
+
+로그인된 계정의 세션이 유효하면 앱이 `_society-pair._udp` 서비스를 등록하고 탐색을 계속한다. 데스크탑은 창·페어링 패널이 닫혀 있어도 앱이 실행 중이면 탐색한다. iPhone/iPad/Android는 Society가 전경에 있을 때 자신을 알리고 요청을 받으며 백그라운드에서는 중지한다. 전경 복귀·자동 로그인 완료 시 다시 시작한다. 로그아웃·계정 변경·세션 만료 시 광고, 기기 목록과 대기 중 요청을 지운다. 탐색만으로 Files 호스트를 시작하지 않는다.
+
+데스크탑에서 **Devices → Pair a device → Nearby devices**를 열면 이름·기기 유형·로컬 주소와 연결 완료 상태를 표시한다. 이미 연결된 기기의 Pair 버튼은 Connected로 바뀌며 중복 요청을 막는다. 같은 계정으로 로그인한 상대의 Society를 열어 둔 상태에서 **Pair**를 누른다. 상대 앱의 **Accept pairing request**를 누르면 양쪽에 4-4-4 형식의 확인 코드가 표시된다. 이를 대조하여 데스크탑에서 **Codes match — allow connection**을 누른 후에만 Files 접근과 페어링을 완료한다. 다른 데스크탑도 대상이 될 수 있으며 수신 측은 Files 클라이언트가 된다. 모바일은 Files를 호스팅하지 않지만 제한된 UDP 연결 요청 수신 소켓은 연다.
+
+기기 목록은 OS의 Bonjour/NSD 발견·이탈 통지와 6초 주기의 주소 재확인을 이용한다. Apple의 주소 확인은 DNSServiceGetAddrInfo로 발견한 네트워크 인터페이스의 IPv4를 직접 조회한다. 최신 상태를 25초 동안 받지 못한 항목은 제거한다. 인터페이스 변경은 다음 확인에 반영하며 탐색 오류는 5초 뒤 재시도한다. 초대는 60초 수명이며 2초 간격으로 제한된 크기의 UDP 유니캐스트만 재전송한다. 수락·거절·취소·완료 시 중단한다. 계정 ID·서비스 origin의 SHA-256 범위 태그, 기기 ID·이름·유형·실행 nonce만 탐색 레코드에 넣으며 이메일·비밀번호·로그인 쿠키·전체 계정 모델은 전송하지 않는다.
+
+계정 범위 태그는 일반 Society 앱 사이에서 다른 계정의 후보를 제외하는 필터이며 원격 기기의 서버 인증을 증명하는 서명이 아니다. DNS-SD 메타데이터나 초대 수신만으로 Files 권한을 주지 않는다. 최종 권한은 양쪽 TLS 연결에 바인딩된 코드 비교와 사용자의 데스크탑 확인으로 부여한다. 로컬 탐색·초대에는 외부 서버 조회, 로그인 정보 재전송, 클라우드 relay가 없다. 계정 로그인·세션 갱신 자체는 기존 iiAccountManager가 담당한다.
+
+`NearbyDevices`는 계정 범위·목록·초대·수명을, `DiscoveryService`의 플랫폼 구현은 발견·재확인·이탈 통지를 담당한다. `NetworkDriveController`가 앱 계정 수명과 연결하고 `DevicePairing`과 LVRS 기반 `PairingPanel.qml`이 선택·수신·코드 확인 UI를 소유한다. `iiServerHost::LanPeer::createDeviceOffer()`와 `confirmDevice()`는 최종 확인 전 파일 접근을 차단한다.
+
+외부 의존성은 OS의 DNS-SD API를 재사용한다. Apple은 시스템 Bonjour의 dns_sd C API, Android는 API 28 이상에서 사용 가능한 NsdManager를 사용한다. 별도 discovery 라이브러리·암호 구현·서버는 추가하지 않는다. Apple Info.plist에 서비스 유형과 로컬 네트워크 목적을 선언하며 앱 자체는 멀티캐스트 패킷을 만들지 않는다. Windows 빌드에는 Bonjour SDK/런타임, Linux에는 dns_sd 호환 Avahi 개발 패키지가 필요하다. API·유지보수는 각 OS 배포에 따른다. [Apple 로컬 네트워크 문서](https://developer.apple.com/documentation/technotes/tn3179-understanding-local-network-privacy), [Android NSD 문서](https://developer.android.com/develop/connectivity/wifi/use-nsd)를 따른다.
+
+`Society.Discovery`는 비인증 합성 식별자로 계정 범위 필터, 후보 갱신·이탈, 주소·레코드 제한, UDP 초대 수락·거절·취소·만료와 TLS 최종 확인 전 Files 접근 금지를 검사한다. `Society.Pairing`은 UI 조정 객체를 통한 기기 선택→수신→코드 확인→Files 연결을 검사한다. `SOCIETY_VERIFY_NATIVE_DISCOVERY=1`로 실행하는 별도 Bonjour 검사는 합성 식별자의 OS 서비스 등록·실제 LAN 발견·이탈만 검사한다. 계정 로그인/자동 로그인 요청은 실행하지 않는다. `SOCIETY_DISCOVERY_TRACE=1`은 DNS-SD 단계·결과 코드·레코드 크기만 기록하며 계정 태그·기기 이름·주소·초대 내용은 로그에 넣지 않는다.
+
+## 기존 QR 방식
 
 2026-09-09 요구사항에 따라 Society 앱의 페어링을 외부 중계에서 직접 LAN 연결로 전환했다. 데스크탑이 QR을 표시하고 모바일이 카메라로 읽는다. 중계 주소 입력, 클라우드 기기 검색, 원격 전송 fallback은 이 경로에 없다.
 

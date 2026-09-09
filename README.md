@@ -3,7 +3,7 @@
 iiAccountManager SDK가 소유하는 로그인·회원가입 화면을 데스크톱·iPhone·Android에서 호출한다.
 공통 계정 화면에서 iisacc.com 이메일과 비밀번호로 바로 로그인한다. 앱 소유 보안 저장소에 세션을 보관하여 다음 실행부터 자동으로 복원하고 전체 계정 객체를 갱신한다. 비밀번호를 저장하지 않으며 로그아웃·서버 만료·철회 시 복원을 해제한다. [계정 연결 계약](docs/Account.md)을 참고한다.
 
-데스크탑 **Devices → Pair mobile device**에서 QR을 표시하고, 모바일 Society의 **Devices → Pair desktop → Scan QR code**로 읽는다. 같은 Wi-Fi/LAN에서 직접 연결하며 중계 서버·로그인 없이 사용할 수 있다. 실제 Files 접근 후 양쪽에 완료를 표시한다. [로컬 페어링 절차·검증 범위](docs/Pairing.md)를 참고한다.
+같은 iisacc 계정으로 로그인한 Society 기기를 데스크탑이 LAN에서 지속 탐색한다. **Devices → Pair a device → Nearby devices**에서 기기를 선택하고 상대 앱에서 요청을 수락한 뒤 양쪽 확인 코드를 대조하여 연결한다. Apple은 Bonjour, Android는 NSD를 사용하며 중계 서버는 거치지 않는다. **QR code** 방식도 유지하며 이 경로는 로그인 없이 사용할 수 있다. [로컬 페어링 절차·검증 범위](docs/Pairing.md)를 참고한다.
 
 ## iisacc 계정
 
@@ -294,4 +294,4 @@ python3 tools/build_android.py --qt <Qt-6.8.3-Android-ABI> --qt-host <Qt-6.8.3-h
 
 ## 같은 계정의 로컬·원격 기기 파일
 
-상단 Devices에서 데스크탑의 QR을 모바일로 스캔하여 같은 Wi-Fi/LAN의 `Files/`를 탐색하고 다운로드한다. 계정 로그인과 독립적이다. 데스크톱은 독립 [Preferences 창](docs/Preferences.md)에서 Client mode / Host mode를 전환하며 QR 생성 시 호스트를 시작한다. iOS/Android는 항상 클라이언트이다. iiServerHost 0.4.0의 직접 LAN 연결을 사용하며 외부 중계 fallback은 없다. 공개 범위·모바일 제한 및 검증 방법은 [NetworkDrive.md](docs/NetworkDrive.md)를 따른다.
+상단 Devices에서 같은 계정의 주변 기기를 선택하거나 데스크탑의 QR을 모바일로 스캔하여 같은 Wi-Fi/LAN의 `Files/`를 탐색하고 다운로드한다. QR은 계정 로그인과 독립적이다. 데스크톱은 독립 [Preferences 창](docs/Preferences.md)에서 Client mode / Host mode를 전환하며 기기 선택 또는 QR 생성 시 호스트를 시작한다. iOS/Android는 Files 클라이언트이다. iiServerHost 0.4.1의 직접 LAN 연결을 사용하며 외부 중계 fallback은 없다. 공개 범위·모바일 제한 및 검증 방법은 [NetworkDrive.md](docs/NetworkDrive.md)를 따른다.

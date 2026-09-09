@@ -7,9 +7,17 @@
 #include <QUuid>
 
 NetworkDriveController::NetworkDriveController(QObject *parent)
-    : QObject(parent) {
+    : NetworkDriveController(nullptr, QHostAddress::AnyIPv4, parent) {}
+NetworkDriveController::NetworkDriveController(DiscoveryService *service, QHostAddress bindAddress, QObject *parent)
+    : QObject(parent), m_nearby(service, bindAddress), m_localBindAddress(bindAddress) {
+    connect(&m_nearby, &NearbyDevices::changed, this, &NetworkDriveController::discoveryChanged);
+    connect(&m_nearby, &NearbyDevices::identityEnding, &m_local, &iiServerHost::LanPeer::cancelPairing);
+    connect(&m_local, &iiServerHost::LanPeer::paired, &m_nearby, &NearbyDevices::complete);
+    m_discoveryTimer.setInterval(5000);
+    connect(&m_discoveryTimer, &QTimer::timeout, this, &NetworkDriveController::updateDiscovery);
     m_status = tr("Pair your devices on the same Wi-Fi or local network.");
     connect(&m_local, &iiServerHost::LanPeer::changed, this, [this] {
+        emit discoveryChanged();
         if (m_localActive) {
             if (!m_local.errorString().isEmpty()) m_status = m_local.errorString();
             else if (m_local.hosting()) m_status = tr("Hosting Files on the local network.");
@@ -34,16 +42,21 @@ NetworkDriveController::NetworkDriveController(QObject *parent)
         if (auto *app = qobject_cast<QGuiApplication *>(QCoreApplication::instance())) {
             connect(app, &QGuiApplication::applicationStateChanged, this, [this](Qt::ApplicationState state) {
                 if (state == Qt::ApplicationSuspended || state == Qt::ApplicationHidden) {
-                    m_suspended = true; stopTransport();
+                    m_suspended = true; m_nearby.clear(); stopTransport();
                     m_status = tr("Device connection paused."); emit stateChanged();
                 } else if (m_suspended && state == Qt::ApplicationActive) {
-                    m_suspended = false; restartSession();
+                    m_suspended = false; updateDiscovery(); restartSession();
                 }
             });
         }
     }
 }
-NetworkDriveController::~NetworkDriveController() { disconnectSession(); }
+NetworkDriveController::~NetworkDriveController() {
+    m_discoveryTimer.stop(); m_nearby.clear(); disconnectSession();
+    // Members emit their final stop signals before QObject clears external
+    // QPointers. No UI may inspect the already-destroyed discovery member then.
+    m_local.disconnect(); m_nearby.disconnect();
+}
 void NetworkDriveController::setAccountSession(AccountController *account) {
     if (account == m_account || (account && account->thread() != thread())) return;
     disconnectSession();
@@ -52,17 +65,42 @@ void NetworkDriveController::setAccountSession(AccountController *account) {
         disconnect(m_account->manager(), nullptr, this, nullptr);
     }
     m_account = account;
+    m_nearby.clear(); m_discoveryTimer.stop();
     if (account) {
         connect(account, &AccountController::changed, this, [this] {
             if (m_accountSession && !signedIn()) disconnectSession();
+            updateDiscovery();
             emit authChanged();
         });
-        connect(account, &AccountController::sessionEnding, this, &NetworkDriveController::disconnectSession);
+        connect(account, &AccountController::sessionEnding, this, [this] { m_nearby.clear(); disconnectSession(); });
         connect(account, &QObject::destroyed, this, [this] {
-            m_account = nullptr; disconnectSession(); emit authChanged();
+            m_account = nullptr; m_nearby.clear(); m_discoveryTimer.stop(); disconnectSession(); emit authChanged();
         });
+        m_discoveryTimer.start();
     }
+    updateDiscovery();
     emit authChanged();
+}
+QVariantList NetworkDriveController::nearbyDevices() const {
+    auto result = m_nearby.devices(); const auto connected = m_local.pairedDeviceIds();
+    for (auto &value : result) {
+        auto row = value.toMap(); row.insert("connected", connected.contains(row.value("id").toString())); value = row;
+    }
+    return result;
+}
+void NetworkDriveController::updateDiscovery() {
+#ifdef SOCIETY_DISABLE_SESSION_RESTORE
+    return; // Test consumers do not announce the user's account or installation.
+#else
+    if (qEnvironmentVariableIntValue("SOCIETY_DISABLE_SESSION_RESTORE") == 1) return;
+    const auto expiry = m_account ? QDateTime::fromString(m_account->manager()->loginSession().value("expiresAt").toString(), Qt::ISODate) : QDateTime();
+    if (m_suspended || !signedIn() || !expiry.isValid() || expiry <= QDateTime::currentDateTimeUtc()) { m_nearby.clear(); return; }
+    const auto device = m_account->manager()->deviceInfo();
+    const auto origin = m_account->manager()->serviceUrl().adjusted(QUrl::RemovePath | QUrl::RemoveQuery | QUrl::RemoveFragment | QUrl::RemoveUserInfo).toString();
+    const auto scope = NearbyDevices::accountScope(origin, m_account->userId());
+    const auto name = device.value("name").toString().isEmpty() ? QSysInfo::machineHostName() : device.value("name").toString();
+    m_nearby.setIdentity(scope, device.value("id").toString(), name, device.value("type").toString(), hostModeAvailable());
+#endif
 }
 bool NetworkDriveController::hostModeAvailable() const {
 #if defined(Q_OS_IOS) || defined(Q_OS_ANDROID) || defined(SOCIETY_CLIENT_ONLY)
@@ -93,7 +131,7 @@ void NetworkDriveController::setRelayUrl(const QUrl &url) {
 }
 void NetworkDriveController::connectSession() {
     if (hostModeAvailable() && m_mode == HostMode) startLocalHost();
-    else fail(tr("Scan the desktop QR code to connect over the local network."));
+    else fail(tr("Select this device on your desktop or scan its QR code to connect."));
 }
 bool NetworkDriveController::startLocalHost() {
     if (!hostModeAvailable()) { fail(tr("Only desktop Society can host Files.")); return false; }
@@ -104,13 +142,15 @@ bool NetworkDriveController::startLocalHost() {
     const auto storage = *m_storage;
     auto share = std::make_shared<iiServerHost::FileShare>(storage.filePath(iiSocietyContainer::StoreSection::Files), [storage] { return storage.drive().isValid(); });
     m_localActive = true;
-    const auto id = m_account ? m_account->manager()->deviceInfo().value("id").toString() : QUuid::createUuid().toString(QUuid::WithoutBraces);
-    return m_local.startHost(id, QSysInfo::machineHostName(), [share](const auto &, const auto &payload) { return share->handle(payload); });
+    const auto id = m_nearby.active() ? m_nearby.deviceId() : m_account ? m_account->manager()->deviceInfo().value("id").toString() : QUuid::createUuid().toString(QUuid::WithoutBraces);
+    return m_local.startHost(id, m_nearby.active() ? m_nearby.deviceName() : QSysInfo::machineHostName(),
+        [share](const auto &, const auto &payload) { return share->handle(payload); },
+        m_localBindAddress.isLoopback() ? QStringList{m_localBindAddress.toString()} : QStringList{}, m_localBindAddress);
 }
 bool NetworkDriveController::joinLocalHost(const QString &qr) {
     disconnectSession(); m_mode = ClientMode; emit modeChanged(); m_localActive = true;
-    const auto id = m_account ? m_account->manager()->deviceInfo().value("id").toString() : QUuid::createUuid().toString(QUuid::WithoutBraces);
-    return m_local.join(qr, id, QSysInfo::machineHostName());
+    const auto id = m_nearby.active() ? m_nearby.deviceId() : m_account ? m_account->manager()->deviceInfo().value("id").toString() : QUuid::createUuid().toString(QUuid::WithoutBraces);
+    return m_local.join(qr, id, m_nearby.active() ? m_nearby.deviceName() : QSysInfo::machineHostName());
 }
 bool NetworkDriveController::startSession(iiServerHost::PeerOptions options) {
     return startSessionImpl(std::move(options), false);
@@ -166,6 +206,7 @@ void NetworkDriveController::stopTransport() {
     m_localActive = false; m_local.stop(); m_peer.stop(); emit entriesChanged(); emit hostsChanged();
 }
 void NetworkDriveController::disconnectSession() {
+    m_nearby.cancel();
     m_session = {}; m_accountSession = false; stopTransport();
     m_status = tr("Disconnected."); emit stateChanged();
 }
