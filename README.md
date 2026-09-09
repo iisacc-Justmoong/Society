@@ -288,7 +288,7 @@ python3 tools/build_android.py --qt <Qt-6.8.3-Android-ABI> --qt-host <Qt-6.8.3-h
 
 실제 iOS 시스템 드라이브 검사는 정상 iOS 빌드 뒤 `cmake -S . -B build/ios-device -DSOCIETY_IOS_FILES_INTEGRATION_TEST=ON`으로 활성화하고 Society를 다시 빌드·설치·실행한다. 이 옵션은 기본적으로 꺼져 있다. `tests/IosFilesIntegration.swift`는 App Group 원본과 시스템의 공개 루트 열거를 비교하고, 새 UUID가 붙은 테스트 폴더 안에서 생성·읽기·편집·이름 변경·삭제와 원본 반영을 확인한다. 기존 사용자 파일을 삭제하거나 도메인을 초기화하지 않는다.
 
-결과는 앱의 `Documents/ios-files-integration.json`과 `SOCIETY_FILES_INTEGRATION` 콘솔 로그에 남는다. 성공하면 기존 `Open in Files` 기능으로 공개 루트를 연다. `devicectl device copy from`의 `appDataContainer` 도메인으로 결과를 가져올 수 있다. 확인 뒤 옵션을 OFF로 바꾸고 다시 빌드·설치한다. 이 검사는 연결된 기기에서 실제 File Provider를 호출하며 호스트의 plist·Swift 구문 검사와 별개이다. 실패한 단계에 테스트 폴더가 남으면 해당 UUID 폴더만 확인한다. 서명 번들 검사 `tests/verify_ios_bundle.py`는 이 진단 함수가 포함된 빌드를 배포용 검사에서 거부한다.
+결과는 앱의 `Documents/ios-files-integration.json`과 `SOCIETY_FILES_INTEGRATION` 콘솔 로그에 남는다. 성공하면 기존 `Open in Files` 기능으로 공개 루트를 연다. `devicectl device copy from`의 `appDataContainer` 도메인으로 결과를 가져올 수 있다. 확인 뒤 옵션을 OFF로 바꾸고 다시 빌드·설치한다. 이 검사는 연결된 기기에서 실제 File Provider를 호출하며 호스트의 plist·Swift 구문 검사와 별개이다. 실패한 단계에 테스트 폴더가 남으면 해당 UUID 폴더만 확인한다. 서명 번들 검사 `tests/verify_ios_bundle.py`는 이 진단 함수가 포함된 빌드를 배포용 검사에서 거부한다. Release LTO가 리소스 초기화 함수를 인라인한 경우에는 남아 있는 해당 qrc 번역 단위의 정적 생성자를 확인해 LVRS·QR 라이선스 리소스의 링크를 검증한다.
 
 기기 연결이 끊겨 빈 테스트 폴더가 남았다면, 다음 검사 실행에 `SOCIETY_FILES_TEST_CLEANUP` 환경 변수로 그 정확한 `Society Files Test <UUID>` 이름을 전달할 수 있다. 이 처리는 해당 이름의 빈 일반 폴더만 삭제하며 다른 파일을 검색해 정리하지 않는다.
 

@@ -39,12 +39,15 @@ def verify(app, device):
         assert rights['application-identifier'] == profile['Entitlements']['application-identifier']
         results.append({'identifier': identifier, 'profile': profile['UUID']})
     # Qt's static plugin entry points may have local visibility after linking.
+    # Release LTO may inline qInitResources into the retained qrc constructor.
     symbols = output('nm', str(app / 'Society')).decode()
     assert 'society_ios_files_integration_test' not in symbols, 'Disable the Files integration probe before shipping'
     assert 'qml_register_types_LVRS' in symbols, 'Missing LVRS QML registration'
-    assert 'qInitResources_qmake_LVRS' in symbols, 'Missing LVRS QML resources'
+    assert ('qInitResources_qmake_LVRS' in symbols
+            or '__GLOBAL__sub_I_qrc_qmake_LVRS.cpp' in symbols), 'Missing LVRS QML resources'
     assert 'qt_static_plugin_QSQLiteDriverPlugin' in symbols, 'Missing static SQLite driver'
-    assert 'qInitResources_qrcodegen_license' in symbols, 'Missing QR generator license resource'
+    assert ('qInitResources_qrcodegen_license' in symbols
+            or '__GLOBAL__sub_I_qrc_qrcodegen_license.cpp' in symbols), 'Missing QR generator license resource'
     return {'bundle': str(app), 'appGroup': group, 'signedBundles': results}
 
 
