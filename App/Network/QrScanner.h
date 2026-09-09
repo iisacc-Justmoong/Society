@@ -29,9 +29,11 @@ signals:
 private:
     bool m_active = false, m_denied = false;
     QString m_error;
-#ifdef Q_OS_IOS
+#if defined(Q_OS_IOS) || defined(Q_OS_ANDROID)
     void startNative(QQuickWindow *window);
     void stopNative();
+#endif
+#ifdef Q_OS_IOS
     void *m_native = nullptr;
 #endif
 };

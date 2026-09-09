@@ -7,7 +7,7 @@
 | 기능 | iOS 동작 |
 | --- | --- |
 | iisacc 계정 | 공통 LVRS 패널에서 이메일·비밀번호만 입력한다. 계정 SDK가 전체 프로필을 받아 Helper·기기 연결과 공유한다. iPhone은 phone, iPad는 tablet으로 보고하며 각각 2대 제한이다. |
-| QR 페어링 | Devices → Pair desktop → Scan QR code에서 데스크톱 코드를 촬영한다. 같은 계정·호스트의 Files 접근 후 완료를 표시한다. 카메라 권한 거부 시 설정 열기를 제공하고 영상은 저장·전송하지 않는다. [Pairing.md](Pairing.md) 참조. |
+| QR 페어링 | Devices → Pair desktop → Scan QR code에서 데스크톱 코드를 촬영한다. 로컬 호스트의 Files 접근 후 완료를 표시한다. 카메라 권한 거부 시 설정 열기를 제공하고 영상은 저장·전송하지 않는다. [Pairing.md](Pairing.md) 참조. |
 | 원본 저장소 | 동일 App Group의 `Library/Application Support/Society`에 UUID와 8개 영역을 유지한다. |
 | 앱 탐색 | 8개 영역을 모두 탐색한다. 파일·폴더를 한 번 탭하여 열며 이미지·문서는 QuickLook으로 표시한다. 미리보기를 지원하지 않는 파일에는 오류를 표시한다. |
 | OS 드라이브 | 앱에 File Provider 확장을 포함한다. 파일 앱의 Society 루트는 `Society/Files/`이다. 나머지 7개 영역과 Helper 데이터는 공개하지 않는다. |

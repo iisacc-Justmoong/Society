@@ -37,12 +37,15 @@ public:
     Mode mode() const { return m_mode; }
     void setMode(Mode mode);
     bool hostModeAvailable() const;
-    bool hosting() const { return m_mode == HostMode && m_storage.has_value() && connected(); }
+    bool hosting() const { return m_mode == HostMode && m_storage.has_value() && (m_local.hosting() || m_peer.isReady()); }
     QString containerPath() const { return m_container; }
     void setContainerPath(const QString &path);
     QUrl relayUrl() const { return m_relayUrl; }
     QUrl activeRelayUrl() const { return m_session.relayUrl.isEmpty() ? m_relayUrl : m_session.relayUrl; }
     iiServerHost::Peer *peer() { return &m_peer; }
+    iiServerHost::LanPeer *localPeer() { return &m_local; }
+    bool startLocalHost();
+    bool joinLocalHost(const QString &qr);
     void setRelayUrl(const QUrl &url);
     AccountController *accountSession() const { return m_account; }
     void setAccountSession(AccountController *account);
@@ -51,10 +54,10 @@ public:
     bool authBusy() const { return m_account && m_account->busy(); }
     bool codeRequired() const { return m_account && m_account->codeRequired(); }
     QString authError() const { return m_account ? m_account->errorString() : QString(); }
-    bool connected() const { return m_peer.isReady(); }
+    bool connected() const { return m_localActive ? m_local.hosting() || m_local.connected() : m_peer.isReady(); }
     bool busy() const { return !m_request.isEmpty(); }
     QString status() const { return m_status; }
-    QVariantList hosts() const { return m_peer.peers().toVariantList(); }
+    QVariantList hosts() const { return (m_localActive ? m_local.peers() : m_peer.peers()).toVariantList(); }
     QVariantList entries() const { return m_entries; }
     QString currentHost() const { return m_host; }
     QString currentPath() const { return m_path; }
@@ -83,8 +86,11 @@ private:
     void response(const QString &id, const QJsonObject &result, const QString &transport);
     void fail(const QString &message);
     void nextChunk();
+    QString request(const QString &host, const QJsonObject &payload);
     QPointer<AccountController> m_account;
     iiServerHost::Peer m_peer;
+    iiServerHost::LanPeer m_local;
+    bool m_localActive = false;
     std::optional<iiSocietyContainer::SharedStorage> m_storage;
     QString m_container, m_status, m_host, m_path, m_cursor, m_transport;
     QUrl m_relayUrl;

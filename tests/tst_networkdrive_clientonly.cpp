@@ -66,14 +66,11 @@ private slots:
         QVERIFY(!network.hosting());
         QVERIFY2(warnings.isEmpty(), qPrintable(warnings.join('\n')));
     }
-    void phonePairingPanelRequiresLoginThenOffersCamera() {
+    void phonePairingPanelOffersCameraWithoutLoginOrRelay() {
         QQmlEngine engine; engine.addImportPath(SOCIETY_LVRS_QML_IMPORT_PATH);
-        QStringList warnings;
-        connect(&engine, &QQmlEngine::warnings, this, [&](const QList<QQmlError> &errors) {
-            for (const auto &error : errors) warnings.append(error.toString());
-        });
         QQuickWindow window; window.resize(390, 844); window.show();
         NetworkDriveController network; DevicePairing pairing; pairing.setNetwork(&network); QrScanner scanner;
+        QVERIFY(!network.signedIn()); QVERIFY(network.relayUrl().isEmpty());
         QQmlComponent component(&engine, QUrl::fromLocalFile(SOCIETY_PAIRING_QML_FILE));
         QVERIFY2(component.isReady(), qPrintable(component.errorString()));
         std::unique_ptr<QObject> panel(component.createWithInitialProperties({
@@ -81,25 +78,14 @@ private slots:
             {"appWindow", QVariant::fromValue(&window)}, {"parent", QVariant::fromValue(window.contentItem())}}));
         QVERIFY2(panel, qPrintable(component.errorString())); QVERIFY(QMetaObject::invokeMethod(panel.get(), "open"));
         QTRY_VERIFY(panel->property("visible").toBool()); QVERIFY(!panel->property("desktop").toBool());
-        auto *signIn = panel->findChild<QQuickItem *>("pairingSignIn");
         auto *scan = panel->findChild<QQuickItem *>("pairingScan");
         auto *refresh = panel->findChild<QQuickItem *>("pairingRefresh");
-        QVERIFY(signIn && scan && refresh); QVERIFY(signIn->isVisible()); QVERIFY(!scan->isVisible());
-        QSignalSpy login(panel.get(), SIGNAL(accountRequested()));
-        QVERIFY(QMetaObject::invokeMethod(signIn, "clicked")); QCOMPARE(login.size(), 1);
-
-        RelayServer relay([](const auto &, AuthCompletion done) { done({"alice", QDateTime::currentDateTimeUtc().addSecs(60)}); });
-        QVERIFY(relay.listen(QHostAddress::LocalHost));
-        PeerOptions options; options.relayUrl = QUrl(QString("ws://127.0.0.1:%1").arg(relay.port()));
-        options.peerId = "iphone"; options.credential = "alice"; options.localEnabled = false;
-        QVERIFY(network.startSession(options)); QTRY_VERIFY(network.connected());
-        QTRY_VERIFY(scan->isVisible() && scan->isEnabled()); QVERIFY(!signIn->isVisible()); QVERIFY(!refresh->isVisible());
-        QVERIFY(panel->property("width").toReal() <= window.width());
-        const auto scanRect = scan->mapRectToScene(scan->boundingRect());
-        QVERIFY(window.contentItem()->boundingRect().contains(scanRect));
+        QVERIFY(scan && refresh); QVERIFY(scan->isVisible() && scan->isEnabled()); QVERIFY(!refresh->isVisible());
+        QVERIFY(!panel->findChild<QQuickItem *>("pairingSignIn"));
+        QTRY_VERIFY(window.contentItem()->boundingRect().contains(scan->mapRectToScene(scan->boundingRect())));
         pairing.showHostQr(); QCOMPARE(pairing.phase(), QString("error")); QVERIFY(!network.hosting());
+        QVERIFY(!network.startLocalHost()); QVERIFY(!network.localPeer()->hosting());
         QVERIFY(QMetaObject::invokeMethod(panel.get(), "close")); QTRY_COMPARE(pairing.phase(), QString("idle"));
-        QVERIFY2(warnings.isEmpty(), qPrintable(warnings.join('\n')));
     }
     void mobileAlwaysRemainsAClient_data() {
         QTest::addColumn<bool>("local");

@@ -9,7 +9,7 @@ QrScanner::QrScanner(QObject *parent) : QObject(parent) {
 }
 QrScanner::~QrScanner() { stop(); }
 bool QrScanner::available() const {
-#ifdef Q_OS_IOS
+#if defined(Q_OS_IOS) || defined(Q_OS_ANDROID)
     return true;
 #else
     return false;
@@ -19,15 +19,15 @@ void QrScanner::start(QObject *object) {
     if (m_active) return;
     m_error.clear(); m_denied = false;
     auto *window = qobject_cast<QQuickWindow *>(object);
-    if (!window || !available()) { m_error = tr("Camera QR scanning is available in iPhone and iPad Society."); emit changed(); return; }
+    if (!window || !available()) { m_error = tr("Scan the desktop QR code with the mobile Society app."); emit changed(); return; }
     m_active = true; emit changed();
-#ifdef Q_OS_IOS
+#if defined(Q_OS_IOS) || defined(Q_OS_ANDROID)
     startNative(window);
 #endif
 }
 void QrScanner::stop() {
     const bool wasActive = m_active; m_active = false;
-#ifdef Q_OS_IOS
+#if defined(Q_OS_IOS) || defined(Q_OS_ANDROID)
     stopNative();
 #endif
     if (wasActive) emit changed();
@@ -40,6 +40,6 @@ void QrScanner::failed(const QString &message, bool denied) {
     if (!m_active) return;
     stop(); m_error = message; m_denied = denied; emit changed();
 }
-#ifndef Q_OS_IOS
+#if !defined(Q_OS_IOS) && !defined(Q_OS_ANDROID)
 void QrScanner::openSettings() {}
 #endif

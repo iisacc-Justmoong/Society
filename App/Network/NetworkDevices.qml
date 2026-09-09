@@ -63,21 +63,17 @@ Controls.Popup {
                 : qsTr("Access Files on your other devices.")
             wrapMode: Text.Wrap
         }
-        LV.InputField {
-            id: relay
+        LV.Label {
             Layout.fillWidth: true
-            placeholderText: qsTr("Society relay address (wss://…)")
-            text: panel.network.relayUrl.toString()
-            readOnly: panel.network.connected
+            text: qsTr("Connect both devices to the same Wi-Fi or LAN. The desktop displays a QR code and the mobile app scans it.")
+            wrapMode: Text.Wrap
+            sizeToContentHeight: true
         }
         LV.PushButton {
             objectName: "networkPairing"
             Layout.fillWidth: true
-            text: panel.network.hostModeAvailable ? qsTr("Pair iPhone") : qsTr("Pair desktop")
-            onClicked: {
-                if (!panel.network.connected) panel.network.relayUrl = relay.text
-                panel.pairingRequested()
-            }
+            text: panel.network.hostModeAvailable ? qsTr("Pair mobile device") : qsTr("Pair desktop")
+            onClicked: panel.pairingRequested()
         }
         LV.PushButton {
             objectName: "networkAccount"
@@ -86,13 +82,12 @@ Controls.Popup {
             onClicked: panel.accountRequested()
         }
         RowLayout {
-            visible: panel.network.signedIn
+            visible: panel.network.connected
             LV.PushButton {
-                text: panel.network.connected ? qsTr("Refresh") : qsTr("Connect")
+                text: qsTr("Refresh")
                 enabled: !panel.network.busy
                 onClicked: {
-                    panel.network.relayUrl = relay.text
-                    if (panel.network.connected) panel.network.refresh(); else panel.network.connectSession()
+                    panel.network.refresh()
                 }
             }
             LV.PushButton { text: qsTr("Disconnect"); enabled: panel.network.connected; onClicked: panel.network.disconnectSession() }

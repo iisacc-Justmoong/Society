@@ -3,7 +3,7 @@
 iiAccountManager SDK가 소유하는 로그인·회원가입 화면을 데스크톱·iPhone·Android에서 호출한다.
 공통 계정 화면에서 iisacc.com 이메일과 비밀번호로 바로 로그인한다. 전체 계정 객체와 기기 세션을 같은 응답으로 받는다. [계정 연결 계약](docs/Account.md)을 참고한다.
 
-데스크톱 **Devices → Pair iPhone**의 QR을 iPhone Society의 **Devices → Pair desktop → Scan QR code**로 읽으면 같은 계정의 호스트와 연결된다. 실제 Files 접근 확인 후 양쪽에 완료를 표시한다. [페어링 절차·서버 계약·검증 범위](docs/Pairing.md)를 참고한다.
+데스크탑 **Devices → Pair mobile device**에서 QR을 표시하고, 모바일 Society의 **Devices → Pair desktop → Scan QR code**로 읽는다. 같은 Wi-Fi/LAN에서 직접 연결하며 중계 서버·로그인 없이 사용할 수 있다. 실제 Files 접근 후 양쪽에 완료를 표시한다. [로컬 페어링 절차·검증 범위](docs/Pairing.md)를 참고한다.
 
 ## iisacc 계정
 

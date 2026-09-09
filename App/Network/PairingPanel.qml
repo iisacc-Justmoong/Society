@@ -13,7 +13,6 @@ Controls.Popup {
     signal accountRequested()
     signal filesRequested()
     readonly property bool desktop: pairing.network && pairing.network.hostModeAvailable
-    readonly property bool authenticated: pairing.network && (pairing.network.signedIn || pairing.network.connected)
     width: Math.max(0, Math.min(parent.width - 24, 440))
     height: Math.max(0, Math.min(parent.height - 24, contentColumn.implicitHeight + topPadding + bottomPadding))
     x: (parent.width - width) / 2
@@ -22,7 +21,7 @@ Controls.Popup {
     modal: true
     focus: true
     background: Rectangle { color: LV.Theme.panelBackground06; radius: LV.Theme.radiusMd }
-    onOpened: { if (desktop && authenticated) pairing.showHostQr() }
+    onOpened: { if (desktop) pairing.showHostQr() }
     onClosed: { scanner.stop(); pairing.cancel() }
     Connections {
         target: panel.scanner
@@ -39,22 +38,15 @@ Controls.Popup {
             spacing: 16
             RowLayout {
                 Layout.fillWidth: true
-                LV.Label { Layout.fillWidth: true; style: header; text: panel.desktop ? qsTr("Pair iPhone") : qsTr("Pair desktop") }
+                LV.Label { Layout.fillWidth: true; style: header; text: panel.desktop ? qsTr("Pair mobile device") : qsTr("Pair desktop") }
                 LV.PushButton { objectName: "pairingClose"; text: qsTr("Close"); onClicked: panel.close() }
             }
             LV.Label {
                 Layout.fillWidth: true
-                text: panel.desktop ? qsTr("Scan this QR in iPhone Society to connect to this desktop's Files.")
-                    : qsTr("On your desktop, open Devices → Pair iPhone. Sign in to the same iisacc account on both devices.")
+                text: panel.desktop ? qsTr("Scan this QR in mobile Society to access this desktop's Files over the same Wi-Fi or LAN.")
+                    : qsTr("On your desktop, open Devices → Pair mobile device. Connect both devices to the same Wi-Fi or LAN.")
                 wrapMode: Text.Wrap
                 sizeToContentHeight: true
-            }
-            LV.PushButton {
-                objectName: "pairingSignIn"
-                Layout.fillWidth: true
-                visible: !panel.authenticated
-                text: qsTr("Sign in to iisacc")
-                onClicked: panel.accountRequested()
             }
             PairingQr {
                 id: qrImage
@@ -84,7 +76,7 @@ Controls.Popup {
             LV.PushButton {
                 objectName: "pairingRefresh"
                 Layout.fillWidth: true
-                visible: panel.desktop && panel.authenticated && panel.pairing.phase !== "paired"
+                visible: panel.desktop && panel.pairing.phase !== "paired"
                 enabled: !panel.pairing.busy
                 text: panel.pairing.qrText.length > 0 ? qsTr("Show new QR code") : qsTr("Show QR code")
                 onClicked: panel.pairing.showHostQr()
@@ -92,7 +84,7 @@ Controls.Popup {
             LV.PushButton {
                 objectName: "pairingScan"
                 Layout.fillWidth: true
-                visible: !panel.desktop && panel.authenticated && panel.pairing.phase !== "paired"
+                visible: !panel.desktop && panel.pairing.phase !== "paired"
                 enabled: !panel.scanner.active && !panel.pairing.busy
                 text: qsTr("Scan QR code")
                 onClicked: panel.scanner.start(panel.appWindow)
