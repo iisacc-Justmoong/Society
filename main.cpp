@@ -8,8 +8,16 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QTextStream>
+#include "App/Network/NetworkDriveController.h"
+#if defined(Q_OS_IOS) || defined(Q_OS_ANDROID)
+#include "App/Network/MobileSyncActivity.h"
+
+#endif
 #ifdef SOCIETY_ACCOUNT_RUNTIME_PROBE
 void societyAccountRuntimeProbe(QObject *root);
+#endif
+#ifdef SOCIETY_GROUP_STATE_RUNTIME_PROBE
+void societyGroupStateRuntimeProbe(QObject *root);
 #endif
 #ifdef SOCIETY_IOS_FILES_INTEGRATION_TEST
 #include <QTimer>
@@ -55,10 +63,26 @@ int main(int argc, char *argv[])
         QObject::connect(&engine, &QQmlApplicationEngine::objectCreated, runtime,
             [helper](QObject *root, const QUrl &) {
                 if (root) {
+#if defined(Q_OS_IOS) || defined(Q_OS_ANDROID)
+                    if (auto *network = root->findChild<NetworkDriveController *>("networkDriveController")) {
+                        const auto updateScreen = [network] {
+                            societySetSyncScreenActive(societySyncNeedsScreen(network->synchronizing(),
+                                network->connected(), QGuiApplication::applicationState()));
+                        };
+                        QObject::connect(network, &NetworkDriveController::synchronizationChanged, network, updateScreen);
+                        QObject::connect(network, &NetworkDriveController::stateChanged, network, updateScreen);
+                        QObject::connect(qGuiApp, &QGuiApplication::applicationStateChanged, network, updateScreen);
+                        QObject::connect(network, &QObject::destroyed, qGuiApp, [] { societySetSyncScreenActive(false); });
+                        updateScreen();
+                    }
+#endif
                     if (auto *account = root->findChild<AccountController *>(QStringLiteral("societyAccount")))
                         helper->setAccountManager(account->manager());
 #ifdef SOCIETY_ACCOUNT_RUNTIME_PROBE
                     societyAccountRuntimeProbe(root);
+#endif
+#ifdef SOCIETY_GROUP_STATE_RUNTIME_PROBE
+                    societyGroupStateRuntimeProbe(root);
 #endif
                 }
             });

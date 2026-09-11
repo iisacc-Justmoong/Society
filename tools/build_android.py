@@ -39,6 +39,7 @@ def main():
     common = [str(qt / 'bin/qt-cmake'), '-G', 'Ninja', '-DCMAKE_BUILD_TYPE=Release', '-DBUILD_TESTING=OFF',
               f'-DQT_HOST_PATH={args.qt_host.resolve(strict=True)}',
               f'-DANDROID_SDK_ROOT={sdk}', f'-DANDROID_NDK_ROOT={ndk}', f'-DCMAKE_ANDROID_NDK={ndk}',
+              f'-DQT_CHAINLOAD_TOOLCHAIN_FILE={ndk}/build/cmake/android.toolchain.cmake',
               '-DANDROID_PLATFORM=android-28', f'-DANDROID_ABI={args.abi}']
 
     def run(command, label):
@@ -50,7 +51,7 @@ def main():
             raise SystemExit(result.returncode)
 
     packages = {}
-    for name in ('iiAcountManager', 'iiServerHost', 'iiSocietyContainer', 'iiSocietyHelper'):
+    for name in ('iiAcountManager', 'iiServerHost', 'iiSocietyContainer', 'iiSocietyHelper', 'iiSocietySync'):
         directory = workspace / 'SDK' / name / 'build/society-android'
         prefix = build / 'installed' / name
         definitions = [f'-D{key}_DIR={value}' for key, value in packages.items()]

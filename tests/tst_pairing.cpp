@@ -1,4 +1,5 @@
 #include "App/Network/DevicePairing.h"
+#include "PairingCredentialsFixture.h"
 #include "App/Network/PairingQr.h"
 #include "App/Network/QrScanner.h"
 #include "FakeDiscoveryService.h"
@@ -76,6 +77,80 @@ private slots:
 #else
         QSKIP("Apple camera decoder requires macOS.");
 #endif
+    }
+    void automaticQueuePairsSeveralDevicesAndSurvivesPanelClosing() {
+        FakeDiscoveryService a, b, c;
+        NetworkDriveController desktop(&a, QHostAddress::LocalHost), phone(&b, QHostAddress::LocalHost), tablet(&c, QHostAddress::LocalHost);
+        QTemporaryDir root(SOCIETY_TEST_DIRECTORY "/automatic-files-XXXXXX");
+        QVERIFY(iiSocietyContainer::SocietyDrive::create(root.path())); desktop.setContainerPath(root.path());
+        QFile file(root.filePath("Files/automatic.txt")); QVERIFY(file.open(QIODevice::WriteOnly)); file.write("automatic LAN transfer"); file.close();
+        const auto scope = NearbyDevices::accountScope("test", "automatic-fixture");
+        desktop.discovery()->setIdentity(scope, "desktop", "Desktop", "pc", true);
+        phone.discovery()->setIdentity(scope, "phone", "Phone", "phone", false);
+        tablet.discovery()->setIdentity(scope, "tablet", "Tablet", "tablet", false);
+        // Two-day-old grants must complete TLS pairing and transfer without a
+        // service request or a freshly issued five-minute key.
+        for (auto *network : {&desktop, &phone, &tablet})
+            network->discovery()->setCredentials(localPairingCredentialsFixture(scope, 'a', QDateTime::currentDateTimeUtc().addDays(-2)));
+        a.announceTo(b); a.announceTo(c); b.announceTo(a); c.announceTo(a);
+        QSignalSpy paired(desktop.localPeer(), &iiServerHost::LanPeer::paired);
+        QTRY_VERIFY(!desktop.pairingQueue().isEmpty());
+        { DevicePairing panel; panel.setNetwork(&desktop); panel.cancel(); }
+        QTRY_COMPARE_WITH_TIMEOUT(paired.size(), 2, 15000);
+        QTRY_COMPARE(phone.entries().size(), 1); QTRY_COMPARE(tablet.entries().size(), 1);
+        QCOMPARE(phone.entries()[0].toMap().value("name").toString(), "automatic.txt");
+        QTRY_VERIFY(desktop.pairingQueue().isEmpty());
+        b.announceTo(a); b.announceTo(a); c.announceTo(a); QTest::qWait(1100); QCOMPARE(paired.size(), 2);
+        const auto destination = QUrl::fromLocalFile(root.filePath("copied.txt"));
+        QSignalSpy downloaded(&phone, &NetworkDriveController::downloadFinished);
+        phone.download("automatic.txt", destination); QTRY_COMPARE(downloaded.size(), 1);
+        QFile copied(destination.toLocalFile()); QVERIFY(copied.open(QIODevice::ReadOnly)); QCOMPARE(copied.readAll(), QByteArray("automatic LAN transfer"));
+        phone.disconnectSession(); QVERIFY(!phone.automaticPairingEnabled());
+        QTest::qWait(1100); QVERIFY(!phone.localPeer()->connected());
+        phone.resumeAutomaticPairing();
+        QTRY_VERIFY_WITH_TIMEOUT(phone.localPeer()->connected(), 15000);
+        desktop.discovery()->clear();
+        QTRY_VERIFY(!phone.localPeer()->connected()); QVERIFY(!desktop.hosting()); QVERIFY(desktop.pairingQueue().isEmpty());
+    }
+    void establishedPrimaryOutranksANewLowerIdDesktop() {
+        FakeDiscoveryService a, b;
+        NetworkDriveController established(&a, QHostAddress::LocalHost), newcomer(&b, QHostAddress::LocalHost);
+        QTemporaryDir root(SOCIETY_TEST_DIRECTORY "/primary-election-XXXXXX"), other(SOCIETY_TEST_DIRECTORY "/newcomer-election-XXXXXX");
+        QVERIFY(iiSocietyContainer::SocietyDrive::create(root.path())); QVERIFY(iiSocietyContainer::SocietyDrive::create(other.path()));
+        established.setContainerPath(root.path()); newcomer.setContainerPath(other.path());
+        const auto scope = NearbyDevices::accountScope("test", "primary-election");
+        established.discovery()->setIdentity(scope, "z-primary", "Primary", "pc", true);
+        newcomer.discovery()->setIdentity(scope, "a-new", "New desktop", "pc", true);
+        established.discovery()->setCredentials(localPairingCredentialsFixture(scope), true, "z-primary");
+        newcomer.discovery()->setCredentials(localPairingCredentialsFixture(scope));
+        a.announceTo(b); b.announceTo(a);
+        QTRY_VERIFY_WITH_TIMEOUT(newcomer.localPeer()->connected(), 10000);
+        QVERIFY(established.hosting()); QVERIFY(!newcomer.hosting());
+        // A remembered mirror does not elect itself while its primary is absent.
+        newcomer.discovery()->setCredentials(localPairingCredentialsFixture(scope), false, "z-primary");
+        established.discovery()->clear(); QTest::qWait(700);
+        QVERIFY(!newcomer.hosting());
+    }
+    void automaticHostElectionAndFailedPeerDoNotBlockOtherDevices() {
+        FakeDiscoveryService a, b, c;
+        NetworkDriveController first(&a, QHostAddress::LocalHost), second(&b, QHostAddress::LocalHost), unavailable(&c, QHostAddress::LocalHost);
+        QTemporaryDir root(SOCIETY_TEST_DIRECTORY "/automatic-election-XXXXXX");
+        QVERIFY(iiSocietyContainer::SocietyDrive::create(root.path()));
+        first.setContainerPath(root.path()); second.setContainerPath(root.path());
+        const auto scope = NearbyDevices::accountScope("test", "election-fixture");
+        first.discovery()->setIdentity(scope, "a-desktop", "First desktop", "pc", true);
+        second.discovery()->setIdentity(scope, "c-desktop", "Second desktop", "pc", true);
+        unavailable.discovery()->setIdentity(scope, "b-offline", "Unavailable phone", "phone", false);
+        for (auto *network : {&first, &second, &unavailable}) network->discovery()->setCredentials(localPairingCredentialsFixture(scope));
+        unavailable.pauseAutomaticPairing();
+        a.announceTo(b); a.announceTo(c); b.announceTo(a); b.announceTo(c); c.announceTo(a); c.announceTo(b);
+        QTRY_VERIFY_WITH_TIMEOUT(second.localPeer()->connected(), 10000);
+        QVERIFY(first.hosting()); QVERIFY(!second.hosting());
+        QVERIFY(!unavailable.localPeer()->connected());
+        QTRY_VERIFY(!first.pairingQueue().isEmpty());
+        unavailable.resumeAutomaticPairing();
+        QTRY_VERIFY_WITH_TIMEOUT(unavailable.localPeer()->connected(), 10000);
+        QTRY_VERIFY(first.pairingQueue().isEmpty());
     }
     void discoverySelectionAcceptAndCodeConfirmationExposeFiles() {
         FakeDiscoveryService a, b;

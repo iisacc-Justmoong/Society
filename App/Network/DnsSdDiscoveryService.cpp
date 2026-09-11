@@ -67,7 +67,7 @@ class DnsSdService final : public DiscoveryService {
                 trace(QStringLiteral("resolve result %1, TXT bytes %2").arg(code).arg(length));
                 if (code == kDNSServiceErr_NoError && length <= 1024) {
                     QJsonObject record;
-                    for (const auto *field : {"v", "scope", "id", "name", "kind", "host", "nonce"}) {
+                    for (const auto *field : {"v", "scope", "id", "name", "kind", "host", "nonce", "epoch", "proof", "autoHost", "primary"}) {
                         uint8_t size = 0; const auto *value = TXTRecordGetValuePtr(length, txt, field, &size);
                         if (value) record.insert(field, QString::fromUtf8(static_cast<const char *>(value), size));
                     }
@@ -89,8 +89,12 @@ class DnsSdService final : public DiscoveryService {
                                     if (owner->services.contains(op->key) && iiServerHost::LanLink::localAddress(ip.toString()) && !ip.isLoopback())
                                         emit owner->found(op->key, op->record, ip, op->port);
                                 }
-                                if (owner->services.contains(op->key) && owner->services[op->key].resolving == op) owner->services[op->key].resolving = nullptr;
-                                owner->retire(op);
+                                // Keep the bounded query alive: additional A
+                                // records can arrive in a later DNS batch.
+                                if (error) {
+                                    if (owner->services.contains(op->key) && owner->services[op->key].resolving == op) owner->services[op->key].resolving = nullptr;
+                                    owner->retire(op);
+                                }
                             }, addressOp);
                         if (self->watch(addressOp, result)) QTimer::singleShot(8000, addressOp, [self, addressOp] {
                             if (self->services.contains(addressOp->key) && self->services[addressOp->key].resolving == addressOp)
@@ -103,7 +107,7 @@ class DnsSdService final : public DiscoveryService {
                             if (current != self->generation || !self->services.contains(key)) return;
                             for (const auto &address : info.addresses()) {
                                 if (iiServerHost::LanLink::localAddress(address.toString()) && !address.isLoopback()) {
-                                    emit self->found(key, record, address, qFromBigEndian(port)); break;
+                                    emit self->found(key, record, address, qFromBigEndian(port));
                                 }
                             }
                         });

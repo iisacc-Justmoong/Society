@@ -21,6 +21,7 @@
 #include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QTest>
+#include <QUuid>
 #include "App/Network/NetworkDriveController.h"
 #include "App/Network/DevicePairing.h"
 #include "App/Network/PairingQr.h"
@@ -50,6 +51,20 @@ private slots:
         qmlRegisterType<DevicePairing>("Society", 1, 0, "DevicePairing");
         qmlRegisterType<PairingQr>("Society", 1, 0, "PairingQr");
         qmlRegisterType<QrScanner>("Society", 1, 0, "QrScanner");
+    }
+    void reloadAdoptedIdentityAndHideAnIncompleteMirror()
+    {
+        QTemporaryDir root(QStringLiteral(SOCIETY_TEST_DIRECTORY "/drive-mirror-XXXXXX"));
+        DriveController drive; QVERIFY(drive.openContainer(root.path()));
+        const auto old = drive.identifier(); const auto host = QUuid::createUuid().toString(QUuid::WithoutBraces);
+        QVERIFY(drive.openSection("files")); drive.setMirrorPending(true);
+        QVERIFY(drive.hasDrive()); QVERIFY(!drive.contentsAvailable()); QVERIFY(!drive.openSection("models"));
+        QVERIFY(iiSocietyContainer::SocietyDrive::adoptReplicaIdentity(root.path(), old, host));
+        QVERIFY(drive.reloadFromDisk()); QCOMPARE(drive.identifier(), host); QVERIFY(drive.atRoot());
+        QVERIFY(!drive.contentsAvailable()); QVERIFY(iiSocietyContainer::SocietyDrive::completeReplica(root.path(), host));
+        drive.setMirrorPending(false); QVERIFY(drive.contentsAvailable());
+        QVERIFY(drive.openSection("files"));
+        QCOMPARE(iiSocietyContainer::SharedStorage::open()->drive().identifier(), host);
     }
     void controllerLayoutAndNavigation()
     {
@@ -194,6 +209,14 @@ private slots:
         QTRY_VERIFY(window->property("selectedTab").toString() == "Storage");
         QVERIFY(grid->isVisible());
         QVERIFY(!files->isVisible());
+        auto *storage = window->findChild<QQuickItem *>("storageView");
+        auto *progress = window->findChild<QQuickItem *>("mirrorProgress");
+        QVERIFY(storage && progress);
+        QVERIFY(storage->setProperty("synchronizationStatus", "Syncing test-model.safetensors (42%)…"));
+        controller->setMirrorPending(true);
+        QTRY_VERIFY(progress->isVisible()); QVERIFY(!grid->isVisible());
+        QCOMPARE(progress->property("text").toString(), QString("Syncing test-model.safetensors (42%)…"));
+        controller->setMirrorPending(false); QTRY_VERIFY(grid->isVisible()); QVERIFY(!progress->isVisible());
         const auto findTile = [&](auto &&self, QQuickItem *item) -> QQuickItem * {
             if (item->objectName() == "sectionTile" && item->property("text").toString() == "Files")
                 return item;

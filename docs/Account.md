@@ -1,5 +1,7 @@
 # Society iisacc 계정 로그인
 
+인증된 Society 세션은 최대 7일의 LAN 전용 일별 seed를 준비하고, 앱이 짧은 주기의 인증 키를 직접 계산해 [자동 페어링](AutomaticPairing.md)을 수행한다. `AccountController::requestPairingCredentials()`는 준비·갱신이 필요할 때만 기존 쿠키로 `intent: pairing`을 호출하며 SDK에 기기·세션·만료 바인딩 판단을 위임한다. 로그인과 페어링 정보는 [그룹 컨테이너](GroupState.md)에 암호화한다. 계정 판단은 iiAccountManager 0.2.6이 전담한다. SDK의 보안 캐시로 HTTP 없이 복원하고 실제 변경·명시적 요청·만료 전환에만 통신한다. 계정 서버 이외의 디바이스에 로그인 쿠키를 전달하지 않는다.
+
 Society의 데스크톱·iOS/iPadOS·Android는 iiAccountManager SDK의 `AccountViews`를 사용한다.
 로그인·회원가입 QML과 대화상자 QObject는 SDK가 소유하며 앱에는 폼 구현을 두지 않는다.
 `AccountController`는 앱의 기기 정보·세션·네트워크 연결만 중개한다.
@@ -16,8 +18,7 @@ LVRS 입력 필드·버튼·라벨과 화면 크기에 맞는 스크롤 패널�
 따라서 모든 플랫폼에서 계정 패널, 네트워크 드라이브, Helper가 같은 Account·AuthorDetails 객체를 읽는다.
 계정이 파괴되거나 교체되면 네트워크 연결을 해제하며 Helper의 비소유 참조도 자동 해제된다.
 
-계정 모델 존재와 서버가 확인한 앱 세션이 모두 있을 때 `signedIn`을 표시한다. 파일에서 읽은
-계정 프로필만으로 로그인 상태를 만들지 않는다. 실제 원격 파일 접근 권한은 서버가 쿠키를 검증해 결정한다.
+Society의 `signedIn`은 SDK의 `isAuthenticated()`를 그대로 따른다. 공개 JSON에 계정과 세션이 모두 있어도 SDK가 인증하지 않으면 로그인 상태를 만들지 않는다. 실제 원격 파일 접근 권한은 서버가 쿠키를 검증해 결정한다.
 
 ## 인증 흐름
 
@@ -31,15 +32,15 @@ LVRS 입력 필드·버튼·라벨과 화면 크기에 맞는 스크롤 패널�
 입력 필드에서 지운다. 서버가 전체 계정과 해당 기기 세션을 반환해야만 로그인 상태로 전환한다.
 회원가입과 웹 계정 관리는 각각 `/Account/SignUp`, `/Account`를 기본 브라우저에서 연다.
 
-실행 중 쿠키는 전용 Qt cookie jar에 두고, refresh·앱 세션 쿠키 두 개를 앱이 소유하는 보안 저장소에 보관한다.
-macOS/iOS는 Keychain, Android는 Keystore를 사용한다. 비밀번호·코드·ID token·challenge를 영속 저장하지 않는다.
+실행 중 쿠키는 전용 Qt cookie jar에 두고, refresh·앱 세션 쿠키 두 개를 모바일을 포함한 그룹 컨테이너에 암호화해 보관한다.
+암호화 키는 macOS/iOS의 Keychain, Android의 Keystore에 둔다. 비밀번호·코드·ID token·challenge를 영속 저장하지 않는다.
 인증정보를 Helper 관측 기록·전달 큐·LAN 페어링·공개 C++ 계정 모델에 넣지 않는다.
-앱 시작 시 저장 세션을 복원하고 서버에서 전체 계정 모델을 받아 자동 로그인한다. 계정 연결 중이면 로그인 폼 대신 복원 상태를 표시한다.
-QtKeychain이 사용하는 설정 파일에는 비밀이 아닌 복원 표식과 Android의 암호문만 기록한다. 평문 fallback은 없다.
+앱 시작 시 v2 로컬 권한과 계정·기기·세션 바인딩이 유효한 암호화 캐시가 있으면 보안 쿠키와 전체 계정 모델을 HTTP 없이 복원한다. 캐시가 없으면 서버에서 확인한다. 계정 연결 중이면 로그인 폼 대신 복원 상태를 표시한다.
+기존 앱 전용 저장 항목은 그룹 암호문 저장에 성공한 뒤 이전 위치에서 제거한다. 평문 fallback은 없다.
 
 일시적 네트워크 실패는 저장 정보를 유지하고 자동 재시도한다. 로그아웃은 오프라인이어도 자동 복원을 해제한다.
 서버 만료·철회 또는 기기 불일치는 세션을 제거하므로 다시 로그인해야 한다. 서버의 30일 절대 만료 정책은 유지한다.
-이전 버전은 메모리에만 저장했으므로 이번 버전에서 한 번 로그인한 이후부터 재시작 복원이 적용된다.
+기존 보안 저장소에 유효한 세션이 있으면 다시 로그인하지 않고 그룹 컨테이너로 이전한다.
 자세한 SDK 계약은 `SDK/iiAcountManager/docs/SESSION_PERSISTENCE.md`를 따른다.
 
 자동 로그인용 iiAccountManager 0.2.4는 QtKeychain의 플랫폼 보안 저장소 구현을 정적으로 포함한다.

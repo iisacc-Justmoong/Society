@@ -27,6 +27,15 @@ class IosBuildTest(unittest.TestCase):
                                    if '--install' in step and 'iiAcountManager' in step[2])
             self.assertLess(account_install, helper_index)
             self.assertIn(f'-DiiAcountManager_DIR={prefix}/lib/cmake/iiAcountManager', plan[helper_index])
+            sync_index = next(i for i, step in enumerate(plan)
+                              if '-S' in step and Path(step[step.index('-S') + 1]).name == 'iiSocietySync')
+            host_install = next(i for i, step in enumerate(plan)
+                                if '--install' in step and 'iiServerHost' in step[2])
+            self.assertLess(container_install, sync_index)
+            self.assertLess(host_install, sync_index)
+            for dependency in ('iiSocietyContainer', 'iiServerHost'):
+                self.assertIn(f'-D{dependency}_DIR={prefix}/lib/cmake/{dependency}', plan[sync_index])
+            self.assertFalse(any('iiSocietyHelper_DIR' in option for option in plan[sync_index]))
 
     def test_command_line_tools_do_not_count_as_an_ios_sdk(self):
         with tempfile.TemporaryDirectory(dir=SOURCE / 'build') as directory:
@@ -46,7 +55,7 @@ class IosBuildTest(unittest.TestCase):
         for mode, sdk in (('ios-device', 'iphoneos'), ('ios-simulator', 'iphonesimulator')):
             plan = build_ios.commands(mode, Path('/Volumes/Storage/Qt/6.8.3'), 'TESTTEAM', 'Debug')
             configurations = [step for step in plan if '-S' in step]
-            self.assertEqual(len(configurations), 6)
+            self.assertEqual(len(configurations), 7)
             for command in configurations:
                 self.assertIn(f'-DCMAKE_OSX_SYSROOT={sdk}', command)
                 output = Path(command[command.index('-B') + 1])
@@ -60,7 +69,7 @@ class IosBuildTest(unittest.TestCase):
             variables = next(p['cacheVariables'] for p in presets if p['name'] == mode)
             self.assertEqual(variables['CMAKE_OSX_SYSROOT'], sdk)
             self.assertEqual({k for k in variables if k.startswith('ii')},
-                             {'iiAcountManager_DIR', 'iiServerHost_DIR', 'iiSocietyContainer_DIR', 'iiSocietyHelper_DIR'})
+                             {'iiAcountManager_DIR', 'iiServerHost_DIR', 'iiSocietyContainer_DIR', 'iiSocietyHelper_DIR', 'iiSocietySync_DIR'})
             hosting = next(c for c in configurations if Path(c[c.index('-S') + 1]).name == 'iiServerHost')
             self.assertIn('-DBUILD_SHARED_LIBS=OFF', hosting)
             self.assertIn(mode, variables['LVRS_DIR'])

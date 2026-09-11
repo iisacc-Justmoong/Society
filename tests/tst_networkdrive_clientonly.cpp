@@ -2,6 +2,7 @@
 #include "App/Network/DevicePairing.h"
 #include "App/Network/PairingQr.h"
 #include "App/Network/QrScanner.h"
+#include "App/Network/MobileSyncActivity.h"
 #include <QFile>
 #include <QGuiApplication>
 #include <QQmlComponent>
@@ -19,6 +20,14 @@ using namespace iiServerHost;
 class ClientOnlyNetworkTests : public QObject {
     Q_OBJECT
 private slots:
+    void screenIsRetainedOnlyForAnActiveConnectedTransfer() {
+        QVERIFY(societySyncNeedsScreen(true, true, Qt::ApplicationActive));
+        QVERIFY(!societySyncNeedsScreen(false, true, Qt::ApplicationActive)); // Completed batch.
+        QVERIFY(!societySyncNeedsScreen(true, false, Qt::ApplicationActive)); // Lost transport.
+        for (const auto state : {Qt::ApplicationInactive, Qt::ApplicationHidden, Qt::ApplicationSuspended})
+            QVERIFY(!societySyncNeedsScreen(true, true, state)); // Never retain a background screen.
+        QVERIFY(societySyncNeedsScreen(true, true, Qt::ApplicationActive)); // Resumed batch.
+    }
     void initTestCase() {
         qmlRegisterType<NetworkDriveController>("Society", 1, 0, "NetworkDriveController");
         qmlRegisterType<AccountController>("Society", 1, 0, "AccountController");

@@ -1,12 +1,17 @@
 #include "AccountController.h"
 #include "DeviceInfo.h"
+#include "App/State/GroupSessionStore.h"
+#include "App/Network/PairingCredentials.h"
 #include <iiAcountManager/Quick/AccountViews.h>
 #include <iiAcountManager/SessionStore.h>
 #include <QCoreApplication>
-#include <QGuiApplication>
 #include <QTimer>
 #include <QNetworkCookie>
 #include <QNetworkCookieJar>
+#include <QNetworkReply>
+#include <QJsonDocument>
+#include <QHostAddress>
+#include <QCryptographicHash>
 
 using iisacc::accounts::AccountManager;
 
@@ -17,34 +22,227 @@ AccountController::AccountController(QObject *parent)
     : AccountController(QUrl(qEnvironmentVariable("SOCIETY_ACCOUNT_URL", "https://iisacc.com")), parent) {
 #ifndef SOCIETY_DISABLE_SESSION_RESTORE
     if (qEnvironmentVariableIntValue("SOCIETY_DISABLE_SESSION_RESTORE") == 1) return;
-    m_manager.setSessionStore(iisacc::accounts::SessionStore::create(QStringLiteral("com.iisacc.society"), this));
-    QTimer::singleShot(0, &m_manager, &AccountManager::restoreSession);
-    if (auto* application = qobject_cast<QGuiApplication*>(QCoreApplication::instance())) {
-        connect(application, &QGuiApplication::applicationStateChanged, this, [this](Qt::ApplicationState state) {
-            if (state == Qt::ApplicationActive && !busy() && !signedIn()
-                && m_manager.activeView() == AccountManager::View::Closed) m_manager.restoreSession();
-        });
-    }
+    initializePersistence(GroupSessionStore::create(this));
 #endif
 }
 
 AccountController::AccountController(const QUrl &serviceUrl, QObject *parent)
     : QObject(parent), m_manager(serviceUrl, &m_network) {
     m_manager.setDeviceInfo(societyAccountDevice(m_manager.deviceInfo()));
+    m_pairingExpiry.setSingleShot(true);
+    connect(&m_pairingExpiry, &QTimer::timeout, this, [this] {
+        if (validPairingCredentials(m_pairingCredentials)) { schedulePairingExpiry(); return; }
+        m_pairingCredentials = {}; m_pairingRequestBlocked = false;
+        persistPairingState(); emit pairingCredentialsChanged(); emit pairingCredentialsRequired();
+    });
     connect(m_manager.account(), &iisacc::accounts::Account::changed, this, &AccountController::changed);
     connect(&m_manager, &AccountManager::loadingChanged, this, &AccountController::changed);
     connect(&m_manager, &AccountManager::errorChanged, this, &AccountController::changed);
+    connect(&m_manager, &AccountManager::authenticatedChanged, this, [this] {
+        if (signedIn()) m_pairingSessionEnding = false;
+        else {
+            m_verifiedThisRun = false; clearPairingCredentials();
+            ++m_pairingRevision; m_pairingLoadedSession.clear(); m_pairingLoading = false; m_rememberedPeers = {};
+        }
+        emit changed();
+    });
     connect(&m_manager, &AccountManager::loginSessionChanged, this, &AccountController::changed);
     connect(&m_manager, &AccountManager::loginChallengeChanged, this, &AccountController::changed);
+    connect(&m_manager, &AccountManager::sessionEnding, this, &AccountController::discardPairingState);
     connect(&m_manager, &AccountManager::sessionEnding, this, &AccountController::sessionEnding);
     connect(&m_manager, &AccountManager::restoringSessionChanged, this, &AccountController::changed);
     connect(&m_manager, &AccountManager::sessionStorageErrorChanged, this, &AccountController::changed);
+    connect(&m_manager, &AccountManager::sessionVerified, this, [this] {
+        m_verifiedThisRun = true; m_pairingRequestBlocked = false;
+        persistPairingState();
+        emit pairingCredentialsRequired();
+    });
+    connect(&m_manager, &AccountManager::loaded, this, [this] {
+        if (signedIn()) emit pairingCredentialsRequired();
+    });
+    connect(this, &AccountController::changed, this, [this] {
+        if (!signedIn() || m_pairingSessionEnding) return;
+        if (!m_pairingCredentials.isEmpty() && !m_manager.acceptsSessionCredential(m_pairingCredentials.toVariantMap()))
+            clearPairingCredentials();
+        restorePairingState();
+    });
+}
+
+AccountController::AccountController(const QUrl &serviceUrl, iisacc::accounts::SessionStore *store, QObject *parent)
+    : AccountController(serviceUrl, parent) { initializePersistence(store); }
+
+void AccountController::initializePersistence(iisacc::accounts::SessionStore *store) {
+    if (!store || !m_manager.setSessionStore(store)) return;
+    m_stateStore = store;
+    QTimer::singleShot(0, this, &AccountController::restoreCachedAccount);
+}
+void AccountController::restoreCachedAccount() {
+    if (!m_stateStore || busy() || signedIn()) return;
+    const auto revision = m_pairingRevision;
+    const QPointer<AccountController> guard(this);
+    // Only the SDK interprets this legacy account record. New account snapshots
+    // are owned by the SDK in a separate record of the same encrypted group store.
+    m_stateStore->read(pairingStateKey(), [guard, revision](iisacc::accounts::SessionStore::Result result) {
+        if (!guard || revision != guard->m_pairingRevision || guard->busy() || guard->signedIn()) return;
+        if (result.error == iisacc::accounts::SessionStore::Error::None
+            && guard->m_manager.restoreSessionFromCache(result.data)) return;
+        guard->m_manager.restoreSession();
+    });
+}
+QString AccountController::pairingStateKey() const {
+    const auto origin = m_manager.serviceUrl().adjusted(QUrl::RemovePath | QUrl::RemoveQuery | QUrl::RemoveFragment | QUrl::RemoveUserInfo).toEncoded();
+    return "pairing-v1-" + QString::fromLatin1(QCryptographicHash::hash(origin + '\n'
+        + m_manager.deviceInfo().value("id").toString().toUtf8(), QCryptographicHash::Sha256).toHex());
+}
+bool AccountController::validPairingCredentials(const QJsonObject &proof) const {
+    const auto expiry = QDateTime::fromString(proof.value("expiresAt").toString(), Qt::ISODate);
+    const auto refresh = QDateTime::fromString(proof.value("refreshAt").toString(), Qt::ISODate);
+    return SocietyPairingCredentials::valid(proof, QDateTime::currentDateTimeUtc())
+        && m_manager.acceptsSessionCredential(proof.toVariantMap()) && refresh.isValid() && refresh <= expiry;
+}
+void AccountController::schedulePairingExpiry() {
+    m_pairingExpiry.stop();
+    if (!validPairingCredentials(m_pairingCredentials)) return;
+    const auto expiry = QDateTime::fromString(m_pairingCredentials.value("expiresAt").toString(), Qt::ISODate);
+    m_pairingExpiry.start(int(qBound(qint64(1), QDateTime::currentDateTimeUtc().msecsTo(expiry), qint64(2147483647))));
+}
+void AccountController::restorePairingState() {
+    if (!m_stateStore || !signedIn() || m_pairingSessionEnding || m_pairingRestoreRetryAt > QDateTime::currentDateTimeUtc()) return;
+    const auto session = m_manager.loginSession().value("id").toString();
+    if (m_pairingLoadedSession == session) return;
+    m_pairingLoadedSession = session; m_pairingLoading = true;
+    const auto revision = ++m_pairingRevision;
+    const QPointer<AccountController> guard(this);
+    m_stateStore->read(pairingStateKey(), [guard, session, revision](iisacc::accounts::SessionStore::Result result) {
+        if (!guard || revision != guard->m_pairingRevision || !guard->signedIn()
+            || guard->m_manager.loginSession().value("id").toString() != session) return;
+        auto *self = guard.data();
+        if (result.error == iisacc::accounts::SessionStore::Error::Unavailable) {
+            self->m_pairingLoadedSession.clear(); self->m_pairingLoading = true;
+            self->m_pairingRestoreRetryAt = QDateTime::currentDateTimeUtc().addSecs(30);
+            self->m_pairingStorageError = tr("Saved pairing information could not be read. Unlock this device and try again.");
+            QTimer::singleShot(30050, self, &AccountController::restorePairingState);
+            emit self->changed(); return;
+        }
+        self->m_pairingLoading = false; self->m_pairingRestoreRetryAt = {};
+        const auto record = QJsonDocument::fromJson(result.data).object();
+        const auto proof = record.value("credentials").toObject();
+        auto binding = record.value("binding").toObject().toVariantMap();
+        if (record.value("schemaVersion").toInt() < 3) {
+            for (const auto* field : {"origin", "subject", "userId", "deviceId"}) binding.insert(field, record.value(field).toVariant());
+            binding.insert("sessionId", proof.value("sessionId").toVariant());
+        }
+        const bool valid = result.error == iisacc::accounts::SessionStore::Error::None
+            && record.value("schemaVersion").toInt() >= 1 && record.value("schemaVersion").toInt() <= 3
+            && self->m_manager.matchesSessionBinding(binding);
+        if (valid) {
+            self->m_automaticPairingEnabled = record.value("automaticEnabled").toBool(true);
+            self->m_rememberedPeers = record.value("peers").toArray();
+            if (self->m_rememberedPeers.size() > 128) self->m_rememberedPeers = {};
+            if (self->validPairingCredentials(proof)) self->m_pairingCredentials = proof;
+            self->m_pairingRequestBlocked = !self->m_verifiedThisRun
+                && (record.value("requestBlocked").toBool() || record.value("pairingFailures").toInt() > 0);
+            self->schedulePairingExpiry();
+        }
+        self->m_pairingStorageError.clear();
+        if (valid && record.value("schemaVersion").toInt() < 3) self->persistPairingState();
+        emit self->pairingStateRestored(); emit self->pairingCredentialsChanged(); emit self->changed();
+    });
+}
+void AccountController::persistPairingState() {
+    if (!m_stateStore || !signedIn() || m_pairingLoading || m_pairingSessionEnding) return;
+    const QJsonObject record{{"schemaVersion", 3}, {"binding", QJsonObject::fromVariantMap(m_manager.sessionBinding())},
+        {"credentials", m_pairingCredentials}, {"automaticEnabled", m_automaticPairingEnabled},
+        {"peers", m_rememberedPeers}, {"requestBlocked", m_pairingRequestBlocked}};
+    const auto revision = ++m_pairingRevision;
+    const QPointer<AccountController> guard(this);
+    m_stateStore->write(pairingStateKey(), QJsonDocument(record).toJson(QJsonDocument::Compact), [guard, revision](iisacc::accounts::SessionStore::Result result) {
+        if (!guard || revision != guard->m_pairingRevision) return;
+        guard->m_pairingStorageError = result.error == iisacc::accounts::SessionStore::Error::None ? QString()
+            : tr("Pairing works for this run, but its group-container state could not be saved.");
+        emit guard->changed();
+    });
+}
+void AccountController::discardPairingState() {
+    m_pairingSessionEnding = true;
+    clearPairingCredentials(); ++m_pairingRevision;
+    m_pairingLoadedSession.clear(); m_pairingStorageError.clear(); m_pairingRestoreRetryAt = {};
+    m_pairingLoading = false; m_rememberedPeers = {}; m_automaticPairingEnabled = true;
+    m_verifiedThisRun = false;
+    if (m_stateStore) m_stateStore->remove(pairingStateKey(), [](auto) {});
+}
+void AccountController::setAutomaticPairingEnabled(bool enabled) {
+    if (m_automaticPairingEnabled == enabled) return;
+    m_automaticPairingEnabled = enabled; persistPairingState();
+}
+void AccountController::rememberPairedDevice(const QString &id, const QString &name, const QString &kind) {
+    if (!signedIn() || id.isEmpty() || id.size() > 256) return;
+    for (qsizetype index = m_rememberedPeers.size(); index > 0; --index)
+        if (m_rememberedPeers.at(index - 1).toObject().value("id").toString() == id) m_rememberedPeers.removeAt(index - 1);
+    while (m_rememberedPeers.size() >= 128) m_rememberedPeers.removeAt(0);
+    m_rememberedPeers.append(QJsonObject{{"id", id}, {"name", name.left(128)}, {"kind", kind.left(32)},
+        {"lastPairedAt", QDateTime::currentDateTimeUtc().toString(Qt::ISODate)}});
+    persistPairingState();
+}
+
+void AccountController::clearPairingCredentials() {
+    if (m_pairingReply) {
+        auto *reply = m_pairingReply.data(); m_pairingReply = nullptr;
+        reply->disconnect(this); reply->abort(); reply->deleteLater();
+    }
+    m_pairingExpiry.stop(); m_pairingRequestBlocked = false;
+    if (m_pairingCredentials.isEmpty()) return;
+    m_pairingCredentials = {}; emit pairingCredentialsChanged();
+}
+
+void AccountController::requestPairingCredentials() {
+    if (!signedIn() || busy() || m_pairingLoading || m_pairingSessionEnding || m_pairingReply || m_pairingRequestBlocked
+        || (m_pairingCredentials.value("version").toInt() == 2 && validPairingCredentials(m_pairingCredentials))) return;
+    const auto service = m_manager.serviceUrl();
+    if (service.scheme() != "https" && !(service.scheme() == "http" && QHostAddress(service.host()).isLoopback())) return;
+    const auto session = m_manager.loginSession().value("id").toString();
+    auto device = m_manager.deviceInfo(); device.insert("pairingVersion", 2);
+    QNetworkRequest request(service.resolved(QUrl("/Account/Session/App")));
+    request.setRawHeader("Accept", "application/json");
+    request.setRawHeader("Origin", service.adjusted(QUrl::RemovePath | QUrl::RemoveQuery | QUrl::RemoveFragment | QUrl::RemoveUserInfo).toEncoded());
+    request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+    request.setRawHeader("Cache-Control", "no-store");
+    request.setAttribute(QNetworkRequest::CacheLoadControlAttribute, QNetworkRequest::AlwaysNetwork);
+    request.setAttribute(QNetworkRequest::CacheSaveControlAttribute, false);
+    request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::ManualRedirectPolicy);
+    request.setTransferTimeout(10000);
+    m_pairingRequestBlocked = true;
+    auto *reply = m_network.post(request, QJsonDocument(QJsonObject{{"intent", "pairing"},
+        {"device", QJsonObject::fromVariantMap(device)}}).toJson(QJsonDocument::Compact));
+    m_pairingReply = reply;
+    QTimer::singleShot(10000, reply, [reply] { if (!reply->isFinished()) reply->abort(); });
+    connect(reply, &QNetworkReply::readyRead, this, [reply] { if (reply->bytesAvailable() > 8192) reply->abort(); });
+    connect(reply, &QNetworkReply::finished, this, [this, reply, session, device] {
+        m_pairingReply = nullptr; reply->deleteLater();
+        if (!signedIn() || m_manager.loginSession().value("id").toString() != session) return;
+        const auto status = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+#ifdef SOCIETY_GROUP_STATE_RUNTIME_PROBE
+        qInfo("Society pairing response status=%d networkError=%d", status, int(reply->error()));
+#endif
+        if (reply->bytesAvailable() > 8192) { persistPairingState(); return; }
+        const auto body = reply->readAll();
+        if (m_manager.handleSessionResponse(status, body, session)) return;
+        if (reply->error() != QNetworkReply::NoError || status != 200) { persistPairingState(); return; }
+        const auto proof = QJsonDocument::fromJson(body).object().value("pairing").toObject();
+#ifdef SOCIETY_GROUP_STATE_RUNTIME_PROBE
+        qInfo("Society pairing metadata version=%d seeds=%lld valid=%d", proof.value("version").toInt(1),
+            qlonglong(proof.value("seeds").toObject().size()), validPairingCredentials(proof));
+#endif
+        if (!validPairingCredentials(proof)) { persistPairingState(); return; }
+        m_pairingRequestBlocked = proof.value("version").toInt(1) == 1;
+        m_pairingCredentials = proof; schedulePairingExpiry(); persistPairingState(); emit pairingCredentialsChanged();
+    });
 }
 
 bool AccountController::login(const QString &email, const QString &password) {
     return !busy() && m_manager.loginWithPassword(email.trimmed(), password);
 }
-bool AccountController::refresh() { return !busy() && (signedIn() ? m_manager.refresh() : m_manager.restoreSession()); }
+bool AccountController::refresh() { return !busy() && m_manager.refresh(); }
 bool AccountController::logout() {
     if (busy()) return false;
     return m_manager.logout();

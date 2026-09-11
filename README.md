@@ -1,9 +1,11 @@
 # Society
 
+로그인 복원 정보와 페어링 인증·기기 이력·자동 연결 설정은 모바일을 포함해 [그룹 컨테이너](docs/GroupState.md)에 암호화하여 저장한다.
+
 iiAccountManager SDK가 소유하는 로그인·회원가입 화면을 데스크톱·iPhone·Android에서 호출한다.
 공통 계정 화면에서 iisacc.com 이메일과 비밀번호로 바로 로그인한다. 앱 소유 보안 저장소에 세션을 보관하여 다음 실행부터 자동으로 복원하고 전체 계정 객체를 갱신한다. 비밀번호를 저장하지 않으며 로그아웃·서버 만료·철회 시 복원을 해제한다. [계정 연결 계약](docs/Account.md)을 참고한다.
 
-같은 iisacc 계정으로 로그인한 Society 기기를 데스크탑이 LAN에서 지속 탐색한다. **Devices → Pair a device → Nearby devices**에서 기기를 선택하고 상대 앱에서 요청을 수락한 뒤 양쪽 확인 코드를 대조하여 연결한다. Apple은 Bonjour, Android는 NSD를 사용하며 중계 서버는 거치지 않는다. **QR code** 방식도 유지하며 이 경로는 로그인 없이 사용할 수 있다. [로컬 페어링 절차·검증 범위](docs/Pairing.md)를 참고한다.
+같은 iisacc 계정의 Society 기기를 LAN에서 탐색하고, 계정 서버가 발급한 단기 증명을 검증하여 자동 대기열에 넣고 연결한다. 한 데스크톱 호스트에 다른 데스크톱·휴대폰·태블릿이 순서대로 연결하며 실패한 기기는 자동 재시도한다. Apple은 Bonjour, Android는 NSD를 사용하고 Files 전송은 LAN에서 처리한다. [자동 연결 계약](docs/AutomaticPairing.md)과 [수동 초대·QR 절차](docs/Pairing.md)를 참고한다.
 
 ## iisacc 계정
 
@@ -28,7 +30,7 @@ iiSocietyHelper 0.4.0의 `societyHelper.fileSystem`은 Society 원본의 8개 �
 
 `Society.Dependencies`는 실제 앱 실행 파일과 테스트 Helper의 양방향 발견을 검증한다. `SOCIETY_HELPER_DIRECTORY`와 저장소 설정을 테스트별 `build/` 경로로 격리한다. SDK 0.3.1 설치 경로는 `iiSocietyHelper_DIR`로 지정한다. 현재 Workspace 검증본은 `SDK/iiSocietyHelper/build/install/lib/cmake/iiSocietyHelper`이다.
 
-Society는 iisacc 앱들의 공통 원본 스토리지이다. 컨테이너를 열 때 iiSocietyContainer 0.7.0의 `SharedStorage::setDefaultContainer()`로 경로와 UUID를 등록한다. 다음 실행은 등록된 컨테이너를 다시 열며, Dreamscapes 등의 소비 앱은 `SharedStorage::open()`으로 같은 `Models/`·`Asset Library/`·`Generation History/`에 접근한다. Society에 드롭한 모델을 앱별로 복제할 필요가 없다. 시스템 드라이브의 루트는 계속 `Files/`이며, 나머지 영역은 iisacc 앱의 SDK 경로로 접근한다. iOS에서는 동일 App Group이 공통 원본이고 다른 앱이 File Provider를 중복 등록하지 않는다. 이는 로컬 공유 계약이며 원격 계정 동기화를 추가하지 않는다.
+Society는 iisacc 앱들의 공통 원본 스토리지이다. 컨테이너를 열 때 iiSocietyContainer 0.7.0의 `SharedStorage::setDefaultContainer()`로 경로와 UUID를 등록한다. 다음 실행은 등록된 컨테이너를 다시 열며, Dreamscapes 등의 소비 앱은 `SharedStorage::open()`으로 같은 `Models/`·`Asset Library/`·`Generation History/`에 접근한다. Society에 드롭한 모델을 앱별로 복제할 필요가 없다. 다른 기기에서는 Society끼리 모델을 동기화하고, 각 Dreamscapes는 자기 기기의 Society 컨테이너를 읽어 이미지를 생성한다. Society는 원격 생성 요청을 받아 Dreamscapes를 실행하지 않는다. 시스템 드라이브의 루트는 계속 `Files/`이며, 나머지 영역은 iisacc 앱의 SDK 경로로 접근한다. iOS에서는 동일 App Group이 공통 원본이고 다른 앱이 File Provider를 중복 등록하지 않는다. 이 로컬 공유 계약은 Helper·Container가 담당하고, 다른 기기의 Society와의 계정별 동기화는 별도의 iiSocietySync가 담당한다.
 
 `Society.Drive` 테스트는 컨테이너 선택 후 공통 저장소의 UUID가 일치하고 새 컨트롤러가 같은 드라이브를 다시 여는지 검사한다. 설정 파일은 테스트별 `build/` 임시 경로로 분리한다.
 
@@ -72,7 +74,7 @@ Files의 내용과 이동·생성·삭제는 양방향으로 반영된다. 앱�
 시스템 드라이브에서 사라진다. 원본 디렉터리 자체의 파일 권한은 변경하지 않는다.
 연결 상태와 오류를 화면 하단에 표시한다. 네이티브 어댑터는 iiSocietyContainer
 설치 패키지에서 가져오며 프로세스 실행은 비동기이고 제한 시간과 오류를 처리한다.
-원격 클라우드 동기화는 아직 연결하지 않았다. macOS와 iOS 이외의 운영체제에서는
+인증된 Society 간 컨테이너 동기화는 iiSocietySync가 처리한다. macOS와 iOS 이외의 운영체제에서는
 앱 탐색만 제공한다.
 
 ## 모델 파일 드래그 앤 드롭
@@ -145,6 +147,7 @@ FileGridView {
 - CMake 3.31 이상, Ninja, C++20 컴파일러
 - Qt 6.8.3: Quick, QuickControls2, Qt.labs.folderlistmodel, 테스트용 Test 모듈
 - 설치된 LVRS CMake 패키지와 QML 모듈
+- iiSocietyHelper 0.7.1, iiSocietySync 0.2.0, iiServerHost 0.4.1 이상
 - iiSocietyContainer 0.9.1 이상; macOS 네이티브 연결은 서명된 어댑터와 macOS 15 이상
 
 기존 Qt/LVRS의 창, 글꼴, 테마, 앱 부트스트랩을 재사용한다.
@@ -173,11 +176,11 @@ LVRS `~/.local/SDK/LVRS` 설치본을 사용한다.
 | iiLicenseManager | `LicenseClient` 메타 객체와 상태 열거형 |
 | iiLocalDiffusion | 연산 장치 이름 조회 |
 | iiLocalLLM | `helloWorld()` |
-| iiServerHost | `helloWorld()` |
+| iiServerHost | 자동 LAN 페어링의 인증된 TLS·요청/응답 |
 | iiSharedCanvas | 벡터 에셋 ID와 종류 조회 |
 | iiSocietyContainer | `helloWorld()`, `SocietyDrive` 생성·영역·영속 ID |
 | iiSocietyHelper | `Helper` 실제 앱 상호 관측과 기존 `helloWorld()` 호환성 |
-| iiSocietySync | `helloWorld()` |
+| iiSocietySync | `Controller`, `RemoteFiles`, 실제 양방향 컨테이너 전송 |
 | iiUpdateManager | `UpdateManager` 메타 객체와 상태 열거형 |
 | iiVoiceOver | `helloWorld()` |
 | iiWhatsNew | `helloWorld()` |
@@ -187,7 +190,7 @@ LVRS `~/.local/SDK/LVRS` 설치본을 사용한다.
 `iiXml`, `iiHtmlBlock`, `iiPaintEngine` 등 간접 의존성은 각 SDK 패키지가 선언한다.
 
 파일 그리드는 Qt의 로컬 파일 목록과 이미지 로더를 사용한다.
-SDK의 추론·서버·동기화 기능은 앱에서 실행하지 않는다.
+계정으로 검증된 Society 연결에는 iiSocietySync 0.2.0의 컨테이너 동기화를 실행한다. 책임 분리·충돌·복구 계약은 [동기화 문서](docs/Synchronization.md)를 따른다.
 iiSocietyContainer의 새 드라이브 API는 앱과 `Society.Drive` 테스트에서 사용한다.
 
 ## 빌드 및 실행
@@ -257,7 +260,7 @@ AI 클래스의 소스와 헤더는 `SocietyDependencyTests`에 등록되어 빌
 
 iOS 16 이상에서는 앱을 열 때 공유 App Group의 Society를 자동으로 열고 파일 앱에 등록한다. 앱의 홈에는 8개 영역을 모두 유지한다. 파일 앱에서 Society를 열면 `Files/`의 내용이 바로 보이며 나머지 7개 영역은 노출하지 않는다. iOS의 `Open in Files`는 이 공개 루트에서 시작하는 시스템 문서 탐색기를 연다.
 
-`ios-device`, `ios-simulator` CMake preset과 내장 `SocietyFileProvider.appex`를 사용한다. 전체 Xcode 16 이상, Qt 6.8.3 iOS, LVRS·iiSocietyContainer·iiSocietyHelper의 해당 iOS 대상 패키지가 필요하다. `python3 -B tools/build_ios.py --platform ios-simulator`가 SDK 빌드·설치부터 앱과 확장 빌드까지 수행한다. 기기 패키지는 Workspace의 `build/ios-device/install`, 시뮬레이터 패키지는 `build/ios-simulator/install`을 사용한다. iOS 구성에서는 누락된 패키지를 데스크톱 설치로 대체하지 않는다.
+`ios-device`, `ios-simulator` CMake preset과 내장 `SocietyFileProvider.appex`를 사용한다. 전체 Xcode 16 이상, Qt 6.8.3 iOS, LVRS·iiSocietyContainer·iiSocietyHelper·iiSocietySync와 그 의존성의 해당 iOS 대상 패키지가 필요하다. `python3 -B tools/build_ios.py --platform ios-simulator`가 SDK 빌드·설치부터 앱과 확장 빌드까지 수행한다. 기기 패키지는 Workspace의 `build/ios-device/install`, 시뮬레이터 패키지는 `build/ios-simulator/install`을 사용한다. iOS 구성에서는 누락된 패키지를 데스크톱 설치로 대체하지 않는다.
 
 ```sh
 cmake --preset ios-device -DSOCIETY_IOS_TEAM=<development-team-id>
@@ -297,3 +300,5 @@ python3 tools/build_android.py --qt <Qt-6.8.3-Android-ABI> --qt-host <Qt-6.8.3-h
 상단 Devices에서 같은 계정의 주변 기기를 선택하거나 데스크탑의 QR을 모바일로 스캔하여 같은 Wi-Fi/LAN의 `Files/`를 탐색하고 다운로드한다. QR은 계정 로그인과 독립적이다. 데스크톱은 독립 [Preferences 창](docs/Preferences.md)에서 Client mode / Host mode를 전환하며 기기 선택 또는 QR 생성 시 호스트를 시작한다. iOS/Android는 Files 클라이언트이다. iiServerHost 0.4.1의 직접 LAN 연결을 사용하며 외부 중계 fallback은 없다. 공개 범위·모바일 제한 및 검증 방법은 [NetworkDrive.md](docs/NetworkDrive.md)를 따른다.
 
 iPhone QR 스캔은 AVFoundation 메타데이터와 실제 카메라 프레임의 Vision 해독을 함께 사용한다. 스캔 프레임·인식 상태·거리/반사광 안내를 표시하고 연속 자동 초점을 설정한다. 데스크톱 QR은 최대 432 폭으로 표시한다. 사진 회귀 검증과 프레임 처리·취소 계약은 [Pairing.md](docs/Pairing.md)에 기록한다.
+
+호스트와 모든 클라이언트는 동일한 논리 컨테이너 UUID를 사용한다. 첫 페어링은 호스트 전체 드라이브를 미러링한 후 양방향 변경을 시작하며 이전 클라이언트 내용은 비공개 복구 영역에 남긴다. 초기 미러·오프라인 편집·native 등록의 계약은 [동기화 문서](docs/Synchronization.md)를 따른다.

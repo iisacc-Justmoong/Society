@@ -34,6 +34,7 @@ public:
     Q_INVOKABLE void acceptInvitation();
     Q_INVOKABLE void confirmDevice();
     Q_INVOKABLE void showHostQr();
+    Q_INVOKABLE void copyPairingLink();
     Q_INVOKABLE void scanCode(const QString &code);
     Q_INVOKABLE void cancel();
 signals:

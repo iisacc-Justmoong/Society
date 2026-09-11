@@ -53,7 +53,8 @@ def build_openssl(ndk, abi, jobs=4):
                      'builder': hashlib.sha256(Path(__file__).read_bytes()).hexdigest()}
     libraries = ('libcrypto_3.so', 'libssl_3.so')
     if stamp.is_file() and json.loads(stamp.read_text()) == configuration and all(
-            (output / name).is_file() for name in libraries):
+            (output / name).is_file() for name in libraries) and all(
+            (directory / 'include/openssl' / name).is_file() for name in ('evp.h', 'configuration.h', 'opensslconf.h')):
         return output
     root.mkdir(parents=True, exist_ok=True)
     archive = root / f'openssl-{VERSION}.tar.gz'
@@ -93,6 +94,8 @@ def build_openssl(ndk, abi, jobs=4):
         shutil.copy2(source / name, output / name)
         subprocess.run([str(toolchain / 'llvm-strip'), '--strip-unneeded', str(output / name)], check=True)
     shutil.copy2(source / 'LICENSE.txt', output / 'LICENSE.txt')
+    # Public headers must match the exact ABI/configuration of the packaged runtime.
+    shutil.copytree(source / 'include/openssl', directory / 'include/openssl', dirs_exist_ok=True)
     stamp.write_text(json.dumps(configuration, indent=2) + '\n')
     return output
 

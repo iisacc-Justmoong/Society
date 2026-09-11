@@ -41,7 +41,8 @@
         "iiServerHost_DIR": "${sourceDir}/../../build/ios-device/install/lib/cmake/iiServerHost",
         "iiSocietyContainer_DIR": "${sourceDir}/../../build/ios-device/install/lib/cmake/iiSocietyContainer",
         "iiSocietyHelper_DIR": "${sourceDir}/../../build/ios-device/install/lib/cmake/iiSocietyHelper",
-        "QT_ADDITIONAL_PACKAGES_PREFIX_PATH": "${sourceDir}/../../build/ios-device/install"
+        "QT_ADDITIONAL_PACKAGES_PREFIX_PATH": "${sourceDir}/../../build/ios-device/install",
+        "iiSocietySync_DIR": "${sourceDir}/../../build/ios-device/install/lib/cmake/iiSocietySync"
       }
     },
     {
@@ -58,7 +59,8 @@
         "iiServerHost_DIR": "${sourceDir}/../../build/ios-simulator/install/lib/cmake/iiServerHost",
         "iiSocietyContainer_DIR": "${sourceDir}/../../build/ios-simulator/install/lib/cmake/iiSocietyContainer",
         "iiSocietyHelper_DIR": "${sourceDir}/../../build/ios-simulator/install/lib/cmake/iiSocietyHelper",
-        "QT_ADDITIONAL_PACKAGES_PREFIX_PATH": "${sourceDir}/../../build/ios-simulator/install"
+        "QT_ADDITIONAL_PACKAGES_PREFIX_PATH": "${sourceDir}/../../build/ios-simulator/install",
+        "iiSocietySync_DIR": "${sourceDir}/../../build/ios-simulator/install/lib/cmake/iiSocietySync"
       }
     }
   ],

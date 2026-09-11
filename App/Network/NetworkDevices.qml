@@ -65,7 +65,7 @@ Controls.Popup {
         }
         LV.Label {
             Layout.fillWidth: true
-            text: qsTr("Sign in to the same iisacc account and select a nearby device on your desktop, or scan the desktop QR code. Use the same Wi-Fi or LAN.")
+            text: qsTr("Devices signed in to the same iisacc account pair automatically on your Wi-Fi or LAN and sync their containers.")
             wrapMode: Text.Wrap
             sizeToContentHeight: true
         }
@@ -97,6 +97,15 @@ Controls.Popup {
             text: panel.network.authError || panel.network.status
             textFormat: Text.PlainText
             wrapMode: Text.Wrap
+        }
+        LV.Label {
+            objectName: "containerSyncStatus"
+            Layout.fillWidth: true
+            visible: panel.network.signedIn && panel.network.connected
+            text: panel.network.synchronizationStatus
+            textFormat: Text.PlainText
+            wrapMode: Text.Wrap
+            sizeToContentHeight: true
         }
         RowLayout {
             Layout.fillWidth: true

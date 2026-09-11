@@ -26,6 +26,13 @@ public final class SocietyActivity extends QtActivity {
     private DecoratedBarcodeView qrCamera;
     private static native void qrFinished(long request, String code, String error, boolean denied);
 
+    public void setSyncScreenActive(boolean active) {
+        runOnUiThread(() -> {
+            if (active) getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+            else getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        });
+    }
+
     public void startQrScan(long request) {
         runOnUiThread(() -> {
             if (qrRequest != 0) finishQr("", "", false);

@@ -28,5 +28,6 @@ foreach(runtime IN LISTS runtime_libraries)
 endforeach()
 execute_process(COMMAND codesign --force --sign "${SOCIETY_SIGN_IDENTITY}" --timestamp=none "${sqlite}" COMMAND_ERROR_IS_FATAL ANY)
 execute_process(COMMAND codesign --force --sign "${SOCIETY_SIGN_IDENTITY}" --timestamp=none "${helper}" COMMAND_ERROR_IS_FATAL ANY)
-execute_process(COMMAND codesign --force --sign "${SOCIETY_SIGN_IDENTITY}" --timestamp=none "${bundle}" COMMAND_ERROR_IS_FATAL ANY)
+execute_process(COMMAND codesign --force --sign "${SOCIETY_SIGN_IDENTITY}" --timestamp=none
+    --entitlements "${SOCIETY_ENTITLEMENTS}" "${bundle}" COMMAND_ERROR_IS_FATAL ANY)
 execute_process(COMMAND codesign --verify --strict "${bundle}" COMMAND_ERROR_IS_FATAL ANY)

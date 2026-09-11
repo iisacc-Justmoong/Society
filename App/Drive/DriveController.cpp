@@ -29,6 +29,7 @@ using namespace iiSocietyContainer;
 
 DriveController::DriveController(QObject *parent) : QObject(parent)
 {
+    m_mirrorPending = managedContainer();
     m_timeout.setSingleShot(true);
     m_timeout.setInterval(35000);
     connect(&m_timeout, &QTimer::timeout, this, [this] {
@@ -111,7 +112,7 @@ void DriveController::openDefaultContainer()
         startNative(QStringLiteral("default"));
     else {
         QString error;
-        const auto storage = SharedStorage::open({}, &error);
+        const auto storage = SharedStorage::open({}, &error, true);
         if (storage) openContainer(storage->drive().rootPath());
         else fail(error);
     }
@@ -181,11 +182,47 @@ bool DriveController::openContainer(const QString &path)
     fail({});
     emit locationChanged();
     emit systemChanged();
+    emit contentsChanged();
+    return true;
+}
+
+void DriveController::setMirrorPending(bool pending)
+{
+    if (m_mirrorPending == pending) return;
+    m_mirrorPending = pending;
+    emit contentsChanged();
+    if (!pending && hasDrive()) QTimer::singleShot(0, this, [this] {
+        if (m_mirrorPending || !hasDrive()) return;
+        reloadFromDisk();
+        m_nativeRebind = m_nativeRebind || managedContainer();
+        if (m_nativeRebind && !busy()) { m_nativeRebind = false; connectToSystem(); }
+    });
+}
+
+bool DriveController::reloadFromDisk()
+{
+    if (!hasDrive()) return false;
+    QString error;
+    const auto current = SocietyDrive::open(rootPath(), &error);
+    if (!current) return fail(error);
+    const bool changed = current->identifier() != identifier();
+    const auto previousPath = m_currentPath;
+    m_drive = current;
+    if (changed && !SharedStorage::setDefaultContainer(current->rootPath(), &error)) return fail(error);
+    if (changed || (!m_currentPath.isEmpty() && !QFileInfo(m_currentPath).isDir())) m_currentPath.clear();
+    if (changed) {
+        m_nativeRebind = m_nativeRebind || managedContainer() || !m_systemPath.isEmpty();
+        m_systemPath.clear();
+        if (m_nativeRebind && !m_mirrorPending && !busy()) { m_nativeRebind = false; connectToSystem(); }
+    }
+    if (changed || previousPath != m_currentPath) emit locationChanged();
+    emit contentsChanged();
     return true;
 }
 
 bool DriveController::openSection(const QString &key)
 {
+    if (!contentsAvailable()) return fail(tr("Wait for the host drive's initial mirror to finish."));
     if (m_drive) {
         for (const auto section : allStoreSections())
             if (storeSectionKey(section) == key)
@@ -196,6 +233,7 @@ bool DriveController::openSection(const QString &key)
 
 bool DriveController::navigate(const QString &path)
 {
+    if (!contentsAvailable()) return fail(tr("Wait for the host drive's initial mirror to finish."));
     if (!m_drive || !m_drive->isValid())
         return fail(tr("The container is unavailable or its section layout has changed."));
     const QFileInfo info(path);
@@ -290,6 +328,11 @@ void DriveController::revealInSystem()
 
 void DriveController::startNative(const QString &action, bool registerBundle)
 {
+    if (action != QStringLiteral("default") && m_mirrorPending) {
+        m_nativeRebind = true;
+        m_systemStatus = tr("Connect to your desktop to prepare this Society drive.");
+        emit systemChanged(); return;
+    }
     if (busy() || (!m_drive && !(managedContainer() && action == QStringLiteral("default"))))
         return;
     if (!systemSupported()) {
@@ -389,4 +432,8 @@ void DriveController::finishNative(bool success, const QByteArray &output)
 #endif
     }
     emit systemChanged();
+    if (m_nativeRebind && !m_mirrorPending && hasDrive()) {
+        m_nativeRebind = false;
+        QTimer::singleShot(0, this, &DriveController::connectToSystem);
+    }
 }

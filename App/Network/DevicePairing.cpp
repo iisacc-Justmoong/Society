@@ -1,4 +1,6 @@
 #include "DevicePairing.h"
+#include <QClipboard>
+#include <QGuiApplication>
 
 DevicePairing::~DevicePairing() { cancel(); }
 void DevicePairing::setNetwork(NetworkDriveController *network) {
@@ -13,6 +15,7 @@ void DevicePairing::setNetwork(NetworkDriveController *network) {
     if (network) {
         connect(network->discovery(), &NearbyDevices::changed, this, &DevicePairing::changed);
         connect(network->discovery(), &NearbyDevices::invitationReceived, this, [this] {
+            if (m_network->discovery()->incomingAutomatic()) return;
             m_error.clear(); m_active = true; emit changed(); emit invitationReceived();
         });
         connect(network->discovery(), &NearbyDevices::invitationEnded, this, [this](const QString &message) {
@@ -52,11 +55,15 @@ QString DevicePairing::message() const {
     return {};
 }
 QString DevicePairing::qrText() const { return phase() == "showing" && m_network ? m_network->localPeer()->qrText() : QString(); }
+void DevicePairing::copyPairingLink() {
+    const auto link = qrText();
+    if (!link.isEmpty() && QGuiApplication::clipboard()) QGuiApplication::clipboard()->setText(link);
+}
 QString DevicePairing::peerName() const { return m_network ? m_network->localPeer()->peerName() : QString(); }
 int DevicePairing::secondsRemaining() const { return m_network ? m_network->localPeer()->secondsRemaining() : 0; }
 void DevicePairing::cancel() {
     m_active = false; m_error.clear();
-    if (m_network) { m_network->discovery()->cancel(); m_network->localPeer()->cancelPairing(); }
+    if (m_network && !m_network->automaticPairingEnabled()) { m_network->discovery()->cancel(); m_network->localPeer()->cancelPairing(); }
     emit changed();
 }
 void DevicePairing::begin() {
@@ -64,6 +71,7 @@ void DevicePairing::begin() {
     else if (m_network && m_network->hostModeAvailable()) showHostQr();
 }
 void DevicePairing::inviteDevice(const QString &id) {
+    if (m_network) m_network->pauseAutomaticPairing();
     cancel(); m_active = true;
     if (!m_network || !m_network->hostModeAvailable()) m_error = tr("Select this device on your desktop to begin pairing.");
     else if (!m_network->startLocalHost()) m_error = m_network->status();
@@ -77,6 +85,7 @@ void DevicePairing::inviteDevice(const QString &id) {
 }
 void DevicePairing::acceptInvitation() {
     if (!m_network) return;
+    m_network->pauseAutomaticPairing();
     const auto link = m_network->discovery()->accept(); m_active = true; m_error.clear();
     if (link.isEmpty()) m_error = tr("The request expired or the desktop is no longer nearby.");
     else if (!m_network->joinLocalHost(link)) m_error = m_network->localPeer()->errorString();
@@ -87,6 +96,7 @@ void DevicePairing::confirmDevice() {
     emit changed();
 }
 void DevicePairing::showHostQr() {
+    if (m_network) m_network->pauseAutomaticPairing();
     cancel(); m_active = true;
     if (!m_network || !m_network->hostModeAvailable()) m_error = tr("Only the desktop can show a pairing QR code.");
     else if (!m_network->startLocalHost()) m_error = m_network->status();
@@ -94,6 +104,7 @@ void DevicePairing::showHostQr() {
     emit changed();
 }
 void DevicePairing::scanCode(const QString &text) {
+    if (m_network) m_network->pauseAutomaticPairing();
     cancel(); m_active = true;
     iiServerHost::LanLink link;
     if (!iiServerHost::LanLink::decode(text, &link)) m_error = tr("Scan a local-network QR code from the updated desktop Society app.");

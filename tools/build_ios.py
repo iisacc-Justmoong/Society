@@ -47,7 +47,7 @@ def commands(mode, qt, team, configuration):
               f'-DCMAKE_BUILD_TYPE={configuration}', '-DBUILD_TESTING=OFF',
               f'-DCMAKE_INSTALL_PREFIX={prefix}', f'-DQT_ADDITIONAL_PACKAGES_PREFIX_PATH={prefix}']
     steps = []
-    for name in ('LVRS', 'iiAcountManager', 'iiServerHost', 'iiSocietyContainer', 'iiSocietyHelper'):
+    for name in ('LVRS', 'iiAcountManager', 'iiServerHost', 'iiSocietyContainer', 'iiSocietyHelper', 'iiSocietySync'):
         source = WORKSPACE / 'SDK' / name
         build = source / 'build' / mode
         options = []
@@ -61,6 +61,9 @@ def commands(mode, qt, team, configuration):
                        f'-DiiAcountManager_DIR={prefix}/lib/cmake/iiAcountManager']
         elif name == 'iiServerHost':
             options = ['-DBUILD_SHARED_LIBS=OFF']
+        elif name == 'iiSocietySync':
+            options = [f'-DiiSocietyContainer_DIR={prefix}/lib/cmake/iiSocietyContainer',
+                       f'-DiiServerHost_DIR={prefix}/lib/cmake/iiServerHost']
         steps.extend([
             ['cmake', '-S', str(source), '-B', str(build), '-G', 'Ninja', *common, *options],
             ['cmake', '--build', str(build), '--parallel', '2'],
@@ -73,6 +76,7 @@ def commands(mode, qt, team, configuration):
                   f'-DiiServerHost_DIR={prefix}/lib/cmake/iiServerHost',
                   f'-DiiSocietyContainer_DIR={prefix}/lib/cmake/iiSocietyContainer',
                   f'-DiiSocietyHelper_DIR={prefix}/lib/cmake/iiSocietyHelper',
+                  f'-DiiSocietySync_DIR={prefix}/lib/cmake/iiSocietySync',
                   '-DSOCIETY_IOS_APP_GROUP=group.com.iisacc.society', f'-DSOCIETY_IOS_TEAM={team}'])
     steps.append(['cmake', '--build', str(build), '--config', configuration, '--target', 'Society', '--parallel', '2'])
     return steps

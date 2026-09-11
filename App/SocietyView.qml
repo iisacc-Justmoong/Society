@@ -16,6 +16,7 @@ LV.VStack {
     property bool hostModeAvailable: false
     property bool signedIn: false
     property string deviceStatus: ""
+    property string synchronizationStatus: ""
     property string selectedTab: "Dashboard"
     property alias query: dashboardSearch.text
 
@@ -122,6 +123,7 @@ LV.VStack {
             modelImporter: root.modelImporter
             hostModeAvailable: root.hostModeAvailable
             signedIn: root.signedIn
+            synchronizationStatus: root.synchronizationStatus
             onDevicesRequested: root.devicesRequested()
             onPreferencesRequested: root.preferencesRequested()
             onAccountRequested: root.accountRequested()

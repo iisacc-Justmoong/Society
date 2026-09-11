@@ -32,6 +32,8 @@ class DriveController : public QObject
     Q_PROPERTY(bool busy READ busy NOTIFY systemChanged)
     Q_PROPERTY(QString systemPath READ systemPath NOTIFY systemChanged)
     Q_PROPERTY(QString systemStatus READ systemStatus NOTIFY systemChanged)
+    Q_PROPERTY(bool mirrorPending READ mirrorPending WRITE setMirrorPending NOTIFY contentsChanged)
+    Q_PROPERTY(bool contentsAvailable READ contentsAvailable NOTIFY contentsChanged)
 
 public:
     explicit DriveController(QObject *parent = nullptr);
@@ -50,6 +52,10 @@ public:
     bool busy() const;
     QString systemPath() const;
     QString systemStatus() const;
+    bool mirrorPending() const { return m_mirrorPending; }
+    bool contentsAvailable() const { return hasDrive() && !m_mirrorPending; }
+    void setMirrorPending(bool pending);
+    Q_INVOKABLE bool reloadFromDisk();
 
     Q_INVOKABLE bool openContainer(const QString &path);
     Q_INVOKABLE bool openContainerUrl(const QUrl &url);
@@ -67,6 +73,7 @@ signals:
     void locationChanged();
     void errorChanged();
     void systemChanged();
+    void contentsChanged();
 
 private:
     bool fail(const QString &message);
@@ -90,4 +97,5 @@ private:
 #endif
     quint64 m_requestGeneration = 0;
     QTimer m_timeout;
+    bool m_mirrorPending = false, m_nativeRebind = false;
 };

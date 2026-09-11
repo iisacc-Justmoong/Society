@@ -12,6 +12,7 @@ Item {
     required property ModelImporter modelImporter
     required property bool hostModeAvailable
     property bool signedIn: false
+    property string synchronizationStatus: ""
     signal accountRequested()
     signal devicesRequested()
     signal preferencesRequested()
@@ -74,7 +75,7 @@ Item {
 
             Rectangle {
                 objectName: "driveSidebar"
-                visible: root.drive.hasDrive && root.width >= 760
+                visible: root.drive.contentsAvailable && root.width >= 760
                 Layout.preferredWidth: 216
                 Layout.fillHeight: true
                 color: LV.Theme.panelBackground06
@@ -129,7 +130,7 @@ Item {
                 spacing: 0
 
                 RowLayout {
-                    visible: root.drive.hasDrive
+                    visible: root.drive.contentsAvailable
                     Layout.fillWidth: true
                     Layout.margins: 16
                     spacing: 10
@@ -165,7 +166,7 @@ Item {
                     ColumnLayout {
                         anchors.centerIn: parent
                         width: Math.min(440, parent.width - 48)
-                        visible: !root.drive.hasDrive
+                        visible: !root.drive.contentsAvailable
                         spacing: 16
                         LV.Label {
                             Layout.fillWidth: true
@@ -174,9 +175,14 @@ Item {
                             horizontalAlignment: Text.AlignHCenter
                         }
                         LV.Label {
+                            objectName: "mirrorProgress"
                             Layout.fillWidth: true
                             style: description
-                            text: root.drive.managedContainer
+                            textFormat: Text.PlainText
+                            text: root.drive.hasDrive && root.drive.mirrorPending
+                                ? (root.synchronizationStatus.length > 0 ? root.synchronizationStatus
+                                    : qsTr("Connect to your desktop to mirror its Society drive. Your files appear here when the initial sync finishes."))
+                                : root.drive.managedContainer
                                 ? qsTr("Opening Society…")
                                 : qsTr("Choose a folder to open your drive and its eight sections.")
                             horizontalAlignment: Text.AlignHCenter
@@ -190,7 +196,7 @@ Item {
                         objectName: "sectionsGrid"
                         anchors.fill: parent
                         anchors.margins: 16
-                        visible: root.drive.hasDrive && root.drive.atRoot
+                        visible: root.drive.contentsAvailable && root.drive.atRoot
                         model: root.drive.sections
                         cellWidth: width / Math.max(1, Math.floor(width / 174))
                         cellHeight: 150
@@ -227,10 +233,11 @@ Item {
                     }
 
                     FileGridView {
+                        id: filesGrid
                         objectName: "fileGridView"
                         anchors.fill: parent
-                        visible: root.drive.hasDrive && !root.drive.atRoot
-                        path: root.drive.currentPath
+                        visible: root.drive.contentsAvailable && !root.drive.atRoot
+                        path: root.drive.contentsAvailable ? root.drive.currentPath : ""
                         heading: root.drive.currentSection
                         imagesOnly: root.drive.currentSection === "Generation History"
                         onActivated: function(path, isDirectory) {
@@ -239,6 +246,10 @@ Item {
                             else
                                 root.drive.openFile(path)
                         }
+                    }
+                    Connections {
+                        target: root.drive
+                        function onContentsChanged(): void { filesGrid.resetModel() }
                     }
                 }
             }
@@ -257,7 +268,7 @@ Item {
         }
 
         ColumnLayout {
-            visible: root.drive.hasDrive
+            visible: root.drive.contentsAvailable
             Layout.fillWidth: true
             Layout.margins: 12
             spacing: 6

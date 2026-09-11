@@ -10,6 +10,27 @@ using namespace iiServerHost;
 class NetworkDriveTests : public QObject {
     Q_OBJECT
 private slots:
+    void localSocietyDoesNotProvideRemoteImageGeneration() {
+        QTemporaryDir root(SOCIETY_TEST_DIRECTORY "/network-local-only-XXXXXX");
+        QVERIFY(iiSocietyContainer::SocietyDrive::create(root.path()));
+        NetworkDriveController society(nullptr, QHostAddress::LocalHost);
+        society.setContainerPath(root.path());
+        QVERIFY(society.startLocalHost());
+        LanPeer client;
+        QVERIFY(client.join(society.localPeer()->createOffer(), "test-client", "Society test client"));
+        QTRY_VERIFY2(client.connected(), qPrintable(client.errorString()));
+        QSignalSpy replies(&client, &LanPeer::completed);
+        // The host identity is carried by the established local connection.
+        const auto peers = client.peers();
+        QVERIFY(!peers.isEmpty());
+        const auto id = client.request(peers.first().toObject().value("peerId").toString(),
+                                      {{"op", "generation"}, {"action", "models"}});
+        QVERIFY(!id.isEmpty());
+        QTRY_VERIFY(!replies.isEmpty());
+        QVERIFY(!replies.first()[1].toJsonObject().value("ok").toBool());
+        client.stop();
+        society.disconnectSession();
+    }
     void desktopModeSwitchControlsExposure_data() {
         QTest::addColumn<bool>("local");
         QTest::newRow("local") << true;

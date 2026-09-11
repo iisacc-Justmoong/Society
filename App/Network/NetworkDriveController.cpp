@@ -9,34 +9,79 @@
 NetworkDriveController::NetworkDriveController(QObject *parent)
     : NetworkDriveController(nullptr, QHostAddress::AnyIPv4, parent) {}
 NetworkDriveController::NetworkDriveController(DiscoveryService *service, QHostAddress bindAddress, QObject *parent)
-    : QObject(parent), m_nearby(service, bindAddress), m_localBindAddress(bindAddress) {
+    : QObject(parent), m_remote([this](const auto &peer, const auto &payload) { return request(peer, payload); }),
+      m_sync([this](const auto &peer, const auto &payload) { return request(peer, payload); }), m_nearby(service, bindAddress),
+      m_automatic(&m_nearby, &m_local, [this] { return startLocalHost(true); },
+          [this](const QString &link) { return joinLocalHost(link, true); }, [this] { stopTransport(); }),
+      m_localBindAddress(bindAddress) {
+    connect(&m_remote, &iiSocietySync::RemoteFiles::stateChanged, this, [this] {
+        if (!m_remote.status().isEmpty()) m_status = m_remote.status();
+        emit stateChanged();
+    });
+    connect(&m_remote, &iiSocietySync::RemoteFiles::entriesChanged, this, &NetworkDriveController::entriesChanged);
+    connect(&m_remote, &iiSocietySync::RemoteFiles::downloadFinished, this, &NetworkDriveController::downloadFinished);
+    connect(&m_sync, &iiSocietySync::Controller::changed, this, &NetworkDriveController::synchronizationChanged);
+    connect(&m_sync, &iiSocietySync::Controller::synchronized, this, [this](const QString &peer) {
+        m_syncPath.clear(); emit synchronizationChanged(); emit containerSynchronized(peer);
+    });
+    connect(&m_sync, &iiSocietySync::Controller::progress, this, [this](const QString &path, qint64 done, qint64 total) {
+        m_syncPath = path; m_syncDone = done; m_syncTotal = total;
+        emit synchronizationChanged(); emit synchronizationProgress(path, done, total);
+    });
+    connect(&m_sync, &iiSocietySync::Controller::mirrorChanged, this, [this](const QJsonObject &binding) {
+        m_mirror = binding;
+        emit mirrorChanged(); emit synchronizationChanged();
+        QTimer::singleShot(0, this, &NetworkDriveController::updateDiscovery);
+    });
+    connect(&m_automatic, &AutomaticPairing::changed, this, &NetworkDriveController::discoveryChanged);
+    connect(&m_automatic, &AutomaticPairing::changed, this, &NetworkDriveController::updateDiscovery, Qt::QueuedConnection);
     connect(&m_nearby, &NearbyDevices::changed, this, &NetworkDriveController::discoveryChanged);
     connect(&m_nearby, &NearbyDevices::identityEnding, &m_local, &iiServerHost::LanPeer::cancelPairing);
     connect(&m_local, &iiServerHost::LanPeer::paired, &m_nearby, &NearbyDevices::complete);
+    connect(&m_local, &iiServerHost::LanPeer::paired, this, [this](const QString &id) {
+        if (m_automatic.enabled() && m_nearby.authenticated())
+            for (const auto &value : m_nearby.devices())
+                if (value.toMap().value("id").toString() == id && value.toMap().value("verified").toBool()) m_verifiedSyncPeers.insert(id);
+        if (m_account && signedIn()) {
+            QString name = m_local.peerName(), kind;
+            for (const auto &value : m_nearby.devices()) {
+                const auto row = value.toMap();
+                if (row.value("id").toString() == id) { name = row.value("name").toString(); kind = row.value("kind").toString(); break; }
+            }
+            m_account->rememberPairedDevice(id, name, kind);
+        }
+        if (m_automatic.enabled() && !m_local.hosting()) browse(id);
+        if (m_local.hosting() && m_verifiedSyncPeers.contains(id) && m_account)
+            iiSocietySync::Replica::claimPrimaryHost(m_container, m_account->pairingCredentials().value("scope").toString(), m_nearby.deviceId());
+        updateDiscovery();
+    });
     m_discoveryTimer.setInterval(5000);
     connect(&m_discoveryTimer, &QTimer::timeout, this, &NetworkDriveController::updateDiscovery);
     m_status = tr("Pair your devices on the same Wi-Fi or local network.");
     connect(&m_local, &iiServerHost::LanPeer::changed, this, [this] {
         emit discoveryChanged();
+        emit synchronizationChanged();
         if (m_localActive) {
             if (!m_local.errorString().isEmpty()) m_status = m_local.errorString();
             else if (m_local.hosting()) m_status = tr("Hosting Files on the local network.");
             else if (m_local.connected()) m_status = tr("Connected directly over the local network.");
             else m_status = tr("Connecting to the desktop on the local network…");
             if (!m_local.connected() && !m_local.hosting() && m_local.phase() == "error") {
-                m_entries.clear(); m_host.clear(); m_path.clear(); m_cursor.clear(); m_transport.clear();
-                emit entriesChanged();
+                m_remote.reset();
             }
             emit stateChanged(); emit hostsChanged();
         }
+        updateSynchronization();
     });
     connect(&m_local, &iiServerHost::LanPeer::completed, this, &NetworkDriveController::response);
     connect(&m_peer, &iiServerHost::Peer::stateChanged, this, [this] {
         if (m_peer.isReady()) m_status = hosting() ? tr("Hosting Files for your account.") : tr("Connected to your devices.");
         else if (!m_peer.errorString().isEmpty()) m_status = m_peer.errorString();
+        updateSynchronization();
         emit stateChanged();
     });
     connect(&m_peer, &iiServerHost::Peer::peersChanged, this, &NetworkDriveController::hostsChanged);
+    connect(&m_peer, &iiServerHost::Peer::peersChanged, this, &NetworkDriveController::updateSynchronization);
     connect(&m_peer, &iiServerHost::Peer::completed, this, &NetworkDriveController::response);
     if (!hostModeAvailable()) {
         if (auto *app = qobject_cast<QGuiApplication *>(QCoreApplication::instance())) {
@@ -45,62 +90,129 @@ NetworkDriveController::NetworkDriveController(DiscoveryService *service, QHostA
                     m_suspended = true; m_nearby.clear(); stopTransport();
                     m_status = tr("Device connection paused."); emit stateChanged();
                 } else if (m_suspended && state == Qt::ApplicationActive) {
-                    m_suspended = false; updateDiscovery(); restartSession();
+                    m_suspended = false; updateDiscovery(); requestAccountPairingCredentials(); restartSession();
                 }
             });
         }
     }
 }
 NetworkDriveController::~NetworkDriveController() {
-    m_discoveryTimer.stop(); m_nearby.clear(); disconnectSession();
+    m_discoveryTimer.stop(); m_nearby.clear(); disconnectSessionImpl(false);
     // Members emit their final stop signals before QObject clears external
     // QPointers. No UI may inspect the already-destroyed discovery member then.
-    m_local.disconnect(); m_nearby.disconnect();
+    m_local.disconnect(); m_peer.disconnect(); m_nearby.disconnect();
+    m_sync.disconnect(); m_remote.disconnect();
 }
 void NetworkDriveController::setAccountSession(AccountController *account) {
     if (account == m_account || (account && account->thread() != thread())) return;
-    disconnectSession();
+    disconnectSessionImpl(false);
     if (m_account) {
         disconnect(m_account, nullptr, this, nullptr);
         disconnect(m_account->manager(), nullptr, this, nullptr);
     }
     m_account = account;
+    m_discoverySession.clear(); m_automatic.setEnabled(true);
     m_nearby.clear(); m_discoveryTimer.stop();
     if (account) {
         connect(account, &AccountController::changed, this, [this] {
-            if (m_accountSession && !signedIn()) disconnectSession();
+            if (m_accountSession && !signedIn()) disconnectSessionImpl(false);
             updateDiscovery();
             emit authChanged();
         });
-        connect(account, &AccountController::sessionEnding, this, [this] { m_nearby.clear(); disconnectSession(); });
+        connect(account, &AccountController::sessionEnding, this, [this] { m_nearby.clear(); disconnectSessionImpl(false); });
+        connect(account, &AccountController::pairingStateRestored, this, [this] {
+            m_automatic.setEnabled(m_account->automaticPairingEnabled()); updateDiscovery();
+            requestAccountPairingCredentials();
+        });
+        connect(account, &AccountController::pairingCredentialsRequired, this, &NetworkDriveController::requestAccountPairingCredentials);
+        connect(account, &AccountController::pairingCredentialsChanged, this, &NetworkDriveController::updateDiscovery);
         connect(account, &QObject::destroyed, this, [this] {
-            m_account = nullptr; m_nearby.clear(); m_discoveryTimer.stop(); disconnectSession(); emit authChanged();
+            m_account = nullptr; m_nearby.clear(); m_discoveryTimer.stop(); disconnectSessionImpl(false); emit authChanged();
         });
         m_discoveryTimer.start();
     }
     updateDiscovery();
+    requestAccountPairingCredentials();
     emit authChanged();
+}
+void NetworkDriveController::requestAccountPairingCredentials() {
+#ifdef SOCIETY_DISABLE_SESSION_RESTORE
+    if (qEnvironmentVariableIntValue("SOCIETY_TEST_ACCOUNT_DISCOVERY") != 1) return;
+#else
+    if (qEnvironmentVariableIntValue("SOCIETY_DISABLE_SESSION_RESTORE") == 1) return;
+#endif
+    if (m_account && !m_suspended) m_account->requestPairingCredentials();
 }
 QVariantList NetworkDriveController::nearbyDevices() const {
     auto result = m_nearby.devices(); const auto connected = m_local.pairedDeviceIds();
     for (auto &value : result) {
-        auto row = value.toMap(); row.insert("connected", connected.contains(row.value("id").toString())); value = row;
+        auto row = value.toMap(); row.insert("connected", connected.contains(row.value("id").toString()));
+        for (const auto &entry : m_automatic.queue()) if (entry.toMap().value("id") == row.value("id")) row.insert("pairingState", entry.toMap().value("state"));
+        value = row;
     }
     return result;
 }
 void NetworkDriveController::updateDiscovery() {
 #ifdef SOCIETY_DISABLE_SESSION_RESTORE
-    return; // Test consumers do not announce the user's account or installation.
+    if (qEnvironmentVariableIntValue("SOCIETY_TEST_ACCOUNT_DISCOVERY") != 1) return;
 #else
     if (qEnvironmentVariableIntValue("SOCIETY_DISABLE_SESSION_RESTORE") == 1) return;
-    const auto expiry = m_account ? QDateTime::fromString(m_account->manager()->loginSession().value("expiresAt").toString(), Qt::ISODate) : QDateTime();
-    if (m_suspended || !signedIn() || !expiry.isValid() || expiry <= QDateTime::currentDateTimeUtc()) { m_nearby.clear(); return; }
+#endif
+    if (m_suspended || !signedIn()) { m_nearby.clear(); updateSynchronization(); return; }
+    const auto session = m_account->manager()->loginSession().value("id").toString();
+    if (session != m_discoverySession) { m_discoverySession = session; m_automatic.setEnabled(m_account->automaticPairingEnabled()); }
+    const auto credentials = m_account->pairingCredentials();
     const auto device = m_account->manager()->deviceInfo();
     const auto origin = m_account->manager()->serviceUrl().adjusted(QUrl::RemovePath | QUrl::RemoveQuery | QUrl::RemoveFragment | QUrl::RemoveUserInfo).toString();
-    const auto scope = NearbyDevices::accountScope(origin, m_account->userId());
+    const auto scope = credentials.isEmpty() ? NearbyDevices::accountScope(origin, m_account->userId()) : credentials.value("scope").toString();
     const auto name = device.value("name").toString().isEmpty() ? QSysInfo::machineHostName() : device.value("name").toString();
     m_nearby.setIdentity(scope, device.value("id").toString(), name, device.value("type").toString(), hostModeAvailable());
-#endif
+    const auto primary = m_mirror.isEmpty() ? iiSocietySync::Replica::primaryHost(m_container, scope) : m_mirror.value("host").toString();
+    m_nearby.setCredentials(credentials, hostModeAvailable() && m_mirror.isEmpty() && !m_container.isEmpty() && m_automatic.enabled()
+        && iiSocietyContainer::SharedStorage::open(m_container).has_value(), primary);
+    updateSynchronization();
+}
+void NetworkDriveController::updateSynchronization() {
+    if (m_suspended || !signedIn() || !m_nearby.authenticated() || !connected()) { m_sync.close(); return; }
+    const auto scope = m_account->pairingCredentials().value("scope").toString();
+    QStringList authorized, hosts;
+    if (m_localActive) {
+        for (const auto &id : m_local.pairedDeviceIds()) {
+            if (!m_verifiedSyncPeers.contains(id)) continue;
+            authorized.append(id); if (!m_local.hosting()) hosts.append(id);
+        }
+    } else if (m_peer.accountId() == m_account->manager()->account()->sub()) {
+        authorized = m_verifiedSyncPeers.values();
+        for (const auto &value : m_peer.peers()) {
+            const auto id = value.toObject().value("peerId").toString(); authorized.append(id);
+            if (m_mode == ClientMode) hosts.append(id);
+        }
+    }
+    if (authorized.isEmpty()) { m_sync.close(); return; }
+    m_sync.open(m_container, scope);
+    m_sync.setPeers(authorized, hosts);
+}
+bool NetworkDriveController::containerReady() const {
+    if (!m_mirror.isEmpty()) {
+        const auto drive = iiSocietyContainer::SocietyDrive::open(m_container);
+        return drive && m_mirror.value("complete").toBool() && m_mirror.value("container") == drive->identifier();
+    }
+    return hostModeAvailable() && !(m_localActive && !m_local.hosting() && m_local.connected());
+}
+QString NetworkDriveController::synchronizationStatus() const {
+    const auto error = m_sync.errorString();
+    if (error == "container_account_binding_mismatch") return tr("This container is linked to another account.");
+    if (error == "insufficient_storage") return tr("Not enough free space to continue syncing.");
+    if (error == "filename_normalization_collision") return tr("Rename files whose names differ only by case or Unicode form to continue syncing.");
+    if (error == "native_sync_filesystem_unsupported_platform") return tr("Container sync is unavailable on this platform.");
+    if (!error.isEmpty()) return tr("Container sync is waiting to retry.");
+    if (m_sync.busy() && m_syncTotal > 0 && !m_syncPath.isEmpty())
+        return tr("Syncing %1 (%2%)…").arg(m_syncPath.section('/', -1)).arg(m_syncDone * 100 / m_syncTotal);
+    if (!containerReady()) return connected() ? tr("Preparing the host's Society drive on this device…")
+        : tr("Connect to your desktop to mirror your Society drive.");
+    if (m_sync.busy()) return tr("Syncing your container…");
+    if (m_sync.available()) return tr("Container sync is active.");
+    return tr("Waiting for an account-verified device to sync.");
 }
 bool NetworkDriveController::hostModeAvailable() const {
 #if defined(Q_OS_IOS) || defined(Q_OS_ANDROID) || defined(SOCIETY_CLIENT_ONLY)
@@ -110,6 +222,7 @@ bool NetworkDriveController::hostModeAvailable() const {
 #endif
 }
 void NetworkDriveController::setMode(Mode mode) {
+    pauseAutomaticPairing();
     const auto next = hostModeAvailable() && mode == HostMode ? HostMode : ClientMode;
     if (m_mode == next) return;
     m_mode = next; emit modeChanged();
@@ -118,11 +231,16 @@ void NetworkDriveController::setMode(Mode mode) {
 }
 void NetworkDriveController::setContainerPath(const QString &path) {
     if (path == m_container) return;
+    const bool automatic = m_automatic.enabled();
     m_container = path;
-    if (m_mode == HostMode) {
-        if (m_localActive) disconnectSession(); else restartSession();
+    m_mirror = iiSocietySync::Replica::binding(path);
+    if (m_mode == HostMode || m_local.hosting()) {
+        if (m_localActive) disconnectSessionImpl(false); else restartSession();
     }
+    m_automatic.setEnabled(automatic);
     emit configurationChanged();
+    emit synchronizationChanged();
+    updateDiscovery();
 }
 void NetworkDriveController::setRelayUrl(const QUrl &url) {
     if (url == m_relayUrl) return;
@@ -133,22 +251,30 @@ void NetworkDriveController::connectSession() {
     if (hostModeAvailable() && m_mode == HostMode) startLocalHost();
     else fail(tr("Select this device on your desktop or scan its QR code to connect."));
 }
-bool NetworkDriveController::startLocalHost() {
+bool NetworkDriveController::startLocalHost(bool automatic) {
+    if (!automatic) pauseAutomaticPairing();
     if (!hostModeAvailable()) { fail(tr("Only desktop Society can host Files.")); return false; }
+    if (!m_mirror.isEmpty()) { fail(tr("This device mirrors its primary Society host.")); return false; }
     if (m_local.hosting()) return true;
-    disconnectSession(); m_mode = HostMode; emit modeChanged();
+    if (automatic) { m_session = {}; m_accountSession = false; stopTransport(); }
+    else disconnectSession();
+    m_mode = HostMode; emit modeChanged();
     QString error; m_storage = iiSocietyContainer::SharedStorage::open(m_container, &error);
     if (!m_storage) { fail(error.isEmpty() ? tr("Open a Society container before pairing.") : error); return false; }
-    const auto storage = *m_storage;
-    auto share = std::make_shared<iiServerHost::FileShare>(storage.filePath(iiSocietyContainer::StoreSection::Files), [storage] { return storage.drive().isValid(); });
+    const auto files = iiSocietySync::filesHandler(m_storage->drive().rootPath());
     m_localActive = true;
     const auto id = m_nearby.active() ? m_nearby.deviceId() : m_account ? m_account->manager()->deviceInfo().value("id").toString() : QUuid::createUuid().toString(QUuid::WithoutBraces);
     return m_local.startHost(id, m_nearby.active() ? m_nearby.deviceName() : QSysInfo::machineHostName(),
-        [share](const auto &, const auto &payload) { return share->handle(payload); },
+        [this, files](const auto &peer, const auto &payload) {
+            if (payload.value("op") == "society.sync") return m_sync.handle(peer, payload);
+            return files(peer, payload);
+        },
         m_localBindAddress.isLoopback() ? QStringList{m_localBindAddress.toString()} : QStringList{}, m_localBindAddress);
 }
-bool NetworkDriveController::joinLocalHost(const QString &qr) {
-    disconnectSession(); m_mode = ClientMode; emit modeChanged(); m_localActive = true;
+bool NetworkDriveController::joinLocalHost(const QString &qr, bool automatic) {
+    if (automatic) { m_session = {}; m_accountSession = false; stopTransport(); }
+    else disconnectSession();
+    m_mode = ClientMode; emit modeChanged(); m_localActive = true;
     const auto id = m_nearby.active() ? m_nearby.deviceId() : m_account ? m_account->manager()->deviceInfo().value("id").toString() : QUuid::createUuid().toString(QUuid::WithoutBraces);
     return m_local.join(qr, id, m_nearby.active() ? m_nearby.deviceName() : QSysInfo::machineHostName());
 }
@@ -185,14 +311,18 @@ bool NetworkDriveController::startSessionImpl(iiServerHost::PeerOptions options,
     options.hostFiles = host;
     if (!host) options.localHostingEnabled = false;
     options.metadata = m_storage ? QJsonObject{{"containerId", m_storage->drive().identifier()}, {"section", "files"}} : QJsonObject();
-    std::shared_ptr<iiServerHost::FileShare> share;
-    if (m_storage) {
-        const auto storage = *m_storage;
-        share = std::make_shared<iiServerHost::FileShare>(storage.filePath(iiSocietyContainer::StoreSection::Files), [storage] { return storage.drive().isValid(); });
-    }
+    const auto files = m_storage ? iiSocietySync::filesHandler(m_storage->drive().rootPath()) : iiServerHost::RequestHandler();
     m_status = tr("Connecting to your devices…"); emit entriesChanged();
-    const bool ok = m_peer.start(options, [share](const QString &, const QJsonObject &request) {
-        return share ? share->handle(request) : QJsonObject{{"ok", false}, {"error", "container_unavailable"}};
+    const bool ok = m_peer.start(options, [this, files](const QString &peer, const QJsonObject &request) {
+        if (request.value("op") == "society.sync") {
+            // The relay transport has already authenticated and isolated the
+            // caller's principal; client IDs need not appear in the host list.
+            if (signedIn() && m_peer.accountId() == m_account->manager()->account()->sub()) {
+                m_verifiedSyncPeers.insert(peer); updateSynchronization();
+            }
+            return m_sync.handle(peer, request);
+        }
+        return files ? files(peer, request) : QJsonObject{{"ok", false}, {"error", "container_unavailable"}};
     });
     if (!ok) fail(m_peer.errorString()); else emit stateChanged();
     return ok;
@@ -201,75 +331,38 @@ void NetworkDriveController::restartSession() {
     if (!m_session.credential.isEmpty()) startSessionImpl(m_session, m_accountSession);
 }
 void NetworkDriveController::stopTransport() {
-    m_download.reset(); m_request.clear(); m_operation.clear(); m_storage.reset();
-    m_entries.clear(); m_host.clear(); m_path.clear(); m_cursor.clear(); m_transport.clear();
+    emit transportStopped();
+    m_sync.close(); m_verifiedSyncPeers.clear(); m_remote.reset(); m_storage.reset();
     m_localActive = false; m_local.stop(); m_peer.stop(); emit entriesChanged(); emit hostsChanged();
 }
-void NetworkDriveController::disconnectSession() {
+void NetworkDriveController::pauseAutomaticPairing() {
+    m_automatic.setEnabled(false);
+    if (m_account && signedIn()) m_account->setAutomaticPairingEnabled(false);
+}
+void NetworkDriveController::resumeAutomaticPairing() {
+    m_automatic.setEnabled(true);
+    if (m_account && signedIn()) m_account->setAutomaticPairingEnabled(true);
+    updateDiscovery();
+}
+void NetworkDriveController::disconnectSession() { disconnectSessionImpl(true); }
+void NetworkDriveController::disconnectSessionImpl(bool remember) {
+    if (remember) pauseAutomaticPairing(); else m_automatic.setEnabled(false);
     m_nearby.cancel();
     m_session = {}; m_accountSession = false; stopTransport();
     m_status = tr("Disconnected."); emit stateChanged();
 }
 void NetworkDriveController::fail(const QString &message) {
-    m_status = message; m_request.clear(); m_download.reset(); emit stateChanged();
+    m_status = message; emit stateChanged();
 }
 void NetworkDriveController::refresh() {
-    if (m_localActive) { if (!m_host.isEmpty()) browse(m_host, m_path); emit hostsChanged(); }
+    if (m_localActive) { if (!m_remote.host().isEmpty()) browse(m_remote.host(), m_remote.path()); emit hostsChanged(); }
     else m_peer.refreshPeers();
 }
 QString NetworkDriveController::request(const QString &host, const QJsonObject &payload) {
     return m_localActive ? m_local.request(host, payload) : m_peer.request(host, payload);
 }
-void NetworkDriveController::browse(const QString &host, const QString &path, const QString &cursor) {
-    if (busy()) return;
-    m_host = host; m_path = path; m_cursor.clear(); m_operation = "list";
-    if (cursor.isEmpty()) m_entries.clear();
-    QJsonObject request{{"op", "list"}, {"path", path}}; if (!cursor.isEmpty()) request.insert("cursor", cursor);
-    m_request = this->request(host, request); emit entriesChanged(); emit stateChanged();
-}
-void NetworkDriveController::download(const QString &path, const QUrl &destination) {
-    if (busy() || m_host.isEmpty()) return;
-    if (!destination.isLocalFile() || !QDir::isAbsolutePath(destination.toLocalFile())) { fail(tr("Choose a local destination file.")); return; }
-    m_download = std::make_unique<QSaveFile>(destination.toLocalFile());
-    m_download->setDirectWriteFallback(false);
-    if (!m_download->open(QIODevice::WriteOnly)) { fail(tr("The destination cannot be opened.")); return; }
-    m_downloadPath = path; m_received = 0; m_operation = "stat";
-    m_request = request(m_host, {{"op", "stat"}, {"path", path}}); emit stateChanged();
-}
-void NetworkDriveController::nextChunk() {
-    m_operation = "read";
-    m_request = request(m_host, {{"op", "read"}, {"path", m_downloadPath}, {"offset", QString::number(m_received)}, {"version", m_version}});
-    emit stateChanged();
-}
+void NetworkDriveController::browse(const QString &host, const QString &path, const QString &cursor) { m_remote.browse(host, path, cursor); }
+void NetworkDriveController::download(const QString &path, const QUrl &destination) { m_remote.download(path, destination); }
 void NetworkDriveController::response(const QString &id, const QJsonObject &result, const QString &transport) {
-    if (id != m_request) return;
-    m_request.clear(); m_transport = transport;
-    if (!result.value("ok").toBool()) { fail(result.value("error").toString(tr("The file request failed."))); return; }
-    if (m_operation == "list") {
-        m_entries.append(result.value("entries").toArray().toVariantList()); m_cursor = result.value("nextCursor").toString();
-        m_status = tr("Files on your device."); emit entriesChanged(); emit stateChanged(); return;
-    }
-    if (!m_download) { fail(tr("The download was cancelled.")); return; }
-    if (m_operation == "stat") {
-        bool valid; m_expected = result.value("size").toString().toLongLong(&valid); m_version = result.value("version").toString();
-        if (!valid || m_expected < 0 || m_version.isEmpty()) { fail(tr("The host returned invalid file metadata.")); return; }
-        nextChunk(); return;
-    }
-    const auto decoded = QByteArray::fromBase64Encoding(result.value("data").toString().toLatin1(), QByteArray::AbortOnBase64DecodingErrors);
-    bool validOffset, validSize;
-    const auto offset = result.value("offset").toString().toLongLong(&validOffset);
-    const auto size = result.value("size").toString().toLongLong(&validSize);
-    if (!decoded || !validOffset || !validSize || offset != m_received || size != m_expected || result.value("version").toString() != m_version
-        || decoded.decoded.size() > iiServerHost::FileShare::ChunkBytes || decoded.decoded.size() > m_expected - m_received
-        || (decoded.decoded.isEmpty() && m_received != m_expected)
-        || m_download->write(decoded.decoded) != decoded.decoded.size()) { fail(tr("The file changed or the transfer is incomplete.")); return; }
-    m_received += decoded.decoded.size();
-    if (result.value("eof").toBool()) {
-        if (m_received != m_expected) { fail(tr("The transfer ended before the file was complete.")); return; }
-        const auto destination = QUrl::fromLocalFile(m_download->fileName());
-        if (!m_download->commit()) { fail(tr("The downloaded file could not be saved.")); return; }
-        m_download.reset(); m_status = tr("Download complete."); emit stateChanged(); emit downloadFinished(destination); return;
-    }
-    if (m_received == m_expected) { fail(tr("The host returned an invalid end-of-file marker.")); return; }
-    nextChunk();
+    m_sync.receive(id, result); m_remote.receive(id, result, transport);
 }

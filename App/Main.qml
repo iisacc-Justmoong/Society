@@ -91,11 +91,15 @@ LV.ApplicationWindow {
         }
     }
 
-    DriveController { id: drive; objectName: "driveController" }
+    DriveController {
+        id: drive
+        objectName: "driveController"
+        mirrorPending: !networkDrive.containerReady
+    }
     DashboardFiles {
         id: dashboardFiles
         objectName: "dashboardFiles"
-        containerPath: root.isDesktopPlatform ? drive.rootPath : ""
+        containerPath: root.isDesktopPlatform && drive.contentsAvailable ? drive.rootPath : ""
         query: societyView.query
     }
     AccountController { id: session; objectName: "societyAccount" }
@@ -110,6 +114,11 @@ LV.ApplicationWindow {
         objectName: "networkDriveController"
         containerPath: drive.rootPath
         accountSession: root.accountSession
+        onMirrorChanged: drive.reloadFromDisk()
+        onContainerSynchronized: {
+            drive.reloadFromDisk()
+            dashboardFiles.refresh()
+        }
     }
     NetworkDevices {
         id: networkDevices
@@ -164,7 +173,7 @@ LV.ApplicationWindow {
     ModelImporter {
         id: modelImporter
         objectName: "modelImporter"
-        containerPath: drive.rootPath
+        containerPath: drive.contentsAvailable ? drive.rootPath : ""
         onFinished: function(containerPath, paths) {
             if (containerPath === drive.rootPath && paths.length > 0) {
                 drive.openSection("models")
@@ -204,6 +213,7 @@ LV.ApplicationWindow {
         signedIn: session.signedIn
         selectedTab: root.selectedTab
         deviceStatus: networkDrive.connected ? qsTr("Online") : drive.hasDrive ? qsTr("Local") : qsTr("Unavailable")
+        synchronizationStatus: networkDrive.synchronizationStatus
         onTabRequested: function(tab) { root.selectedTab = tab }
         onDevicesRequested: root.openDevices()
         onPreferencesRequested: root.openPreferences()

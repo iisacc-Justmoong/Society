@@ -10,6 +10,10 @@ import sys
 
 bundle = Path(sys.argv[1]).resolve()
 source = Path(sys.argv[2]).resolve()
+with (bundle / 'Contents/Info.plist').open('rb') as file:
+    group = plistlib.load(file)['SocietyAppGroup']
+entitlements = plistlib.loads(subprocess.check_output(['codesign', '-d', '--entitlements', '-', '--xml', str(bundle)], stderr=subprocess.DEVNULL))
+assert group in entitlements.get('com.apple.security.application-groups', []), 'Packaging dropped the Society App Group entitlement.'
 def links(executable):
     lines = subprocess.check_output(["otool", "-L", str(executable)], text=True).splitlines()
     return [line.strip() for line in lines if line[:1].isspace()]

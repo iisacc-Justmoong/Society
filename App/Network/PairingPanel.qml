@@ -98,12 +98,28 @@ Controls.Popup {
                         }
                         LV.PushButton {
                             objectName: "pairingNearbyDevice"
-                            text: nearbyRow.modelData.connected ? qsTr("Connected") : qsTr("Pair")
-                            enabled: !nearbyRow.modelData.connected
+                            text: nearbyRow.modelData.connected ? qsTr("Connected")
+                                : nearbyRow.modelData.pairingState === "connecting" ? qsTr("Connecting…")
+                                : nearbyRow.modelData.pairingState === "retrying" ? qsTr("Retrying…")
+                                : nearbyRow.modelData.pairingState === "queued" ? qsTr("Queued") : qsTr("Pair")
+                            enabled: !nearbyRow.modelData.connected && !nearbyRow.modelData.pairingState
                             Accessible.name: qsTr("Pair with %1").arg(nearbyRow.modelData.name)
                             onClicked: panel.pairing.inviteDevice(nearbyRow.modelData.id)
                         }
                     }
+                }
+                LV.Label {
+                    objectName: "pairingAutomaticStatus"
+                    Layout.fillWidth: true
+                    text: panel.pairing.network ? panel.pairing.network.automaticPairingStatus : ""
+                    wrapMode: Text.Wrap
+                    sizeToContentHeight: true
+                }
+                LV.PushButton {
+                    objectName: "pairingResumeAutomatic"
+                    visible: panel.pairing.network && !panel.pairing.network.automaticPairingEnabled
+                    text: qsTr("Resume automatic pairing")
+                    onClicked: panel.pairing.network.resumeAutomaticPairing()
                 }
             }
             LV.Label {
@@ -167,6 +183,13 @@ Controls.Popup {
                 objectName: "pairingExpiry"
                 visible: panel.pairing.phase === "showing"
                 text: qsTr("Expires in %1 seconds").arg(panel.pairing.secondsRemaining)
+            }
+            LV.PushButton {
+                objectName: "pairingCopyLink"
+                Layout.fillWidth: true
+                visible: panel.desktop && panel.pairing.phase === "showing"
+                text: qsTr("Copy Society pairing link")
+                onClicked: panel.pairing.copyPairingLink()
             }
             LV.PushButton {
                 objectName: "pairingRefresh"

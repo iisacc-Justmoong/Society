@@ -5,6 +5,8 @@ import android.net.nsd.NsdManager;
 import android.net.nsd.NsdServiceInfo;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.Build;
+import java.net.InetAddress;
 import java.net.Inet4Address;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayDeque;
@@ -48,8 +50,8 @@ public final class SocietyDiscovery {
                 NsdServiceInfo info = new NsdServiceInfo();
                 info.setServiceName("Society-" + record.getString("nonce").substring(0, 12));
                 info.setServiceType(TYPE); info.setPort(port);
-                for (String key : new String[]{"v", "scope", "id", "name", "kind", "host", "nonce"})
-                    info.setAttribute(key, record.getString(key));
+                for (String key : new String[]{"v", "scope", "id", "name", "kind", "host", "nonce", "epoch", "proof", "autoHost", "primary"})
+                    if (record.has(key)) info.setAttribute(key, record.getString(key));
                 registration = new NsdManager.RegistrationListener() {
                     public void onServiceRegistered(NsdServiceInfo service) { }
                     public void onRegistrationFailed(NsdServiceInfo service, int code) { handler.post(() -> error(code)); }
@@ -95,14 +97,19 @@ public final class SocietyDiscovery {
             public void onResolveFailed(NsdServiceInfo info, int code) { handler.post(() -> { resolving = false; resolveNext(); }); }
             public void onServiceResolved(NsdServiceInfo info) { handler.post(() -> {
                 resolving = false;
-                if (running && peers.containsKey(key) && info.getHost() instanceof Inet4Address) {
+                if (running && peers.containsKey(key)) {
                     try {
                         JSONObject record = new JSONObject();
-                        for (String field : new String[]{"v", "scope", "id", "name", "kind", "host", "nonce"}) {
+                        for (String field : new String[]{"v", "scope", "id", "name", "kind", "host", "nonce", "epoch", "proof", "autoHost", "primary"}) {
                             byte[] value = info.getAttributes().get(field);
                             if (value != null && value.length <= 255) record.put(field, new String(value, StandardCharsets.UTF_8));
                         }
-                        report("found", key, record, info.getHost().getHostAddress(), info.getPort());
+                        if (Build.VERSION.SDK_INT >= 34) {
+                            for (InetAddress address : info.getHostAddresses()) if (address instanceof Inet4Address)
+                                report("found", key, record, address.getHostAddress(), info.getPort());
+                        } else if (info.getHost() instanceof Inet4Address) {
+                            report("found", key, record, info.getHost().getHostAddress(), info.getPort());
+                        }
                     } catch (Exception ignored) { }
                 }
                 resolveNext();
