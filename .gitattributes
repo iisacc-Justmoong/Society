@@ -1,3 +1,6 @@
 # Preserve the byte-identical vendored upstream files.
 ThirdParty/qrcodegen/qrcodegen.cpp -whitespace
 ThirdParty/qrcodegen/qrcodegen.hpp -whitespace
+
+# Preserve Illustrator artwork byte-for-byte.
+resources/Appicon/*.ai binary

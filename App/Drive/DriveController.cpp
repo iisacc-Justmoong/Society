@@ -7,6 +7,8 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QCoreApplication>
+#include <QFutureWatcher>
+#include <QtConcurrent/QtConcurrentRun>
 #if defined(Q_OS_MACOS) || defined(SOCIETY_DESKTOP_MOUNT)
 #include <QProcessEnvironment>
 #endif
@@ -26,6 +28,12 @@
 #include <utility>
 
 using namespace iiSocietyContainer;
+
+struct DriveController::ReloadResult {
+    std::optional<SocietyDrive> drive;
+    QString error, checkedPath;
+    bool pathExists = true;
+};
 
 DriveController::DriveController(QObject *parent) : QObject(parent)
 {
@@ -152,6 +160,7 @@ QVariantList DriveController::breadcrumbs() const
 
 bool DriveController::fail(const QString &message)
 {
+    if (m_error == message) return false;
     m_error = message;
     emit errorChanged();
     return false;
@@ -174,6 +183,8 @@ bool DriveController::openContainer(const QString &path)
         return fail(error);
     if (!SharedStorage::setDefaultContainer(drive->rootPath(), &error))
         return fail(error);
+    ++m_reloadRevision;
+    m_reloadPending = false;
     m_drive = std::move(drive);
     m_currentPath.clear();
     m_systemPath.clear();
@@ -191,33 +202,66 @@ void DriveController::setMirrorPending(bool pending)
     if (m_mirrorPending == pending) return;
     m_mirrorPending = pending;
     emit contentsChanged();
-    if (!pending && hasDrive()) QTimer::singleShot(0, this, [this] {
-        if (m_mirrorPending || !hasDrive()) return;
-        reloadFromDisk();
+    if (!pending && hasDrive()) {
         m_nativeRebind = m_nativeRebind || managedContainer();
-        if (m_nativeRebind && !busy()) { m_nativeRebind = false; connectToSystem(); }
-    });
+        refreshFromDisk();
+    }
+}
+
+DriveController::ReloadResult DriveController::readFromDisk(const QString &root, const QString &currentPath)
+{
+    ReloadResult result;
+    result.drive = SocietyDrive::open(root, &result.error);
+    result.checkedPath = currentPath;
+    result.pathExists = currentPath.isEmpty() || QFileInfo(currentPath).isDir();
+    return result;
+}
+
+bool DriveController::applyReload(const ReloadResult &result)
+{
+    if (!result.drive) return fail(result.error);
+    const bool changed = result.drive->identifier() != identifier();
+    const auto previousPath = m_currentPath;
+    QString error;
+    if (changed && !SharedStorage::setDefaultContainer(result.drive->rootPath(), &error)) return fail(error);
+    m_drive = result.drive;
+    // Navigation may have changed while the background read was running.
+    if (changed || (m_currentPath == result.checkedPath && !result.pathExists)) m_currentPath.clear();
+    if (changed) {
+        m_nativeRebind = m_nativeRebind || managedContainer() || !m_systemPath.isEmpty();
+        m_systemPath.clear();
+    }
+    if (m_nativeRebind && !m_mirrorPending && !busy()) { m_nativeRebind = false; connectToSystem(); }
+    if (changed || previousPath != m_currentPath) emit locationChanged();
+    if (changed) emit contentsChanged();
+    return true;
 }
 
 bool DriveController::reloadFromDisk()
 {
     if (!hasDrive()) return false;
-    QString error;
-    const auto current = SocietyDrive::open(rootPath(), &error);
-    if (!current) return fail(error);
-    const bool changed = current->identifier() != identifier();
-    const auto previousPath = m_currentPath;
-    m_drive = current;
-    if (changed && !SharedStorage::setDefaultContainer(current->rootPath(), &error)) return fail(error);
-    if (changed || (!m_currentPath.isEmpty() && !QFileInfo(m_currentPath).isDir())) m_currentPath.clear();
-    if (changed) {
-        m_nativeRebind = m_nativeRebind || managedContainer() || !m_systemPath.isEmpty();
-        m_systemPath.clear();
-        if (m_nativeRebind && !m_mirrorPending && !busy()) { m_nativeRebind = false; connectToSystem(); }
-    }
-    if (changed || previousPath != m_currentPath) emit locationChanged();
-    emit contentsChanged();
-    return true;
+    ++m_reloadRevision;
+    m_reloadPending = false;
+    return applyReload(readFromDisk(rootPath(), m_currentPath));
+}
+
+void DriveController::refreshFromDisk()
+{
+    if (!hasDrive()) return;
+    if (m_reloadRunning) { m_reloadPending = true; return; }
+    m_reloadRunning = true;
+    m_reloadPending = false;
+    const auto revision = m_reloadRevision;
+    const auto root = rootPath(), path = m_currentPath;
+    auto *watcher = new QFutureWatcher<ReloadResult>(this);
+    connect(watcher, &QFutureWatcher<ReloadResult>::finished, this, [this, watcher, revision] {
+        const auto result = watcher->result();
+        watcher->deleteLater();
+        m_reloadRunning = false;
+        if (revision == m_reloadRevision) applyReload(result);
+        if (m_reloadPending) refreshFromDisk();
+    });
+    watcher->setFuture(QtConcurrent::run(&DriveController::readFromDisk, root, path));
 }
 
 bool DriveController::openSection(const QString &key)

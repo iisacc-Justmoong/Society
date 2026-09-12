@@ -49,6 +49,14 @@ private slots:
         qmlRegisterType<QrScanner>("Society", 1, 0, "QrScanner");
     }
     void init() { QSettings(QSettings::IniFormat, QSettings::UserScope, "iisacc", "SocietyPairing").clear(); }
+    void selectingTheCurrentModeDoesNotPauseAutomaticConnections() {
+        NetworkDriveController network;
+        QVERIFY(network.automaticPairingEnabled());
+        network.setMode(network.mode()); QVERIFY(network.automaticPairingEnabled());
+        network.setRuntimeEnabled(false); QVERIFY(!network.runtimeEnabled());
+        QVERIFY(!network.startLocalHost()); QVERIFY(!network.discovering());
+        network.setRuntimeEnabled(true); QVERIFY(network.automaticPairingEnabled());
+    }
     void cameraFrameDecoderReadsQrAndIgnoresBlankFrames() {
 #ifdef Q_OS_MACOS
         Fixture fixture; QVERIFY(fixture.start());

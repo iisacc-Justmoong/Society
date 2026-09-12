@@ -56,6 +56,7 @@ public:
     bool contentsAvailable() const { return hasDrive() && !m_mirrorPending; }
     void setMirrorPending(bool pending);
     Q_INVOKABLE bool reloadFromDisk();
+    Q_INVOKABLE void refreshFromDisk();
 
     Q_INVOKABLE bool openContainer(const QString &path);
     Q_INVOKABLE bool openContainerUrl(const QUrl &url);
@@ -76,6 +77,9 @@ signals:
     void contentsChanged();
 
 private:
+    struct ReloadResult;
+    static ReloadResult readFromDisk(const QString &root, const QString &currentPath);
+    bool applyReload(const ReloadResult &result);
     bool fail(const QString &message);
 #if defined(Q_OS_MACOS) || defined(SOCIETY_DESKTOP_MOUNT)
     struct Command { QString program; QStringList arguments; };
@@ -96,6 +100,8 @@ private:
     QProcess m_process;
 #endif
     quint64 m_requestGeneration = 0;
+    quint64 m_reloadRevision = 0;
+    bool m_reloadRunning = false, m_reloadPending = false;
     QTimer m_timeout;
     bool m_mirrorPending = false, m_nativeRebind = false;
 };

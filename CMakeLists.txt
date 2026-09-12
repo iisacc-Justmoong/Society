@@ -60,7 +60,7 @@ foreach(society_sdk IN LISTS society_sdk_packages)
     elseif(society_sdk STREQUAL "iiSocietyHelper")
         find_package(iiSocietyHelper 0.7.1 CONFIG REQUIRED HINTS "$ENV{HOME}/.local/SDK/iiSocietyHelper")
     elseif(society_sdk STREQUAL "iiSocietySync")
-        find_package(iiSocietySync 0.3.0 CONFIG REQUIRED HINTS "$ENV{HOME}/.local/SDK/iiSocietySync")
+        find_package(iiSocietySync 0.4.0 CONFIG REQUIRED HINTS "$ENV{HOME}/.local/SDK/iiSocietySync")
     else()
         find_package(${society_sdk} CONFIG REQUIRED HINTS "$ENV{HOME}/.local/SDK/${society_sdk}")
     endif()
@@ -68,6 +68,7 @@ foreach(society_sdk IN LISTS society_sdk_packages)
 endforeach()
 
 add_library(SocietyServices STATIC Daemon/DaemonService.cpp Daemon/DaemonService.h
+    App/Services/SyncOwnership.cpp App/Services/SyncOwnership.h
     App/Services/SocietyInbox.cpp App/Services/SocietyInbox.h
     App/Services/SocietyRuntime.cpp App/Services/SocietyRuntime.h)
 target_link_libraries(SocietyServices PUBLIC iiSocietyHelper::iiSocietyHelper)
@@ -111,6 +112,7 @@ endif()
 set(society_account_sources App/Account/AccountController.cpp App/Account/AccountController.h
     App/Account/DeviceInfo.cpp App/Account/DeviceInfo.h)
 add_library(SocietyDiscovery STATIC App/Network/DiscoveryService.h App/Network/NearbyDevices.h App/Network/NearbyDevices.cpp
+    App/Network/MobileSyncActivity.cpp App/Network/MobileSyncActivity.h
     App/Network/AutomaticPairing.h App/Network/AutomaticPairing.cpp App/Network/PairingCredentials.h App/Network/PairingCredentials.cpp)
 set_target_properties(SocietyDiscovery PROPERTIES AUTOMOC ON POSITION_INDEPENDENT_CODE ON)
 target_compile_features(SocietyDiscovery PUBLIC cxx_std_20)
@@ -130,6 +132,12 @@ endif()
 set(society_pairing_sources App/Network/DevicePairing.cpp App/Network/DevicePairing.h
     App/Network/PairingQr.cpp App/Network/PairingQr.h App/Network/QrScanner.cpp App/Network/QrScanner.h
     ThirdParty/qrcodegen/qrcodegen.cpp ThirdParty/qrcodegen/qrcodegen.hpp)
+if(TARGET SocietyDaemon)
+    target_sources(SocietyDaemon PRIVATE ${society_account_sources}
+        App/Network/NetworkDriveController.cpp App/Network/NetworkDriveController.h)
+    target_link_libraries(SocietyDaemon PRIVATE SocietyDiscovery SocietyGroupState iiSocietySync::iiSocietySync Qt6::Gui Qt6::Qml)
+    target_compile_definitions(SocietyDaemon PRIVATE SOCIETY_HEADLESS SOCIETY_APP_VERSION="${PROJECT_VERSION}")
+endif()
 qt_add_executable(Society
     main.cpp ${society_account_sources} ${society_pairing_sources} App/Files/DirectoryLocation.cpp App/Files/DirectoryLocation.h
         App/Dashboard/DashboardFiles.cpp App/Dashboard/DashboardFiles.h
@@ -172,10 +180,10 @@ target_include_directories(Society PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAK
 if(IOS OR ANDROID)
     target_compile_definitions(Society PRIVATE SOCIETY_CLIENT_ONLY=1)
     if(IOS)
-        target_sources(Society PRIVATE App/Network/IosSyncActivity.mm App/Network/MobileSyncActivity.h)
+        target_sources(Society PRIVATE App/Network/IosSyncActivity.mm)
         target_link_libraries(Society PRIVATE "-framework UIKit")
     else()
-        target_sources(Society PRIVATE App/Network/AndroidSyncActivity.cpp App/Network/MobileSyncActivity.h)
+        target_sources(Society PRIVATE App/Network/AndroidSyncActivity.cpp)
     endif()
 endif()
 if(APPLE AND NOT IOS)
@@ -187,7 +195,6 @@ if(APPLE AND NOT IOS)
         MACOSX_PACKAGE_LOCATION "Library/LaunchAgents")
     target_link_libraries(Society PRIVATE "-framework ServiceManagement" "-framework Foundation")
     add_dependencies(Society SocietyDaemon)
-    configure_file(Daemon/platform/macos/Info.plist.in "${CMAKE_CURRENT_BINARY_DIR}/SocietyDaemon-Info.plist" @ONLY)
     set_property(TARGET Society APPEND PROPERTY LINK_DEPENDS "$<TARGET_FILE:SocietyDaemon>"
         "${CMAKE_CURRENT_BINARY_DIR}/SocietyDaemon-Info.plist")
     add_custom_command(TARGET Society POST_BUILD
@@ -202,6 +209,7 @@ if(APPLE AND NOT IOS)
     find_package(Python3 REQUIRED COMPONENTS Interpreter)
     set(SOCIETY_MAC_SIGN_IDENTITY "-" CACHE STRING "Signing identity for the local daemon package; '-' uses ad-hoc signing")
     set(SOCIETY_MAC_APP_GROUP "group.com.iisacc.society" CACHE STRING "macOS App Group; use <TeamID>.com.iisacc.society with a developer signature")
+    configure_file(Daemon/platform/macos/Info.plist.in "${CMAKE_CURRENT_BINARY_DIR}/SocietyDaemon-Info.plist" @ONLY)
     configure_file(platform/macos/App.entitlements.in "${CMAKE_CURRENT_BINARY_DIR}/Society-Mac.entitlements" @ONLY)
     set_property(TARGET Society APPEND PROPERTY LINK_DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/Society-Mac.entitlements")
     add_custom_target(SocietyDaemonPackage
@@ -289,9 +297,12 @@ if(APPLE)
     include(cmake/NetworkPrivacy.cmake)
     society_add_network_privacy(Society)
 endif()
+include(cmake/AppIcons.cmake)
+society_add_app_icons(Society)
 if(APPLE AND NOT IOS)
     add_custom_command(TARGET Society POST_BUILD
         COMMAND codesign --force --sign "${SOCIETY_MAC_SIGN_IDENTITY}" --timestamp=none
+            --entitlements "${CMAKE_CURRENT_BINARY_DIR}/Society-Mac.entitlements"
             "$<TARGET_BUNDLE_DIR:Society>/Contents/Helpers/SocietyDaemon.app"
         COMMAND codesign --force --sign "${SOCIETY_MAC_SIGN_IDENTITY}" --timestamp=none
             --entitlements "${CMAKE_CURRENT_BINARY_DIR}/Society-Mac.entitlements" "$<TARGET_BUNDLE_DIR:Society>"
@@ -314,6 +325,8 @@ if(BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)
     find_package(Python3 REQUIRED COMPONENTS Interpreter)
     add_test(NAME Society.IosBuildContract COMMAND "${Python3_EXECUTABLE}" -B
         "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_ios_build.py")
+    add_test(NAME Society.AppIcons COMMAND "${Python3_EXECUTABLE}" -B
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_app_icons.py")
     add_test(NAME Society.AndroidTlsBuild COMMAND "${Python3_EXECUTABLE}" -B
         "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_android_openssl.py")
     qt_add_executable(SocietyPairingTests tests/tst_pairing.cpp ${society_pairing_sources} ${society_account_sources}
@@ -353,6 +366,11 @@ if(BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)
     target_link_libraries(SocietyRuntimeTests PRIVATE Qt6::Test SocietyServices)
     target_compile_definitions(SocietyRuntimeTests PRIVATE SOCIETY_TEST_DIRECTORY="${CMAKE_CURRENT_BINARY_DIR}")
     add_test(NAME Society.MobileLifecycle COMMAND SocietyRuntimeTests)
+    qt_add_executable(SocietySyncOwnershipTests tests/tst_syncownership.cpp)
+    target_link_libraries(SocietySyncOwnershipTests PRIVATE Qt6::Test SocietyServices)
+    target_compile_definitions(SocietySyncOwnershipTests PRIVATE SOCIETY_TEST_DIRECTORY="${CMAKE_CURRENT_BINARY_DIR}")
+    add_test(NAME Society.SyncOwnership COMMAND SocietySyncOwnershipTests)
+    set_tests_properties(Society.SyncOwnership PROPERTIES TIMEOUT 15)
     qt_add_executable(SocietyNetworkTests tests/tst_networkdrive.cpp
         App/Network/NetworkDriveController.cpp App/Network/NetworkDriveController.h)
     target_include_directories(SocietyNetworkTests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
@@ -518,5 +536,16 @@ if(BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)
         ENVIRONMENT_MODIFICATION "DYLD_LIBRARY_PATH=unset:;DYLD_FALLBACK_LIBRARY_PATH=unset:"
         TIMEOUT 30
     )
+    endif()
+    # Native tests load QML dynamically; scanning the entire source/build tree
+    # once per test executable adds minutes without providing static plugins.
+    get_target_property(society_qt_core_type Qt6::Core TYPE)
+    if(society_qt_core_type STREQUAL "SHARED_LIBRARY")
+        get_property(society_directory_targets DIRECTORY PROPERTY BUILDSYSTEM_TARGETS)
+        foreach(society_test_target IN LISTS society_directory_targets)
+            if(society_test_target MATCHES "^Society.*Tests$")
+                set_property(TARGET ${society_test_target} PROPERTY QT_QML_MODULE_NO_IMPORT_SCAN TRUE)
+            endif()
+        endforeach()
     endif()
 endif()

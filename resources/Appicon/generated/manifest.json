@@ -1,0 +1,483 @@
+{
+  "files": {
+    "android/res/drawable-hdpi/ic_launcher_foreground.png": {
+      "height": 162,
+      "mode": "RGBA",
+      "sha256": "d7c394fc061705d2f526d68605ab8ca53d991b40ed359c804d52c5a70a0b2a4d",
+      "width": 162
+    },
+    "android/res/drawable-hdpi/ic_launcher_monochrome.png": {
+      "height": 162,
+      "mode": "RGBA",
+      "sha256": "a73bcdb00eca4dd365592832fde2f512f701d3b50db5260e831a6993f414ecc6",
+      "width": 162
+    },
+    "android/res/drawable-ldpi/ic_launcher_foreground.png": {
+      "height": 81,
+      "mode": "RGBA",
+      "sha256": "d34bdbf4febb327c9a963d7d9adce65d3f71abdd19abcf97b69fa58f2005f816",
+      "width": 81
+    },
+    "android/res/drawable-ldpi/ic_launcher_monochrome.png": {
+      "height": 81,
+      "mode": "RGBA",
+      "sha256": "0b9a9e2ac8cb7e70a2d9175e13f7b3bcd98557e295b8751635a02fa64cf5519a",
+      "width": 81
+    },
+    "android/res/drawable-mdpi/ic_launcher_foreground.png": {
+      "height": 108,
+      "mode": "RGBA",
+      "sha256": "da61edb63eabb6487bc17e007217b9fa8db24705788485b464e6910cc5eb189d",
+      "width": 108
+    },
+    "android/res/drawable-mdpi/ic_launcher_monochrome.png": {
+      "height": 108,
+      "mode": "RGBA",
+      "sha256": "c0b6db19db76f190e3d95b4356e591f5fed7aa4aeddfbb446e178de7deea996f",
+      "width": 108
+    },
+    "android/res/drawable-xhdpi/ic_launcher_foreground.png": {
+      "height": 216,
+      "mode": "RGBA",
+      "sha256": "43f0932e05503661d682aa25a07f2e80c4209a696eb4266e697f7796f5ca8273",
+      "width": 216
+    },
+    "android/res/drawable-xhdpi/ic_launcher_monochrome.png": {
+      "height": 216,
+      "mode": "RGBA",
+      "sha256": "3646a2b84de788563c9bbb9eec8bee2a4af581b4049fdaa9f3fca5fe9e509e28",
+      "width": 216
+    },
+    "android/res/drawable-xxhdpi/ic_launcher_foreground.png": {
+      "height": 324,
+      "mode": "RGBA",
+      "sha256": "2be08ee76c060c448e28c46935dd6d71031a226ff98b93f6bc492081a9a9fb9f",
+      "width": 324
+    },
+    "android/res/drawable-xxhdpi/ic_launcher_monochrome.png": {
+      "height": 324,
+      "mode": "RGBA",
+      "sha256": "ced10518ffb22a27d65b12d91d2ac3aea1ca3d7b6b37b0bac610aa91dc9e1917",
+      "width": 324
+    },
+    "android/res/drawable-xxxhdpi/ic_launcher_foreground.png": {
+      "height": 432,
+      "mode": "RGBA",
+      "sha256": "bd02c94a89c4b27f7e4678725515daa47faba0bcee0578ce4463e1059e85e14d",
+      "width": 432
+    },
+    "android/res/drawable-xxxhdpi/ic_launcher_monochrome.png": {
+      "height": 432,
+      "mode": "RGBA",
+      "sha256": "7206b9d3e245f1ae68cc061a2a82d574df231ba76a2d28426e1f82e4576ded12",
+      "width": 432
+    },
+    "android/res/mipmap-anydpi-v26/ic_launcher.xml": {
+      "sha256": "32715ff646f6b9fef7c321138e4a14556c4a1f98a87b06070b56f41643dad718"
+    },
+    "android/res/mipmap-anydpi-v26/ic_launcher_round.xml": {
+      "sha256": "32715ff646f6b9fef7c321138e4a14556c4a1f98a87b06070b56f41643dad718"
+    },
+    "android/res/mipmap-anydpi-v33/ic_launcher.xml": {
+      "sha256": "bbaf996b7b1356da55819d20c1920c34e20b1288fe7cec441aefeda5ea53d24a"
+    },
+    "android/res/mipmap-anydpi-v33/ic_launcher_round.xml": {
+      "sha256": "bbaf996b7b1356da55819d20c1920c34e20b1288fe7cec441aefeda5ea53d24a"
+    },
+    "android/res/mipmap-hdpi/ic_launcher.png": {
+      "height": 72,
+      "mode": "RGB",
+      "sha256": "b26a25afc5cf286019d8ed9ffa4faa80b1ba965a6f5dd0b065b7dec7e0abb2be",
+      "width": 72
+    },
+    "android/res/mipmap-hdpi/ic_launcher_round.png": {
+      "height": 72,
+      "mode": "RGBA",
+      "sha256": "032d9bbe4848c6877a7ab2f8eb63f5951198915022bc84d87002fe920811882f",
+      "width": 72
+    },
+    "android/res/mipmap-ldpi/ic_launcher.png": {
+      "height": 36,
+      "mode": "RGB",
+      "sha256": "b148272489582a451925d52e087733253de23aa001dce7b4ffa451a647f4254f",
+      "width": 36
+    },
+    "android/res/mipmap-ldpi/ic_launcher_round.png": {
+      "height": 36,
+      "mode": "RGBA",
+      "sha256": "b2926e0ed675125fe0c2f89cc1dac620ef8d3e19806ec968c47f594737c3f205",
+      "width": 36
+    },
+    "android/res/mipmap-mdpi/ic_launcher.png": {
+      "height": 48,
+      "mode": "RGB",
+      "sha256": "e24ba9678ad59b88d522169d8bcc8a937250b4865fdf73c23e626d5f00a32452",
+      "width": 48
+    },
+    "android/res/mipmap-mdpi/ic_launcher_round.png": {
+      "height": 48,
+      "mode": "RGBA",
+      "sha256": "eadeab07b1f9d50bbeb84b1c792b0aeb3ab449a9e5096e59de14091b41a17e88",
+      "width": 48
+    },
+    "android/res/mipmap-xhdpi/ic_launcher.png": {
+      "height": 96,
+      "mode": "RGB",
+      "sha256": "f93bfc9422c289eca840011f9d81bd19fc0e936597f7fc897e2096f415fde424",
+      "width": 96
+    },
+    "android/res/mipmap-xhdpi/ic_launcher_round.png": {
+      "height": 96,
+      "mode": "RGBA",
+      "sha256": "12cb84d1b55d08decd1a8bb7404a8bd9ff009e85fbcc18a05bca9042fdea342b",
+      "width": 96
+    },
+    "android/res/mipmap-xxhdpi/ic_launcher.png": {
+      "height": 144,
+      "mode": "RGB",
+      "sha256": "2078ab1db105ee2a0cbdf107335feeb0327a170e65231bc5307983bc697d9d29",
+      "width": 144
+    },
+    "android/res/mipmap-xxhdpi/ic_launcher_round.png": {
+      "height": 144,
+      "mode": "RGBA",
+      "sha256": "320c569b8ae582a7b94242391dc0482b002a9b84dc51fd6d45bb9022da6e75a3",
+      "width": 144
+    },
+    "android/res/mipmap-xxxhdpi/ic_launcher.png": {
+      "height": 192,
+      "mode": "RGB",
+      "sha256": "f3623661a2dcbb1d3ddb9f4df10ece4b0da72910ec015a684aad86a91070108c",
+      "width": 192
+    },
+    "android/res/mipmap-xxxhdpi/ic_launcher_round.png": {
+      "height": 192,
+      "mode": "RGBA",
+      "sha256": "7ffa69b2ce9572381626db3593d62ceba90f2f7c25f3094a8514fbc8cb41cd7b",
+      "width": 192
+    },
+    "android/res/values/icon_colors.xml": {
+      "sha256": "3fdf7cd3a2ab5f4e770e352e1f448023d907723bb87ac30db28f6a706af6aa47"
+    },
+    "common/Society.png": {
+      "height": 1024,
+      "mode": "RGB",
+      "sha256": "9163935de9fbed35dd87a5e0b74fd391fede370bbf2814f3c4b87629b211234e",
+      "width": 1024
+    },
+    "ios/Assets.xcassets/AppIcon.appiconset/Contents.json": {
+      "sha256": "aa2f83abb8d4feeb2e2a1e6ccdef7e48cac9fb789639753183ffaa5a67b4823d"
+    },
+    "ios/Assets.xcassets/AppIcon.appiconset/icon-1024@1x.png": {
+      "height": 1024,
+      "mode": "RGB",
+      "sha256": "9163935de9fbed35dd87a5e0b74fd391fede370bbf2814f3c4b87629b211234e",
+      "width": 1024
+    },
+    "ios/Assets.xcassets/AppIcon.appiconset/icon-20@1x.png": {
+      "height": 20,
+      "mode": "RGB",
+      "sha256": "38731122f9f2ffb28c14c694d7bca90c3cde95885f3ccdb5ffe82d0ad0462e23",
+      "width": 20
+    },
+    "ios/Assets.xcassets/AppIcon.appiconset/icon-20@2x.png": {
+      "height": 40,
+      "mode": "RGB",
+      "sha256": "4c434ca5e885566bc0c5d90b7457ba8a3f7a5bc0b35a27350afccb827e4e7875",
+      "width": 40
+    },
+    "ios/Assets.xcassets/AppIcon.appiconset/icon-20@3x.png": {
+      "height": 60,
+      "mode": "RGB",
+      "sha256": "bcde1d81596272aa0c1fa7ea2721a2225a7e2d1daff2738892ca7b19d189b9ec",
+      "width": 60
+    },
+    "ios/Assets.xcassets/AppIcon.appiconset/icon-29@1x.png": {
+      "height": 29,
+      "mode": "RGB",
+      "sha256": "83316a4e896b48d16817cb834f4a5c66fe18352593e5afc57c8c28a4178362cc",
+      "width": 29
+    },
+    "ios/Assets.xcassets/AppIcon.appiconset/icon-29@2x.png": {
+      "height": 58,
+      "mode": "RGB",
+      "sha256": "78526ae90c80a05348820701897f0bbc1ac0269f41af80cc99db0ded4b13f520",
+      "width": 58
+    },
+    "ios/Assets.xcassets/AppIcon.appiconset/icon-29@3x.png": {
+      "height": 87,
+      "mode": "RGB",
+      "sha256": "f4e3c3fa75adc10761eefe3d961a2c744a41f9184ff45c3e2bb2ba5d0f7cfd3a",
+      "width": 87
+    },
+    "ios/Assets.xcassets/AppIcon.appiconset/icon-40@1x.png": {
+      "height": 40,
+      "mode": "RGB",
+      "sha256": "4c434ca5e885566bc0c5d90b7457ba8a3f7a5bc0b35a27350afccb827e4e7875",
+      "width": 40
+    },
+    "ios/Assets.xcassets/AppIcon.appiconset/icon-40@2x.png": {
+      "height": 80,
+      "mode": "RGB",
+      "sha256": "0c34cf35d0a7af3799af28cfdd816221b1b6e6143e16dfa39bb0c3f93dd1bea7",
+      "width": 80
+    },
+    "ios/Assets.xcassets/AppIcon.appiconset/icon-40@3x.png": {
+      "height": 120,
+      "mode": "RGB",
+      "sha256": "5287fc4bc7a9e042aa6f5af19c8004d679d363b50541cfc7aa3a5f27d0f309dc",
+      "width": 120
+    },
+    "ios/Assets.xcassets/AppIcon.appiconset/icon-60@2x.png": {
+      "height": 120,
+      "mode": "RGB",
+      "sha256": "5287fc4bc7a9e042aa6f5af19c8004d679d363b50541cfc7aa3a5f27d0f309dc",
+      "width": 120
+    },
+    "ios/Assets.xcassets/AppIcon.appiconset/icon-60@3x.png": {
+      "height": 180,
+      "mode": "RGB",
+      "sha256": "70fd8a301932c8effac162a95965526f82ac67582921e278867c73d5865b2aa9",
+      "width": 180
+    },
+    "ios/Assets.xcassets/AppIcon.appiconset/icon-76@1x.png": {
+      "height": 76,
+      "mode": "RGB",
+      "sha256": "8ce94603bbbe1d4657d9e28a811ff52f489b74d172140d4473ce26a7a83706d3",
+      "width": 76
+    },
+    "ios/Assets.xcassets/AppIcon.appiconset/icon-76@2x.png": {
+      "height": 152,
+      "mode": "RGB",
+      "sha256": "f2beaf83e460c0b44041d331e5481b793800ea29656654d09386bf6d9de26303",
+      "width": 152
+    },
+    "ios/Assets.xcassets/AppIcon.appiconset/icon-83.5@2x.png": {
+      "height": 167,
+      "mode": "RGB",
+      "sha256": "b50af752c469f7c65fa433b44476b328203a2b4b8df794c0d6afc3193cf20ebf",
+      "width": 167
+    },
+    "ios/Assets.xcassets/Contents.json": {
+      "sha256": "5ccec2dda9392d8aae50b5eec8821e5df8f430e32cf72ddaeb791d66cbd1fe01"
+    },
+    "linux/hicolor/1024x1024/apps/com.iisacc.society.png": {
+      "height": 1024,
+      "mode": "RGB",
+      "sha256": "9163935de9fbed35dd87a5e0b74fd391fede370bbf2814f3c4b87629b211234e",
+      "width": 1024
+    },
+    "linux/hicolor/128x128/apps/com.iisacc.society.png": {
+      "height": 128,
+      "mode": "RGB",
+      "sha256": "75792d55f52a11c5ea859989f42bd0987df964f5a762e6cbcbd651a716cdc6d7",
+      "width": 128
+    },
+    "linux/hicolor/16x16/apps/com.iisacc.society.png": {
+      "height": 16,
+      "mode": "RGB",
+      "sha256": "592ff4ca4b4ce77aca0870c73a911f992f4f2bdbd8812cde9619208251f8351e",
+      "width": 16
+    },
+    "linux/hicolor/22x22/apps/com.iisacc.society.png": {
+      "height": 22,
+      "mode": "RGB",
+      "sha256": "84cf267de358a36e20ea0ac0e7d3a8b3a9d8b0e8ae6bc179a039df2e564df89c",
+      "width": 22
+    },
+    "linux/hicolor/24x24/apps/com.iisacc.society.png": {
+      "height": 24,
+      "mode": "RGB",
+      "sha256": "e3a07b29a1c605f37afc6683679061608420ab44b963bf0bec609e4f4ed1b648",
+      "width": 24
+    },
+    "linux/hicolor/256x256/apps/com.iisacc.society.png": {
+      "height": 256,
+      "mode": "RGB",
+      "sha256": "caba1e1b689df156fd35f0b0159a0f03a8f91009535dcefcdeb0b61a71ac866c",
+      "width": 256
+    },
+    "linux/hicolor/32x32/apps/com.iisacc.society.png": {
+      "height": 32,
+      "mode": "RGB",
+      "sha256": "d2300c4851eab2ece3536097c685674970afdb05e15fb24aa5f5d932841e35b7",
+      "width": 32
+    },
+    "linux/hicolor/48x48/apps/com.iisacc.society.png": {
+      "height": 48,
+      "mode": "RGB",
+      "sha256": "e24ba9678ad59b88d522169d8bcc8a937250b4865fdf73c23e626d5f00a32452",
+      "width": 48
+    },
+    "linux/hicolor/512x512/apps/com.iisacc.society.png": {
+      "height": 512,
+      "mode": "RGB",
+      "sha256": "73294e380f0070739340ce5f2fe38bd78018287722de0946876da4e166a921c4",
+      "width": 512
+    },
+    "linux/hicolor/64x64/apps/com.iisacc.society.png": {
+      "height": 64,
+      "mode": "RGB",
+      "sha256": "11aae9186adbc6d03bcb6feec3fad2666a2cd8d02e30a504468ef3e770899dda",
+      "width": 64
+    },
+    "macos/Society.icns": {
+      "sha256": "b2c07726bd81bf60b5d5a8bf20cc7968eab483ceda45f3ddaf0724427bb31369"
+    },
+    "macos/Society.iconset/icon_128x128.png": {
+      "height": 128,
+      "mode": "RGBA",
+      "sha256": "7be5e4e6fe0b7231d36ccb60e06f94425fee62831df62a65a7e06a2bec03eb19",
+      "width": 128
+    },
+    "macos/Society.iconset/icon_128x128@2x.png": {
+      "height": 256,
+      "mode": "RGBA",
+      "sha256": "cbab3ad521cb4a89530c07f7cbe5d6bbab3256713af2acedde091b831670831c",
+      "width": 256
+    },
+    "macos/Society.iconset/icon_16x16.png": {
+      "height": 16,
+      "mode": "RGBA",
+      "sha256": "a6354e06079333542c203b91300af63721f1e747e5cb758a386cfc69405de180",
+      "width": 16
+    },
+    "macos/Society.iconset/icon_16x16@2x.png": {
+      "height": 32,
+      "mode": "RGBA",
+      "sha256": "44a79dc149b5a82acdff44c0b90f0f993296b0854c3ed47e28c47e2a69b35e21",
+      "width": 32
+    },
+    "macos/Society.iconset/icon_256x256.png": {
+      "height": 256,
+      "mode": "RGBA",
+      "sha256": "cbab3ad521cb4a89530c07f7cbe5d6bbab3256713af2acedde091b831670831c",
+      "width": 256
+    },
+    "macos/Society.iconset/icon_256x256@2x.png": {
+      "height": 512,
+      "mode": "RGBA",
+      "sha256": "7c9294071e65267e42052a55e92e639bf4349e07ff379e53832519ebeb0fc646",
+      "width": 512
+    },
+    "macos/Society.iconset/icon_32x32.png": {
+      "height": 32,
+      "mode": "RGBA",
+      "sha256": "44a79dc149b5a82acdff44c0b90f0f993296b0854c3ed47e28c47e2a69b35e21",
+      "width": 32
+    },
+    "macos/Society.iconset/icon_32x32@2x.png": {
+      "height": 64,
+      "mode": "RGBA",
+      "sha256": "38ef5103d22fed6c24b725215529ba670801de628d0b4dd9514db5509d7f79b8",
+      "width": 64
+    },
+    "macos/Society.iconset/icon_512x512.png": {
+      "height": 512,
+      "mode": "RGBA",
+      "sha256": "7c9294071e65267e42052a55e92e639bf4349e07ff379e53832519ebeb0fc646",
+      "width": 512
+    },
+    "macos/Society.iconset/icon_512x512@2x.png": {
+      "height": 1024,
+      "mode": "RGBA",
+      "sha256": "2696d2ba202f286718008ad16d6fb11b676d58fc1841eca334ae376649d7eff5",
+      "width": 1024
+    },
+    "macos/Society.png": {
+      "height": 512,
+      "mode": "RGBA",
+      "sha256": "7c9294071e65267e42052a55e92e639bf4349e07ff379e53832519ebeb0fc646",
+      "width": 512
+    },
+    "store/app-store-1024.png": {
+      "height": 1024,
+      "mode": "RGB",
+      "sha256": "9163935de9fbed35dd87a5e0b74fd391fede370bbf2814f3c4b87629b211234e",
+      "width": 1024
+    },
+    "store/google-play-512.png": {
+      "height": 512,
+      "mode": "RGB",
+      "sha256": "73294e380f0070739340ce5f2fe38bd78018287722de0946876da4e166a921c4",
+      "width": 512
+    },
+    "web/apple-touch-icon.png": {
+      "height": 180,
+      "mode": "RGB",
+      "sha256": "70fd8a301932c8effac162a95965526f82ac67582921e278867c73d5865b2aa9",
+      "width": 180
+    },
+    "web/favicon.ico": {
+      "sha256": "b17d7aae5e197ac58fc218e708a3d4052fc3bce01939b9907effb220e9f32ab4",
+      "sizes": [
+        16,
+        32,
+        48
+      ]
+    },
+    "web/icon-16.png": {
+      "height": 16,
+      "mode": "RGB",
+      "sha256": "592ff4ca4b4ce77aca0870c73a911f992f4f2bdbd8812cde9619208251f8351e",
+      "width": 16
+    },
+    "web/icon-192.png": {
+      "height": 192,
+      "mode": "RGB",
+      "sha256": "f3623661a2dcbb1d3ddb9f4df10ece4b0da72910ec015a684aad86a91070108c",
+      "width": 192
+    },
+    "web/icon-32.png": {
+      "height": 32,
+      "mode": "RGB",
+      "sha256": "d2300c4851eab2ece3536097c685674970afdb05e15fb24aa5f5d932841e35b7",
+      "width": 32
+    },
+    "web/icon-48.png": {
+      "height": 48,
+      "mode": "RGB",
+      "sha256": "e24ba9678ad59b88d522169d8bcc8a937250b4865fdf73c23e626d5f00a32452",
+      "width": 48
+    },
+    "web/icon-512.png": {
+      "height": 512,
+      "mode": "RGB",
+      "sha256": "73294e380f0070739340ce5f2fe38bd78018287722de0946876da4e166a921c4",
+      "width": 512
+    },
+    "web/manifest.webmanifest": {
+      "sha256": "56059dafc88ecba16385f59d1cfa0dd3d50bc6f8b2e262553582625191450181"
+    },
+    "web/maskable-192.png": {
+      "height": 192,
+      "mode": "RGB",
+      "sha256": "58eb2d2e93347c1776af4ddc026dd69bc9f67ceba87b0fd027c897ed328030b4",
+      "width": 192
+    },
+    "web/maskable-512.png": {
+      "height": 512,
+      "mode": "RGB",
+      "sha256": "63d23bd7f885a5a2743461e299251078deac23d8d8f3f66db9a0dc6ee62f9af6",
+      "width": 512
+    },
+    "windows/Society.ico": {
+      "sha256": "8dd5a22d19fa3e095805bfcc857bf56c3bd85914970f14526295856a28bf199b",
+      "sizes": [
+        16,
+        20,
+        24,
+        32,
+        40,
+        48,
+        64,
+        96,
+        128,
+        256
+      ]
+    }
+  },
+  "matte": "#082014",
+  "source": "Artboard 1.png",
+  "source_sha256": "123a23ee766c2551bd0fe0d8d97b861992904d7a3e3e7715185ca420adf5fdca"
+}

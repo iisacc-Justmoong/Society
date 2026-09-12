@@ -18,6 +18,7 @@ public:
 signals:
     void changed();
 private:
+    void schedule();
     void pump();
     void finish(bool success);
     void reset();
@@ -32,5 +33,5 @@ private:
     QHash<QString, qint64> m_retryAt;
     QHash<QString, int> m_attempts;
     qint64 m_deadline = 0;
-    bool m_enabled = true, m_pumping = false, m_ownsTransport = false;
+    bool m_enabled = true, m_pumping = false, m_ownsTransport = false, m_scheduled = false;
 };

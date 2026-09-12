@@ -65,14 +65,32 @@ Controls.Popup {
         }
         LV.Label {
             Layout.fillWidth: true
-            text: qsTr("Devices signed in to the same iisacc account pair automatically on your Wi-Fi or LAN and sync their containers.")
+            text: qsTr("Sign in to the same iisacc account on each device. Society discovers your devices and synchronizes their containers automatically on Wi-Fi or LAN.")
+            wrapMode: Text.Wrap
+            sizeToContentHeight: true
+        }
+        LV.PushButton {
+            objectName: "networkAutomaticSync"
+            Layout.fillWidth: true
+            text: !panel.network.signedIn ? qsTr("Sign in to sync automatically")
+                : !panel.network.automaticPairingEnabled ? qsTr("Resume automatic sync") : qsTr("Sync now")
+            onClicked: {
+                if (!panel.network.signedIn) panel.accountRequested()
+                else { panel.network.resumeAutomaticPairing(); panel.network.synchronizeNow() }
+            }
+        }
+        LV.Label {
+            Layout.fillWidth: true
+            visible: panel.network.signedIn
+            text: panel.network.automaticPairingStatus
+            textFormat: Text.PlainText
             wrapMode: Text.Wrap
             sizeToContentHeight: true
         }
         LV.PushButton {
             objectName: "networkPairing"
             Layout.fillWidth: true
-            text: panel.network.hostModeAvailable ? qsTr("Pair a device") : qsTr("Pair desktop")
+            text: qsTr("Connect manually…")
             onClicked: panel.pairingRequested()
         }
         LV.PushButton {

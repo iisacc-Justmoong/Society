@@ -6,13 +6,16 @@ import QtQuick.Controls as Controls
 import LVRS 1.0 as LV
 import Society
 
-LV.Window {
+LV.ApplicationWindow {
     id: preferences
     objectName: "preferencesWindow"
     required property NetworkDriveController network
     signal devicesRequested()
 
     title: qsTr("Preferences — Society")
+    primaryColor: LV.Theme.accentGreen
+    useInternalPageStack: false
+    navigationEnabled: false
     width: 560
     height: 440
     desktopMinWidth: 360

@@ -4,6 +4,7 @@
 <dict>
     <key>Label</key><string>com.iisacc.society.daemon</string>
     <key>BundleProgram</key><string>Contents/Helpers/SocietyDaemon.app/Contents/MacOS/SocietyDaemon</string>
+    <key>ProgramArguments</key><array><string>SocietyDaemon</string><string>--sync</string></array>
     <key>RunAtLoad</key><true/>
     <key>KeepAlive</key><true/>
     <key>ProcessType</key><string>Background</string>

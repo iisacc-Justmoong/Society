@@ -7,12 +7,19 @@ AutomaticPairing::AutomaticPairing(NearbyDevices *nearby, iiServerHost::LanPeer 
     : QObject(parent), m_nearby(nearby), m_peer(peer), m_host(std::move(host)), m_join(std::move(join)), m_stop(std::move(stop)) {
     m_timer.setInterval(500);
     connect(&m_timer, &QTimer::timeout, this, &AutomaticPairing::pump); m_timer.start();
+    connect(nearby, &NearbyDevices::changed, this, &AutomaticPairing::schedule);
+    connect(peer, &iiServerHost::LanPeer::changed, this, &AutomaticPairing::schedule);
     connect(nearby, &NearbyDevices::identityEnding, this, &AutomaticPairing::reset);
     connect(nearby, &NearbyDevices::authenticationEnding, this, &AutomaticPairing::reset);
     connect(nearby, &NearbyDevices::invitationEnded, this, [this] { if (active()) finish(false); });
     connect(peer, &iiServerHost::LanPeer::paired, this, [this](const QString &id) {
         if (id == m_current) finish(true);
     });
+}
+void AutomaticPairing::schedule() {
+    if (m_scheduled) return;
+    m_scheduled = true;
+    QTimer::singleShot(0, this, [this] { m_scheduled = false; pump(); });
 }
 void AutomaticPairing::reset() {
     const bool owned = m_ownsTransport; m_ownsTransport = false;
@@ -29,6 +36,7 @@ void AutomaticPairing::setEnabled(bool enabled) {
         m_current.clear(); m_queue.clear();
     }
     emit changed();
+    if (enabled) schedule();
 }
 QVariantList AutomaticPairing::queue() const {
     QVariantList result;
@@ -50,10 +58,11 @@ void AutomaticPairing::finish(bool success) {
     if (success) { m_retryAt.remove(id); m_attempts.remove(id); m_nearby->complete(); }
     else {
         const int attempts = qMin(m_attempts.value(id) + 1, 5); m_attempts[id] = attempts;
-        m_retryAt[id] = QDateTime::currentMSecsSinceEpoch() + qMin(30000, 1000 * (1 << attempts));
+        m_retryAt[id] = QDateTime::currentMSecsSinceEpoch() + qMin(8000, 250 * (1 << (attempts - 1)));
         m_nearby->cancel(); m_peer->cancelPairing();
     }
     emit changed();
+    schedule();
 }
 void AutomaticPairing::pump() {
     if (m_pumping || !m_nearby->authenticated()) return;

@@ -20,6 +20,31 @@ using namespace iiServerHost;
 class ClientOnlyNetworkTests : public QObject {
     Q_OBJECT
 private slots:
+    void backgroundGrantSurvivesHidingAndExpiresWithoutReusingAnOldCallback() {
+        MobileSyncActivity activity; std::function<void()> expire; int begins = 0, ends = 0;
+        activity.setBackend([&](auto callback) { ++begins; expire = callback; return true; }, [&] { ++ends; });
+        QSignalSpy expired(&activity, &MobileSyncActivity::expired);
+        QVERIFY(activity.retain()); QVERIFY(activity.retain()); QCOMPARE(begins, 1);
+        auto old = expire; activity.release(); QCOMPARE(ends, 1);
+        QVERIFY(activity.retain()); old(); QTest::qWait(10); QVERIFY(activity.active()); QCOMPARE(expired.size(), 0);
+        expire(); QTRY_COMPARE(expired.size(), 1); QVERIFY(!activity.active()); QCOMPARE(ends, 2);
+        activity.release(); QCOMPARE(ends, 2);
+        activity.setBackend([](auto) { return false; }, [&] { ++ends; });
+        QVERIFY(!activity.retain()); activity.release(); QCOMPARE(ends, 2);
+    }
+    void grantedBackgroundTimeKeepsTheClientTransportUntilExpiration() {
+        RelayServer relay([](const auto &, AuthCompletion done) { done({"alice", QDateTime::currentDateTimeUtc().addSecs(60)}); });
+        QVERIFY(relay.listen(QHostAddress::LocalHost));
+        PeerOptions options; options.relayUrl = QUrl(QString("ws://127.0.0.1:%1").arg(relay.port()));
+        options.credential = "alice"; options.peerId = "mobile"; options.name = "Phone"; options.localEnabled = false;
+        NetworkDriveController mobile; std::function<void()> expire;
+        mobile.backgroundActivity()->setBackend([&](auto callback) { expire = callback; return true; }, [] {});
+        QVERIFY(mobile.startSession(options)); QTRY_VERIFY(mobile.connected());
+        QVERIFY(mobile.backgroundActivity()->retain());
+        mobile.setApplicationState(Qt::ApplicationSuspended); QVERIFY(mobile.connected()); QVERIFY(!mobile.hosting());
+        expire(); QTRY_VERIFY(!mobile.connected());
+        mobile.setApplicationState(Qt::ApplicationActive); QTRY_VERIFY(mobile.connected()); QVERIFY(!mobile.hosting());
+    }
     void screenIsRetainedOnlyForAnActiveConnectedTransfer() {
         QVERIFY(societySyncNeedsScreen(true, true, Qt::ApplicationActive));
         QVERIFY(!societySyncNeedsScreen(false, true, Qt::ApplicationActive)); // Completed batch.
@@ -57,7 +82,10 @@ private slots:
         QCOMPARE(modeLabel->property("text").toString(), QString("Client mode"));
         auto *pairButton = panel->findChild<QQuickItem *>("networkPairing");
         QVERIFY(pairButton && pairButton->isVisible());
-        QCOMPARE(pairButton->property("text").toString(), QString("Pair desktop"));
+        QCOMPARE(pairButton->property("text").toString(), QString("Connect manually…"));
+        auto *automatic = panel->findChild<QQuickItem *>("networkAutomaticSync");
+        QVERIFY(automatic && automatic->isVisible());
+        QCOMPARE(automatic->property("text").toString(), QString("Sign in to sync automatically"));
         QSignalSpy pairRequested(panel.get(), SIGNAL(pairingRequested()));
         QVERIFY(QMetaObject::invokeMethod(pairButton, "clicked")); QCOMPARE(pairRequested.size(), 1);
         QVERIFY(!settings->isVisible());

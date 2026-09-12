@@ -70,13 +70,13 @@ LV.ApplicationWindow {
     }
 
     title: "Society"
+    primaryColor: LV.Theme.accentGreen
     width: 1440
     height: 900
     desktopMinWidth: 360
     desktopMinHeight: 320
     visible: true
     useInternalPageStack: false
-    windowColor: LV.Theme.panelBackground04
     onActiveChanged: if (active && selectedTab === "Dashboard" && dashboardFiles) dashboardFiles.refresh()
     onSelectedTabChanged: if (selectedTab === "Dashboard" && dashboardFiles) dashboardFiles.refresh()
 
@@ -114,10 +114,11 @@ LV.ApplicationWindow {
         objectName: "networkDriveController"
         containerPath: drive.rootPath
         accountSession: root.accountSession
-        onMirrorChanged: drive.reloadFromDisk()
+        onMirrorChanged: drive.refreshFromDisk()
         onContainerSynchronized: {
-            drive.reloadFromDisk()
-            dashboardFiles.refresh()
+            drive.refreshFromDisk()
+            if (dashboardFiles.containerPath.length > 0)
+                dashboardFiles.refresh()
         }
     }
     NetworkDevices {

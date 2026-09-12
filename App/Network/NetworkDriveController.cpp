@@ -23,12 +23,15 @@ NetworkDriveController::NetworkDriveController(DiscoveryService *service, QHostA
     connect(&m_sync, &iiSocietySync::Controller::changed, this, &NetworkDriveController::synchronizationChanged);
     connect(&m_sync, &iiSocietySync::Controller::synchronized, this, [this](const QString &peer) {
         m_syncPath.clear(); emit synchronizationChanged(); emit containerSynchronized(peer);
+        if (!hostModeAvailable() && (m_applicationState == Qt::ApplicationSuspended || m_applicationState == Qt::ApplicationHidden))
+            suspendForBackground();
     });
     connect(&m_sync, &iiSocietySync::Controller::progress, this, [this](const QString &path, qint64 done, qint64 total) {
         m_syncPath = path; m_syncDone = done; m_syncTotal = total;
         emit synchronizationChanged(); emit synchronizationProgress(path, done, total);
     });
     connect(&m_sync, &iiSocietySync::Controller::mirrorChanged, this, [this](const QJsonObject &binding) {
+        if (m_mirror == binding) return;
         m_mirror = binding;
         emit mirrorChanged(); emit synchronizationChanged();
         QTimer::singleShot(0, this, &NetworkDriveController::updateDiscovery);
@@ -84,24 +87,50 @@ NetworkDriveController::NetworkDriveController(DiscoveryService *service, QHostA
     connect(&m_peer, &iiServerHost::Peer::peersChanged, this, &NetworkDriveController::updateSynchronization);
     connect(&m_peer, &iiServerHost::Peer::completed, this, &NetworkDriveController::response);
     if (!hostModeAvailable()) {
+        connect(&m_background, &MobileSyncActivity::expired, this, [this] {
+            m_backgroundExpired = true;
+            if (m_applicationState == Qt::ApplicationSuspended || m_applicationState == Qt::ApplicationHidden) suspendForBackground();
+        });
+        connect(this, &NetworkDriveController::stateChanged, this, &NetworkDriveController::updateBackgroundActivity);
+        connect(this, &NetworkDriveController::discoveryChanged, this, &NetworkDriveController::updateBackgroundActivity);
         if (auto *app = qobject_cast<QGuiApplication *>(QCoreApplication::instance())) {
-            connect(app, &QGuiApplication::applicationStateChanged, this, [this](Qt::ApplicationState state) {
-                if (state == Qt::ApplicationSuspended || state == Qt::ApplicationHidden) {
-                    m_suspended = true; m_nearby.clear(); stopTransport();
-                    m_status = tr("Device connection paused."); emit stateChanged();
-                } else if (m_suspended && state == Qt::ApplicationActive) {
-                    m_suspended = false; updateDiscovery(); requestAccountPairingCredentials(); restartSession();
-                }
-            });
+            connect(app, &QGuiApplication::applicationStateChanged, this, &NetworkDriveController::setApplicationState);
         }
     }
 }
 NetworkDriveController::~NetworkDriveController() {
+    m_background.release();
     m_discoveryTimer.stop(); m_nearby.clear(); disconnectSessionImpl(false);
     // Members emit their final stop signals before QObject clears external
     // QPointers. No UI may inspect the already-destroyed discovery member then.
     m_local.disconnect(); m_peer.disconnect(); m_nearby.disconnect();
     m_sync.disconnect(); m_remote.disconnect();
+}
+void NetworkDriveController::setApplicationState(Qt::ApplicationState state) {
+    if (hostModeAvailable()) return;
+    m_applicationState = state;
+    if (state == Qt::ApplicationSuspended || state == Qt::ApplicationHidden) {
+        if (m_background.active() && !m_suspended) m_sync.synchronizeNow();
+        else suspendForBackground();
+    } else if (state == Qt::ApplicationActive) {
+        m_backgroundExpired = false;
+        if (m_suspended) {
+            m_suspended = false; updateDiscovery(); requestAccountPairingCredentials(); restartSession();
+        }
+        updateBackgroundActivity(); m_sync.synchronizeNow();
+    }
+}
+void NetworkDriveController::updateBackgroundActivity() {
+    if (hostModeAvailable()) return;
+    if (!m_runtimeEnabled || !signedIn()) { m_background.release(); return; }
+    if (m_applicationState == Qt::ApplicationActive && !connected() && !m_automatic.active()) { m_background.release(); return; }
+    if (m_applicationState == Qt::ApplicationActive && !m_backgroundExpired) m_background.retain();
+}
+void NetworkDriveController::suspendForBackground() {
+    m_background.release();
+    if (m_suspended) return;
+    m_suspended = true; m_nearby.clear(); stopTransport();
+    m_status = tr("Sync will resume when Society becomes active."); emit stateChanged();
 }
 void NetworkDriveController::setAccountSession(AccountController *account) {
     if (account == m_account || (account && account->thread() != thread())) return;
@@ -141,7 +170,7 @@ void NetworkDriveController::requestAccountPairingCredentials() {
 #else
     if (qEnvironmentVariableIntValue("SOCIETY_DISABLE_SESSION_RESTORE") == 1) return;
 #endif
-    if (m_account && !m_suspended) m_account->requestPairingCredentials();
+    if (m_account && !m_suspended && m_runtimeEnabled) m_account->requestPairingCredentials();
 }
 QVariantList NetworkDriveController::nearbyDevices() const {
     auto result = m_nearby.devices(); const auto connected = m_local.pairedDeviceIds();
@@ -158,7 +187,7 @@ void NetworkDriveController::updateDiscovery() {
 #else
     if (qEnvironmentVariableIntValue("SOCIETY_DISABLE_SESSION_RESTORE") == 1) return;
 #endif
-    if (m_suspended || !signedIn()) { m_nearby.clear(); updateSynchronization(); return; }
+    if (!m_runtimeEnabled || m_suspended || !signedIn()) { m_nearby.clear(); updateSynchronization(); return; }
     const auto session = m_account->manager()->loginSession().value("id").toString();
     if (session != m_discoverySession) { m_discoverySession = session; m_automatic.setEnabled(m_account->automaticPairingEnabled()); }
     const auto credentials = m_account->pairingCredentials();
@@ -173,7 +202,7 @@ void NetworkDriveController::updateDiscovery() {
     updateSynchronization();
 }
 void NetworkDriveController::updateSynchronization() {
-    if (m_suspended || !signedIn() || !m_nearby.authenticated() || !connected()) { m_sync.close(); return; }
+    if (!m_runtimeEnabled || m_suspended || !signedIn() || !m_nearby.authenticated() || !connected()) { m_sync.close(); return; }
     const auto scope = m_account->pairingCredentials().value("scope").toString();
     QStringList authorized, hosts;
     if (m_localActive) {
@@ -222,12 +251,23 @@ bool NetworkDriveController::hostModeAvailable() const {
 #endif
 }
 void NetworkDriveController::setMode(Mode mode) {
-    pauseAutomaticPairing();
     const auto next = hostModeAvailable() && mode == HostMode ? HostMode : ClientMode;
     if (m_mode == next) return;
+    pauseAutomaticPairing();
     m_mode = next; emit modeChanged();
     if (m_localActive) { disconnectSession(); return; }
     restartSession();
+}
+void NetworkDriveController::setRuntimeEnabled(bool enabled) {
+    if (m_runtimeEnabled == enabled) return;
+    m_runtimeEnabled = enabled;
+    if (!enabled) {
+        m_nearby.clear(); stopTransport();
+        m_sync.closeAndWait();
+    } else {
+        m_automatic.setEnabled(m_account ? m_account->automaticPairingEnabled() : true);
+        updateDiscovery(); requestAccountPairingCredentials(); restartSession();
+    }
 }
 void NetworkDriveController::setContainerPath(const QString &path) {
     if (path == m_container) return;
@@ -252,6 +292,7 @@ void NetworkDriveController::connectSession() {
     else fail(tr("Select this device on your desktop or scan its QR code to connect."));
 }
 bool NetworkDriveController::startLocalHost(bool automatic) {
+    if (!m_runtimeEnabled || m_suspended) return false;
     if (!automatic) pauseAutomaticPairing();
     if (!hostModeAvailable()) { fail(tr("Only desktop Society can host Files.")); return false; }
     if (!m_mirror.isEmpty()) { fail(tr("This device mirrors its primary Society host.")); return false; }
@@ -272,6 +313,7 @@ bool NetworkDriveController::startLocalHost(bool automatic) {
         m_localBindAddress.isLoopback() ? QStringList{m_localBindAddress.toString()} : QStringList{}, m_localBindAddress);
 }
 bool NetworkDriveController::joinLocalHost(const QString &qr, bool automatic) {
+    if (!m_runtimeEnabled || m_suspended) return false;
     if (automatic) { m_session = {}; m_accountSession = false; stopTransport(); }
     else disconnectSession();
     m_mode = ClientMode; emit modeChanged(); m_localActive = true;
@@ -286,7 +328,7 @@ bool NetworkDriveController::startSessionImpl(iiServerHost::PeerOptions options,
     // Keep the supplied settings for subsequent mode changes. Client restrictions
     // must not erase the host's TLS configuration when switching back to Host.
     m_session = options; m_accountSession = accountSession;
-    if (m_suspended) { m_status = tr("Device connection paused."); emit stateChanged(); return true; }
+    if (m_suspended || !m_runtimeEnabled) { m_status = tr("Device connection paused."); emit stateChanged(); return true; }
     const bool host = hostModeAvailable() && m_mode == HostMode;
     if (host) {
         if (m_container.isEmpty()) { fail(tr("Open a Society container to host files.")); return false; }

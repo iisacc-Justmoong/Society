@@ -11,10 +11,12 @@ set(helper "${bundle}/Contents/Helpers/SocietyDaemon.app")
 get_filename_component(qt_bin "${SOCIETY_MACDEPLOYQT}" DIRECTORY)
 get_filename_component(qt_prefix "${qt_bin}" DIRECTORY)
 set(sqlite "${helper}/Contents/PlugIns/sqldrivers/libqsqlite.dylib")
-file(MAKE_DIRECTORY "${helper}/Contents/PlugIns/sqldrivers")
+set(tls "${helper}/Contents/PlugIns/tls/libqsecuretransportbackend.dylib")
+file(MAKE_DIRECTORY "${helper}/Contents/PlugIns/sqldrivers" "${helper}/Contents/PlugIns/tls")
 file(COPY_FILE "${qt_prefix}/plugins/sqldrivers/libqsqlite.dylib" "${sqlite}")
+file(COPY_FILE "${qt_prefix}/plugins/tls/libqsecuretransportbackend.dylib" "${tls}")
 # The helper owns its runtime; the outer GUI keeps a single existing Qt runtime.
-execute_process(COMMAND "${SOCIETY_MACDEPLOYQT}" "${helper}" "-executable=${sqlite}"
+execute_process(COMMAND "${SOCIETY_MACDEPLOYQT}" "${helper}" "-executable=${sqlite}" "-executable=${tls}"
     -no-plugins -always-overwrite -no-strip
     RESULT_VARIABLE result OUTPUT_VARIABLE output ERROR_VARIABLE errors)
 file(WRITE "${SOCIETY_PACKAGE_DIRECTORY}/macdeployqt.log" "${output}\n${errors}")
@@ -27,7 +29,9 @@ foreach(runtime IN LISTS runtime_libraries)
     execute_process(COMMAND codesign --force --sign "${SOCIETY_SIGN_IDENTITY}" --timestamp=none "${runtime}" COMMAND_ERROR_IS_FATAL ANY)
 endforeach()
 execute_process(COMMAND codesign --force --sign "${SOCIETY_SIGN_IDENTITY}" --timestamp=none "${sqlite}" COMMAND_ERROR_IS_FATAL ANY)
-execute_process(COMMAND codesign --force --sign "${SOCIETY_SIGN_IDENTITY}" --timestamp=none "${helper}" COMMAND_ERROR_IS_FATAL ANY)
+execute_process(COMMAND codesign --force --sign "${SOCIETY_SIGN_IDENTITY}" --timestamp=none "${tls}" COMMAND_ERROR_IS_FATAL ANY)
+execute_process(COMMAND codesign --force --sign "${SOCIETY_SIGN_IDENTITY}" --timestamp=none
+    --entitlements "${SOCIETY_ENTITLEMENTS}" "${helper}" COMMAND_ERROR_IS_FATAL ANY)
 execute_process(COMMAND codesign --force --sign "${SOCIETY_SIGN_IDENTITY}" --timestamp=none
     --entitlements "${SOCIETY_ENTITLEMENTS}" "${bundle}" COMMAND_ERROR_IS_FATAL ANY)
 execute_process(COMMAND codesign --verify --strict "${bundle}" COMMAND_ERROR_IS_FATAL ANY)

@@ -23,7 +23,10 @@ with (bundle / "Contents/Library/LaunchAgents/com.iisacc.society.daemon.plist").
     agent = plistlib.load(file)
 assert agent["Label"] == "com.iisacc.society.daemon"
 assert agent["RunAtLoad"] and agent["KeepAlive"]
+assert "--sync" in agent["ProgramArguments"]
 executable = bundle / agent["BundleProgram"]
+helper_entitlements = plistlib.loads(subprocess.check_output(['codesign', '-d', '--entitlements', '-', '--xml', str(executable.parent.parent.parent)], stderr=subprocess.DEVNULL))
+assert group in helper_entitlements.get('com.apple.security.application-groups', []), 'Daemon cannot restore the shared account state.'
 environment = {key: value for key, value in os.environ.items()
                if not key.startswith(("DYLD_", "QT_", "SOCIETY_HELPER_"))}
 environment["DYLD_PRINT_LIBRARIES"] = "1"
@@ -32,6 +35,10 @@ environment["DYLD_PRINT_LIBRARIES"] = "1"
 result = subprocess.run([str(executable), "--help"], env=environment,
                         capture_output=True, text=True, timeout=15)
 assert result.returncode == 0, result.stderr[-4000:]
+assert '--sync' in result.stdout, 'The packaged service has no synchronization runtime.'
+capabilities = subprocess.run([str(executable), '--check-runtime'], env=environment, capture_output=True, text=True, timeout=15)
+assert capabilities.returncode == 0, capabilities.stderr[-4000:]
+assert json.loads(capabilities.stdout)['tls'] and json.loads(capabilities.stdout)['sqlite']
 loaded = re.findall(r"^dyld\[\d+\]: <[^>]+> (/.+)$", result.stderr, re.MULTILINE)
 assert loaded, "No dynamic loader evidence was captured."
 external = [path for path in loaded

@@ -56,6 +56,7 @@ void societyGroupStateRuntimeProbe(QObject *root) {
                 {"automaticStatus", network->automaticPairingStatus()}, {"authenticatedDiscovery", network->discovery()->authenticated()},
                 {"automaticHost", network->discovery()->automaticHostAvailable()}, {"peerPhase", network->localPeer()->phase()},
                 {"connectionStatus", network->status()}, {"screenActive", QGuiApplication::applicationState() == Qt::ApplicationActive},
+                {"backgroundExecutionActive", network->backgroundActivity()->active()},
                 {"status", network->synchronizationStatus()}, {"probeOperated", operated}, {"probeError", error},
                 {"probePresent", !bytes.isEmpty()}, {"probeMatches", validName && bytes == expected},
                 {"probeHash", QString::fromLatin1(QCryptographicHash::hash(bytes, QCryptographicHash::Sha256).toHex())}};

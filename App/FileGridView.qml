@@ -20,6 +20,7 @@ Item {
     readonly property FolderListModel directoryModel: modelLoader.item as FolderListModel
     readonly property bool loading: directoryModel !== null
                                     && directoryModel.status === FolderListModel.Loading
+    property var pendingViewState: null
 
     signal activated(string path, bool isDirectory)
 
@@ -35,14 +36,42 @@ Item {
     }
 
     function resetModel(): void {
+        pendingViewState = null
         modelLoader.active = false
         Qt.callLater(root.loadModel)
+    }
+
+    function rememberView(): void {
+        // FolderListModel can publish its first count before inserting rows into the view.
+        if (pendingViewState || !directoryModel || grid.count === 0)
+            return
+        pendingViewState = { model: directoryModel, path: root.path,
+                             selectedPath: root.selectedPath, contentY: grid.contentY }
+    }
+
+    function restoreView(): void {
+        const state = pendingViewState
+        pendingViewState = null
+        if (!state || state.model !== directoryModel || state.path !== root.path)
+            return
+        let selectedIndex = -1
+        for (let i = 0; state.selectedPath.length > 0 && i < directoryModel.count; ++i) {
+            if (directoryModel.get(i, "filePath") === state.selectedPath) {
+                selectedIndex = i
+                break
+            }
+        }
+        grid.currentIndex = selectedIndex
+        grid.forceLayout()
+        grid.contentY = Math.max(grid.originY, Math.min(state.contentY,
+            grid.originY + Math.max(0, grid.contentHeight - grid.height)))
     }
 
     onImagesOnlyChanged: resetModel()
     Component.onCompleted: resetModel()
 
     onPathChanged: {
+        pendingViewState = null
         grid.currentIndex = -1
         grid.positionViewAtBeginning()
     }
@@ -74,6 +103,16 @@ Item {
             sortField: FolderListModel.Name
             sortCaseSensitive: false
         }
+    }
+
+    Connections {
+        target: root.directoryModel
+        function onModelAboutToBeReset(): void { root.rememberView() }
+        function onRowsAboutToBeRemoved(): void { root.rememberView() }
+        function onRowsAboutToBeInserted(): void { root.rememberView() }
+        function onModelReset(): void { Qt.callLater(root.restoreView) }
+        function onRowsRemoved(): void { Qt.callLater(root.restoreView) }
+        function onRowsInserted(): void { Qt.callLater(root.restoreView) }
     }
 
     ColumnLayout {

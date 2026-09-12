@@ -247,10 +247,8 @@ Item {
                                 root.drive.openFile(path)
                         }
                     }
-                    Connections {
-                        target: root.drive
-                        function onContentsChanged(): void { filesGrid.resetModel() }
-                    }
+                    // The persistent folder model watches real filesystem changes
+                    // asynchronously; sync status must not recreate it.
                 }
             }
         }

@@ -5,6 +5,7 @@
 #include "backend/runtime/appbootstrap.h"
 
 #include <QDir>
+#include <QAbstractItemModel>
 #include <QFile>
 #include <QDragEnterEvent>
 #include <QDropEvent>
@@ -19,6 +20,11 @@
 #include <QQuickItem>
 #include <QQuickWindow>
 #include <QSignalSpy>
+#include <QPointer>
+#include <QFutureWatcher>
+#include <QScopeGuard>
+#include <QSemaphore>
+#include <QThreadPool>
 #include <QTemporaryDir>
 #include <QTest>
 #include <QUuid>
@@ -65,6 +71,114 @@ private slots:
         drive.setMirrorPending(false); QVERIFY(drive.contentsAvailable());
         QVERIFY(drive.openSection("files"));
         QCOMPARE(iiSocietyContainer::SharedStorage::open()->drive().identifier(), host);
+    }
+    void synchronizationPreservesFileModelSelectionAndScroll()
+    {
+        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/drive-sync-view-XXXXXX");
+        QVERIFY(iiSocietyContainer::SocietyDrive::create(fixture.path()));
+        for (int i = 0; i < 80; ++i) {
+            QFile file(fixture.filePath(QString("Files/file-%1.txt").arg(i, 3, 10, QChar('0'))));
+            QVERIFY(file.open(QIODevice::WriteOnly)); QVERIFY(file.write("unchanged") > 0);
+        }
+        QQmlApplicationEngine engine;
+        engine.addImportPath(QString::fromUtf8(SOCIETY_LVRS_QML_IMPORT_PATH));
+        engine.setInitialProperties({{"initialContainerPath", fixture.path()}});
+        engine.load(QUrl::fromLocalFile(QString::fromUtf8(SOCIETY_QML_FILE)));
+        QCOMPARE(engine.rootObjects().size(), 1);
+        auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first()); QVERIFY(window);
+        window->resize(390, 844); QVERIFY(window->setProperty("selectedTab", "Storage"));
+        auto *drive = window->findChild<DriveController *>("driveController");
+        auto *network = window->findChild<NetworkDriveController *>("networkDriveController");
+        auto *files = window->findChild<QQuickItem *>("fileGridView");
+        auto *grid = files ? files->findChild<QQuickItem *>("fileGrid") : nullptr;
+        QVERIFY(drive && network && files && grid); QVERIFY(drive->openSection("files"));
+        QTRY_COMPARE(files->property("count").toInt(), 80);
+        QTRY_VERIFY(!files->property("loading").toBool());
+        QPointer<QAbstractItemModel> model = qvariant_cast<QAbstractItemModel *>(grid->property("model")); QVERIFY(model);
+        QVERIFY(grid->setProperty("currentIndex", 30)); QVERIFY(grid->setProperty("contentY", 880.0));
+        QTest::qWait(50);
+        const auto selected = files->property("selectedPath").toString();
+        const auto scroll = grid->property("contentY").toReal(); QVERIFY(scroll > 0); QVERIFY(!selected.isEmpty());
+        QSignalSpy reset(model, &QAbstractItemModel::modelReset);
+        for (int i = 0; i < 3; ++i) {
+            QVERIFY(QMetaObject::invokeMethod(network, "mirrorChanged"));
+            QVERIFY(QMetaObject::invokeMethod(network, "containerSynchronized", Q_ARG(QString, "host")));
+            QTest::qWait(1050);
+            QVERIFY2(model, "Periodic synchronization destroyed the active folder model.");
+            QCOMPARE(qvariant_cast<QAbstractItemModel *>(grid->property("model")), model.data());
+            QCOMPARE(files->property("selectedPath").toString(), selected);
+            QCOMPARE(grid->property("contentY").toReal(), scroll);
+            QCOMPARE(drive->currentPath(), fixture.filePath("Files"));
+        }
+        QCOMPARE(reset.size(), 0);
+        // Native directory watching must still publish real changes without replacing the model.
+        QFile added(fixture.filePath("Files/zz-new.txt")); QVERIFY(added.open(QIODevice::WriteOnly));
+        QVERIFY(added.write("new file") > 0); added.close();
+        QTRY_COMPARE(files->property("count").toInt(), 81);
+        QCOMPARE(qvariant_cast<QAbstractItemModel *>(grid->property("model")), model.data());
+        QTRY_COMPARE(files->property("selectedPath").toString(), selected);
+        QTRY_COMPARE(grid->property("contentY").toReal(), scroll);
+        QVERIFY(added.remove()); QTRY_COMPARE(files->property("count").toInt(), 80);
+        QTRY_COMPARE(files->property("selectedPath").toString(), selected);
+        QTRY_COMPARE(grid->property("contentY").toReal(), scroll);
+        window->close();
+    }
+    void backgroundRefreshRejectsStaleRootsAndNavigation()
+    {
+        QTemporaryDir first(SOCIETY_TEST_DIRECTORY "/refresh-first-XXXXXX"), second(SOCIETY_TEST_DIRECTORY "/refresh-second-XXXXXX");
+        DriveController drive; QVERIFY(drive.openContainer(first.path()));
+        const auto original = drive.identifier();
+        const auto adopted = QUuid::createUuid().toString(QUuid::WithoutBraces);
+        QVERIFY(iiSocietyContainer::SocietyDrive::adoptReplicaIdentity(first.path(), original, adopted));
+        auto *pool = QThreadPool::globalInstance(); const auto maximum = pool->maxThreadCount();
+        QSemaphore entered, release;
+        pool->setMaxThreadCount(1);
+        const auto cleanup = qScopeGuard([&] { release.release(); pool->waitForDone(); pool->setMaxThreadCount(maximum); });
+        const auto blockWorker = [&] { pool->start([&] { entered.release(); release.acquire(); }); return entered.tryAcquire(1, 3000); };
+        QVERIFY(blockWorker());
+        drive.refreshFromDisk();
+        auto *watcher = drive.findChild<QFutureWatcherBase *>(); QVERIFY(watcher);
+        QSignalSpy finished(watcher, &QFutureWatcherBase::finished);
+        for (int i = 0; i < 4; ++i) drive.refreshFromDisk();
+        QCOMPARE(drive.findChildren<QFutureWatcherBase *>().size(), 1); // Busy requests coalesce.
+        bool responsive = false; QTimer::singleShot(0, &drive, [&] { responsive = true; });
+        QTRY_VERIFY(responsive); QCOMPARE(drive.identifier(), original); // The UI did not perform the blocked read.
+        QVERIFY(drive.openContainer(second.path())); const auto selected = drive.identifier();
+        release.release(); QTRY_COMPARE(finished.size(), 1);
+        QCOMPARE(drive.rootPath(), second.path()); QCOMPARE(drive.identifier(), selected);
+        QCOMPARE(iiSocietyContainer::SharedStorage::open()->drive().rootPath(), second.path());
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+
+        const auto oldPath = second.filePath("Files/Old"), newPath = second.filePath("Files/New");
+        QVERIFY(QDir().mkpath(oldPath)); QVERIFY(QDir().mkpath(newPath)); QVERIFY(drive.navigate(oldPath));
+        QVERIFY(blockWorker()); drive.refreshFromDisk();
+        watcher = drive.findChild<QFutureWatcherBase *>(); QVERIFY(watcher);
+        QSignalSpy navigatedRead(watcher, &QFutureWatcherBase::finished);
+        QVERIFY(QDir().rmdir(oldPath)); QVERIFY(drive.navigate(newPath));
+        release.release(); QTRY_COMPARE(navigatedRead.size(), 1);
+        QCOMPARE(drive.currentPath(), newPath);
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+
+        QVERIFY(!drive.navigate(second.filePath("Files/Missing")));
+        const auto navigationError = drive.errorString(); QVERIFY(!navigationError.isEmpty());
+        QSignalSpy contents(&drive, &DriveController::contentsChanged), location(&drive, &DriveController::locationChanged);
+        QSignalSpy errors(&drive, &DriveController::errorChanged);
+        drive.refreshFromDisk(); watcher = drive.findChild<QFutureWatcherBase *>(); QVERIFY(watcher);
+        QSignalSpy unchangedRead(watcher, &QFutureWatcherBase::finished); QTRY_COMPARE(unchangedRead.size(), 1);
+        QCOMPARE(contents.size(), 0); QCOMPARE(location.size(), 0);
+        QCOMPARE(drive.errorString(), navigationError); QCOMPARE(errors.size(), 0);
+    }
+    void unchangedDashboardSnapshotDoesNotReplaceRows()
+    {
+        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/dashboard-stable-XXXXXX");
+        QVERIFY(iiSocietyContainer::SocietyDrive::create(fixture.path()));
+        QFile file(fixture.filePath("Files/item.txt")); QVERIFY(file.open(QIODevice::WriteOnly));
+        QVERIFY(file.write("stable") > 0); file.close();
+        DashboardFiles files; files.setContainerPath(fixture.path()); QTRY_VERIFY(!files.loading());
+        const auto rows = files.recentFiles(); QSignalSpy changed(&files, &DashboardFiles::filesChanged);
+        files.refresh(); QTRY_VERIFY(!files.loading()); QCOMPARE(changed.size(), 0); QCOMPARE(files.recentFiles(), rows);
+        QVERIFY(file.remove()); files.refresh(); QTRY_VERIFY(!files.loading());
+        QCOMPARE(changed.size(), 1); QVERIFY(files.recentFiles().isEmpty());
     }
     void controllerLayoutAndNavigation()
     {
@@ -201,6 +315,7 @@ private slots:
         auto *content = window->findChild<QQuickItem *>("driveContent");
         QVERIFY(controller && grid && files && content);
         QTRY_VERIFY(window->isVisible());
+        QVERIFY(QTest::qWaitForWindowExposed(window));
         QTRY_COMPARE(grid->property("count").toInt(), 8);
         auto *storageTab = window->findChild<QQuickItem *>("storageTab");
         QVERIFY(storageTab);
@@ -440,6 +555,15 @@ private slots:
         auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first());
         QVERIFY(window);
         QTRY_VERIFY(window->isVisible());
+        QCOMPARE(window->property("primaryColor").value<QColor>(), QColor("#57965C"));
+        auto *material = window->findChild<QQuickItem *>("applicationWindowMaterial");
+        QVERIFY(material);
+        QCOMPARE(material->property("primaryColor").value<QColor>(), QColor("#57965C"));
+        QCOMPARE(material->property("color").value<QColor>(), QColor("#0B0B0B"));
+        QCOMPARE(material->property("tintOpacity").toReal(), 0.5);
+        QCOMPARE(material->property("intenseOpacity").toReal(), 0.0);
+        QCOMPARE(material->property("faintOpacity").toReal(), 0.0);
+        QCOMPARE(material->property("blurRadius").toReal(), 64.0);
         QVERIFY2(!window->flags().testFlag(Qt::FramelessWindowHint),
                  "The design must be app content inside a standard LVRS window.");
         QVERIFY(window->property("solidChrome").toBool());
@@ -651,6 +775,14 @@ private slots:
         auto *preferences = window->findChild<QQuickWindow *>("preferencesWindow");
         QVERIFY(preferences && preferences != window);
         QTRY_VERIFY(preferences->isVisible());
+        QCOMPARE(preferences->property("primaryColor").value<QColor>(), QColor("#57965C"));
+        auto *preferencesMaterial = preferences->findChild<QQuickItem *>("applicationWindowMaterial");
+        QVERIFY(preferencesMaterial);
+        QCOMPARE(preferencesMaterial->property("color").value<QColor>(), QColor("#0B0B0B"));
+        QCOMPARE(preferencesMaterial->property("tintOpacity").toReal(), 0.5);
+        QCOMPARE(preferencesMaterial->property("intenseOpacity").toReal(), 0.0);
+        QCOMPARE(preferencesMaterial->property("faintOpacity").toReal(), 0.0);
+        QCOMPARE(preferencesMaterial->property("primaryColor").value<QColor>(), QColor("#57965C"));
         QCOMPARE(preferences->transientParent(), window);
         QCOMPARE(preferences->modality(), Qt::NonModal);
         auto *host = preferences->findChild<QQuickItem *>("preferencesHostMode");

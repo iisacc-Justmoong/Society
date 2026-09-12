@@ -115,10 +115,10 @@ void DashboardFiles::refresh()
     if (m_cancel) m_cancel->store(true);
     const auto revision = ++m_revision;
     m_cancel = std::make_shared<std::atomic_bool>(false);
-    m_error.clear();
     // Empty or relative paths must never enumerate the process working directory.
     if (m_path.isEmpty() || !QFileInfo(m_path).isAbsolute()) {
         m_files.clear();
+        m_error.clear();
         if (!m_path.isEmpty()) m_error = tr("Choose an absolute Society drive path.");
         m_loading = false; emit loadingChanged(); emit filesChanged();
         return;
@@ -129,8 +129,10 @@ void DashboardFiles::refresh()
         const auto result = watcher->result();
         watcher->deleteLater();
         if (revision != m_revision) return;
+        const bool changed = m_files != result.files || m_error != result.error;
         m_files = result.files; m_error = result.error; m_loading = false;
-        emit filesChanged(); emit loadingChanged();
+        if (changed) emit filesChanged();
+        emit loadingChanged();
     });
     watcher->setFuture(QtConcurrent::run(scan, m_path, m_cancel));
 }

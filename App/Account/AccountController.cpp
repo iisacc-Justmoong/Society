@@ -2,7 +2,9 @@
 #include "DeviceInfo.h"
 #include "App/State/GroupSessionStore.h"
 #include "App/Network/PairingCredentials.h"
+#ifndef SOCIETY_HEADLESS
 #include <iiAcountManager/Quick/AccountViews.h>
+#endif
 #include <iiAcountManager/SessionStore.h>
 #include <QCoreApplication>
 #include <QTimer>
@@ -15,8 +17,10 @@
 
 using iisacc::accounts::AccountManager;
 
+#ifndef SOCIETY_HEADLESS
 static void registerSocietyAccountViews() { iisacc::accounts::registerAccountViews(); }
 Q_COREAPP_STARTUP_FUNCTION(registerSocietyAccountViews)
+#endif
 
 AccountController::AccountController(QObject *parent)
     : AccountController(QUrl(qEnvironmentVariable("SOCIETY_ACCOUNT_URL", "https://iisacc.com")), parent) {

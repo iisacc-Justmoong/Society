@@ -1,5 +1,13 @@
 # Society
 
+앱 아이콘은 `resources/Appicon/Artboard 1.png`에서 플랫폼별로 생성한다. macOS·iOS·Android·Windows·Linux·WebAssembly 패키징과 Qt 런타임에 연결하며, 재생성·규격·검증 방법은 [앱 아이콘 문서](resources/Appicon/README.md)에 있다.
+
+Society의 메인 창과 Preferences는 `LV.ApplicationWindow`와 `LV.Theme.accentGreen` (`#57965C`) Primary를 사용한다. 창 전체를 그레디언트 없이 거의 블랙에 가까운 `#0B0B0B`로 채우며 fill 불투명도는 50%이다. 창 배경은 Primary와 분리하고 버튼과 선택 상태에는 앱 악센트 색상을 유지한다. 64px 머티리얼 블러와 macOS 네이티브 배경 블러를 유지하고 글자와 버튼의 불투명도는 낮추지 않는다. 대시보드 목록의 바탕은 투명하게 두어 창 머티리얼을 드러낸다. `Society.Drive`가 두 창의 색상·불투명도·그레디언트 제거와 기존 창 동작을 검증한다.
+
+최신 LVRS 패키지를 사용해야 한다. 현재 Workspace 실행본은 `SDK/LVRS/build/material-runtime`에 설치한 프레임워크를 두 앱이 공유하며, Society의 `build/`는 해당 `lib/cmake/LVRS`를 `LVRS_DIR`로 지정해 구성한다.
+
+Android는 현재 LVRS 소스를 `SDK/LVRS/build/society-android`에서 같은 Qt/NDK로 빌드하여 `build/android/installed/LVRS`에 설치한 패키지를 사용한다. 데스크톱 패키지만 갱신하면 모바일에는 새 창 속성이 반영되지 않는다. 패키지 변경 뒤 APK를 다시 빌드하고 실제 QML 루트 로딩까지 확인한다.
+
 로그인 복원 정보와 페어링 인증·기기 이력·자동 연결 설정은 모바일을 포함해 [그룹 컨테이너](docs/GroupState.md)에 암호화하여 저장한다.
 
 iiAccountManager SDK가 소유하는 로그인·회원가입 화면을 데스크톱·iPhone·Android에서 호출한다.

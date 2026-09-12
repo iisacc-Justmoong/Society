@@ -96,7 +96,7 @@ LV.HStack {
     Item {
         Layout.fillWidth: true
         Layout.fillHeight: true
-        // Use the library's list surface; all visible controls remain LVRS instances.
+        // Keep the list composition while exposing the window's shared material.
         LV.List {
             anchors.fill: parent
             items: []
@@ -104,7 +104,7 @@ LV.HStack {
             scrollable: false
             footerVisible: false
             minimumListHeight: 0
-            backgroundColor: LV.Theme.panelBackground03
+            backgroundColor: "transparent"
         }
         Controls.ScrollView {
             id: dashboardScroll

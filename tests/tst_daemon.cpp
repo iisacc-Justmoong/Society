@@ -3,6 +3,8 @@
 #include <iiSocietyHelper.h>
 #include <DeliveryStore.h>
 #include <QDir>
+#include <QJsonDocument>
+#include <QLockFile>
 #include <QProcess>
 #include <QSignalSpy>
 #include <QTemporaryDir>
@@ -11,6 +13,23 @@
 class DaemonTests : public QObject {
     Q_OBJECT
 private slots:
+    void daemonIncludesUsableTlsAndSqliteBackends() {
+        QProcess daemon; daemon.start(QStringLiteral(SOCIETY_DAEMON_EXECUTABLE), {"--check-runtime"});
+        QVERIFY(daemon.waitForStarted()); QVERIFY(daemon.waitForFinished(5000)); QCOMPARE(daemon.exitCode(), 0);
+        const auto result = QJsonDocument::fromJson(daemon.readAllStandardOutput()).object();
+        QVERIFY(result.value("tls").toBool()); QVERIFY(result.value("sqlite").toBool());
+    }
+    void isolatedSyncServicePublishesStateWithoutAccessingAnAccount() {
+        QTemporaryDir root(SOCIETY_TEST_DIRECTORY "/daemon-sync-XXXXXX");
+        QProcess daemon;
+        daemon.start(QStringLiteral(SOCIETY_DAEMON_EXECUTABLE), {"--directory", root.path(), "--sync", "--status-file", root.filePath("status.json"), "--exit-after-ms", "1200"});
+        QVERIFY(daemon.waitForStarted()); QVERIFY(daemon.waitForFinished(4000)); QCOMPARE(daemon.exitCode(), 0);
+        QFile file(root.filePath("status.json")); QVERIFY(file.open(QIODevice::ReadOnly));
+        const auto state = QJsonDocument::fromJson(file.readAll()).object();
+        QVERIFY(state.value("ownsNetwork").toBool()); QVERIFY(!state.value("signedIn").toBool()); QVERIFY(!state.value("connected").toBool());
+        QVERIFY(!state.contains("credentials"));
+        QLockFile owner(root.filePath("SyncRuntime/owner.lock")); QVERIFY(owner.tryLock());
+    }
     void offlineQueueAndLateSocietyReceiver()
     {
         QTemporaryDir root(SOCIETY_TEST_DIRECTORY "/daemon-XXXXXX");

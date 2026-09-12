@@ -1,9 +1,13 @@
 #include "backend/runtime/appentry.h"
 #include <iiSocietyHelper.h>
 #include <QGuiApplication>
+#include <QIcon>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include "App/Services/SocietyRuntime.h"
+#include "App/Services/SyncOwnership.h"
+#include "App/State/GroupSessionStore.h"
+#include <QDir>
 #include "App/Account/AccountController.h"
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -47,6 +51,10 @@ int main(int argc, char *argv[])
     launchSpec.rootObject = QStringLiteral("Main");
     launchSpec.qmlImportPaths.append(QString::fromUtf8(SOCIETY_LVRS_QML_IMPORT_PATH));
     launchSpec.configureEngine = [](QQmlApplicationEngine &engine) {
+        QGuiApplication::setWindowIcon(QIcon(QStringLiteral(":/branding/Society.png")));
+#if defined(Q_OS_LINUX) && !defined(Q_OS_ANDROID)
+        QGuiApplication::setDesktopFileName(QStringLiteral("com.iisacc.society"));
+#endif
 #ifdef SOCIETY_IOS_FILES_INTEGRATION_TEST
         QTimer::singleShot(2000, &engine, society_ios_files_integration_test);
 #endif
@@ -63,6 +71,24 @@ int main(int argc, char *argv[])
         QObject::connect(&engine, &QQmlApplicationEngine::objectCreated, runtime,
             [helper](QObject *root, const QUrl &) {
                 if (root) {
+#if !defined(Q_OS_IOS) && !defined(Q_OS_ANDROID)
+                    if (!qEnvironmentVariableIsSet("SOCIETY_HELPER_DIRECTORY")) {
+                        if (auto *network = root->findChild<NetworkDriveController *>("networkDriveController")) {
+                            network->setRuntimeEnabled(false);
+                            const auto directory = GroupSessionStore::defaultDirectory();
+                            auto *ownership = new SyncOwnership(directory.isEmpty() ? QString() : QDir(directory).filePath("SyncRuntime"), true, network);
+                            QObject::connect(ownership, &SyncOwnership::ownershipChanged, network, [ownership, network](bool owned) {
+                                network->setRuntimeEnabled(owned);
+                                if (owned && !network->containerPath().isEmpty()) ownership->rememberContainer(network->containerPath());
+                            });
+                            QObject::connect(network, &NetworkDriveController::configurationChanged, ownership, [ownership, network] {
+                                if (ownership->owned() && !network->containerPath().isEmpty()) ownership->rememberContainer(network->containerPath());
+                            });
+                            QObject::connect(qGuiApp, &QCoreApplication::aboutToQuit, ownership, &SyncOwnership::stop);
+                            if (!ownership->start()) qWarning() << "Society synchronization:" << ownership->errorString();
+                        }
+                    }
+#endif
 #if defined(Q_OS_IOS) || defined(Q_OS_ANDROID)
                     if (auto *network = root->findChild<NetworkDriveController *>("networkDriveController")) {
                         const auto updateScreen = [network] {

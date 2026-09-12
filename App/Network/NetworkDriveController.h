@@ -4,6 +4,7 @@
 #include "App/Account/AccountController.h"
 #include "NearbyDevices.h"
 #include "AutomaticPairing.h"
+#include "MobileSyncActivity.h"
 #include <SharedStorage.h>
 #include <QPointer>
 #include <QSet>
@@ -54,6 +55,11 @@ public:
     bool hosting() const { return m_mode == HostMode && m_storage.has_value() && (m_local.hosting() || m_peer.isReady()); }
     QString containerPath() const { return m_container; }
     void setContainerPath(const QString &path);
+    // Desktop GUI and background service must acquire one process lease first.
+    void setRuntimeEnabled(bool enabled);
+    bool runtimeEnabled() const { return m_runtimeEnabled; }
+    void setApplicationState(Qt::ApplicationState state);
+    MobileSyncActivity *backgroundActivity() { return &m_background; }
     QUrl relayUrl() const { return m_relayUrl; }
     QUrl activeRelayUrl() const { return m_session.relayUrl.isEmpty() ? m_relayUrl : m_session.relayUrl; }
     iiServerHost::Peer *peer() { return &m_peer; }
@@ -124,6 +130,8 @@ private:
     void updateDiscovery();
     void requestAccountPairingCredentials();
     void updateSynchronization();
+    void updateBackgroundActivity();
+    void suspendForBackground();
     QString request(const QString &host, const QJsonObject &payload);
     QPointer<AccountController> m_account;
     iiServerHost::Peer m_peer;
@@ -133,6 +141,7 @@ private:
     QSet<QString> m_verifiedSyncPeers;
     NearbyDevices m_nearby;
     AutomaticPairing m_automatic;
+    MobileSyncActivity m_background;
     QHostAddress m_localBindAddress;
     QTimer m_discoveryTimer;
     bool m_localActive = false;
@@ -142,7 +151,9 @@ private:
     iiServerHost::PeerOptions m_session;
     Mode m_mode = ClientMode;
     bool m_accountSession = false;
-    bool m_suspended = false;
+    bool m_suspended = false, m_runtimeEnabled = true;
+    bool m_backgroundExpired = false;
+    Qt::ApplicationState m_applicationState = Qt::ApplicationActive;
     QString m_discoverySession;
     QJsonObject m_mirror;
     QString m_syncPath;

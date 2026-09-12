@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Society
+Comment=Your devices and shared files
+Exec=Society
+Icon=com.iisacc.society
+Terminal=false
+Categories=Network;FileManager;
+StartupWMClass=Society
