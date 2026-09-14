@@ -4,6 +4,9 @@
 #include <QIcon>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
+#ifdef SOCIETY_WITH_LOCAL_MCP
+#include "App/Mcp/SocietyMcp.h"
+#endif
 #include "App/Services/SocietyRuntime.h"
 #include "App/Services/SyncOwnership.h"
 #include "App/State/GroupSessionStore.h"
@@ -51,6 +54,10 @@ int main(int argc, char *argv[])
     launchSpec.rootObject = QStringLiteral("Main");
     launchSpec.qmlImportPaths.append(QString::fromUtf8(SOCIETY_LVRS_QML_IMPORT_PATH));
     launchSpec.configureEngine = [](QQmlApplicationEngine &engine) {
+#ifdef SOCIETY_WITH_LOCAL_MCP
+        QObject::connect(&engine, &QQmlApplicationEngine::objectCreated, &engine,
+            [&engine](QObject* root, const QUrl&) { if (root) installSocietyMcp(root, &engine); });
+#endif
         QGuiApplication::setWindowIcon(QIcon(QStringLiteral(":/branding/Society.png")));
 #if defined(Q_OS_LINUX) && !defined(Q_OS_ANDROID)
         QGuiApplication::setDesktopFileName(QStringLiteral("com.iisacc.society"));

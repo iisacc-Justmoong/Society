@@ -310,3 +310,7 @@ python3 tools/build_android.py --qt <Qt-6.8.3-Android-ABI> --qt-host <Qt-6.8.3-h
 iPhone QR 스캔은 AVFoundation 메타데이터와 실제 카메라 프레임의 Vision 해독을 함께 사용한다. 스캔 프레임·인식 상태·거리/반사광 안내를 표시하고 연속 자동 초점을 설정한다. 데스크톱 QR은 최대 432 폭으로 표시한다. 사진 회귀 검증과 프레임 처리·취소 계약은 [Pairing.md](docs/Pairing.md)에 기록한다.
 
 호스트와 모든 클라이언트는 동일한 논리 컨테이너 UUID를 사용한다. 첫 페어링은 호스트 전체 드라이브를 미러링한 후 양방향 변경을 시작하며 이전 클라이언트 내용은 비공개 복구 영역에 남긴다. 초기 미러·오프라인 편집·native 등록의 계약은 [동기화 문서](docs/Synchronization.md)를 따른다.
+
+## 로컬 MCP 제어
+
+데스크톱 POSIX 빌드는 iiLocalLLM 0.10.0으로 실행 중인 Society의 컨트롤러를 인증된 로컬 MCP 도구로 제공한다. 자동 발견, 입력·권한·취소 계약과 실제 앱 실행 테스트는 [Mcp.md](docs/Mcp.md)에 기록한다. `IILOCALLLM_DISABLE_APP_MCP=1`로 비활성화할 수 있다.

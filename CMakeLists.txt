@@ -549,3 +549,28 @@ if(BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)
         endforeach()
     endif()
 endif()
+
+# Running desktop apps publish authenticated same-user MCP endpoints.
+if(UNIX AND NOT IOS AND NOT ANDROID AND NOT EMSCRIPTEN)
+    find_package(iiLocalLLM 0.10.0 CONFIG REQUIRED HINTS "$ENV{HOME}/.local/SDK/iiLocalLLM")
+    target_sources(Society PRIVATE App/Mcp/SocietyMcp.cpp App/Mcp/SocietyMcp.h)
+    target_link_libraries(Society PRIVATE iiLocalLLM::iiLocalLLM)
+    target_compile_definitions(Society PRIVATE SOCIETY_WITH_LOCAL_MCP=1)
+    if(BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)
+        # Existing UI tests must not advertise fixtures to the user's live agent.
+        get_property(_existing_app_tests DIRECTORY PROPERTY TESTS)
+        set_property(TEST ${_existing_app_tests} APPEND PROPERTY ENVIRONMENT "IILOCALLLM_DISABLE_APP_MCP=1")
+        qt_add_executable(SocietyMcpTests tests/tst_mcp.cpp)
+        target_link_libraries(SocietyMcpTests PRIVATE Qt6::Test iiLocalLLM::iiLocalLLM iiSocietyContainer::iiSocietyContainer)
+        target_compile_definitions(SocietyMcpTests PRIVATE
+            MCP_APP_EXECUTABLE="$<TARGET_FILE:Society>"
+            MCP_TEST_DIRECTORY="${CMAKE_CURRENT_BINARY_DIR}")
+        add_dependencies(SocietyMcpTests Society)
+        set(SOCIETY_MCP_TEST_GGUF "" CACHE FILEPATH "Optional pinned Qwen2.5 0.5B Q4_K_M for real app-control inference")
+        if(SOCIETY_MCP_TEST_GGUF)
+            target_compile_definitions(SocietyMcpTests PRIVATE SOCIETY_MCP_TEST_GGUF="${SOCIETY_MCP_TEST_GGUF}")
+        endif()
+        add_test(NAME Society.Mcp COMMAND SocietyMcpTests)
+        set_tests_properties(Society.Mcp PROPERTIES TIMEOUT 90)
+    endif()
+endif()
