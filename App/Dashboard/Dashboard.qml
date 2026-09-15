@@ -7,6 +7,9 @@ import LVRS 1.0 as LV
 LV.HStack {
     id: root
     objectName: "dashboardView"
+    property bool touchNavigation: false
+    readonly property int contentInset: touchNavigation && width < 760 ? 16 : 24
+    function goHome() { dashboardScroll.contentItem.contentY = 0 }
     property var recentFiles: []
     property var historyFiles: []
     property bool loading: false
@@ -21,91 +24,30 @@ LV.HStack {
     signal generateRequested(string prompt, string mediaType, string aspectRatio, int count)
     spacing: 0
     alignment: Qt.AlignTop
+    onVisibleChanged: if (!visible) fileMenu.close()
 
-    LV.VStack {
+    function openFileMenu(file, card) {
+        fileMenu.filePath = file.path
+        fileMenu.folderPath = file.folderPath
+        fileMenu.openFor(card, 0, card.height + LV.Theme.gap2)
+    }
+
+    DashboardSidebar {
         objectName: "dashboardSidebar"
         visible: root.width >= 760
         Layout.preferredWidth: 220
         Layout.fillHeight: true
-        spacing: 8
-        alignment: Qt.AlignLeft
-
-        LV.VStack {
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            Layout.margins: 12
-            spacing: 8
-            alignment: Qt.AlignLeft
-            LV.Label { text: qsTr("Workspace"); style: description }
-            LV.ListItem {
-                Layout.fillWidth: true
-                detail: ""
-                label: qsTr("Home"); iconName: "home"
-                onClicked: dashboardScroll.contentItem.contentY = 0
-            }
-            LV.ListItem {
-                Layout.fillWidth: true
-                detail: ""
-                label: qsTr("Guild"); iconName: "option"
-                onClicked: root.featureRequested("Guild")
-            }
-            LV.ListItem {
-                Layout.fillWidth: true
-                detail: ""
-                label: qsTr("Organization"); iconName: "warehouse"
-                onClicked: root.featureRequested("Organization")
-            }
-            LV.Label { text: qsTr("Locations"); style: description }
-            LV.ListItem {
-                objectName: "dashboardLocal"
-                Layout.fillWidth: true
-                detail: ""
-                label: qsTr("Local"); iconName: "nodesfolder"
-                onClicked: root.sectionRequested("")
-            }
-            LV.ListItem {
-                objectName: "dashboardCloud"
-                Layout.fillWidth: true
-                detail: ""
-                label: qsTr("Cloud"); iconName: "RemoteChanges"
-                onClicked: root.devicesRequested()
-            }
-            LV.ListItem {
-                objectName: "dashboardDeleted"
-                Layout.fillWidth: true
-                detail: ""
-                label: qsTr("Deleted"); iconName: "generaldelete"
-                onClicked: root.sectionRequested("deleted")
-            }
-            LV.Spacer { Layout.fillHeight: true }
-            LV.ListItem {
-                objectName: "dashboardThisDevice"
-                Layout.fillWidth: true
-                type: LV.ListItem.Action
-                label: Qt.platform.os === "osx" ? qsTr("This Mac") : qsTr("This device")
-                description: root.deviceStatus
-                iconName: "application"
-                primaryAction: ({ text: qsTr("View"), tone: LV.AbstractButton.Default })
-                onActionTriggered: function(action) {
-                    if (action === "primary") root.devicesRequested()
-                }
-            }
-        }
+        touchNavigation: root.touchNavigation
+        deviceStatus: root.deviceStatus
+        onHomeRequested: root.goHome()
+        onSectionRequested: function(section) { root.sectionRequested(section) }
+        onDevicesRequested: root.devicesRequested()
+        onFeatureRequested: function(feature) { root.featureRequested(feature) }
     }
 
     Item {
         Layout.fillWidth: true
         Layout.fillHeight: true
-        // Keep the list composition while exposing the window's shared material.
-        LV.List {
-            anchors.fill: parent
-            items: []
-            interactive: false
-            scrollable: false
-            footerVisible: false
-            minimumListHeight: 0
-            backgroundColor: "transparent"
-        }
         Controls.ScrollView {
             id: dashboardScroll
             objectName: "dashboardScroll"
@@ -120,17 +62,19 @@ LV.HStack {
                 // The enclosing item supplies Figma's 24 px content inset.
                 Item {
                     Layout.fillWidth: true
-                    implicitHeight: page.implicitHeight + 48
+                    implicitHeight: page.implicitHeight + root.contentInset * 2
                     LV.VStack {
                         id: page
                         anchors.left: parent.left
                         anchors.right: parent.right
                         anchors.top: parent.top
-                        anchors.margins: 24
+                        anchors.margins: root.contentInset
                         height: implicitHeight
                         spacing: 24
                         QuickGenerate {
                             Layout.fillWidth: true
+                            Layout.minimumWidth: 0
+                            touchNavigation: root.touchNavigation
                             onGenerateRequested: function(prompt, mediaType, aspectRatio, count) {
                                 root.generateRequested(prompt, mediaType, aspectRatio, count)
                             }
@@ -148,13 +92,17 @@ LV.HStack {
                                 spacing: 12
                                 LV.HStack {
                                     Layout.fillWidth: true
+                                    Layout.preferredHeight: root.touchNavigation ? 44 : LV.Theme.controlHeightSm
                                     spacing: 12
-                                    LV.ListItem {
+                                    LV.Label {
                                         Layout.fillWidth: true
-                                        label: section.modelData.title
-                                        detail: ""
-                                        showLeadingIcon: false
-                                        onClicked: root.sectionRequested(section.modelData.key)
+                                        Layout.leftMargin: LV.Theme.gap4
+                                        Layout.preferredHeight: LV.Theme.scaleMetric(17)
+                                        text: section.modelData.title
+                                        style: body
+                                        lineHeight: LV.Theme.scaleMetric(13)
+                                        verticalAlignment: Text.AlignVCenter
+                                        elide: Text.ElideRight
                                     }
                                     LV.LabelButton {
                                         objectName: "viewAll" + section.modelData.name
@@ -164,38 +112,71 @@ LV.HStack {
                                         onClicked: root.sectionRequested(section.modelData.key)
                                     }
                                 }
-                                GridLayout {
+                                ListView {
                                     id: cards
+                                    objectName: "dashboard" + section.modelData.name + "Cards"
                                     Layout.fillWidth: true
-                                    columns: Math.max(1, Math.min(3, Math.floor(width / 340)))
-                                    columnSpacing: 0
-                                    rowSpacing: 12
-                                    Repeater {
-                                        model: section.rows
-                                        LV.ListItem {
-                                            id: card
-                                            required property var modelData
-                                            objectName: "dashboardResource"
-                                            Layout.fillWidth: true
-                                            Layout.preferredWidth: 1
-                                            Layout.minimumWidth: 0
-                                            type: LV.ListItem.Resource
-                                            label: modelData.name
-                                            description: modelData.description
-                                            previewIconName: modelData.iconName
-                                            dateText: modelData.dateText
-                                            metadata1: modelData.metadata1
-                                            metadata2: modelData.metadata2
-                                            statusText: qsTr("Available locally")
-                                            secondaryAction: ({ text: qsTr("Reveal"), tone: LV.AbstractButton.Default })
-                                            primaryAction: ({ text: qsTr("Open"), tone: LV.AbstractButton.Primary })
-                                            moreMenu: ({ text: qsTr("More"), items: [qsTr("Open"), qsTr("Reveal in Storage")] })
-                                            onActionTriggered: function(action, payload) {
-                                                if (action === "primary" || (action === "menuItem" && payload.index === 0))
-                                                    root.fileRequested(card.modelData.path)
-                                                else if (action === "secondary" || (action === "menuItem" && payload.index === 1))
-                                                    root.revealRequested(card.modelData.folderPath)
-                                            }
+                                    implicitHeight: LV.Theme.scaleMetric(160)
+                                    visible: count > 0
+                                    model: section.rows
+                                    orientation: ListView.Horizontal
+                                    spacing: LV.Theme.gap8
+                                    clip: true
+                                    boundsBehavior: Flickable.StopAtBounds
+                                    activeFocusOnTab: true
+                                    keyNavigationEnabled: true
+                                    Keys.onReturnPressed: openCurrentFile()
+                                    Keys.onEnterPressed: openCurrentFile()
+                                    Keys.onPressed: function(event) {
+                                        if (event.key === Qt.Key_Home) {
+                                            currentIndex = 0
+                                            positionViewAtBeginning()
+                                            event.accepted = true
+                                        } else if (event.key === Qt.Key_End) {
+                                            currentIndex = count - 1
+                                            positionViewAtEnd()
+                                            event.accepted = true
+                                        }
+                                    }
+                                    function openCurrentFile() {
+                                        if (currentIndex >= 0 && currentIndex < count)
+                                            root.fileRequested(section.rows[currentIndex].path)
+                                    }
+                                    Controls.ScrollBar.horizontal: Controls.ScrollBar {
+                                        policy: Controls.ScrollBar.AsNeeded
+                                    }
+                                    delegate: LV.Card {
+                                        id: card
+                                        required property int index
+                                        required property var modelData
+                                        objectName: "dashboard" + section.modelData.name + "Card" + index
+                                        type: LV.Card.File
+                                        size: LV.Card.Small
+                                        detail: LV.Card.Brief
+                                        width: LV.Theme.scaleMetric(140)
+                                        height: LV.Theme.scaleMetric(160)
+                                        filename: modelData.name
+                                        description: modelData.description || ""
+                                        metadata: modelData.dateText
+                                        previewSource: modelData.previewSource || ""
+                                        selectable: false
+                                        showMenu: hovered || visualFocus
+                                        onClicked: {
+                                            cards.currentIndex = index
+                                            root.fileRequested(modelData.path)
+                                        }
+                                        onActiveFocusChanged: if (activeFocus) {
+                                            cards.currentIndex = index
+                                            cards.positionViewAtIndex(index, ListView.Contain)
+                                        }
+                                        onMenuRequested: root.openFileMenu(modelData, card)
+                                        TapHandler {
+                                            acceptedDevices: PointerDevice.TouchScreen
+                                            onLongPressed: root.openFileMenu(card.modelData, card)
+                                        }
+                                        TapHandler {
+                                            acceptedButtons: Qt.RightButton
+                                            onTapped: root.openFileMenu(card.modelData, card)
                                         }
                                     }
                                 }
@@ -226,6 +207,18 @@ LV.HStack {
                     }
                 }
             }
+        }
+    }
+    LV.ContextMenu {
+        id: fileMenu
+        objectName: "dashboardFileMenu"
+        property string filePath: ""
+        property string folderPath: ""
+        showIconSlot: false
+        items: [qsTr("Open"), qsTr("Reveal in Storage")]
+        onItemTriggered: function(index) {
+            if (index === 0) root.fileRequested(filePath)
+            else if (index === 1) root.revealRequested(folderPath)
         }
     }
 }

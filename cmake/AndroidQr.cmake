@@ -3,12 +3,15 @@ function(society_add_android_qr target)
     file(READ "${package}/AndroidManifest.xml" manifest)
     string(REPLACE "org.qtproject.qt.android.bindings.QtActivity" "com.iisacc.society.SocietyActivity" manifest "${manifest}")
     string(REPLACE "</manifest>" "<uses-permission android:name=\"android.permission.CAMERA\" /><uses-feature android:name=\"android.hardware.camera\" android:required=\"false\" /></manifest>" manifest "${manifest}")
+    string(REPLACE "</manifest>" "<uses-permission android:name=\"android.permission.READ_MEDIA_IMAGES\" /><uses-permission android:name=\"android.permission.READ_MEDIA_VIDEO\" /><uses-permission android:name=\"android.permission.READ_MEDIA_VISUAL_USER_SELECTED\" /><uses-permission android:name=\"android.permission.ACCESS_MEDIA_LOCATION\" /><uses-permission android:name=\"android.permission.READ_EXTERNAL_STORAGE\" android:maxSdkVersion=\"32\" /><uses-permission android:name=\"android.permission.WRITE_EXTERNAL_STORAGE\" android:maxSdkVersion=\"28\" /></manifest>" manifest "${manifest}")
     string(REPLACE "</application>" "<service android:name=\"com.iisacc.society.SocietySyncService\" android:exported=\"false\" android:stopWithTask=\"false\" android:foregroundServiceType=\"dataSync\" /></application>" manifest "${manifest}")
     string(REPLACE "</activity>" "<meta-data android:name=\"android.app.background_running\" android:value=\"true\" /></activity>" manifest "${manifest}")
     string(REPLACE "</manifest>" "<uses-permission android:name=\"android.permission.FOREGROUND_SERVICE\" /><uses-permission android:name=\"android.permission.FOREGROUND_SERVICE_DATA_SYNC\" /><uses-permission android:name=\"android.permission.WAKE_LOCK\" /></manifest>" manifest "${manifest}")
     file(WRITE "${package}/AndroidManifest.xml" "${manifest}")
     configure_file("${CMAKE_CURRENT_SOURCE_DIR}/platform/android/src/com/iisacc/society/SocietyActivity.java"
         "${package}/src/com/iisacc/society/SocietyActivity.java" COPYONLY)
+    configure_file("${CMAKE_CURRENT_SOURCE_DIR}/platform/android/src/com/iisacc/society/SocietyPhotoLibrary.java"
+        "${package}/src/com/iisacc/society/SocietyPhotoLibrary.java" COPYONLY)
     configure_file("${CMAKE_CURRENT_SOURCE_DIR}/platform/android/src/com/iisacc/society/SocietyDiscovery.java"
         "${package}/src/com/iisacc/society/SocietyDiscovery.java" COPYONLY)
     configure_file("${CMAKE_CURRENT_SOURCE_DIR}/platform/android/src/com/iisacc/society/SocietySyncService.java"

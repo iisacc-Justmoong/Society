@@ -105,8 +105,10 @@ private slots:
         QTRY_VERIFY(!desktop.pairingQueue().isEmpty());
         { DevicePairing panel; panel.setNetwork(&desktop); panel.cancel(); }
         QTRY_COMPARE_WITH_TIMEOUT(paired.size(), 2, 15000);
-        QTRY_COMPARE(phone.entries().size(), 1); QTRY_COMPARE(tablet.entries().size(), 1);
-        QCOMPARE(phone.entries()[0].toMap().value("name").toString(), "automatic.txt");
+        QTRY_COMPARE(phone.entries().size(), 4); QTRY_COMPARE(tablet.entries().size(), 4);
+        QStringList names;
+        for (const auto &entry : phone.entries()) names.append(entry.toMap().value("name").toString());
+        QVERIFY(names.contains("automatic.txt"));
         QTRY_VERIFY(desktop.pairingQueue().isEmpty());
         b.announceTo(a); b.announceTo(a); c.announceTo(a); QTest::qWait(1100); QCOMPARE(paired.size(), 2);
         const auto destination = QUrl::fromLocalFile(root.filePath("copied.txt"));
@@ -250,7 +252,7 @@ private slots:
         iiServerHost::LanLink link; QVERIFY(iiServerHost::LanLink::decode(qr, &link));
         QCOMPARE(client.peerName(), link.name);
         QTRY_VERIFY(!fixture.client.busy()); QCOMPARE(fixture.client.currentHost(), link.hostId);
-        QCOMPARE(fixture.client.entries().size(), 1);
+        QCOMPARE(fixture.client.entries().size(), 4); // Standard directories and hello.txt.
         QCOMPARE(fixture.client.transport(), QString("local"));
         QSignalSpy downloaded(&fixture.client, &NetworkDriveController::downloadFinished);
         fixture.client.download("hello.txt", QUrl::fromLocalFile(fixture.container.filePath("paired-download.txt")));

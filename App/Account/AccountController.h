@@ -23,6 +23,7 @@ class AccountController : public QObject {
     Q_PROPERTY(QString email READ email NOTIFY changed)
     Q_PROPERTY(QString userId READ userId NOTIFY changed)
     Q_PROPERTY(QString membership READ membership NOTIFY changed)
+    Q_PROPERTY(QVariantList rememberedDevices READ rememberedDevices NOTIFY rememberedDevicesChanged)
 public:
     explicit AccountController(QObject *parent = nullptr);
     explicit AccountController(const QUrl &serviceUrl, QObject *parent = nullptr);
@@ -38,13 +39,16 @@ public:
     QString email() const { return m_manager.account()->email(); }
     QString userId() const { return m_manager.account()->userId(); }
     QString membership() const { return m_manager.account()->toVariantMap().value("societyCloudMembership").toString(); }
-    // Active cookies remain private; refresh credentials also use app-owned
-    // secure storage. This compatibility API is C++ only; LAN pairing does not use it.
+    // Active cookies stay in C++ and are sent only to the configured trusted
+    // account server. Direct LAN pairing does not use them.
     QByteArray relayCredential() const;
     // C++ only; restored from an authenticated, bounded group-container cache.
     QJsonObject pairingCredentials() const { return m_pairingCredentials; }
     QJsonArray rememberedPeers() const { return m_rememberedPeers; }
+    QVariantList rememberedDevices() const { return signedIn() ? m_rememberedPeers.toVariantList() : QVariantList{}; }
     bool automaticPairingEnabled() const { return m_automaticPairingEnabled; }
+    QJsonObject serverConfiguration() const { return m_serverConfiguration; }
+    bool setServerConfiguration(const QJsonObject &configuration);
     void setAutomaticPairingEnabled(bool enabled);
     void rememberPairedDevice(const QString &id, const QString &name, const QString &kind);
     void requestPairingCredentials();
@@ -54,6 +58,7 @@ public:
     Q_INVOKABLE void cancelLogin();
 signals:
     void changed();
+    void rememberedDevicesChanged();
     void sessionEnding();
     void pairingCredentialsChanged();
     void pairingStateRestored();
@@ -72,6 +77,7 @@ private:
     iisacc::accounts::AccountManager m_manager;
     QPointer<QNetworkReply> m_pairingReply;
     QJsonObject m_pairingCredentials;
+    QJsonObject m_serverConfiguration;
     QDateTime m_pairingRestoreRetryAt;
     QTimer m_pairingExpiry;
     QPointer<iisacc::accounts::SessionStore> m_stateStore;

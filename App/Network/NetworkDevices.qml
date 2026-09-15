@@ -6,20 +6,61 @@ import QtQuick.Dialogs
 import LVRS 1.0 as LV
 import Society
 
-Controls.Popup {
+LV.Sheet {
     id: panel
     required property NetworkDriveController network
     signal preferencesRequested()
     signal accountRequested()
     signal pairingRequested()
-    width: Math.min(parent.width - 32, 680)
-    height: Math.min(parent.height - 32, 620)
-    x: (parent.width - width) / 2
-    y: (parent.height - height) / 2
-    modal: true
-    padding: 20
-    background: Rectangle { color: LV.Theme.panelBackground06; radius: 12 }
+    presentation: network.hostModeAvailable ? LV.Sheet.Desktop : LV.Sheet.Mobile
+    detent: LV.Sheet.Large
+    preferredWidth: 680
+    preferredHeight: 620
+    contentPadding: 20
+    showHeader: false
+    scrollContent: false
     property string selectedPath: ""
+    property string selectedDeviceId: ""
+    property string selectedDeviceName: ""
+    property bool selectionPending: false
+    readonly property string selectedPeerId: {
+        for (const host of network.hosts) {
+            const deviceId = host.metadata && host.metadata.deviceId ? host.metadata.deviceId : host.peerId
+            if (deviceId === selectedDeviceId) return host.peerId
+        }
+        return ""
+    }
+    readonly property bool selectedFilesVisible: selectedDeviceId.length === 0
+        || (selectedPeerId.length > 0 && network.currentHost === selectedPeerId)
+    onSelectedPeerIdChanged: {
+        selectionPending = selectedPeerId.length > 0
+        browseSelectedDevice()
+    }
+    onOpened: browseSelectedDevice()
+    onClosed: { selectionPending = false; /* qmllint disable missing-property */ Qt.inputMethod.hide() /* qmllint enable missing-property */ }
+    Connections {
+        target: panel.network
+        function onStateChanged() { panel.browseSelectedDevice() }
+    }
+    function browseSelectedDevice() {
+        if (!visible || !selectionPending || selectedPeerId.length === 0 || network.busy) return
+        selectionPending = false
+        network.browse(selectedPeerId)
+    }
+    function clearDeviceSelection() {
+        selectedDeviceId = ""
+        selectedDeviceName = ""
+        selectedPath = ""
+        selectionPending = false
+    }
+    function selectDevice(id, name, peerId) {
+        const sameDevice = selectedDeviceId === id
+        selectedDeviceName = name
+        selectedDeviceId = id
+        selectedPath = ""
+        if (sameDevice) selectionPending = peerId.length > 0 && selectedPeerId === peerId
+        browseSelectedDevice()
+    }
     FileDialog {
         id: destination
         title: qsTr("Save file from your device")
@@ -36,7 +77,19 @@ Controls.Popup {
         spacing: 12
         RowLayout {
             Layout.fillWidth: true
-            LV.Label { text: qsTr("Your devices"); style: header; Layout.fillWidth: true }
+            LV.Label {
+                objectName: "networkDeviceTitle"
+                text: panel.selectedDeviceName || qsTr("Your devices")
+                textFormat: Text.PlainText
+                style: header
+                Layout.fillWidth: true
+            }
+            LV.LabelButton {
+                objectName: "networkAllDevices"
+                visible: panel.selectedDeviceId.length > 0
+                text: qsTr("All devices")
+                onClicked: panel.clearDeviceSelection()
+            }
             LV.PushButton { text: qsTr("Close"); onClicked: panel.close() }
         }
         RowLayout {
@@ -65,7 +118,7 @@ Controls.Popup {
         }
         LV.Label {
             Layout.fillWidth: true
-            text: qsTr("Sign in to the same iisacc account on each device. Society discovers your devices and synchronizes their containers automatically on Wi-Fi or LAN.")
+            text: qsTr("Sign in to the same iisacc account on each device. Synchronize on your local network or connect through your own Society server, including a NAS.")
             wrapMode: Text.Wrap
             sizeToContentHeight: true
         }
@@ -93,6 +146,52 @@ Controls.Popup {
             text: qsTr("Connect manually…")
             onClicked: panel.pairingRequested()
         }
+        LV.Label {
+            Layout.fillWidth: true
+            text: qsTr("Your Society server")
+            style: header
+        }
+        LV.InputField {
+            id: serverAddress
+            objectName: "networkServerAddress"
+            Layout.fillWidth: true
+            text: panel.network.relayUrl.toString()
+            placeholderText: qsTr("wss://nas.example.com/society")
+            Accessible.name: qsTr("Society server address")
+        }
+        LV.Label {
+            Layout.fillWidth: true
+            text: qsTr("Use a server you operate or trust. It verifies your account and carries synchronization traffic between your devices.")
+            wrapMode: Text.Wrap
+            sizeToContentHeight: true
+        }
+        ColumnLayout {
+            Layout.fillWidth: true
+            LV.PushButton {
+                objectName: "networkConnectServer"
+                Layout.fillWidth: true
+                text: qsTr("Connect to server")
+                enabled: panel.network.signedIn && !panel.network.authBusy && serverAddress.text.trim().length > 0
+                onClicked: panel.network.configureServer(serverAddress.text.trim(), false)
+            }
+            LV.PushButton {
+                objectName: "networkHostServer"
+                Layout.fillWidth: true
+                visible: panel.network.hostModeAvailable
+                text: qsTr("Host this container")
+                enabled: panel.network.signedIn && !panel.network.authBusy && serverAddress.text.trim().length > 0
+                    && panel.network.containerPath.length > 0
+                onClicked: panel.network.configureServer(serverAddress.text.trim(), true)
+            }
+            LV.LabelButton {
+                objectName: "networkClearServer"
+                Layout.fillWidth: true
+                text: qsTr("Use nearby discovery")
+                visible: panel.network.relayUrl.toString().length > 0
+                enabled: panel.network.signedIn
+                onClicked: panel.network.configureServer("", false)
+            }
+        }
         LV.PushButton {
             objectName: "networkAccount"
             Layout.fillWidth: true
@@ -111,6 +210,14 @@ Controls.Popup {
             LV.PushButton { text: qsTr("Disconnect"); enabled: panel.network.connected; onClicked: panel.network.disconnectSession() }
         }
         LV.Label {
+            objectName: "selectedDeviceUnavailable"
+            Layout.fillWidth: true
+            visible: panel.selectedDeviceId.length > 0 && panel.selectedPeerId.length === 0
+            text: qsTr("Files are not available from this device yet. Keep Society open on both devices to connect automatically.")
+            wrapMode: Text.Wrap
+            sizeToContentHeight: true
+        }
+        LV.Label {
             Layout.fillWidth: true
             text: panel.network.authError || panel.network.status
             textFormat: Text.PlainText
@@ -127,6 +234,7 @@ Controls.Popup {
         }
         RowLayout {
             Layout.fillWidth: true
+            visible: panel.selectedFilesVisible
             LV.Label { Layout.fillWidth: true; text: panel.network.currentPath.length > 0 ? panel.network.currentPath : qsTr("Files"); elide: Text.ElideMiddle }
             LV.Label { text: panel.network.transport === "local" ? qsTr("Local network") : panel.network.transport === "remote" ? qsTr("Remote") : "" }
             LV.PushButton {
@@ -139,17 +247,18 @@ Controls.Popup {
             ColumnLayout {
                 Layout.fillWidth: true
                 Repeater {
-                    model: panel.network.hosts
+                    model: panel.selectedDeviceId.length === 0 ? panel.network.hosts : []
                     LV.PushButton {
                         required property var modelData
                         Layout.fillWidth: true
                         text: modelData.name
                         enabled: !panel.network.busy
-                        onClicked: panel.network.browse(modelData.peerId)
+                        onClicked: panel.selectDevice(modelData.metadata && modelData.metadata.deviceId
+                            ? modelData.metadata.deviceId : modelData.peerId, modelData.name, modelData.peerId)
                     }
                 }
                 Repeater {
-                    model: panel.network.entries
+                    model: panel.selectedFilesVisible ? panel.network.entries : []
                     LV.AbstractButton {
                         required property var modelData
                         Layout.fillWidth: true
@@ -164,7 +273,7 @@ Controls.Popup {
                     }
                 }
                 LV.PushButton {
-                    text: qsTr("Load more"); visible: panel.network.nextCursor.length > 0; enabled: !panel.network.busy
+                    text: qsTr("Load more"); visible: panel.selectedFilesVisible && panel.network.nextCursor.length > 0; enabled: !panel.network.busy
                     onClicked: panel.network.browse(panel.network.currentHost, panel.network.currentPath, panel.network.nextCursor)
                 }
             }

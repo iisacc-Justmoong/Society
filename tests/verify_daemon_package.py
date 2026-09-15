@@ -10,6 +10,14 @@ import sys
 
 bundle = Path(sys.argv[1]).resolve()
 source = Path(sys.argv[2]).resolve()
+expected_container = Path(sys.argv[3]).resolve() if len(sys.argv) > 3 else None
+packaged_container = bundle / 'Contents/Helpers/SocietyDaemon.app/Contents/Frameworks/libiiSocietyContainer.0.dylib'
+def binary_uuids(path):
+    output = subprocess.check_output(['dwarfdump', '--uuid', str(path)], text=True)
+    return re.findall(r'UUID: ([0-9A-F-]+) \(([^)]+)\)', output)
+if expected_container:
+    assert binary_uuids(expected_container) and binary_uuids(packaged_container) == binary_uuids(expected_container), \
+        'The bundled model classifier differs from the iiSocietyContainer selected at build time.'
 with (bundle / 'Contents/Info.plist').open('rb') as file:
     group = plistlib.load(file)['SocietyAppGroup']
 entitlements = plistlib.loads(subprocess.check_output(['codesign', '-d', '--entitlements', '-', '--xml', str(bundle)], stderr=subprocess.DEVNULL))
@@ -45,6 +53,14 @@ external = [path for path in loaded
             if not path.startswith((str(bundle) + "/", "/System/", "/usr/lib/"))]
 assert not external, "Daemon loaded dependencies outside its bundle: " + ", ".join(external)
 helper_contents = executable.parent.parent
+native_libraries = list((helper_contents / "Frameworks").glob("*.dylib"))
+for library in native_libraries:
+    assert library.resolve().is_relative_to(bundle), f'Bundled library redirects outside the app: {library}'
+    for dependency in links(library):
+        path = dependency.split(" (compatibility", 1)[0]
+        if path.startswith("@rpath/") and path.endswith(".dylib"):
+            destination = helper_contents / "Frameworks" / path.removeprefix("@rpath/")
+            assert destination.is_file(), f'Missing transitive native library: {library.name} -> {path}'
 plugin = helper_contents / "PlugIns/sqldrivers/libqsqlite.dylib"
 dependencies = subprocess.check_output(["otool", "-L", str(plugin)], text=True).splitlines()[1:]
 for line in dependencies:
@@ -61,4 +77,5 @@ for line in dependencies:
             break
     assert path.startswith(str(bundle) + "/") and Path(path).is_file(), path
 print(json.dumps({"bundledDaemon": str(executable), "externalDependencies": external,
-                  "sqliteDriverDependencies": "passed"}))
+                  "sqliteDriverDependencies": "passed", "modelClassifierUuids": binary_uuids(packaged_container),
+                  "bundledNativeLibraries": sorted(path.name for path in native_libraries)}))

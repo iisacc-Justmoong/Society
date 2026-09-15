@@ -4,20 +4,50 @@ import QtQuick.Layouts
 import QtQuick.Controls as Controls
 import LVRS 1.0 as LV
 import Society
+import "Models"
+import "Drive"
+import "Photos"
 
 Item {
     id: root
     objectName: "storageView"
     required property DriveController drive
+    required property StorageNavigation navigation
     required property ModelImporter modelImporter
     required property bool hostModeAvailable
+    property bool desktop: true
+    readonly property bool compactLayout: !desktop && width < 760
+    readonly property bool actionsOpen: storageActions.visible
+    onVisibleChanged: if (!visible) storageActions.close()
     property bool signedIn: false
     property string synchronizationStatus: ""
+    property var photos: null
+    readonly property bool photosOverview: drive.contentsAvailable && drive.currentPath === drive.rootPath + "/Photos"
     signal accountRequested()
     signal devicesRequested()
     signal preferencesRequested()
     signal chooseContainerRequested()
     signal importModelsRequested()
+    property bool browsingModelFolders: false
+    readonly property bool modelsOverview: drive.contentsAvailable && drive.currentPath === drive.rootPath + "/Models" && !browsingModelFolders
+    function browseModelFolder(path) {
+        if (drive.navigate(path)) browsingModelFolders = true
+    }
+    StorageModels {
+        id: models
+        objectName: "modelCatalog"
+        directory: root.drive.contentsAvailable ? root.drive.rootPath + "/Models" : ""
+    }
+    Connections {
+        target: root.drive
+        function onLocationChanged() { root.browsingModelFolders = false }
+        function onContentsChanged() { models.refresh() }
+    }
+    Connections {
+        target: root.modelImporter
+        function onFinished() { models.refresh() }
+        function onOrganized() { models.refresh() }
+    }
 
     ColumnLayout {
         objectName: "driveContent"
@@ -25,6 +55,7 @@ Item {
         spacing: 0
 
         RowLayout {
+            visible: root.desktop && (!root.drive.contentsAvailable || root.drive.atRoot)
             Layout.fillWidth: true
             Layout.margins: 16
             spacing: 16
@@ -66,62 +97,19 @@ Item {
             }
         }
 
-        Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: LV.Theme.panelBackground10 }
+        Rectangle { visible: root.desktop && (!root.drive.contentsAvailable || root.drive.atRoot); Layout.fillWidth: true; implicitHeight: 1; color: LV.Theme.panelBackground10 }
 
         RowLayout {
             Layout.fillWidth: true
             Layout.fillHeight: true
             spacing: 0
 
-            Rectangle {
-                objectName: "driveSidebar"
+            StorageSidebar {
                 visible: root.drive.contentsAvailable && root.width >= 760
-                Layout.preferredWidth: 216
+                navigation: root.navigation
+                touchNavigation: !root.desktop
+                Layout.preferredWidth: 228
                 Layout.fillHeight: true
-                color: LV.Theme.panelBackground06
-
-                ColumnLayout {
-                    anchors.fill: parent
-                    anchors.margins: 16
-                    spacing: 6
-                    LV.AbstractButton {
-                        objectName: "societyDriveHome"
-                        Layout.fillWidth: true
-                        text: qsTr("Society")
-                        onClicked: root.drive.goHome()
-                    }
-                    LV.Label {
-                        Layout.topMargin: 20
-                        Layout.bottomMargin: 6
-                        style: caption
-                        text: qsTr("SECTIONS")
-                    }
-                    Repeater {
-                        model: root.drive.sections
-                        LV.AbstractButton {
-                            id: sectionButton
-                            required property var modelData
-                            Layout.fillWidth: true
-                            implicitHeight: 36
-                            text: modelData.name
-                            Accessible.name: modelData.name
-                            Accessible.selected: root.drive.currentSection === modelData.name
-                            onClicked: root.drive.openSection(modelData.key)
-                            background: Rectangle {
-                                radius: LV.Theme.radiusMd
-                                color: root.drive.currentSection === sectionButton.text ? LV.Theme.accentTint : "transparent"
-                            }
-                        }
-                    }
-                    Item { Layout.fillHeight: true }
-                    LV.Label {
-                        Layout.fillWidth: true
-                        style: caption
-                        text: root.drive.rootPath
-                        textFormat: Text.PlainText
-                        elide: Text.ElideMiddle
-                    }
-                }
             }
 
             ColumnLayout {
@@ -130,19 +118,21 @@ Item {
                 spacing: 0
 
                 RowLayout {
-                    visible: root.drive.contentsAvailable
+                    visible: !root.desktop || (root.drive.contentsAvailable && !root.modelsOverview)
                     Layout.fillWidth: true
-                    Layout.margins: 16
+                    Layout.margins: root.compactLayout ? 8 : 16
                     spacing: 10
                     LV.PushButton {
                         objectName: "driveUp"
+                        Layout.minimumWidth: root.desktop ? 0 : 44
+                        Layout.minimumHeight: root.desktop ? 0 : 44
                         text: qsTr("Up")
                         enabled: !root.drive.atRoot
                         onClicked: root.drive.goUp()
                     }
                     Controls.ScrollView {
                         Layout.fillWidth: true
-                        Layout.preferredHeight: 32
+                        Layout.preferredHeight: root.desktop ? 32 : 44
                         clip: true
                         Controls.ScrollBar.vertical.policy: Controls.ScrollBar.AlwaysOff
                         Row {
@@ -152,10 +142,21 @@ Item {
                                 LV.AbstractButton {
                                     required property var modelData
                                     text: modelData.name
+                                    height: root.desktop ? implicitHeight : 44
                                     onClicked: root.drive.navigate(modelData.path)
                                 }
                             }
                         }
+                    }
+                    LV.IconButton {
+                        objectName: "storageActionsToggle"
+                        visible: !root.desktop
+                        Layout.preferredWidth: 44
+                        Layout.preferredHeight: 44
+                        iconName: "generalsettings"
+                        tone: LV.AbstractButton.Borderless
+                        Accessible.name: qsTr("Storage actions")
+                        onClicked: storageActions.open()
                     }
                 }
 
@@ -184,7 +185,7 @@ Item {
                                     : qsTr("Connect to your desktop to mirror its Society drive. Your files appear here when the initial sync finishes."))
                                 : root.drive.managedContainer
                                 ? qsTr("Opening Society…")
-                                : qsTr("Choose a folder to open your drive and its eight sections.")
+                                : qsTr("Choose a folder to open your drive and its storage sections.")
                             horizontalAlignment: Text.AlignHCenter
                             wrapMode: Text.WordWrap
                             sizeToContentHeight: true
@@ -195,10 +196,10 @@ Item {
                         id: sectionsGrid
                         objectName: "sectionsGrid"
                         anchors.fill: parent
-                        anchors.margins: 16
+                        anchors.margins: root.compactLayout ? 12 : 16
                         visible: root.drive.contentsAvailable && root.drive.atRoot
                         model: root.drive.sections
-                        cellWidth: width / Math.max(1, Math.floor(width / 174))
+                        cellWidth: width / Math.max(1, Math.floor(width / (root.compactLayout ? 148 : 174)))
                         cellHeight: 150
                         clip: true
                         currentIndex: -1
@@ -236,19 +237,45 @@ Item {
                         id: filesGrid
                         objectName: "fileGridView"
                         anchors.fill: parent
-                        visible: root.drive.contentsAvailable && !root.drive.atRoot
+                        visible: root.drive.contentsAvailable && !root.drive.atRoot && !root.modelsOverview && !root.photosOverview
                         path: root.drive.contentsAvailable ? root.drive.currentPath : ""
                         heading: root.drive.currentSection
                         imagesOnly: root.drive.currentSection === "Generation History"
+                        chronological: root.drive.currentSection === "Files" || filesGrid.imagesOnly
+                        touchNavigation: !root.desktop
                         onActivated: function(path, isDirectory) {
                             if (isDirectory)
-                                root.drive.navigate(path)
+                                root.drive.currentSection === "Models" ? root.browseModelFolder(path) : root.drive.navigate(path)
                             else
                                 root.drive.openFile(path)
                         }
                     }
                     // The persistent folder model watches real filesystem changes
                     // asynchronously; sync status must not recreate it.
+                    PhotosView {
+                        anchors.fill: parent
+                        touchNavigation: !root.desktop
+                        visible: root.photosOverview
+                        controller: root.photos
+                    }
+                    ModelsView {
+                        anchors.fill: parent
+                        visible: root.modelsOverview
+                        catalog: models
+                        touchNavigation: !root.desktop
+                        importing: root.modelImporter.busy
+                        importEnabled: !root.modelImporter.busy && !root.modelImporter.choosingFiles && !root.drive.busy
+                        importStatus: root.modelImporter.status
+                        importError: root.modelImporter.errorString
+                        onImportRequested: {
+                            if (Qt.platform.os === "ios") root.modelImporter.chooseFiles()
+                            else root.importModelsRequested()
+                        }
+                        onCancelImportRequested: root.modelImporter.cancel()
+                        onFileRequested: function(path) { root.drive.openFile(path) }
+                        onFolderRequested: function(path) { root.browseModelFolder(path) }
+                        onBrowseFoldersRequested: root.browseModelFolder(root.drive.rootPath + "/Models")
+                    }
                 }
             }
         }
@@ -266,7 +293,7 @@ Item {
         }
 
         ColumnLayout {
-            visible: root.drive.contentsAvailable
+            visible: root.desktop && root.drive.contentsAvailable && !root.modelsOverview && !root.photosOverview
             Layout.fillWidth: true
             Layout.margins: 12
             spacing: 6
@@ -324,9 +351,9 @@ Item {
             }
         }
 
-        Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: LV.Theme.panelBackground10 }
+        Rectangle { visible: root.desktop && !root.modelsOverview; Layout.fillWidth: true; implicitHeight: 1; color: LV.Theme.panelBackground10 }
         ColumnLayout {
-            visible: root.drive.hasDrive
+            visible: root.desktop && root.drive.hasDrive && !root.modelsOverview
             Layout.fillWidth: true
             Layout.margins: 12
             spacing: 8
@@ -340,7 +367,7 @@ Item {
             }
             RowLayout {
                 Layout.fillWidth: true
-                LV.Label { Layout.fillWidth: true; style: caption; text: root.width >= 440 ? qsTr("8 sections") : "" }
+                LV.Label { Layout.fillWidth: true; style: caption; text: root.width >= 440 ? qsTr("%1 sections").arg(root.drive.sections.length) : "" }
                 LV.PushButton {
                     objectName: "connectToSystem"
                     visible: root.drive.systemSupported
@@ -359,4 +386,92 @@ Item {
         }
     }
 
+    LV.Sheet {
+        id: storageActions
+        objectName: "storageActions"
+        parent: Controls.Overlay.overlay
+        presentation: LV.Sheet.Mobile
+        detent: LV.Sheet.Large
+        title: qsTr("Storage actions")
+        contentPadding: 16
+        LV.VStack {
+            width: parent.width
+            spacing: 12
+            LV.Label {
+                Layout.fillWidth: true
+                text: root.drive.hasDrive ? root.drive.rootPath : qsTr("Your Society drive")
+                textFormat: Text.PlainText
+                wrapMode: Text.WrapAnywhere
+                sizeToContentHeight: true
+                style: description
+            }
+            LV.LabelButton {
+                objectName: "mobileChooseContainer"
+                Layout.fillWidth: true
+                Layout.minimumHeight: 44
+                visible: !root.drive.managedContainer || !root.drive.hasDrive
+                text: root.drive.managedContainer ? qsTr("Retry") : qsTr("Open container…")
+                enabled: !root.drive.busy && !root.modelImporter.busy && !root.modelImporter.choosingFiles
+                onClicked: {
+                    storageActions.close()
+                    if (root.drive.managedContainer) root.drive.openDefaultContainer()
+                    else root.chooseContainerRequested()
+                }
+            }
+            LV.LabelButton {
+                objectName: "mobileImportModels"
+                Layout.fillWidth: true
+                Layout.minimumHeight: 44
+                text: qsTr("Import models…")
+                enabled: root.drive.contentsAvailable && !root.drive.busy && !root.modelImporter.busy && !root.modelImporter.choosingFiles
+                onClicked: {
+                    storageActions.close()
+                    if (Qt.platform.os === "ios") root.modelImporter.chooseFiles()
+                    else root.importModelsRequested()
+                }
+            }
+            LV.Label {
+                Layout.fillWidth: true
+                visible: text.length > 0
+                text: root.modelImporter.errorString || root.modelImporter.status
+                textFormat: Text.PlainText
+                wrapMode: Text.Wrap
+                sizeToContentHeight: true
+            }
+            LV.LabelButton {
+                Layout.fillWidth: true
+                Layout.minimumHeight: 44
+                visible: root.modelImporter.busy
+                text: qsTr("Cancel import")
+                onClicked: root.modelImporter.cancel()
+            }
+            LV.Label {
+                Layout.fillWidth: true
+                visible: root.drive.hasDrive
+                text: root.drive.systemStatus
+                textFormat: Text.PlainText
+                wrapMode: Text.Wrap
+                sizeToContentHeight: true
+                style: caption
+            }
+            LV.LabelButton {
+                objectName: "mobileConnectToSystem"
+                Layout.fillWidth: true
+                Layout.minimumHeight: 44
+                visible: root.drive.hasDrive && root.drive.systemSupported
+                enabled: !root.drive.busy
+                text: root.drive.systemPath.length > 0 ? qsTr("Reconnect") : qsTr("Connect to %1").arg(root.drive.systemName)
+                onClicked: root.drive.connectToSystem()
+            }
+            LV.LabelButton {
+                objectName: "mobileRevealInSystem"
+                Layout.fillWidth: true
+                Layout.minimumHeight: 44
+                visible: root.drive.systemPath.length > 0 || (root.drive.managedContainer && root.drive.hasDrive)
+                enabled: !root.drive.busy
+                text: qsTr("Open in %1").arg(root.drive.systemName)
+                onClicked: root.drive.revealInSystem()
+            }
+        }
+    }
 }

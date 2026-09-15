@@ -87,12 +87,18 @@ public final class SocietyActivity extends QtActivity {
 
     @Override public void onRequestPermissionsResult(int request, String[] permissions, int[] results) {
         super.onRequestPermissionsResult(request, permissions, results);
+        if (request == SocietyPhotoLibrary.PERMISSION_REQUEST) { SocietyPhotoLibrary.photoAccessFinished(); return; }
         if (request != CAMERA_PERMISSION || qrRequest == 0) return;
         if (results.length > 0 && results[0] == PackageManager.PERMISSION_GRANTED) showQrCamera();
         else finishQr("", "Allow camera access in Settings to scan the desktop QR code.", true);
     }
 
     @Override protected void onStop() { finishQr("", "", false); super.onStop(); }
+
+    @Override protected void onActivityResult(int request, int result, Intent data) {
+        super.onActivityResult(request, result, data);
+        if (request == SocietyPhotoLibrary.TRASH_REQUEST) SocietyPhotoLibrary.consentFinished(result);
+    }
 
     public void openCameraSettings() {
         runOnUiThread(() -> startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,

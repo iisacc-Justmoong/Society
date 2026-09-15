@@ -1,5 +1,7 @@
 # SocietyDaemon
 
+NAS·자체 호스트 서버에서는 `--sync --container PATH --server URL --host`로 화면 없이 컨테이너를 제공한다. `--login-file`의 계정 로그인, TLS 웹서버 배치, systemd 예제와 검증 범위는 [자체 호스팅 문서](SelfHosting.md)에 있다. 데스크톱 GUI가 저장한 계정별 서버 설정도 기존 세션 복원 시 공유한다.
+
 Society 창과 별도 수명을 갖는 사용자 세션의 수신 서비스이다. 모든 iiSocietyHelper 참여자가 남긴 데이터를 받아 영속 수신함에 보관한다. Society 본체는 나중에 실행해도 데이터를 읽고, 실행 중에는 새로운 데이터를 계속 전달받는다.
 
 ```mermaid
@@ -24,6 +26,8 @@ flowchart LR
 외부 메시지 브로커나 새 데이터베이스 서버를 도입하지 않는다. 기존 Qt 6.8.3의 Sql/QSQLITE와 SQLite WAL·FULL 동기화를 사용한다. 직접 파일 저널과 복구 프로토콜을 구현하는 것보다 기존 트랜잭션을 이용하는 편이 유지보수 부담이 낮다. Qt·SQLite의 라이선스는 사용 중인 Qt 배포본을 따른다.
 
 ## macOS 백그라운드 등록
+
+패키징은 CMake의 런타임 의존성 분석으로 원본 데몬에 연결된 라이브러리의 검색 경로를 구한 뒤 `macdeployqt`에 전달하고, Qt 배포 도구가 누락한 네이티브 dylib도 분석 결과에서 보충한다. iiServerHost의 libcurl과 Brotli 같은 간접 의존성도 같은 방식으로 포함하며, 특정 패키지 관리자의 설치 위치를 하드코딩하지 않는다. 패키지 검증은 외부 라이브러리 로딩·누락된 간접 dylib·번들 밖을 가리키는 라이브러리 심볼릭 링크를 거부한다.
 
 Society.app 안에 다음 두 파일을 포함한다.
 

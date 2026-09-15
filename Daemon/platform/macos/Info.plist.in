@@ -11,4 +11,6 @@
     <key>SocietyAppGroup</key><string>@SOCIETY_MAC_APP_GROUP@</string>
     <key>NSLocalNetworkUsageDescription</key><string>Society automatically synchronizes your files with your devices on the local network.</string>
     <key>NSBonjourServices</key><array><string>_society-pair._udp</string></array>
+    <key>NSPhotoLibraryUsageDescription</key><string>Society synchronizes your photo library with your Society devices while the main window is closed.</string>
+    <key>NSPhotoLibraryAddUsageDescription</key><string>Society adds photos and videos from your Society devices to your photo library.</string>
 </dict></plist>

@@ -5,7 +5,7 @@
 | 계층 | 담당 책임 |
 | --- | --- |
 | iiAccountManager 0.2.6 | 계정 검증·인증 상태·세션 바인딩·이벤트 기반 갱신·캐시 수명 |
-| Society 앱 | 보안 그룹 저장소 제공, LAN 증명, LAN 발견·자동 페어링 큐, 호스트 선택, 데몬·모바일 백그라운드 수명과 사용자 화면 |
+| Society 앱 | 보안 그룹 저장소 제공, LAN 발견·자동 페어링, 계정 기반 자체 서버 연결·NAS 호스팅, 호스트 선택, 데몬·모바일 백그라운드 수명과 사용자 화면 |
 | iiSocietyHelper 0.7.1 | 기기 내 관측·메시지/ACK·객체 스냅샷·계정 참조·로컬 Container 접근 |
 | iiSocietySync 0.4.0 | 기기 간 변경 기록·청크·이어받기·벡터 시계·삭제·충돌·원격 Files 탐색 |
 | iiSocietyContainer 0.10.0 | 드라이브 UUID·8개 영역·로컬 공유 및 Files 전용 OS 투영 |
@@ -15,15 +15,15 @@ Helper와 Sync는 서로 링크하지 않는다. 하위 SDK는 Society 앱을 �
 
 ## 실행 흐름
 
-1. AccountController가 그룹 캐시의 로그인 상태와 유효한 LAN 권한을 복원한다.
-2. NearbyDevices와 AutomaticPairing이 동일 계정 증명·기기 nonce·TLS 지문/코드를 확인하고 자동 연결한다.
+1. AccountController가 그룹 캐시의 로그인 상태와 연결 설정을 복원한다.
+2. 자체 서버를 설정했으면 계정 서버가 검증하는 WebSocket 경로에 접속한다. 서버 설정이 없으면 NearbyDevices와 AutomaticPairing이 동일 계정 증명·기기 nonce·TLS 지문/코드를 확인하고 LAN에서 자동 연결한다.
 3. NetworkDriveController가 현재 컨테이너와 계정 scope, 인증된 peer ID 목록, 원격 호스트를 Sync Controller에 제공한다.
 4. Sync는 인증된 호스트의 descriptor를 확인하고 첫 연결에서 클라이언트의 기존 내용을 비공개 복구 영역에 보존한다. 호스트 UUID를 채택하고 전체 초기 상태 및 전송 중 변경을 내려받은 후에만 앱·OS에 미러를 공개하고 업로드를 허용한다. 이후 같은 논리 드라이브의 양방향 변경과 커서를 저장한다.
 5. 양방향 해시·매니페스트 페이지의 교환과 마지막 ACK가 끝난 뒤 파일 바이트를 전송한다. 로컬 변경은 75ms로 합친 파일 감시 이벤트로 시작하고, 1초 간격 재검사로 원격 변경·누락을 회복한다. 대형 전송도 약 1초마다 청크 경계에서 매니페스트를 갱신하여 삭제와 작은 파일을 먼저 처리하고 부분 파일의 다음 오프셋부터 이어간다. 한 요청·해시·파일 적용에 걸리는 시간은 이 예약 간격에 포함되지 않으므로 완료 시간의 상한은 아니다. 새 파일 바이트가 없으면 변경 목록만 교환한다. Devices 화면은 동기화 상태·오류를 표시한다.
 
 주기 동기화는 파일 뷰를 초기화하지 않는다. Sync는 전용 작업 스레드에서 실행하고, 완료 후 컨테이너 확인도 기존 QtConcurrent 작업으로 합쳐 처리한다. 동일한 미러 상태와 동일한 디스크 결과는 화면 변경 알림을 내보내지 않는다. 파일 뷰는 Qt FolderListModel 인스턴스를 유지하여 자체 비동기 파일 감시로 생성·수정·삭제를 반영한다. 실제 파일 추가·삭제로 Qt가 행을 다시 게시할 때에도 파일 경로로 선택 항목을 복원하고 유효 범위 안에서 스크롤을 유지한다. 모델 재생성은 사용자가 경로나 필터를 바꿀 때만 수행한다. 컨테이너 전환 뒤 도착한 오래된 결과는 폐기하고, 확인 도중 다른 폴더로 이동한 경우 이전 경로 검사로 현재 탐색 위치를 되돌리지 않는다. 회귀 검사는 반복 완료 신호 이후 모델·선택·스크롤 유지와 실제 파일 추가·삭제 반영을 함께 확인한다.
 
-한 데스크톱 호스트와 여러 클라이언트 형태이다. 각 클라이언트의 업로드는 호스트를 통해 다른 클라이언트의 다음 회차에 전달된다. 모바일은 전경과 허용된 백그라운드 시간에 내려받기와 올리기를 모두 수행하며 Files/Sync 리스너를 만들지 않는다. 백그라운드 실행 시간 만료·로그아웃·계정 만료·컨테이너 변경은 이전 전송과 작업을 취소한다. 돌아온 뒤 현재 연결의 기기 권한으로 재개한다.
+한 기본 호스트와 여러 클라이언트 형태이다. 기본 호스트는 데스크톱 또는 NAS·자체 서버에서 실행하는 SocietyDaemon이다. [자체 호스팅 문서](SelfHosting.md)를 따른다. 각 클라이언트의 업로드는 호스트를 통해 다른 클라이언트의 다음 회차에 전달된다. 모바일은 전경과 허용된 백그라운드 시간에 내려받기와 올리기를 모두 수행하며 Files/Sync 리스너를 만들지 않는다. 백그라운드 실행 시간 만료·로그아웃·계정 만료·컨테이너 변경은 이전 전송과 작업을 취소한다. 돌아온 뒤 현재 연결의 기기 권한으로 재개한다.
 
 모바일에서 연결된 동기화 회차가 실행 중일 때만 화면 자동 잠금을 늦춘다. 완료·연결 해제·비활성 또는 백그라운드 상태에서는 즉시 해제한다. 수동 화면 잠금이나 백그라운드 실행 제한을 우회하지 않는다. OS 설정을 변경하지 않고 앱 범위의 [Apple idle timer](https://developer.apple.com/documentation/uikit/uiapplication/isidletimerdisabled)와 [Android 화면 유지 플래그](https://developer.android.com/develop/background-work/background-tasks/awake/screen-on)를 사용한다.
 
@@ -82,3 +82,14 @@ Society.SyncOwnership은 GUI 우선권·동시 소유 방지·종료 후 데몬 
 네이티브 회귀 검사는 동적 Qt의 각 테스트 실행 파일에서 반복되는 QML 정적 플러그인 검색을 생략하며, 실제 QML 로딩은 기존 GUI 테스트로 검사한다. 빌드/실행 검증 시 셸의 DYLD_LIBRARY_PATH·DYLD_FRAMEWORK_PATH·QML_IMPORT_PATH·QML2_IMPORT_PATH가 설치 경로를 덮어쓰지 않도록 제거해야 한다. CMake의 패키지 선택과 실제 로드된 dylib는 별도로 확인한다.
 
 Apple 기기의 파일 해시는 CommonCrypto SHA-256을 사용한다. 같은 Mac의 512MiB 메모리 입력에서 기존 Qt 5,677ms와 CommonCrypto 228ms를 관측했고 결과가 일치했다. 이 수치는 해시 계산 측정이며 네트워크 전송 속도나 모든 기기의 성능 보장은 아니다. 파일 상태가 바뀐 대용량 모델은 첫 식별 정보 교환 전에 전체 해시를 다시 검증하며 이후 동일 상태는 저널의 검증된 해시를 재사용한다.
+
+
+## 모바일 시작과 화면 응답성
+
+모바일과 `SOCIETY_CLIENT_ONLY`에서는 컨테이너 경로 설정이 디스크를 읽지 않고 SDK의 `inspectContainer`에 조회를 예약한다. QML의 `containerReady`와 동기화 상태는 메모리의 UUID·미러·primary host snapshot만 읽는다. 최초 조회가 끝날 때까지 자동 호스트 선택을 보류하며, 전경 복귀·주기 재확인·미러 변경·동기화 완료 시 비동기로 상태를 갱신한다. 컨테이너나 계정이 바뀌면 이전 조회 결과를 폐기하고, 동일 snapshot은 화면 모델을 다시 갱신하지 않는다.
+
+SDK는 열기·SQLite·감시·해시·매니페스트·전송을 작업 스레드에서 실행한다. 원격 Files 다운로드의 목적지 열기·청크 검사·쓰기·최종 저장도 별도 작업 스레드에서 처리한다. UI에는 queued 결과와 진행 상태를 전달하며 완료 파일을 저장한 뒤 완료를 알린다. 모바일 실행권 반납은 비동기 `close`, 객체 소멸은 `shutdownAsync`를 사용한다. 데스크톱의 프로세스 실행권 인계는 기존 `closeAndWait`를 유지한다. OS가 부여하는 백그라운드 시간은 기존 정책을 따른다.
+
+Society는 이 계약을 가진 iiSocietySync 0.5.0 이상을 요구한다. `Society.ClientOnlyNetwork`는 앱 진입의 비동기 반환, 파일을 다시 열지 않는 getter, 전경 복귀 시 재확인과 오래된 컨테이너 결과의 폐기를 검사한다. SDK 테스트는 다운로드 원자성과 실제 TLS 동기화도 함께 검증한다.
+
+On iOS, the foreground app-opening catch-up automatically requests a continued-processing grant for actual file and Photos work. It ends after both queues finish, respects cancellation/expiration, and resumes on the next activation. See [iOS lifecycle and gestures](iOS.md#app-opening-sync-and-touch-navigation).

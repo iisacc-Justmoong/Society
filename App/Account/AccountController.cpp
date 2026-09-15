@@ -45,6 +45,7 @@ AccountController::AccountController(const QUrl &serviceUrl, QObject *parent)
     connect(&m_manager, &AccountManager::authenticatedChanged, this, [this] {
         if (signedIn()) m_pairingSessionEnding = false;
         else {
+            m_serverConfiguration = {};
             m_verifiedThisRun = false; clearPairingCredentials();
             ++m_pairingRevision; m_pairingLoadedSession.clear(); m_pairingLoading = false; m_rememberedPeers = {};
         }
@@ -64,6 +65,7 @@ AccountController::AccountController(const QUrl &serviceUrl, QObject *parent)
     connect(&m_manager, &AccountManager::loaded, this, [this] {
         if (signedIn()) emit pairingCredentialsRequired();
     });
+    connect(this, &AccountController::changed, this, &AccountController::rememberedDevicesChanged);
     connect(this, &AccountController::changed, this, [this] {
         if (!signedIn() || m_pairingSessionEnding) return;
         if (!m_pairingCredentials.isEmpty() && !m_manager.acceptsSessionCredential(m_pairingCredentials.toVariantMap()))
@@ -141,6 +143,7 @@ void AccountController::restorePairingState() {
             && self->m_manager.matchesSessionBinding(binding);
         if (valid) {
             self->m_automaticPairingEnabled = record.value("automaticEnabled").toBool(true);
+            self->m_serverConfiguration = record.value("server").toObject();
             self->m_rememberedPeers = record.value("peers").toArray();
             if (self->m_rememberedPeers.size() > 128) self->m_rememberedPeers = {};
             if (self->validPairingCredentials(proof)) self->m_pairingCredentials = proof;
@@ -157,7 +160,7 @@ void AccountController::persistPairingState() {
     if (!m_stateStore || !signedIn() || m_pairingLoading || m_pairingSessionEnding) return;
     const QJsonObject record{{"schemaVersion", 3}, {"binding", QJsonObject::fromVariantMap(m_manager.sessionBinding())},
         {"credentials", m_pairingCredentials}, {"automaticEnabled", m_automaticPairingEnabled},
-        {"peers", m_rememberedPeers}, {"requestBlocked", m_pairingRequestBlocked}};
+        {"peers", m_rememberedPeers}, {"requestBlocked", m_pairingRequestBlocked}, {"server", m_serverConfiguration}};
     const auto revision = ++m_pairingRevision;
     const QPointer<AccountController> guard(this);
     m_stateStore->write(pairingStateKey(), QJsonDocument(record).toJson(QJsonDocument::Compact), [guard, revision](iisacc::accounts::SessionStore::Result result) {
@@ -172,12 +175,18 @@ void AccountController::discardPairingState() {
     clearPairingCredentials(); ++m_pairingRevision;
     m_pairingLoadedSession.clear(); m_pairingStorageError.clear(); m_pairingRestoreRetryAt = {};
     m_pairingLoading = false; m_rememberedPeers = {}; m_automaticPairingEnabled = true;
+    m_serverConfiguration = {};
     m_verifiedThisRun = false;
     if (m_stateStore) m_stateStore->remove(pairingStateKey(), [](auto) {});
 }
 void AccountController::setAutomaticPairingEnabled(bool enabled) {
     if (m_automaticPairingEnabled == enabled) return;
     m_automaticPairingEnabled = enabled; persistPairingState();
+}
+bool AccountController::setServerConfiguration(const QJsonObject &configuration) {
+    if (!signedIn() || m_pairingLoading || m_pairingSessionEnding) return false;
+    if (m_serverConfiguration == configuration) return true;
+    m_serverConfiguration = configuration; persistPairingState(); return true;
 }
 void AccountController::rememberPairedDevice(const QString &id, const QString &name, const QString &kind) {
     if (!signedIn() || id.isEmpty() || id.size() > 256) return;
@@ -187,6 +196,7 @@ void AccountController::rememberPairedDevice(const QString &id, const QString &n
     m_rememberedPeers.append(QJsonObject{{"id", id}, {"name", name.left(128)}, {"kind", kind.left(32)},
         {"lastPairedAt", QDateTime::currentDateTimeUtc().toString(Qt::ISODate)}});
     persistPairingState();
+    emit rememberedDevicesChanged();
 }
 
 void AccountController::clearPairingCredentials() {

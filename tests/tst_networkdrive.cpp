@@ -71,7 +71,7 @@ private slots:
             QTRY_COMPARE(client.hosts().size(), 1);
             QCOMPARE(client.hosts()[0].toMap()["metadata"].toMap()["section"].toString(), "files");
             client.browse("desktop"); QTRY_VERIFY(!client.busy());
-            QCOMPARE(client.entries().size(), 1);
+            QCOMPARE(client.entries().size(), 4); // Three standard Files directories and shared.txt.
             QCOMPARE(client.transport(), local ? "local" : "remote");
             desktop.setMode(NetworkDriveController::ClientMode);
             QVERIFY(!desktop.hosting());
@@ -170,8 +170,11 @@ private slots:
             QTRY_COMPARE(client.hosts().size(), 1);
             QCOMPARE(client.hosts()[0].toMap()["metadata"].toMap()["section"].toString(), "files");
             client.browse("host"); QTRY_VERIFY(!client.busy());
-            QCOMPARE(client.entries().size(), 1);
-            QCOMPARE(client.entries()[0].toMap()["name"].toString(), "sample.bin");
+            QCOMPARE(client.entries().size(), 4); // Three standard Files directories and sample.bin.
+            QStringList names;
+            for (const auto &entry : client.entries()) names.append(entry.toMap().value("name").toString());
+            names.sort();
+            QCOMPARE(names, (QStringList{"3D objects", "Audios", "Documents", "sample.bin"}));
             QCOMPARE(client.transport(), local ? "local" : "remote");
             QSignalSpy saved(&client, &NetworkDriveController::downloadFinished);
             const auto target = destination.filePath("download.bin");

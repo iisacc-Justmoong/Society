@@ -6,6 +6,7 @@
 #include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QTest>
+#include <QtEndian>
 #import <Foundation/Foundation.h>
 
 class AppleModelSourceTest : public QObject
@@ -31,11 +32,12 @@ private slots:
         QVERIFY(importer.importSources({picked}));
         QTRY_COMPARE(done.size(), 1);
         QVERIFY2(importer.errorString().isEmpty(), qPrintable(importer.errorString()));
-        QFile imported(target.filePath("Models/선택한 모델.safetensors"));
+        QFile imported(target.filePath("Models/Other/선택한 모델.safetensors"));
         QVERIFY(imported.open(QIODevice::ReadOnly));
         QCOMPARE(imported.readAll(), QByteArray("picked model bytes"));
         QVERIFY(file.exists());
-        QVERIFY(QDir(target.filePath("Files")).isEmpty());
+        QCOMPARE(QDir(target.filePath("Files")).entryList(QDir::AllEntries | QDir::Hidden | QDir::NoDotAndDotDot, QDir::Name),
+            (QStringList{"3D objects", "Audios", "Documents"}));
     }
 
     void importsWhileTheProviderGrantsAccess()
@@ -46,7 +48,11 @@ private slots:
         const auto path = source.filePath("provider-file.tmp");
         QFile file(path);
         QVERIFY(file.open(QIODevice::WriteOnly));
-        file.write("provided model bytes");
+        const QByteArray header = R"({"layer.lora_A.weight":{"dtype":"F32","shape":[1,1],"data_offsets":[0,4]}})";
+        QByteArray bytes(8, '\0');
+        qToLittleEndian(quint64(header.size()), bytes.data());
+        bytes += header + QByteArray(4, '\0');
+        QCOMPARE(file.write(bytes), bytes.size());
         file.close();
         NSItemProvider *provider = [NSItemProvider new];
         provider.suggestedName = @"mobile weights.safetensor";
@@ -62,11 +68,12 @@ private slots:
         QVERIFY(importer.importSources({appleModelSource(provider)}));
         QTRY_COMPARE(done.size(), 1);
         QVERIFY2(importer.errorString().isEmpty(), qPrintable(importer.errorString()));
-        QFile imported(target.filePath("Models/mobile weights.safetensor"));
+        QFile imported(target.filePath("Models/LoRA/mobile weights.safetensor"));
         QVERIFY(imported.open(QIODevice::ReadOnly));
-        QCOMPARE(imported.readAll(), QByteArray("provided model bytes"));
+        QCOMPARE(imported.readAll(), bytes);
         QVERIFY(file.exists());
-        QVERIFY(QDir(target.filePath("Files")).isEmpty());
+        QCOMPARE(QDir(target.filePath("Files")).entryList(QDir::AllEntries | QDir::Hidden | QDir::NoDotAndDotDot, QDir::Name),
+            (QStringList{"3D objects", "Audios", "Documents"}));
     }
 
     void cancellationIgnoresALateProviderCallback()
@@ -92,12 +99,14 @@ private slots:
         importer.cancel();
         QTRY_COMPARE(done.size(), 1);
         QVERIFY(!importer.busy());
-        QVERIFY(QDir(target.filePath("Models")).isEmpty());
+        QVERIFY(QDir(target.filePath("Models/Other")).isEmpty());
+        QVERIFY(QDir(target.filePath("Models")).entryList(QDir::Files | QDir::Hidden).isEmpty());
         QVERIFY(reply);
         reply(nil, NO, [NSError errorWithDomain:NSCocoaErrorDomain code:NSUserCancelledError userInfo:nil]);
         QTest::qWait(150);
         QCOMPARE(done.size(), 1);
-        QVERIFY(QDir(target.filePath("Models")).isEmpty());
+        QVERIFY(QDir(target.filePath("Models/Other")).isEmpty());
+        QVERIFY(QDir(target.filePath("Models")).entryList(QDir::Files | QDir::Hidden).isEmpty());
     }
 };
 

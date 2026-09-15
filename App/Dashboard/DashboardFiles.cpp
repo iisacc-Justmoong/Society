@@ -6,6 +6,7 @@
 #include <QFileInfo>
 #include <QFutureWatcher>
 #include <QLocale>
+#include <QUrl>
 #include <QtConcurrent/QtConcurrentRun>
 #include <algorithm>
 
@@ -44,6 +45,7 @@ Snapshot scan(const QString &path, const std::shared_ptr<std::atomic_bool> &canc
                 {"path", file.canonicalFilePath()}, {"folderPath", file.absolutePath()},
                 {"name", file.fileName()}, {"description", iiSocietyContainer::storeSectionName(section) + " · " + kind},
                 {"modified", file.lastModified().toUTC()}, {"history", history}, {"iconName", icon},
+                {"previewSource", isImage(file) ? QUrl::fromLocalFile(file.canonicalFilePath()) : QUrl()},
                 {"metadata1", (suffix.isEmpty() ? kind : suffix.toUpper()) + " · " + QLocale().formattedDataSize(file.size())},
                 {"metadata2", QStringLiteral("Society / ") + folder}
             });
@@ -63,14 +65,6 @@ Snapshot scan(const QString &path, const std::shared_ptr<std::atomic_bool> &canc
     return result;
 }
 
-QString relativeTime(const QDateTime &modified)
-{
-    const auto seconds = std::max<qint64>(0, modified.secsTo(QDateTime::currentDateTimeUtc()));
-    if (seconds < 60) return DashboardFiles::tr("Just now");
-    if (seconds < 3600) return DashboardFiles::tr("%1 min ago").arg(seconds / 60);
-    if (seconds < 86400) return DashboardFiles::tr("%1 h ago").arg(seconds / 3600);
-    return QLocale().toString(modified.toLocalTime().date(), QLocale::ShortFormat);
-}
 }
 
 DashboardFiles::DashboardFiles(QObject *parent) : QObject(parent) {}
@@ -100,9 +94,9 @@ QVariantList DashboardFiles::filtered(bool historyOnly) const
         if (historyOnly && !file.value("history").toBool()) continue;
         if (!m_query.trimmed().isEmpty() && !file.value("name").toString().contains(m_query.trimmed(), Qt::CaseInsensitive)
             && !file.value("metadata2").toString().contains(m_query.trimmed(), Qt::CaseInsensitive)) continue;
-        file.insert("dateText", relativeTime(file.value("modified").toDateTime()));
+        file.insert("dateText", file.value("modified").toDateTime().toLocalTime().date().toString(Qt::ISODate));
         result.append(file);
-        if (result.size() == 3) break;
+        if (result.size() == (historyOnly ? 11 : 6)) break;
     }
     return result;
 }

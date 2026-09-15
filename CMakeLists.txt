@@ -54,13 +54,13 @@ foreach(society_sdk IN LISTS society_sdk_packages)
     if(society_sdk STREQUAL "iiAcountManager")
         find_package(iiAcountManager 0.2.6 CONFIG REQUIRED COMPONENTS Quick HINTS "$ENV{HOME}/.local/SDK/iiAcountManager")
     elseif(society_sdk STREQUAL "iiSocietyContainer")
-        find_package(iiSocietyContainer 0.10.0 CONFIG REQUIRED HINTS "$ENV{HOME}/.local/SDK/iiSocietyContainer")
+        find_package(iiSocietyContainer 0.13.0 CONFIG REQUIRED HINTS "$ENV{HOME}/.local/SDK/iiSocietyContainer")
     elseif(society_sdk STREQUAL "iiServerHost")
         find_package(iiServerHost 0.4.1 CONFIG REQUIRED HINTS "$ENV{HOME}/.local/SDK/iiServerHost")
     elseif(society_sdk STREQUAL "iiSocietyHelper")
         find_package(iiSocietyHelper 0.7.1 CONFIG REQUIRED HINTS "$ENV{HOME}/.local/SDK/iiSocietyHelper")
     elseif(society_sdk STREQUAL "iiSocietySync")
-        find_package(iiSocietySync 0.4.0 CONFIG REQUIRED HINTS "$ENV{HOME}/.local/SDK/iiSocietySync")
+        find_package(iiSocietySync 0.5.0 CONFIG REQUIRED HINTS "$ENV{HOME}/.local/SDK/iiSocietySync")
     else()
         find_package(${society_sdk} CONFIG REQUIRED HINTS "$ENV{HOME}/.local/SDK/${society_sdk}")
     endif()
@@ -74,6 +74,28 @@ add_library(SocietyServices STATIC Daemon/DaemonService.cpp Daemon/DaemonService
 target_link_libraries(SocietyServices PUBLIC iiSocietyHelper::iiSocietyHelper)
 target_include_directories(SocietyServices PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_compile_definitions(SocietyServices PUBLIC SOCIETY_APP_VERSION="${PROJECT_VERSION}")
+add_library(SocietyPhotos STATIC App/Photos/PhotoStore.cpp App/Photos/PhotoStore.h App/Photos/PhotoLibrary.h
+    App/Photos/PhotoController.cpp App/Photos/PhotoController.h)
+target_include_directories(SocietyPhotos PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
+target_link_libraries(SocietyPhotos PUBLIC Qt6::Gui Qt6::Concurrent iiSocietyContainer::iiSocietyContainer)
+set_target_properties(SocietyPhotos PROPERTIES POSITION_INDEPENDENT_CODE ON)
+if(APPLE)
+    target_sources(SocietyPhotos PRIVATE App/Photos/PhotoLibraryApple.mm)
+    set_source_files_properties(App/Photos/PhotoLibraryApple.mm PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
+    target_link_libraries(SocietyPhotos PRIVATE "-framework Photos" "-framework Foundation" "-framework UniformTypeIdentifiers")
+    if(IOS)
+        target_link_libraries(SocietyPhotos PRIVATE "-framework UIKit")
+    else()
+        target_link_libraries(SocietyPhotos PRIVATE "-framework AppKit")
+    endif()
+elseif(ANDROID)
+    target_sources(SocietyPhotos PRIVATE App/Photos/PhotoLibraryAndroid.cpp)
+elseif(WIN32)
+    target_sources(SocietyPhotos PRIVATE App/Photos/PhotoLibraryWindows.cpp)
+    target_link_libraries(SocietyPhotos PRIVATE shell32 ole32 gdi32 uuid)
+else()
+    target_sources(SocietyPhotos PRIVATE App/Photos/PhotoLibraryUnsupported.cpp)
+endif()
 if(NOT IOS AND NOT ANDROID AND NOT EMSCRIPTEN)
     qt_add_executable(SocietyDaemon Daemon/main.cpp)
     target_link_libraries(SocietyDaemon PRIVATE SocietyServices)
@@ -135,15 +157,31 @@ set(society_pairing_sources App/Network/DevicePairing.cpp App/Network/DevicePair
 if(TARGET SocietyDaemon)
     target_sources(SocietyDaemon PRIVATE ${society_account_sources}
         App/Network/NetworkDriveController.cpp App/Network/NetworkDriveController.h)
-    target_link_libraries(SocietyDaemon PRIVATE SocietyDiscovery SocietyGroupState iiSocietySync::iiSocietySync Qt6::Gui Qt6::Qml)
+    target_link_libraries(SocietyDaemon PRIVATE SocietyPhotos SocietyDiscovery SocietyGroupState iiSocietySync::iiSocietySync Qt6::Gui Qt6::Qml)
     target_compile_definitions(SocietyDaemon PRIVATE SOCIETY_HEADLESS SOCIETY_APP_VERSION="${PROJECT_VERSION}")
 endif()
+set(society_model_merge_sources App/Tools/ModelMergeController.cpp App/Tools/ModelMergeController.h
+    App/Tools/MergeModelCatalog.cpp App/Tools/MergeModelCatalog.h)
+if(NOT CMAKE_CROSSCOMPILING)
+    if(iiLocalDiffusion_DIR)
+        get_filename_component(society_merge_sdk_prefix "${iiLocalDiffusion_DIR}/../../.." ABSOLUTE)
+    endif()
+    find_program(SOCIETY_MODEL_MERGE_EXECUTABLE NAMES iild-merge
+        HINTS "${society_merge_sdk_prefix}/bin" "$ENV{HOME}/.local/SDK/iiLocalDiffusion/bin")
+    if(SOCIETY_MODEL_MERGE_EXECUTABLE)
+        set_source_files_properties(App/Tools/ModelMergeController.cpp PROPERTIES
+            COMPILE_DEFINITIONS "SOCIETY_MODEL_MERGE_EXECUTABLE=\"${SOCIETY_MODEL_MERGE_EXECUTABLE}\"")
+    endif()
+endif()
 qt_add_executable(Society
+    ${society_model_merge_sources}
     main.cpp ${society_account_sources} ${society_pairing_sources} App/Files/DirectoryLocation.cpp App/Files/DirectoryLocation.h
         App/Dashboard/DashboardFiles.cpp App/Dashboard/DashboardFiles.h
+        App/Models/StorageModels.cpp App/Models/StorageModels.h
         App/Files/ModelImporter.cpp App/Files/ModelImporter.h
         App/Files/ModelImportSource.h
         App/Drive/DriveController.cpp App/Drive/DriveController.h
+        App/Drive/StorageNavigation.cpp App/Drive/StorageNavigation.h
         App/Network/NetworkDriveController.cpp App/Network/NetworkDriveController.h
 )
 # Painted C++ items require the QtQuick type metadata as a QML dependency.
@@ -151,13 +189,16 @@ qt_add_qml_module(Society
     URI Society VERSION 1.0 RESOURCE_PREFIX "/qt/qml"
     IMPORT_PATH "${iiAcountManager_QML_IMPORT_PATH}"
     DEPENDENCIES QtQuick iiAccountManager
-    QML_FILES App/Main.qml App/FileGridView.qml App/Network/NetworkDevices.qml App/Network/PairingPanel.qml
-        App/SocietyView.qml App/StorageView.qml App/Dashboard/Dashboard.qml App/Dashboard/QuickGenerate.qml
-        App/Preferences/PreferencesWindow.qml
+    QML_FILES App/Gallery/GalleryTile.qml App/Gallery/GalleryZoom.qml App/Gallery/GalleryInfo.qml App/Main.qml App/MobileGestures.qml App/FileGridView.qml App/Network/NetworkDevices.qml App/Network/PairingPanel.qml
+        App/SocietyView.qml App/StorageView.qml App/Dashboard/Dashboard.qml App/Dashboard/DashboardSidebar.qml App/Dashboard/QuickGenerate.qml
+        App/Models/ModelsView.qml App/Drive/StorageSidebar.qml App/Photos/PhotosView.qml
+        App/Preferences/PreferencesWindow.qml App/Preferences/PreferencesContent.qml
+        App/Tools/ModelMergeTool.qml App/Tools/MergePathField.qml App/Tools/MergeModelPicker.qml
 )
+target_include_directories(Society PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/App/Models")
 target_link_libraries(Society PRIVATE Qt6::Quick Qt6::QuickControls2 iiAcountManager::Quick)
 lvrs_configure_qml_app(Society NO_PLATFORM_RUNTIME_TARGETS)
-target_link_libraries(Society PRIVATE ${society_sdk_targets} SocietyServices SocietyDiscovery SocietyGroupState Qt6::Concurrent)
+target_link_libraries(Society PRIVATE ${society_sdk_targets} SocietyPhotos SocietyServices SocietyDiscovery SocietyGroupState Qt6::Concurrent)
 qt_add_resources(Society qrcodegen_license PREFIX "/licenses/qrcodegen"
     BASE "${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/qrcodegen" FILES ThirdParty/qrcodegen/LICENSE)
 if(NOT IOS AND NOT ANDROID)
@@ -181,7 +222,8 @@ if(IOS OR ANDROID)
     target_compile_definitions(Society PRIVATE SOCIETY_CLIENT_ONLY=1)
     if(IOS)
         target_sources(Society PRIVATE App/Network/IosSyncActivity.mm)
-        target_link_libraries(Society PRIVATE "-framework UIKit")
+        set_source_files_properties(App/Network/IosSyncActivity.mm PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
+        target_link_libraries(Society PRIVATE "-framework UIKit" "-framework BackgroundTasks")
     else()
         target_sources(Society PRIVATE App/Network/AndroidSyncActivity.cpp)
     endif()
@@ -217,15 +259,18 @@ if(APPLE AND NOT IOS)
             "-DSOCIETY_SOURCE_APP=$<TARGET_BUNDLE_DIR:Society>"
             "-DSOCIETY_PACKAGE_DIRECTORY=${CMAKE_CURRENT_BINARY_DIR}/package"
             "-DSOCIETY_MACDEPLOYQT=${society_macdeployqt}"
+            "-DSOCIETY_CONTAINER_LIBRARY=$<TARGET_SONAME_FILE:iiSocietyContainer::iiSocietyContainer>"
             "-DSOCIETY_SIGN_IDENTITY=${SOCIETY_MAC_SIGN_IDENTITY}"
             "-DSOCIETY_ENTITLEMENTS=${CMAKE_CURRENT_BINARY_DIR}/Society-Mac.entitlements"
             -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/PackageMac.cmake"
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_daemon_package.py"
             "${CMAKE_CURRENT_BINARY_DIR}/package/Society.app" "$<TARGET_BUNDLE_DIR:Society>"
+            "$<TARGET_FILE:iiSocietyContainer::iiSocietyContainer>"
         DEPENDS Society SocietyDaemon USES_TERMINAL VERBATIM)
 endif()
 target_include_directories(Society PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/App/Files" "${CMAKE_CURRENT_SOURCE_DIR}/App/Drive"
-    "${CMAKE_CURRENT_SOURCE_DIR}/App/Network" "${CMAKE_CURRENT_SOURCE_DIR}/App/Dashboard")
+    "${CMAKE_CURRENT_SOURCE_DIR}/App/Network" "${CMAKE_CURRENT_SOURCE_DIR}/App/Dashboard"
+    "${CMAKE_CURRENT_SOURCE_DIR}/App/Tools")
 target_compile_definitions(Society PRIVATE
     SOCIETY_APP_VERSION="${PROJECT_VERSION}"
     SOCIETY_LVRS_QML_IMPORT_PATH="${LVRS_QML_IMPORT_PATH}"
@@ -312,6 +357,15 @@ endif()
 include(CTest)
 if(BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)
     find_package(Qt6 6.8.3 EXACT REQUIRED COMPONENTS Test)
+    qt_add_executable(SocietyPhotoTests tests/tst_photos.cpp)
+    target_link_libraries(SocietyPhotoTests PRIVATE SocietyPhotos iiSocietySync::iiSocietySync Qt6::Test Qt6::Quick Qt6::QuickControls2)
+    lvrs_configure_qml_app(SocietyPhotoTests NO_PLATFORM_RUNTIME_TARGETS)
+    target_compile_definitions(SocietyPhotoTests PRIVATE SOCIETY_TEST_DIRECTORY="${CMAKE_CURRENT_BINARY_DIR}"
+        SOCIETY_PHOTOS_QML_FILE="${CMAKE_CURRENT_SOURCE_DIR}/tests/photos/PhotosHarness.qml"
+        SOCIETY_LVRS_QML_IMPORT_PATH="${LVRS_QML_IMPORT_PATH}")
+    add_test(NAME Society.Photos COMMAND SocietyPhotoTests)
+    set_tests_properties(Society.Photos PROPERTIES TIMEOUT 60
+        ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software;QML_DISABLE_DISK_CACHE=1")
     qt_add_executable(SocietyGroupStateTests tests/tst_groupstate.cpp)
     target_link_libraries(SocietyGroupStateTests PRIVATE SocietyGroupState Qt6::Test)
     target_compile_definitions(SocietyGroupStateTests PRIVATE SOCIETY_TEST_DIRECTORY="${CMAKE_CURRENT_BINARY_DIR}")
@@ -360,7 +414,9 @@ if(BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)
         SOCIETY_ACCOUNT_QML_FILE="qrc:/qt/qml/iiAccountManager/AccountDialog.qml"
         SOCIETY_LVRS_QML_IMPORT_PATH="${LVRS_QML_IMPORT_PATH}")
     add_test(NAME Society.Account COMMAND SocietyAccountTests)
-    set_tests_properties(Society.Account PROPERTIES TIMEOUT 60
+    target_compile_definitions(SocietyAccountTests PRIVATE SOCIETY_DAEMON_EXECUTABLE="$<TARGET_FILE:SocietyDaemon>")
+    add_dependencies(SocietyAccountTests SocietyDaemon)
+    set_tests_properties(Society.Account PROPERTIES TIMEOUT 120
         ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software;QML_DISABLE_DISK_CACHE=1")
     qt_add_executable(SocietyRuntimeTests tests/tst_runtime.cpp)
     target_link_libraries(SocietyRuntimeTests PRIVATE Qt6::Test SocietyServices)
@@ -387,6 +443,7 @@ if(BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)
         iiAcountManager::iiAcountManager iiServerHost::iiServerHost iiSocietyContainer::iiSocietyContainer)
     lvrs_configure_qml_app(SocietyClientOnlyNetworkTests NO_PLATFORM_RUNTIME_TARGETS)
     target_compile_definitions(SocietyClientOnlyNetworkTests PRIVATE SOCIETY_CLIENT_ONLY=1
+        SOCIETY_ACCOUNT_FIXTURE="${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/account.json"
         SOCIETY_NETWORK_QML_FILE="${CMAKE_CURRENT_SOURCE_DIR}/App/Network/NetworkDevices.qml"
         SOCIETY_PAIRING_QML_FILE="${CMAKE_CURRENT_SOURCE_DIR}/App/Network/PairingPanel.qml"
         SOCIETY_PREFERENCES_QML_FILE="${CMAKE_CURRENT_SOURCE_DIR}/App/Preferences/PreferencesWindow.qml"
@@ -421,12 +478,36 @@ if(BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)
         TIMEOUT 60
     )
 
-    qt_add_executable(SocietyDriveTests tests/tst_drive.cpp
+    find_program(SOCIETY_MODEL_MERGE_TEST_PYTHON NAMES python python3
+        HINTS "${society_merge_sdk_prefix}/share/iiLocalDiffusion/reference/diffusers/.venv/bin"
+        "$ENV{HOME}/.local/SDK/iiLocalDiffusion/share/iiLocalDiffusion/reference/diffusers/.venv/bin"
+        NO_DEFAULT_PATH)
+    if(NOT SOCIETY_MODEL_MERGE_TEST_PYTHON)
+        set(SOCIETY_MODEL_MERGE_TEST_PYTHON "${Python3_EXECUTABLE}")
+    endif()
+    qt_add_executable(SocietyModelMergeTests tests/tst_modelmerge.cpp ${society_model_merge_sources})
+    target_include_directories(SocietyModelMergeTests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+    target_link_libraries(SocietyModelMergeTests PRIVATE Qt6::Test Qt6::Quick Qt6::QuickControls2 Qt6::Concurrent iiSocietyContainer::iiSocietyContainer)
+    lvrs_configure_qml_app(SocietyModelMergeTests NO_PLATFORM_RUNTIME_TARGETS)
+    target_compile_definitions(SocietyModelMergeTests PRIVATE
+        SOCIETY_TEST_DIRECTORY="${CMAKE_CURRENT_BINARY_DIR}"
+        SOCIETY_MERGE_TEST_PYTHON="${SOCIETY_MODEL_MERGE_TEST_PYTHON}"
+        SOCIETY_MERGE_FIXTURE="${CMAKE_CURRENT_SOURCE_DIR}/tests/model_merge_fixture.py"
+        SOCIETY_MERGE_QML_FILE="${CMAKE_CURRENT_SOURCE_DIR}/tests/ModelMergeHarness.qml"
+        SOCIETY_LVRS_QML_IMPORT_PATH="${LVRS_QML_IMPORT_PATH}")
+    add_test(NAME Society.ModelMerge COMMAND SocietyModelMergeTests)
+    set_tests_properties(Society.ModelMerge PROPERTIES
+        ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software;QML_DISABLE_DISK_CACHE=1"
+        TIMEOUT 120)
+
+    qt_add_executable(SocietyDriveTests tests/tst_drive.cpp ${society_model_merge_sources}
         ${society_pairing_sources}
+        App/Models/StorageModels.cpp App/Models/StorageModels.h
         App/Dashboard/DashboardFiles.cpp App/Dashboard/DashboardFiles.h
         App/Network/NetworkDriveController.cpp App/Network/NetworkDriveController.h
         App/Files/ModelImporter.cpp App/Files/ModelImporter.h
         App/Drive/DriveController.cpp App/Drive/DriveController.h
+        App/Drive/StorageNavigation.cpp App/Drive/StorageNavigation.h
         App/Files/DirectoryLocation.cpp App/Files/DirectoryLocation.h)
     target_include_directories(SocietyDriveTests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
     target_link_libraries(SocietyDriveTests PRIVATE Qt6::Test Qt6::Quick Qt6::QuickControls2
@@ -440,7 +521,7 @@ if(BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)
     add_test(NAME Society.Drive COMMAND SocietyDriveTests)
     set_tests_properties(Society.Drive PROPERTIES
         ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software;QML_DISABLE_DISK_CACHE=1"
-        TIMEOUT 60)
+        TIMEOUT 120)
 
     qt_add_executable(SocietyModelImportTests tests/tst_modelimporter.cpp
         App/Files/ModelImporter.cpp App/Files/ModelImporter.h)
@@ -503,7 +584,7 @@ if(BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)
         target_compile_definitions(${account_consumer} PRIVATE SOCIETY_DISABLE_SESSION_RESTORE SOCIETY_APP_VERSION="${PROJECT_VERSION}")
     endforeach()
     foreach(discovery_consumer SocietyPairingTests SocietyAccountTests SocietyNetworkTests SocietyClientOnlyNetworkTests SocietyDriveTests)
-        target_link_libraries(${discovery_consumer} PRIVATE SocietyDiscovery SocietyGroupState iiSocietySync::iiSocietySync)
+        target_link_libraries(${discovery_consumer} PRIVATE SocietyPhotos SocietyDiscovery SocietyGroupState iiSocietySync::iiSocietySync)
     endforeach()
 
     if("iiFileProvider" IN_LIST society_sdk_packages)
@@ -573,4 +654,12 @@ if(UNIX AND NOT IOS AND NOT ANDROID AND NOT EMSCRIPTEN)
         add_test(NAME Society.Mcp COMMAND SocietyMcpTests)
         set_tests_properties(Society.Mcp PROPERTIES TIMEOUT 90)
     endif()
+endif()
+
+# All general tests may construct a NetworkDriveController or launch Society.
+# Only the dedicated photo fixture is allowed to activate its injected library.
+if(BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)
+    get_property(society_registered_tests DIRECTORY PROPERTY TESTS)
+    list(REMOVE_ITEM society_registered_tests Society.Photos)
+    set_property(TEST ${society_registered_tests} APPEND PROPERTY ENVIRONMENT "SOCIETY_DISABLE_PHOTOS=1")
 endif()

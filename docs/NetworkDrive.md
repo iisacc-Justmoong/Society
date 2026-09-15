@@ -1,14 +1,16 @@
-# Society 로컬 네트워크 드라이브
+# Society 기기 연결과 호스팅
 
-기본 연결은 [같은 계정의 자동 LAN 페어링](AutomaticPairing.md)이다. 계정 증명을 검증하여 데스크톱 호스트를 정하고 대기열 순서대로 연결한다. 연결 후 iiSocietySync가 [8개 영역의 양방향 동기화](Synchronization.md)를 실행한다. 아래 QR와 모드 설명은 수동 연결 경로의 계약이다.
+Society의 동기화 범위는 로컬 네트워크를 포함하는 기기 간 서버 호스팅이다. [같은 계정의 자동 LAN 페어링](AutomaticPairing.md)과 [NAS·자체 호스트 웹서버 연결](SelfHosting.md)을 제공한다. 두 경로에서 iiSocietySync가 동일한 [8개 영역의 양방향 동기화](Synchronization.md)를 실행한다. 계정은 호스트 발견과 접근 격리의 식별자이며, 실제 권한은 검증된 계정 세션에서 얻는다.
 
-Society는 같은 Wi-Fi 또는 사설 LAN의 데스크탑 `Files/`에 직접 접속한다. 데스크탑의 **Devices → Pair mobile device**에서 QR을 표시하고 iPhone/iPad/Android Society의 **Pair desktop → Scan QR code**로 읽는다. 외부 중계 주소 입력과 인터넷 fallback이 없으며 로컬 연결에 로그인 서버를 호출하지 않는다. 상세 계약과 제약은 [Pairing.md](Pairing.md)를 따른다.
+Devices의 **Your Society server**에 자체 서버 주소를 입력한다. 클라이언트는 **Connect to server**, 컨테이너를 제공하는 데스크톱은 **Host this container**를 선택한다. 서버 설정은 로그인 세션에 바인딩된 암호화 저장소에 보존하며, 같은 세션을 복원한 앱과 데몬이 자동 재접속한다. 서버 연결은 Bonjour/NSD 탐색 및 LAN 증명 발급 없이 동작한다. 호스트가 등록한 로컬 TLS 경로가 있으면 먼저 시도하고, 접근할 수 없으면 WebSocket 중계 경로를 사용한다.
 
-앱 시작 시 데스크탑은 Client mode이다. QR 발급은 현재 컨테이너를 제공하는 Host mode로 전환한다. 별도 **Preferences** 창에서도 모드를 바꿀 수 있다. `hosting`은 실제 파일 리스너 상태이고 단순 모드 선택만으로 Files를 공개하지 않는다. Client mode 전환·컨테이너 변경·연결 해제 시 이전 리스너와 연결을 닫는다. 진행 중인 다운로드는 취소하며 기존 목적지 파일은 보존한다.
+직접 QR 경로는 같은 Wi-Fi 또는 사설 LAN의 데스크톱 `Files/`에 접속한다. 이 경로만 인터넷 fallback 없이 동작하며 로그인 서버를 호출하지 않는다. 상세 계약과 제약은 [Pairing.md](Pairing.md)를 따른다.
 
-iOS와 Android는 클라이언트 전용이다. C++에서 HostMode나 startLocalHost를 호출하더라도 로컬 Files 리스너를 만들지 않는다. 모바일이 백그라운드로 내려가면 연결을 닫는다. 다시 접속할 때 데스크탑에서 새 QR을 만들고 스캔한다. 같은 LAN에서 QR을 촬영하는 행위가 접근 승인이고 iisacc 계정 인증은 별개 기능이다.
+저장된 서버 설정이 없으면 데스크톱은 Client mode에서 시작한다. QR 발급 또는 자체 서버의 **Host this container**는 현재 컨테이너를 제공하는 Host mode를 선택한다. `hosting`은 실제 연결과 파일 핸들러 상태이다. 모드 전환·컨테이너 변경·연결 해제 시 이전 전송은 정리하며 다운로드 목적지의 기존 내용은 보존한다.
 
-`NetworkDriveController.startLocalHost()`는 원본 컨테이너 UUID를 고정하고 `iiServerHost::LanPeer`에 iiSocietySync의 Files 핸들러를 제공한다. 계정 증명을 확인한 자동 연결만 별도의 전체 컨테이너 동기화 핸들러에도 접근한다. `joinLocalHost(qr)`는 계정 쿠키 없이 QR의 지문과 일회용 키로 직접 접속한다. 목록 응답과 완료 교환이 성공한 뒤에만 모바일에서 Files를 탐색한다. `NetworkDriveController.startSession(PeerOptions)`와 `iiServerHost::Peer`의 기존 C++ 통합 API는 호환성을 위해 남지만 Society의 Devices/QR 화면은 호출하지 않는다.
+iOS와 Android는 클라이언트 전용이며 자체 서버에도 클라이언트로 연결한다. Files/Sync 리스너는 만들지 않는다. 허용된 백그라운드 실행 시간이 끝나면 전송을 중지하고, 복귀 후 현재 계정 세션으로 재접속한다. 수동 QR을 촬영하는 행위의 접근 권한과 iisacc 계정 인증은 별개이다.
+
+`startLocalHost()`와 `joinLocalHost(qr)`는 직접 LAN 연결에 `iiServerHost::LanPeer`를 사용한다. `configureServer(url, host)`는 검증한 서버 설정과 현재 계정 세션으로 `iiServerHost::Peer`를 시작한다. 계정이 검증된 두 경로 모두 전체 컨테이너 동기화 핸들러를 사용한다. 수동 QR만으로는 전체 컨테이너 동기화 권한을 부여하지 않는다. `startSession(PeerOptions)`는 기존 C++ 통합 API로 유지한다.
 
 원격 Files 탐색·다운로드의 상태와 저장은 `iiSocietySync::RemoteFiles`가 담당한다. Files 공개 범위·심볼릭 링크 차단·디렉터리 교체 검사는 SDK의 `filesHandler`가 기존 SharedStorage/FileShare를 재사용한다. 목록은 256개씩 읽고 파일은 256 KiB 청크로 받는다. 크기·오프셋·버전을 대조한 뒤 QSaveFile로 완성본만 저장한다. 실패하면 기존 목적지 내용을 보존한다. Finder와 모바일 OS File Provider는 기존 경로를 유지한다.
 

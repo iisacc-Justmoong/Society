@@ -2,16 +2,16 @@
 
 현재 Society에 연결된 저장소·탐색·모델 가져오기·Helper 관측·데이터 수신과 iisacc 계정 로그인을 iOS 16 이상에서 사용하는 구현이다. Qt 6.8.3과 LVRS UI, Apple의 Foundation·UIKit·QuickLook·FileProvider, Qt SQL의 SQLite 드라이버를 사용한다. QR 카메라는 Apple AVFoundation을 사용하며 QR 생성에는 MIT 라이선스의 Nayuki 소스를 고정 버전으로 포함한다. 유료 서비스는 추가하지 않는다. 계정 UI·SDK 구현과 운영 API 배포 상태는 [Account.md](Account.md)에 구분해 기록한다.
 
-공통 화면은 LVRS가 제공하는 기기의 상하좌우 안전 영역을 적용하여 iPhone의 상태 표시줄·노치·홈 표시 영역에 제목이나 하단 버튼이 겹치지 않게 한다. 별도 모바일 QML 화면은 두지 않는다.
+공통 화면은 LVRS가 제공하는 기기의 상하좌우 안전 영역을 적용하여 iPhone의 상태 표시줄·노치·홈 표시 영역에 제목이나 하단 버튼이 겹치지 않게 한다. 별도 모바일 QML 화면은 두지 않는다. Dashboard가 기본 화면이며 공통 Tools·Storage와 검색을 제공한다. 760 px 미만에서는 5개 탭을 하단으로 옮기고 사이드바와 Environment는 시트로 연다. [반응형 화면 기준](MobileViews.md)을 따른다.
 
 | 기능 | iOS 동작 |
 | --- | --- |
 | iisacc 계정 | 공통 LVRS 패널에서 이메일·비밀번호만 입력한다. 계정 SDK가 전체 프로필을 받아 Helper·기기 연결과 공유한다. iPhone은 phone, iPad는 tablet으로 보고하며 각각 2대 제한이다. |
 | QR 페어링 | Devices → Pair desktop → Scan QR code에서 데스크톱 코드를 촬영한다. 로컬 호스트의 Files 접근 후 완료를 표시한다. 카메라 권한 거부 시 설정 열기를 제공하고 영상은 저장·전송하지 않는다. [Pairing.md](Pairing.md) 참조. |
-| 원본 저장소 | 동일 App Group의 `Library/Application Support/Society`에 UUID와 8개 영역을 유지한다. |
-| 앱 탐색 | 8개 영역을 모두 탐색한다. 파일·폴더를 한 번 탭하여 열며 이미지·문서는 QuickLook으로 표시한다. 미리보기를 지원하지 않는 파일에는 오류를 표시한다. |
-| OS 드라이브 | 앱에 File Provider 확장을 포함한다. 파일 앱의 Society 루트는 `Society/Files/`이다. 나머지 7개 영역과 Helper 데이터는 공개하지 않는다. |
-| 모델 입력 | `Import models…`와 파일 앱의 드래그를 지원한다. 두 확장자 `.safetensor`·`.safetensors`를 `Models/`로 복사한다. |
+| 원본 저장소 | 동일 App Group의 `Library/Application Support/Society`에 UUID와 9개 영역을 유지한다. |
+| 앱 탐색 | 9개 영역을 모두 탐색한다. 파일·폴더를 한 번 탭하여 열며 이미지·문서는 QuickLook으로 표시한다. 미리보기를 지원하지 않는 파일에는 오류를 표시한다. |
+| OS 드라이브 | 앱에 File Provider 확장을 포함한다. 파일 앱의 Society 루트는 `Society/Files/`이다. 나머지 8개 영역과 Helper 데이터는 공개하지 않는다. |
+| 모델 입력 | `Import models…`와 파일 앱의 드래그를 지원한다. 두 확장자 `.safetensor`·`.safetensors`를 [자동 분류](Models.md)하여 `Models/<유형>/`으로 복사한다. |
 | 파일 제공자 접근 | 선택기에서 받은 원본 NSURL을 유지하고 보안 범위·파일 조정 안에서 복사한다. 취소·중복 이름·다중 입력·원자적 완료 처리는 기존 importer와 공유한다. |
 | 앱 간 공유 | 같은 App Group entitlement와 `SocietyAppGroup`을 가진 iisacc 앱이 `SharedStorage::open()`으로 동일 원본 모델·생성 기록을 이용한다. 다른 소비 앱에는 File Provider를 중복 설치하지 않는다. |
 | Helper 수신 | 실행 중 내장 수신기가 영속 outbox를 inbox로 옮긴다. Society가 중단되어도 다른 실행 중 앱은 outbox에 데이터를 저장할 수 있다. |
@@ -72,3 +72,39 @@ iPad는 사용자 지시로 이번 설치에서 제외했다. 파일 앱 위치 
 2026-09-09 계정 화면 소유권 변경: iOS 빌드도 iiAccountManager 0.2.3 Quick 모듈을 포함한다.
 로그인·회원가입 화면 QML과 대화상자는 SDK가 소유하며 Society는 공용 manager와 overlay를 연결한다.
 화면 전환·가입 API와 인증 요청을 제외한 검증 범위는 [Account.md](Account.md)를 따른다.
+
+## Live Activity를 통한 동기화 지속
+
+iOS 26 이상에서 앱을 열거나 전경으로 돌아오면 한 번의 동기화 작업을 준비한다. 인증된 계정 연결의 동기화 또는 권한이 있는 사진 보관함의 처리가 시작되면 `BGContinuedProcessingTask`를 자동으로 요청한다. Devices의 **Sync now**로도 요청할 수 있다. 준비가 늦어지면 앱이 전경일 때 연결이 완료되는 시점에 요청하며, 주기적인 자동 탐색만으로 새 지속 실행 작업을 만들지 않는다. 시스템이 표시하는 Live Activity에서 실제 파일·사진 처리량을 확인하고 취소할 수 있다. CPU·네트워크용 기본 리소스를 사용하며 추가 서비스·유료 의존성·위젯 확장은 없다.
+
+진행량은 파일·사진 리소스별로 수신 확인된 바이트를 합산한다. 서로 다른 작업이 번갈아 진행되거나 완료 콜백이 재전달되어도 중복 합산하지 않으며, 남은 작업을 유지한다. SDK의 파일 동기화와 사진 큐가 모두 끝나야 전체 작업을 완료한다. 실패·연결 종료·로그아웃·실행권 반납 때 작업을 해제하며, 시스템 취소/만료는 전경에서도 전송을 중단한다. 다시 **Sync now**를 누르거나 앱으로 돌아오면 기존 매니페스트·체크포인트를 이용해 재개한다. 구버전 또는 요청 거절 시에는 유한한 UIKit 실행 시간 이후 앱 복귀 때 재개한다. Live Activity 자체는 무기한 실행 권한을 부여하지 않는다.
+
+근거: [Apple 장시간 작업](https://developer.apple.com/documentation/backgroundtasks/performing-long-running-tasks-on-ios-and-ipados), [기본 CPU·네트워크 리소스](https://developer.apple.com/documentation/backgroundtasks/bgcontinuedprocessingtaskrequestresources/bgcontinuedprocessingtaskrequestresourcesdefault). `Society.ClientOnlyNetwork` 회귀는 실행권 승격, 파일 간 진행량, 전체 완료, 취소 및 오래된 콜백 격리를 검사한다. `tests/verify_ios_bundle.py`는 실제 서명 번들의 processing 모드·작업 식별자·BackgroundTasks 링크를 확인한다.
+
+
+## 모바일 시작과 화면 응답성
+
+모바일과 `SOCIETY_CLIENT_ONLY`에서는 컨테이너 경로 설정이 디스크를 읽지 않고 SDK의 `inspectContainer`에 조회를 예약한다. QML의 `containerReady`와 동기화 상태는 메모리의 UUID·미러·primary host snapshot만 읽는다. 최초 조회가 끝날 때까지 자동 호스트 선택을 보류하며, 전경 복귀·주기 재확인·미러 변경·동기화 완료 시 비동기로 상태를 갱신한다. 컨테이너나 계정이 바뀌면 이전 조회 결과를 폐기하고, 동일 snapshot은 화면 모델을 다시 갱신하지 않는다.
+
+SDK는 열기·SQLite·감시·해시·매니페스트·전송을 작업 스레드에서 실행한다. 원격 Files 다운로드의 목적지 열기·청크 검사·쓰기·최종 저장도 별도 작업 스레드에서 처리한다. UI에는 queued 결과와 진행 상태를 전달하며 완료 파일을 저장한 뒤 완료를 알린다. 모바일 실행권 반납은 비동기 `close`, 객체 소멸은 `shutdownAsync`를 사용한다. 데스크톱의 프로세스 실행권 인계는 기존 `closeAndWait`를 유지한다. OS가 부여하는 백그라운드 시간은 기존 정책을 따른다.
+
+Society는 이 계약을 가진 iiSocietySync 0.5.0 이상을 요구한다. `Society.ClientOnlyNetwork`는 앱 진입의 비동기 반환, 파일을 다시 열지 않는 getter, 전경 복귀 시 재확인과 오래된 컨테이너 결과의 폐기를 검사한다. SDK 테스트는 다운로드 원자성과 실제 TLS 동기화도 함께 검증한다.
+
+## 터치 탐색과 실기기 검증
+
+Devices·페어링·계정 화면은 LVRS Sheet의 모바일 손잡이와 끌어서 닫기를 사용한다. 저장소 화면에서는 왼쪽 가장자리 28 논리 픽셀 안에서 시작한 한 손가락 드래그가 수평으로 72 픽셀 이상 이동하면 상위 폴더로 돌아간다. 세로 스크롤·가장자리 밖의 제스처·모달 화면에서는 뒤쪽 저장소가 이동하지 않는다. 스크롤하거나 입력란 바깥을 누르면 소프트웨어 키보드를 내린다. `Society.ClientOnlyNetwork`는 실제 Qt 터치 이벤트로 시트 닫기·가장자리 탐색과 인증된 전경 동기화 수명을 검사한다.
+
+실기기 터치 검증 프로젝트는 `tests/ios/Interactions.xcodeproj`이다. 다음 명령에서 실제 기기 식별자를 지정한다.
+
+```sh
+xcodebuild test -project tests/ios/Interactions.xcodeproj \
+  -scheme SocietyInteractions -destination 'platform=iOS,id=<device UDID>' \
+  -derivedDataPath build/ios-interactions \
+  -resultBundlePath build/ios-interactions/results.xcresult
+```
+
+선택한 개발 팀으로 기기를 등록하며, 최초 UI Automation 활성화에는 소유자가 기기에서 직접 암호를 입력해야 할 수 있다. 검증은 설치된 앱을 사용하고 계정·컨테이너·사진을 유지한다. 각 테스트의 앱 재실행은 진행 중인 백그라운드 작업을 종료하므로 시스템에 해당 작업의 실패 기록이 남을 수 있다. 마지막 백그라운드 검증은 홈으로 나가 20초 후 기존 프로세스를 활성화하여 Photos 화면의 복귀를 확인한다. 스크린샷과 접근성 계층은 결과 번들 안에 보관한다.
+
+기기 로그는 지속 실행 요청·허용·완료와 사진 접근 상태·결과 개수를 기록한다. 진단 로그에 네이티브 자산 식별자·파일명·계정 자격 증명·이미지 내용을 넣지 않는다. 실행 수명과 진행 보고의 근거는 [Apple WWDC 2025](https://developer.apple.com/videos/play/wwdc2025/227/)이다.
+
+Photos는 Files와 같은 최상위 영역이다. Photos/Generation History 타일은 한 번 탭하면 [파일 정보 시트](Gallery.md)를 표시하고, 시트의 View original로 원본을 연다. 네이티브 탐색 테스트도 Files를 경유하지 않고 Photos 영역을 선택한다.

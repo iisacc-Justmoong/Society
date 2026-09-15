@@ -13,6 +13,19 @@
 class DaemonTests : public QObject {
     Q_OBJECT
 private slots:
+    void headlessServerRejectsUnsafeConfigurationBeforeStartingServices() {
+        QTemporaryDir root(SOCIETY_TEST_DIRECTORY "/daemon-server-invalid-XXXXXX");
+        for (const auto &arguments : QList<QStringList>{
+                {"--server", "wss://nas.example.test"},
+                {"--sync", "--host"},
+                {"--sync", "--server", "ws://nas.example.test"},
+                {"--sync", "--server", "wss://nas.example.test/?token=secret"},
+                {"--sync", "--container", root.filePath("missing")},
+                {"--sync", "--login-file", root.filePath("missing.json")}}) {
+            QProcess daemon; daemon.start(QStringLiteral(SOCIETY_DAEMON_EXECUTABLE), arguments);
+            QVERIFY(daemon.waitForStarted()); QVERIFY(daemon.waitForFinished(5000)); QCOMPARE(daemon.exitCode(), 2);
+        }
+    }
     void daemonIncludesUsableTlsAndSqliteBackends() {
         QProcess daemon; daemon.start(QStringLiteral(SOCIETY_DAEMON_EXECUTABLE), {"--check-runtime"});
         QVERIFY(daemon.waitForStarted()); QVERIFY(daemon.waitForFinished(5000)); QCOMPARE(daemon.exitCode(), 0);

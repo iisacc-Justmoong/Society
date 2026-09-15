@@ -6,6 +6,7 @@ import QtQuick.Layouts
 import Qt.labs.folderlistmodel
 import LVRS 1.0 as LV
 import Society
+import "Gallery"
 
 Item {
     id: root
@@ -13,6 +14,7 @@ Item {
     required property string path
     property string heading: qsTr("Files")
     property bool imagesOnly: false
+    property bool chronological: false
     property bool touchNavigation: Qt.platform.os === "ios" || Qt.platform.os === "android"
     readonly property int count: grid.count
     readonly property string selectedPath: directoryModel && grid.currentIndex >= 0
@@ -21,35 +23,71 @@ Item {
     readonly property bool loading: directoryModel !== null
                                     && directoryModel.status === FolderListModel.Loading
     property var pendingViewState: null
+    property bool initialPositionPending: true
 
     signal activated(string path, bool isDirectory)
 
+    function showInformation(index: int): void {
+        if (!directoryModel || index < 0 || index >= directoryModel.count) return
+        grid.currentIndex = index
+        info.fileName = directoryModel.get(index, "fileName")
+        info.preview = directoryModel.get(index, "fileUrl")
+        info.fields = [
+            { label: qsTr("Size"), value: info.formatSize(directoryModel.get(index, "fileSize")) },
+            { label: qsTr("Modified"), value: Qt.formatDateTime(directoryModel.get(index, "fileModified"), "yyyy-MM-dd HH:mm") },
+            { label: qsTr("Location"), value: selectedPath }
+        ]
+        info.open()
+    }
+
     function activateCurrent(): void {
-        if (directoryModel && grid.currentIndex >= 0)
-            activated(selectedPath, directoryModel.isFolder(grid.currentIndex))
+        if (directoryModel && grid.currentIndex >= 0) {
+            if (imagesOnly) showInformation(grid.currentIndex)
+            else activated(selectedPath, directoryModel.isFolder(grid.currentIndex))
+        }
     }
 
     function loadModel(): void {
         modelLoader.folderUrl = location.folderUrl
         modelLoader.filterImages = root.imagesOnly
+        modelLoader.sortChronologically = root.chronological
         modelLoader.active = modelLoader.folderUrl.toString().length > 0
     }
 
     function resetModel(): void {
         pendingViewState = null
+        initialPositionPending = true
+        grid.currentIndex = -1
         modelLoader.active = false
         Qt.callLater(root.loadModel)
     }
 
     function rememberView(): void {
         // FolderListModel can publish its first count before inserting rows into the view.
-        if (pendingViewState || !directoryModel || grid.count === 0)
+        if (initialPositionPending || pendingViewState || !directoryModel || grid.count === 0)
             return
         pendingViewState = { model: directoryModel, path: root.path,
-                             selectedPath: root.selectedPath, contentY: grid.contentY }
+                             selectedPath: root.selectedPath, contentY: grid.contentY,
+                             atEnd: root.chronological && grid.atYEnd }
     }
 
     function restoreView(): void {
+        if (!directoryModel || directoryModel.status !== FolderListModel.Ready
+                || grid.count !== directoryModel.count || grid.width <= 0 || grid.height <= 0)
+            return
+        if (initialPositionPending) {
+            // Wait for asynchronous rows and layout before locating the newest file.
+            if (grid.count === 0)
+                return
+            grid.forceLayout()
+            grid.currentIndex = -1
+            if (root.chronological)
+                grid.positionViewAtEnd()
+            else
+                grid.positionViewAtBeginning()
+            initialPositionPending = false
+            return
+        }
         const state = pendingViewState
         pendingViewState = null
         if (!state || state.model !== directoryModel || state.path !== root.path)
@@ -62,16 +100,23 @@ Item {
             }
         }
         grid.currentIndex = selectedIndex
+        if (selectedIndex < 0) info.close()
         grid.forceLayout()
-        grid.contentY = Math.max(grid.originY, Math.min(state.contentY,
-            grid.originY + Math.max(0, grid.contentHeight - grid.height)))
+        if (state.atEnd)
+            grid.positionViewAtEnd()
+        else
+            grid.contentY = Math.max(grid.originY, Math.min(state.contentY,
+                grid.originY + Math.max(0, grid.contentHeight - grid.height)))
     }
 
     onImagesOnlyChanged: resetModel()
+    onChronologicalChanged: resetModel()
     Component.onCompleted: resetModel()
 
     onPathChanged: {
+        info.close()
         pendingViewState = null
+        initialPositionPending = true
         grid.currentIndex = -1
         grid.positionViewAtBeginning()
     }
@@ -88,9 +133,10 @@ Item {
         objectName: "fileModelLoader"
         property url folderUrl: ""
         property bool filterImages: false
+        property bool sortChronologically: false
         active: false
         sourceComponent: FolderListModel {
-            // Snapshot both settings before starting this model's asynchronous scan.
+            // Snapshot the location, filters and order before the asynchronous scan.
             // Reusing a model while changing its path and filters can retain old rows.
             folder: modelLoader.folderUrl
             showDirs: !modelLoader.filterImages
@@ -100,7 +146,8 @@ Item {
             showDirsFirst: true
             showDotAndDotDot: false
             showHidden: false
-            sortField: FolderListModel.Name
+            sortField: modelLoader.sortChronologically ? FolderListModel.Time : FolderListModel.Name
+            sortReversed: modelLoader.sortChronologically
             sortCaseSensitive: false
         }
     }
@@ -113,6 +160,13 @@ Item {
         function onModelReset(): void { Qt.callLater(root.restoreView) }
         function onRowsRemoved(): void { Qt.callLater(root.restoreView) }
         function onRowsInserted(): void { Qt.callLater(root.restoreView) }
+        function onStatusChanged(): void {
+            // Same-count changes can reorder files through dataChanged alone.
+            if (root.loading)
+                root.rememberView()
+            else
+                Qt.callLater(root.restoreView)
+        }
     }
 
     ColumnLayout {
@@ -142,7 +196,7 @@ Item {
 
                 LV.Label {
                     style: description
-                    text: qsTr("Grid view")
+                    text: root.imagesOnly ? qsTr("Gallery") : qsTr("Grid view")
                 }
             }
 
@@ -172,11 +226,12 @@ Item {
                 id: grid
                 objectName: "fileGrid"
                 anchors.fill: parent
-                anchors.margins: 16
-                anchors.rightMargin: 24
-                readonly property int columns: Math.max(1, Math.floor(width / 160))
+                anchors.margins: root.imagesOnly ? 0 : 16
+                anchors.rightMargin: root.imagesOnly ? 0 : 24
+                readonly property int columns: root.imagesOnly ? zoom.columns : Math.max(1, Math.floor(width / 160))
                 cellWidth: width / columns
-                cellHeight: 176
+                cellHeight: root.imagesOnly ? cellWidth : 176
+                interactive: !zoom.interacting
                 clip: true
                 model: root.directoryModel
                 currentIndex: -1
@@ -184,6 +239,9 @@ Item {
                 boundsBehavior: Flickable.StopAtBounds
                 activeFocusOnTab: true
                 focus: true
+                onCountChanged: Qt.callLater(root.restoreView)
+                onHeightChanged: if (root.initialPositionPending) Qt.callLater(root.restoreView)
+                onWidthChanged: if (root.initialPositionPending) Qt.callLater(root.restoreView)
 
                 Keys.onEscapePressed: currentIndex = -1
                 Keys.onReturnPressed: root.activateCurrent()
@@ -206,8 +264,20 @@ Item {
                     width: grid.cellWidth
                     height: grid.cellHeight
 
+                    GalleryTile {
+                        visible: root.imagesOnly
+                        width: grid.cellWidth - 2
+                        height: width
+                        name: entry.fileName
+                        preview: root.imagesOnly ? entry.fileUrl : ""
+                        previewObjectName: "galleryThumbnail"
+                        selected: grid.currentIndex === entry.index
+                        onClicked: root.showInformation(entry.index)
+                    }
+
                     LV.AbstractButton {
                         id: tile
+                        visible: !root.imagesOnly
                         anchors.fill: parent
                         anchors.margins: 6
                         horizontalPadding: 10
@@ -249,7 +319,7 @@ Item {
                                     id: thumbnail
                                     objectName: "fileThumbnail"
                                     anchors.fill: parent
-                                    source: !entry.fileIsDir
+                                    source: !root.imagesOnly && !entry.fileIsDir
                                             && /^(png|jpe?g|webp|gif|bmp|svg)$/i.test(entry.fileSuffix)
                                             ? entry.fileUrl : ""
                                     sourceSize: Qt.size(256, 256)
@@ -287,6 +357,12 @@ Item {
                         }
                     }
                 }
+            }
+
+            GalleryZoom {
+                id: zoom
+                enabled: root.imagesOnly && root.visible
+                view: grid
             }
 
             ColumnLayout {
@@ -355,8 +431,12 @@ Item {
 
             LV.Label {
                 style: caption
-                text: qsTr("Large icons")
+                text: root.imagesOnly ? qsTr("Drag sideways or pinch to zoom") : qsTr("Large icons")
             }
         }
+    }
+    GalleryInfo {
+        id: info
+        onOpenRequested: if (root.selectedPath.length > 0) root.activated(root.selectedPath, false)
     }
 }

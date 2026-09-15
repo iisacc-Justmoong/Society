@@ -1,0 +1,17 @@
+[Unit]
+Description=Society account WebSocket server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=society
+Group=society
+ExecStart=/opt/society/bin/ii-server-relay --address 127.0.0.1 --port 9443 --session-url https://iisacc.com/Account/Session
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

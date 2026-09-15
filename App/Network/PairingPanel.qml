@@ -5,7 +5,7 @@ import QtQuick.Controls as Controls
 import LVRS 1.0 as LV
 import Society
 
-Controls.Popup {
+LV.Sheet {
     id: panel
     required property DevicePairing pairing
     required property QrScanner scanner
@@ -14,19 +14,17 @@ Controls.Popup {
     signal filesRequested()
     readonly property bool desktop: pairing.network && pairing.network.hostModeAvailable
     property bool useQr: true
-    width: Math.max(0, Math.min(parent.width - 24, desktop && useQr ? 512 : 440))
-    height: Math.max(0, Math.min(parent.height - 24, contentColumn.implicitHeight + topPadding + bottomPadding))
-    x: (parent.width - width) / 2
-    y: (parent.height - height) / 2
-    padding: 24
-    modal: true
-    focus: true
-    background: Rectangle { color: LV.Theme.panelBackground06; radius: LV.Theme.radiusMd }
+    presentation: desktop ? LV.Sheet.Desktop : LV.Sheet.Mobile
+    preferredWidth: desktop && useQr ? 512 : 440
+    preferredHeight: contentColumn.implicitHeight + 48
+    contentPadding: 24
+    showHeader: false
+    scrollContent: false
     onOpened: {
         useQr = !pairing.network || !pairing.network.discovering
         if (desktop && useQr && pairing.incomingName.length === 0) pairing.begin()
     }
-    onClosed: { scanner.stop(); pairing.cancel() }
+    onClosed: { scanner.stop(); pairing.cancel(); /* qmllint disable missing-property */ Qt.inputMethod.hide() /* qmllint enable missing-property */ }
     Connections {
         target: panel.scanner
         function onCodeCaptured(text: string) { panel.pairing.scanCode(text) }
@@ -37,6 +35,7 @@ Controls.Popup {
     }
     Controls.ScrollView {
         id: scroll
+        implicitHeight: contentColumn.implicitHeight
         anchors.fill: parent
         clip: true
         contentWidth: availableWidth

@@ -26,12 +26,17 @@ int main(int argc, char **argv)
     QCoreApplication::setApplicationName("SocietyDaemon");
     QCoreApplication::setApplicationVersion(SOCIETY_APP_VERSION);
     QCommandLineParser parser;
-    parser.setApplicationDescription("Receives iisacc Helper data independently of the Society window.");
+    parser.setApplicationDescription("Runs Society collaboration and account-based container synchronization without a window.");
     parser.addHelpOption();
     parser.addVersionOption();
     parser.addOption({{"d", "directory"}, "Shared Helper observation directory.", "path"});
     parser.addOption({"exit-after-ms", "Exit cleanly after a diagnostic run (zero keeps running).", "ms", "0"});
     parser.addOption({"sync", "Automatically synchronize the selected Society container while the desktop window is closed."});
+    parser.addOption({"container", "Existing Society container on this host or NAS.", "path"});
+    parser.addOption({"server", "Trusted Society WebSocket server (wss://).", "url"});
+    parser.addOption({"host", "Provide this container as the primary host through --server."});
+    parser.addOption({"login-file", "Owner-only JSON file containing email and password for a headless account login. Credentials stay in memory.", "path"});
+    parser.addOption({"account-url", "Account authority for --login-file.", "url", "https://iisacc.com"});
     parser.addOption({"status-file", "Write credential-free diagnostic runtime state to this file.", "path"});
     parser.addOption({"check-runtime", "Check the packaged SQLite and TLS backends without starting services."});
     parser.process(app);
@@ -43,6 +48,25 @@ int main(int argc, char **argv)
     bool durationOk = false;
     const auto duration = parser.value("exit-after-ms").toInt(&durationOk);
     if (!durationOk || duration < 0) return 2;
+    if ((!parser.isSet("sync") && (parser.isSet("container") || parser.isSet("server") || parser.isSet("host") || parser.isSet("login-file")))
+        || (parser.isSet("host") && !parser.isSet("server"))
+        || (parser.isSet("server") && !NetworkDriveController::validServerUrl(QUrl(parser.value("server"))))) return 2;
+    if (parser.isSet("container") && (!QDir::isAbsolutePath(parser.value("container"))
+        || !iiSocietyContainer::SharedStorage::open(parser.value("container"), nullptr, true))) return 2;
+    const QUrl accountUrl(parser.value("account-url"));
+    if (parser.isSet("login-file") && (!accountUrl.isValid() || accountUrl.host().isEmpty() || !accountUrl.userInfo().isEmpty()
+        || accountUrl.hasQuery() || accountUrl.hasFragment() || accountUrl.port() == 0
+        || (accountUrl.scheme() != "https" && !(accountUrl.scheme() == "http" && QHostAddress(accountUrl.host()).isLoopback())))) return 2;
+    const auto readLogin = [&]() {
+        QFile file(parser.value("login-file"));
+        if (QFileInfo(file).isSymLink() || !file.open(QIODevice::ReadOnly) || file.size() > 16384
+            || (file.permissions() & (QFile::ReadGroup | QFile::WriteGroup | QFile::ExeGroup | QFile::ReadOther | QFile::WriteOther | QFile::ExeOther))) return QJsonObject{};
+        return QJsonDocument::fromJson(file.readAll()).object();
+    };
+    if (parser.isSet("login-file")) {
+        const auto login = readLogin();
+        if (login.value("email").toString().isEmpty() || login.value("password").toString().isEmpty()) return 2;
+    }
     SocietyDaemonService service;
     if (!service.start(parser.value("directory"))) {
         QTextStream(stderr) << service.errorString() << Qt::endl;
@@ -57,11 +81,28 @@ int main(int argc, char **argv)
         QObject::connect(ownership.get(), &SyncOwnership::ownershipChanged, &app, [&](bool owned) {
             network.reset(); account.reset();
             if (!owned) return;
-            const auto path = ownership->storedContainer();
+            const auto path = parser.isSet("container") ? parser.value("container") : ownership->storedContainer();
             if (path.isEmpty() || !iiSocietyContainer::SharedStorage::open(path, nullptr, true)) return;
-            account = std::make_unique<AccountController>();
+            account = parser.isSet("login-file") ? std::make_unique<AccountController>(accountUrl) : std::make_unique<AccountController>();
             network = std::make_unique<NetworkDriveController>();
             network->setContainerPath(path); network->setAccountSession(account.get());
+            if (parser.isSet("server")) {
+                // Select the server path before login so no LAN discovery is
+                // started while the account profile is arriving.
+                network->setRelayUrl(QUrl(parser.value("server")));
+                const auto configured = std::make_shared<bool>(false);
+                const auto configure = [&, configured] {
+                    if (!*configured && account->signedIn() && !account->busy())
+                        *configured = network->configureServer(QUrl(parser.value("server")), parser.isSet("host"));
+                };
+                QObject::connect(account.get(), &AccountController::changed, network.get(), configure, Qt::QueuedConnection);
+                QObject::connect(account.get(), &AccountController::pairingStateRestored, network.get(), configure, Qt::QueuedConnection);
+            }
+            if (parser.isSet("login-file")) {
+                const auto login = readLogin();
+                if (!account->login(login.value("email").toString(), login.value("password").toString()))
+                    qWarning() << "Society headless account login could not start.";
+            }
         });
         if (!ownership->start()) qWarning() << "Society background synchronization:" << ownership->errorString();
         QObject::connect(&app, &QCoreApplication::aboutToQuit, &app, [&] { ownership->stop(); });
@@ -74,6 +115,8 @@ int main(int argc, char **argv)
                 {"signedIn", account && account->signedIn()}, {"connected", network && network->connected()},
                 {"containerReady", network && network->containerReady()}, {"synchronizing", network && network->synchronizing()},
                 {"nearbyDevices", network ? network->nearbyDevices().size() : 0},
+                {"hosting", network && network->hosting()}, {"serverConfigured", network && !network->relayUrl().isEmpty()},
+                {"codeRequired", account && account->codeRequired()},
                 {"phase", network ? network->localPeer()->phase() : QString()},
                 {"status", network ? network->synchronizationStatus() : QString()}};
             QSaveFile file(parser.value("status-file"));

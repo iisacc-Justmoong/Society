@@ -5,6 +5,7 @@
 #include "NearbyDevices.h"
 #include "AutomaticPairing.h"
 #include "MobileSyncActivity.h"
+#include "App/Photos/PhotoController.h"
 #include <SharedStorage.h>
 #include <QPointer>
 #include <QSet>
@@ -43,6 +44,7 @@ class NetworkDriveController : public QObject {
     Q_PROPERTY(bool synchronizing READ synchronizing NOTIFY synchronizationChanged)
     Q_PROPERTY(QString synchronizationStatus READ synchronizationStatus NOTIFY synchronizationChanged)
     Q_PROPERTY(bool containerReady READ containerReady NOTIFY synchronizationChanged)
+    Q_PROPERTY(QObject *photos READ photos CONSTANT)
 public:
     enum Mode { ClientMode, HostMode };
     Q_ENUM(Mode)
@@ -71,12 +73,14 @@ public:
     bool startLocalHost(bool automatic = false);
     bool joinLocalHost(const QString &qr, bool automatic = false);
     QVariantList pairingQueue() const { return m_automatic.queue(); }
-    QString automaticPairingStatus() const { return m_automatic.status(); }
-    bool automaticPairingEnabled() const { return m_automatic.enabled(); }
+    QString automaticPairingStatus() const;
+    bool automaticPairingEnabled() const { return m_relayUrl.isEmpty() ? m_automatic.enabled() : m_serverEnabled; }
     bool automaticPairingActive() const { return m_automatic.active(); }
     void pauseAutomaticPairing();
     Q_INVOKABLE void resumeAutomaticPairing();
     void setRelayUrl(const QUrl &url);
+    static bool validServerUrl(const QUrl &url);
+    Q_INVOKABLE bool configureServer(const QUrl &url, bool host = false);
     AccountController *accountSession() const { return m_account; }
     void setAccountSession(AccountController *account);
     iisacc::accounts::AccountManager *accountManager() const { return m_account ? m_account->manager() : nullptr; }
@@ -97,7 +101,8 @@ public:
     bool synchronizing() const { return m_sync.busy(); }
     QString synchronizationStatus() const;
     bool containerReady() const;
-    Q_INVOKABLE void synchronizeNow() { m_sync.synchronizeNow(); }
+    QObject *photos() const { return m_photos; }
+    Q_INVOKABLE void synchronizeNow();
     // Native integrations may supply an authenticated session. Mode/platform
     // policy overrides host options; the relay still verifies the credential.
     bool startSession(iiServerHost::PeerOptions options);
@@ -130,7 +135,12 @@ private:
     void updateDiscovery();
     void requestAccountPairingCredentials();
     void updateSynchronization();
+    QString accountSyncScope() const;
+    void restoreServerConfiguration();
+    void updateServerSession();
+    void refreshContainerState();
     void updateBackgroundActivity();
+    void finishBackgroundActivityIfIdle();
     void suspendForBackground();
     QString request(const QString &host, const QJsonObject &payload);
     QPointer<AccountController> m_account;
@@ -138,6 +148,7 @@ private:
     iiServerHost::LanPeer m_local;
     iiSocietySync::RemoteFiles m_remote;
     iiSocietySync::Controller m_sync;
+    society::photos::PhotoController *m_photos;
     QSet<QString> m_verifiedSyncPeers;
     NearbyDevices m_nearby;
     AutomaticPairing m_automatic;
@@ -151,11 +162,15 @@ private:
     iiServerHost::PeerOptions m_session;
     Mode m_mode = ClientMode;
     bool m_accountSession = false;
+    bool m_serverEnabled = false;
     bool m_suspended = false, m_runtimeEnabled = true;
     bool m_backgroundExpired = false;
+    bool m_continuedSyncRequested = false;
     Qt::ApplicationState m_applicationState = Qt::ApplicationActive;
     QString m_discoverySession;
     QJsonObject m_mirror;
+    QString m_containerIdentifier, m_primaryHost, m_inspectionScope;
+    bool m_containerStateKnown = false;
     QString m_syncPath;
     qint64 m_syncDone = 0, m_syncTotal = 0;
 };

@@ -16,6 +16,7 @@
 #include <QQmlEngine>
 #include <QQuickItem>
 #include <QQuickWindow>
+#include <QProcess>
 #include <QSignalSpy>
 #include <QTcpServer>
 #include <QTcpSocket>
@@ -23,71 +24,145 @@
 #include <QTest>
 #include "backend/runtime/appbootstrap.h"
 
-class AccountServer : public QObject {
-public:
-    QTcpServer server;
-    QList<QJsonObject> requests;
-    QList<QByteArray> headers;
-    int status = 200;
-    int pairingVersion = 2;
-    bool hang = false;
-    QJsonObject profile;
-    AccountServer() {
-        QFile fixture(SOCIETY_ACCOUNT_FIXTURE);
-        if (fixture.open(QIODevice::ReadOnly)) profile = QJsonDocument::fromJson(fixture.readAll()).object().value("account").toObject();
-        connect(&server, &QTcpServer::newConnection, this, [this] {
-            while (auto *socket = server.nextPendingConnection()) {
-                connect(socket, &QTcpSocket::disconnected, socket, &QObject::deleteLater);
-                connect(socket, &QTcpSocket::readyRead, this, [this, socket] {
-                    if (socket->property("handled").toBool()) return;
-                    const auto bytes = socket->property("bytes").toByteArray() + socket->readAll();
-                    socket->setProperty("bytes", bytes);
-                    const auto offset = bytes.indexOf("\r\n\r\n");
-                    if (offset < 0) return;
-                    int length = 0;
-                    for (const auto &line : bytes.left(offset).split('\n'))
-                        if (line.toLower().startsWith("content-length:")) length = line.mid(15).trimmed().toInt();
-                    if (bytes.size() < offset + 4 + length) return;
-                    socket->setProperty("handled", true);
-                    const auto input = QJsonDocument::fromJson(bytes.mid(offset + 4, length)).object();
-                    requests.append(input); headers.append(bytes.left(offset));
-                    if (hang) return;
-                    const auto intent = input.value("intent").toString();
-                    QJsonObject payload{{"account", QJsonValue::Null}, {"session", QJsonValue::Null}};
-                    QByteArray cookies;
-                    if (status != 200) payload.insert("error", QJsonObject{{"code", status == 401 ? "invalid_credentials" : "unavailable"}});
-                    else if (intent != "logout") {
-                        payload.insert("account", profile);
-                        payload.insert("session", QJsonObject{{"id", QString(32, 'a')}, {"client", "app"}, {"current", true},
-                            {"device", input.value("device")}, {"createdAt", "2026-09-09T00:00:00Z"},
-                            {"lastSeenAt", "2026-09-09T00:00:00Z"}, {"expiresAt", "2100-01-01T00:00:00Z"}});
-                        cookies = "Set-Cookie: iisacc_auth_id=fixture-id; Path=/; HttpOnly\r\n"
-                                  "Set-Cookie: iisacc_auth_refresh=fixture-refresh; Path=/; HttpOnly; Max-Age=3600\r\n"
-                                  "Set-Cookie: iisacc_login_session=fixture-session; Path=/; HttpOnly; Max-Age=3600\r\n";
-                        if (intent == "pairing") {
-                            auto proof = pairingVersion == 2 ? localPairingCredentialsFixture(QString(64, 'b'))
-                                : pairingCredentialsFixture(QString(64, 'b'));
-                            if (pairingVersion == 1)
-                                proof.insert("refreshAt", QDateTime::currentDateTimeUtc().addSecs(200).toString(Qt::ISODate));
-                            proof.insert("deviceId", input.value("device").toObject().value("id"));
-                            proof.insert("sessionId", QString(32, 'a'));
-                            payload = {{"pairing", proof}}; cookies.clear();
-                        }
-                    }
-                    const auto body = QJsonDocument(payload).toJson(QJsonDocument::Compact);
-                    socket->write("HTTP/1.1 " + QByteArray::number(status) + " Response\r\nContent-Type: application/json\r\n"
-                        "Connection: close\r\n" + cookies + "Content-Length: " + QByteArray::number(body.size()) + "\r\n\r\n" + body);
-                    socket->disconnectFromHost();
-                });
-            }
-        });
-    }
-    QUrl url() const { return QUrl(QString("http://127.0.0.1:%1").arg(server.serverPort())); }
-};
+#include "AccountServer.h"
 
 class AccountTests : public QObject {
     Q_OBJECT
 private slots:
+    void headlessNasHostsThroughTheAccountServer() {
+        AccountServer authority; QVERIFY(authority.server.listen(QHostAddress::LocalHost));
+        iiServerHost::SessionAuthenticator verifier(authority.url().resolved(QUrl("/Account/Session")));
+        iiServerHost::RelayServer relay([&](const auto &credential, auto done) { verifier.authenticate(credential, std::move(done)); });
+        QVERIFY(relay.listen(QHostAddress::LocalHost));
+        const QString endpoint = QString("ws://127.0.0.1:%1/society").arg(relay.port());
+        QTemporaryDir root(QString(QT_TESTCASE_BUILDDIR) + "/headless-server-XXXXXX");
+        QVERIFY(QDir().mkpath(root.filePath("host"))); QVERIFY(QDir().mkpath(root.filePath("client")));
+        const auto original = iiSocietyContainer::SocietyDrive::create(root.filePath("host"));
+        QVERIFY(original); QVERIFY(iiSocietyContainer::SocietyDrive::create(root.filePath("client")));
+        QFile model(root.filePath("host/Models/headless.bin")); QVERIFY(model.open(QIODevice::WriteOnly));
+        model.write("NAS model bytes"); model.close();
+        QFile credentials(root.filePath("login.json")); QVERIFY(credentials.open(QIODevice::WriteOnly));
+        QVERIFY(credentials.setPermissions(QFile::ReadOwner | QFile::WriteOwner));
+        credentials.write("{\"email\":\"builder@example.com\",\"password\":\"FixtureOnly1!\"}"); credentials.close();
+        QProcess daemon;
+        const auto cleanup = qScopeGuard([&] { daemon.terminate(); if (!daemon.waitForFinished(3000)) { daemon.kill(); daemon.waitForFinished(3000); } });
+        daemon.start(QStringLiteral(SOCIETY_DAEMON_EXECUTABLE), {"--sync", "--host", "--server", endpoint,
+            "--container", root.filePath("host"), "--directory", root.filePath("helper"),
+            "--account-url", authority.url().toString(), "--login-file", credentials.fileName(),
+            "--status-file", root.filePath("status.json")});
+        QVERIFY(daemon.waitForStarted());
+        AccountController account(authority.url());
+        auto device = account.manager()->deviceInfo(); device["id"] = QString(64, '9');
+        QVERIFY(account.manager()->setDeviceInfo(device));
+        QVERIFY(account.login("builder@example.com", "FixtureOnly1!")); QTRY_VERIFY(account.signedIn());
+        NetworkDriveController client; client.setContainerPath(root.filePath("client")); client.setAccountSession(&account);
+        QVERIFY(client.configureServer(QUrl(endpoint), false));
+        QTRY_VERIFY_WITH_TIMEOUT(iiSocietySync::Replica::binding(root.filePath("client")).value("complete").toBool(), 20000);
+        QCOMPARE(iiSocietyContainer::SocietyDrive::open(root.filePath("client"))->identifier(), original->identifier());
+        QFile mirrored(root.filePath("client/Models/headless.bin")); QVERIFY(mirrored.open(QIODevice::ReadOnly));
+        QCOMPARE(mirrored.readAll(), QByteArray("NAS model bytes"));
+        QFile status(root.filePath("status.json")); QVERIFY(status.open(QIODevice::ReadOnly));
+        const auto state = QJsonDocument::fromJson(status.readAll()).object();
+        QVERIFY(state.value("hosting").toBool()); QVERIFY(state.value("serverConfigured").toBool());
+        QCOMPARE(state.value("nearbyDevices").toInt(), 0); QVERIFY(!state.contains("credentials"));
+        QVERIFY(!daemon.readAll().contains("FixtureOnly1!"));
+    }
+    void serverMustAuthenticateTheSameAccountBeforeItCanHost() {
+        AccountServer authority; QVERIFY(authority.server.listen(QHostAddress::LocalHost));
+        AccountController account(authority.url());
+        QVERIFY(account.login("builder@example.com", "FixtureOnly1!")); QTRY_VERIFY(account.signedIn());
+        int attempts = 0;
+        iiServerHost::RelayServer wrongAuthority([&](const auto &, auto done) {
+            ++attempts; done({"another-account", QDateTime::currentDateTimeUtc().addSecs(60)});
+        });
+        QVERIFY(wrongAuthority.listen(QHostAddress::LocalHost));
+        QTemporaryDir root(QString(QT_TESTCASE_BUILDDIR) + "/server-wrong-account-XXXXXX");
+        QVERIFY(iiSocietyContainer::SocietyDrive::create(root.path()));
+        NetworkDriveController network; network.setContainerPath(root.path()); network.setAccountSession(&account);
+        QVERIFY(network.configureServer(QUrl(QString("ws://127.0.0.1:%1").arg(wrongAuthority.port())), true));
+        QTRY_VERIFY(attempts > 0);
+        QTRY_VERIFY(network.status().contains("different account"));
+        QVERIFY(!network.connected()); QVERIFY(!network.hosting()); QVERIFY(!network.synchronizationAvailable());
+    }
+    void selfHostedServerSynchronizesWithoutLanDiscovery() {
+        AccountServer authority; QVERIFY(authority.server.listen(QHostAddress::LocalHost));
+        AccountController hostAccount(authority.url()), clientAccount(authority.url());
+        auto device = hostAccount.manager()->deviceInfo(); device["id"] = QString(64, '1'); device["name"] = "NAS";
+        QVERIFY(hostAccount.manager()->setDeviceInfo(device));
+        device["id"] = QString(64, '2'); device["name"] = "Remote client";
+        QVERIFY(clientAccount.manager()->setDeviceInfo(device));
+        QVERIFY(hostAccount.login("builder@example.com", "FixtureOnly1!"));
+        QVERIFY(clientAccount.login("builder@example.com", "FixtureOnly1!"));
+        QTRY_VERIFY(hostAccount.signedIn() && clientAccount.signedIn());
+        QVERIFY(hostAccount.pairingCredentials().isEmpty()); QVERIFY(clientAccount.pairingCredentials().isEmpty());
+        iiServerHost::SessionAuthenticator verifier(authority.url().resolved(QUrl("/Account/Session")));
+        iiServerHost::RelayServer relay([&](const auto &credential, auto done) { verifier.authenticate(credential, std::move(done)); });
+        QVERIFY(relay.listen(QHostAddress::LocalHost));
+        const QUrl endpoint(QString("ws://127.0.0.1:%1/society").arg(relay.port()));
+        QTemporaryDir hostRoot(QString(QT_TESTCASE_BUILDDIR) + "/server-host-XXXXXX");
+        QTemporaryDir clientRoot(QString(QT_TESTCASE_BUILDDIR) + "/server-client-XXXXXX");
+        const auto original = iiSocietyContainer::SocietyDrive::create(hostRoot.path());
+        QVERIFY(original); QVERIFY(iiSocietyContainer::SocietyDrive::create(clientRoot.path()));
+        const QByteArray contents(700000, 's');
+        const auto write = [](const QString &path, const QByteArray &bytes) {
+            QFile file(path); return file.open(QIODevice::WriteOnly) && file.write(bytes) == bytes.size();
+        };
+        const auto read = [](const QString &path) { QFile file(path); return file.open(QIODevice::ReadOnly) ? file.readAll() : QByteArray(); };
+        QVERIFY(write(hostRoot.filePath("Models/remote-model.bin"), contents));
+        NetworkDriveController host(nullptr, QHostAddress::LocalHost), client(nullptr, QHostAddress::LocalHost);
+        host.setContainerPath(hostRoot.path()); client.setContainerPath(clientRoot.path());
+        host.setAccountSession(&hostAccount); client.setAccountSession(&clientAccount);
+        QVERIFY(host.configureServer(endpoint, true)); QVERIFY(client.configureServer(endpoint, false));
+        QVERIFY(!client.containerReady());
+        QTRY_VERIFY(host.connected() && client.connected());
+        QVERIFY(host.hosting()); QVERIFY(!client.hosting());
+        QVERIFY(!host.discovering() && !client.discovering());
+        QTRY_VERIFY_WITH_TIMEOUT(iiSocietySync::Replica::binding(clientRoot.path()).value("complete").toBool(), 20000);
+        const auto scope = iiSocietySync::Replica::binding(clientRoot.path()).value("scope").toString();
+        QCOMPARE(iiSocietySync::Replica::primaryHost(hostRoot.path(), scope), hostAccount.manager()->deviceInfo().value("id").toString());
+        QCOMPARE(read(clientRoot.filePath("Models/remote-model.bin")), contents);
+        QCOMPARE(iiSocietyContainer::SocietyDrive::open(clientRoot.path())->identifier(), original->identifier());
+        QVERIFY(write(clientRoot.filePath("Files/from-client.txt"), "client upload"));
+        QTRY_COMPARE_WITH_TIMEOUT(read(hostRoot.filePath("Files/from-client.txt")), QByteArray("client upload"), 15000);
+        QVERIFY(write(hostRoot.filePath("Files/from-client.txt"), "host update"));
+        QTRY_COMPARE_WITH_TIMEOUT(read(clientRoot.filePath("Files/from-client.txt")), QByteArray("host update"), 15000);
+        QVERIFY(QFile::remove(clientRoot.filePath("Files/from-client.txt")));
+        QTRY_VERIFY_WITH_TIMEOUT(!QFile::exists(hostRoot.filePath("Files/from-client.txt")), 15000);
+        client.browse(hostAccount.manager()->deviceInfo().value("id").toString());
+        QTRY_VERIFY(!client.busy()); QCOMPARE(client.transport(), QString("remote"));
+        // Reconnect to the same server and resume queued changes without discovery.
+        const auto port = relay.port(); relay.stop(); QTRY_VERIFY(!client.connected());
+        QVERIFY(write(hostRoot.filePath("Files/offline.txt"), "reconnected"));
+        QVERIFY(relay.listen(QHostAddress::LocalHost, port));
+        QTRY_VERIFY_WITH_TIMEOUT(client.connected() && host.connected(), 10000);
+        QTRY_COMPARE_WITH_TIMEOUT(read(clientRoot.filePath("Files/offline.txt")), QByteArray("reconnected"), 15000);
+        QVERIFY(clientAccount.logout()); QTRY_VERIFY(!clientAccount.signedIn());
+        QVERIFY(!client.connected()); QVERIFY(!client.synchronizationAvailable());
+        QVERIFY(client.relayUrl().isEmpty());
+    }
+    void serverConfigurationRejectsUnsafeDestinationsAndKeepsTheSavedSession() {
+        AccountServer authority; QVERIFY(authority.server.listen(QHostAddress::LocalHost));
+        MemorySessionStore store;
+        AccountController account(authority.url(), &store, nullptr);
+        NetworkDriveController network; network.setAccountSession(&account);
+        QSignalSpy restored(&account, &AccountController::pairingStateRestored);
+        QVERIFY(account.login("builder@example.com", "FixtureOnly1!")); QTRY_VERIFY(account.signedIn());
+        QTRY_COMPARE(restored.size(), 1);
+        network.setRuntimeEnabled(false);
+        const QUrl endpoint("wss://nas.example.test/society");
+        QVERIFY(network.configureServer(endpoint, true));
+        for (const auto &url : {"ws://nas.example.test/society", "http://nas.example.test", "wss://user:password@nas.example.test",
+                "wss://nas.example.test/?token=secret", "wss://nas.example.test/#fragment", "wss://nas.example.test:0"}) {
+            QVERIFY(!network.configureServer(QUrl(url), false));
+            QCOMPARE(network.relayUrl(), endpoint); QCOMPARE(network.mode(), NetworkDriveController::HostMode);
+        }
+        AccountController reopened(authority.url(), &store, nullptr);
+        NetworkDriveController restoredNetwork; restoredNetwork.setRuntimeEnabled(false); restoredNetwork.setAccountSession(&reopened);
+        QTRY_VERIFY(reopened.signedIn()); QTRY_COMPARE(restoredNetwork.relayUrl(), endpoint);
+        QCOMPARE(restoredNetwork.mode(), NetworkDriveController::HostMode);
+        QVERIFY(restoredNetwork.automaticPairingEnabled()); QVERIFY(!restoredNetwork.connected());
+        QVERIFY(network.configureServer({}, false)); QVERIFY(network.relayUrl().isEmpty());
+    }
     void initTestCase() {
         QNetworkProxy::setApplicationProxy(QNetworkProxy::NoProxy);
         qmlRegisterType<AccountController>("Society", 1, 0, "AccountController");
@@ -145,7 +220,13 @@ private slots:
             QVERIFY(account.login("builder@example.com", "FixtureOnly1!")); QTRY_VERIFY(account.signedIn());
             QTRY_COMPARE(loaded.size(), 1);
             account.requestPairingCredentials(); QTRY_VERIFY(!account.pairingCredentials().isEmpty());
+            QSignalSpy deviceChanges(&account, &AccountController::rememberedDevicesChanged);
+            QSignalSpy accountChanges(&account, &AccountController::changed);
             account.rememberPairedDevice(QString(64, 'c'), "Fixture phone", "phone");
+            QVERIFY(deviceChanges.size() > 0);
+            QCOMPARE(accountChanges.size(), 0); // Remembering a paired device must not reenter account/discovery updates.
+            QCOMPARE(account.property("rememberedDevices").toList().size(), 1);
+            QCOMPARE(account.rememberedDevices().first().toMap().value("kind").toString(), QString("phone"));
             network.disconnectSession(); QVERIFY(!account.automaticPairingEnabled());
             pairingKey = "pairing-v1-" + QString::fromLatin1(QCryptographicHash::hash(server.url().toEncoded() + '\n'
                 + account.manager()->deviceInfo().value("id").toString().toUtf8(), QCryptographicHash::Sha256).toHex());
@@ -169,12 +250,14 @@ private slots:
             QSignalSpy loaded(&account, &AccountController::pairingStateRestored);
             QTRY_VERIFY(account.signedIn()); QTRY_COMPARE(loaded.size(), 1);
             QVERIFY(!account.pairingCredentials().isEmpty()); QCOMPARE(account.rememberedPeers().size(), 1);
+            QCOMPARE(account.rememberedDevices().size(), 1);
             QVERIFY(!network.automaticPairingEnabled());
             account.requestPairingCredentials();
             QCOMPARE(server.requests.size(), before);
             QCOMPARE(account.pairingCredentials().value("version").toInt(), 2);
             QVERIFY(account.logout()); QTRY_VERIFY(!account.signedIn());
             QVERIFY(account.pairingCredentials().isEmpty()); QVERIFY(account.rememberedPeers().isEmpty());
+            QVERIFY(account.rememberedDevices().isEmpty());
             bool removed = false;
             store.read(pairingKey, [&](auto result) { QCOMPARE(result.error, iisacc::accounts::SessionStore::Error::Missing); removed = true; });
             QTRY_VERIFY(removed);
@@ -258,7 +341,7 @@ private slots:
             account.requestPairingCredentials();
             QTRY_COMPARE(server.requests.size(), before + 1);
             QTRY_COMPARE(QJsonDocument::fromJson(store.values.value(pairingKey)).object().value("schemaVersion").toInt(), 3);
-            QCOMPARE(account.pairingCredentials().value("version").toInt(1), serverVersion);
+            QTRY_COMPARE(account.pairingCredentials().value("version").toInt(1), serverVersion);
             for (int attempt = 0; attempt < 100; ++attempt) account.requestPairingCredentials();
             QTest::qWait(100); QCOMPARE(server.requests.size(), before + 1);
         }

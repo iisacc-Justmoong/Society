@@ -3,9 +3,11 @@
 
 #include <QAbstractItemModel>
 #include <QDir>
+#include <QDateTime>
 #include <QFile>
 #include <QGuiApplication>
 #include <QImage>
+#include <QJSValue>
 #include <QQmlApplicationEngine>
 #include <QQmlError>
 #include <QQuickItem>
@@ -198,6 +200,145 @@ private slots:
         QVERIFY(QFile::remove(history + "/result.PNG"));
         QVERIFY(QFile::remove(history + "/request.json"));
         QVERIFY(QDir().rmdir(history + "/Old App Folder"));
+    }
+
+    void historyGalleryCropsSquaresZoomsAndShowsInformationOnlyOnClick()
+    {
+        QTemporaryDir history(SOCIETY_TEST_DIRECTORY "/history-gallery-XXXXXX"); QVERIFY(history.isValid());
+        QImage portrait(60, 180, QImage::Format_RGB32); portrait.fill(QColor("#36a67f"));
+        for (int i = 0; i < 80; ++i) QVERIFY(portrait.save(history.filePath(QString("result-%1.png").arg(i, 2, 10, QChar('0')))));
+        window->resize(960, 720);
+        view->setProperty("heading", "Generation History");
+        view->setProperty("imagesOnly", true); view->setProperty("path", history.path());
+        QTRY_COMPARE(view->property("count").toInt(), 80);
+        QTRY_VERIFY(!view->property("loading").toBool() && !view->property("initialPositionPending").toBool());
+        auto *info = view->findChild<QObject *>("galleryInfo"); QVERIFY(info);
+        QVERIFY(!info->property("visible").toBool());
+        QTRY_VERIFY(tileNamed("result-00.png"));
+        auto *entry = tileNamed("result-00.png");
+        auto *tile = entry->findChild<QQuickItem *>("galleryTile"); QVERIFY(tile);
+        QCOMPARE(tile->width(), tile->height());
+        QCOMPARE(grid->property("cellWidth").toReal() - tile->width(), 2.0);
+        QCOMPARE(tile->property("text").toString(), QString());
+        QVERIFY(!entry->findChild<QQuickItem *>("fileName")->isVisible());
+        auto *preview = tile->findChild<QQuickItem *>("galleryThumbnail"); QVERIFY(preview);
+        QTRY_COMPARE(preview->property("status").toInt(), 1);
+        QCOMPARE(preview->property("fillMode").toInt(), 2); // PreserveAspectCrop
+        QCOMPARE(preview->width(), preview->height());
+        QVERIFY(QTest::qWaitForWindowExposed(window));
+        QSignalSpy clicked(tile, SIGNAL(clicked()));
+        QSignalSpy activated(view, SIGNAL(activated(QString,bool)));
+        QTest::mouseClick(window, Qt::LeftButton, Qt::NoModifier, tile->mapToScene(QPointF(tile->width()/2, tile->height()/2)).toPoint());
+        QTRY_COMPARE(clicked.count(), 1);
+        QTRY_VERIFY(info->property("visible").toBool());
+        QCOMPARE(info->property("fileName").toString(), QString("result-00.png"));
+        QCOMPARE(activated.count(), 0);
+        const auto selected = view->property("selectedPath").toString();
+        QVERIFY(QMetaObject::invokeMethod(info, "close")); QTRY_VERIFY(!info->property("visible").toBool()); QTest::qWait(250);
+        const auto drag = [&](const QPoint &delta) {
+            const auto start = grid->mapToScene(QPointF(grid->width()*0.4, grid->height()*0.6)).toPoint();
+            QTest::mousePress(window, Qt::LeftButton, Qt::NoModifier, start);
+            for (int i = 1; i <= 12; ++i) QTest::mouseMove(window, start + delta*i/12, 16);
+            QTest::mouseRelease(window, Qt::LeftButton, Qt::NoModifier, start + delta);
+        };
+        const auto initialWidth = grid->property("cellWidth").toReal();
+        drag(QPoint(150, 0)); QTRY_VERIFY(grid->property("cellWidth").toReal() > initialWidth);
+        QCOMPARE(grid->property("cellWidth"), grid->property("cellHeight"));
+        QCOMPARE(view->property("selectedPath").toString(), selected);
+        QVERIFY(!info->property("visible").toBool()); QCOMPARE(activated.count(), 0);
+        const auto enlarged = grid->property("cellWidth").toReal();
+        drag(QPoint(-150, 0)); QTRY_VERIFY(grid->property("cellWidth").toReal() < enlarged);
+        grid->setProperty("contentY", grid->property("originY"));
+        const auto sizeBeforeScroll = grid->property("cellWidth").toReal();
+        drag(QPoint(0, -160)); QTRY_VERIFY(grid->property("contentY").toReal() > grid->property("originY").toReal());
+        QCOMPARE(grid->property("cellWidth").toReal(), sizeBeforeScroll);
+        QVERIFY(!info->property("visible").toBool());
+        QVERIFY(window->grabWindow().save(QStringLiteral(SOCIETY_TEST_DIRECTORY "/history-gallery-desktop.png")));
+        window->resize(390, 844); QTest::qWait(100);
+        QCOMPARE(grid->property("cellWidth"), grid->property("cellHeight"));
+        QVERIFY(grid->width() <= window->width());
+        QVERIFY(window->grabWindow().save(QStringLiteral(SOCIETY_TEST_DIRECTORY "/history-gallery-mobile.png")));
+        view->setProperty("imagesOnly", false); view->setProperty("path", fixtures.path());
+        QTRY_COMPARE(view->property("count").toInt(), 5);
+    }
+
+    void chronologicalFilesOpenAtTheNewestAndPreserveBrowsing()
+    {
+        QTemporaryDir timeline(SOCIETY_TEST_DIRECTORY "/file-timeline-XXXXXX");
+        QVERIFY(timeline.isValid());
+        const auto epoch = QDateTime::fromString("2026-01-01T00:00:00Z", Qt::ISODate);
+        const auto write = [&](const QString &name, int seconds) {
+            QFile file(timeline.filePath(name));
+            return file.open(QIODevice::WriteOnly) && file.write("fixture") > 0 && file.flush()
+                && file.setFileTime(epoch.addSecs(seconds), QFileDevice::FileModificationTime);
+        };
+        for (int i = 0; i < 40; ++i)
+            QVERIFY(write(QString("photo-%1.txt").arg(39 - i, 2, 10, QChar('0')), i));
+        const auto valueAt = [&](int index, const QByteArray &role) {
+            auto *model = qvariant_cast<QAbstractItemModel *>(grid->property("model"));
+            return model ? model->data(model->index(index, 0), model->roleNames().key(role, -1)) : QVariant();
+        };
+        window->resize(640, 480);
+        QVERIFY(view->setProperty("chronological", true));
+        QVERIFY(view->setProperty("path", timeline.path()));
+        QTRY_COMPARE(view->property("count").toInt(), 40);
+        QTRY_VERIFY(!view->property("loading").toBool());
+        QCOMPARE(valueAt(0, "fileName").toString(), QString("photo-39.txt"));
+        QCOMPARE(valueAt(39, "fileName").toString(), QString("photo-00.txt"));
+        QTRY_VERIFY(grid->property("atYEnd").toBool());
+        QVERIFY(grid->property("contentY").toReal() > 0);
+        QCOMPARE(grid->property("currentIndex").toInt(), -1);
+
+        // Newest arrivals remain visible when already following the end.
+        QVERIFY(write("AAA-newest.txt", 50));
+        QTRY_COMPARE(view->property("count").toInt(), 41);
+        QCOMPARE(valueAt(40, "fileName").toString(), QString("AAA-newest.txt"));
+        QTRY_VERIFY(grid->property("atYEnd").toBool());
+
+        // atYEnd can still describe the previous layout while the queued restore
+        // is pending. Finish that arrival before simulating a new browsing action.
+        const auto viewSettled = [&] {
+            const auto pending = view->property("pendingViewState");
+            return !view->property("loading").toBool() && !view->property("initialPositionPending").toBool()
+                && (pending.isNull() || pending.value<QJSValue>().isNull());
+        };
+        QTRY_VERIFY(viewSettled());
+
+        // Browsing older files must not jump back to the newest on a directory update.
+        QVERIFY(grid->setProperty("currentIndex", 8));
+        QVERIFY(grid->setProperty("contentY", 352.0));
+        QTest::qWait(100);
+        const auto selected = view->property("selectedPath").toString();
+        const auto scroll = grid->property("contentY").toReal();
+        QVERIFY(scroll > 0 && !grid->property("atYEnd").toBool());
+        QVERIFY(write("AA-another-newest.txt", 60));
+        QTRY_COMPARE(view->property("count").toInt(), 42);
+        QTRY_COMPARE(view->property("selectedPath").toString(), selected);
+        QTRY_COMPARE(grid->property("contentY").toReal(), scroll);
+        QVERIFY(QFile::remove(timeline.filePath("AA-another-newest.txt")));
+        QTRY_COMPARE(view->property("count").toInt(), 41);
+        QTRY_COMPARE(view->property("selectedPath").toString(), selected);
+        QTRY_COMPARE(grid->property("contentY").toReal(), scroll);
+
+        // A modification can reorder rows without changing their count.
+        QVERIFY(write("photo-39.txt", 100));
+        QTRY_COMPARE(valueAt(40, "fileName").toString(), QString("photo-39.txt"));
+        QTRY_COMPARE(valueAt(grid->property("currentIndex").toInt(), "filePath").toString(), selected);
+        QTRY_COMPARE(view->property("selectedPath").toString(), selected);
+        QTRY_COMPARE(grid->property("contentY").toReal(), scroll);
+
+        // Empty directories, later asynchronous results and re-entry initialize separately.
+        QVERIFY(view->setProperty("path", fixtures.filePath("Empty")));
+        QTRY_COMPARE(view->property("count").toInt(), 0);
+        QVERIFY(view->setProperty("path", timeline.path()));
+        QTRY_COMPARE(view->property("count").toInt(), 41);
+        QTRY_VERIFY(grid->property("atYEnd").toBool());
+        QCOMPARE(grid->property("currentIndex").toInt(), -1);
+        QVERIFY(view->setProperty("chronological", false));
+        QTRY_COMPARE(valueAt(0, "fileName").toString(), QString("AAA-newest.txt"));
+        QTRY_VERIFY(grid->property("atYBeginning").toBool());
+        QVERIFY(view->setProperty("path", fixtures.path()));
+        QTRY_COMPARE(view->property("count").toInt(), 5);
     }
 
     void clearsOldFilesWhenPathChanges()

@@ -17,15 +17,21 @@ LV.ApplicationWindow {
     readonly property AccountController accountSession: session
     readonly property DriveController storageDrive: drive
     readonly property ModelImporter storageImporter: modelImporter
-    property string selectedTab: isMobilePlatform ? "Storage" : "Dashboard"
-    readonly property real contentTopInset: Math.max(mobileSystemSafeTopInset,
-        windowChromeInteractionsEnabled && windowDragHandleEnabled && visibility !== Window.FullScreen
-            ? Math.max(0, windowDragHandleTopMargin + windowDragHandleHeight) : 0)
+    property bool mobileLayout: isMobilePlatform
+    property string selectedTab: "Dashboard"
+    readonly property var platformInputMethod: Qt.inputMethod
+    readonly property real keyboardInset: mobileLayout && platformInputMethod.visible
+        && platformInputMethod.keyboardRectangle.height > 0
+        && platformInputMethod.keyboardRectangle.width >= width * 0.75
+        && platformInputMethod.keyboardRectangle.y + platformInputMethod.keyboardRectangle.height >= height - 1
+        ? Math.max(0, height - platformInputMethod.keyboardRectangle.y) : 0
+    readonly property real contentTopInset: mobileSystemSafeTopInset
     signal generateRequested(string prompt, string mediaType, string aspectRatio, int count)
 
     function openAccount() {
         pairingPanel.close()
         networkDevices.close()
+        mobileEnvironment.close()
         if (preferencesWindow) preferencesWindow.close()
         root.accountSession.manager.showAccount()
     }
@@ -43,11 +49,13 @@ LV.ApplicationWindow {
     }
 
     function openPreferences() {
-        if (!networkDrive.hostModeAvailable)
-            return
         pairingPanel.close()
         root.accountSession.manager.closeView()
         networkDevices.close()
+        if (mobileLayout) {
+            mobileEnvironment.open()
+            return
+        }
         if (!preferencesWindow)
             preferencesWindow = preferencesComponent.createObject(root)
         if (preferencesWindow)
@@ -56,11 +64,13 @@ LV.ApplicationWindow {
 
     function openDevices() {
         pairingPanel.close()
+        mobileEnvironment.close()
         root.accountSession.manager.closeView()
         if (preferencesWindow)
             preferencesWindow.close()
         root.raise()
         root.requestActivate()
+        networkDevices.clearDeviceSelection()
         networkDevices.open()
     }
 
@@ -77,8 +87,15 @@ LV.ApplicationWindow {
     desktopMinHeight: 320
     visible: true
     useInternalPageStack: false
+    globalEventListenersEnabled: isMobilePlatform
+    nativeTitleBarHeight: societyView.toolbarHeight
+    windowDragHandleHeight: societyView.toolbarHeight
+    windowDragExclusionItems: societyView.toolbarInteractiveItems
     onActiveChanged: if (active && selectedTab === "Dashboard" && dashboardFiles) dashboardFiles.refresh()
-    onSelectedTabChanged: if (selectedTab === "Dashboard" && dashboardFiles) dashboardFiles.refresh()
+    onSelectedTabChanged: {
+        if (mobileLayout && (selectedTab !== "Dashboard" || !societyView || !societyView.searchHasFocus)) platformInputMethod.hide()
+        if (selectedTab === "Dashboard" && dashboardFiles) dashboardFiles.refresh()
+    }
 
     Component.onCompleted: {
         modelImporter.attachWindow(root)
@@ -91,6 +108,16 @@ LV.ApplicationWindow {
         }
     }
 
+    MobileGestures {
+        appWindow: root
+        enabled: root.isMobilePlatform
+        backEnabled: root.selectedTab === "Storage" && !drive.atRoot && !drive.busy
+            && !networkDevices.visible && !pairingPanel.visible
+            && !mobileEnvironment.visible && !societyView.navigationOpen
+            && root.accountSession.manager.activeView === Accounts.AccountManager.Closed
+        onBackRequested: drive.goUp()
+    }
+
     DriveController {
         id: drive
         objectName: "driveController"
@@ -99,7 +126,7 @@ LV.ApplicationWindow {
     DashboardFiles {
         id: dashboardFiles
         objectName: "dashboardFiles"
-        containerPath: root.isDesktopPlatform && drive.contentsAvailable ? drive.rootPath : ""
+        containerPath: drive.contentsAvailable ? drive.rootPath : ""
         query: societyView.query
     }
     AccountController { id: session; objectName: "societyAccount" }
@@ -125,6 +152,7 @@ LV.ApplicationWindow {
         id: networkDevices
         objectName: "networkDevices"
         network: networkDrive
+        presentation: root.mobileLayout ? LV.Sheet.Mobile : LV.Sheet.Desktop
         parent: Controls.Overlay.overlay
         onPreferencesRequested: root.openPreferences()
         onAccountRequested: root.openAccount()
@@ -140,6 +168,34 @@ LV.ApplicationWindow {
         onInvitationReceived: { qrScanner.stop(); networkDevices.close(); pairingPanel.open() }
     }
     QrScanner { id: qrScanner; objectName: "qrScanner" }
+    StorageNavigation {
+        id: storageNavigation
+        objectName: "storageNavigation"
+        function refreshDeviceSnapshot() {
+            replaceDevices(session.signedIn ? session.userId : "", session.manager.deviceInfo.id || "",
+                session.rememberedDevices, networkDrive.nearbyDevices, networkDrive.hosts)
+        }
+        Component.onCompleted: refreshDeviceSnapshot()
+        currentSection: drive.currentSection
+        onSectionRequested: function(key) { drive.openSection(key) }
+        onDeviceRequested: function(id, name, peerId) {
+            root.openDevices()
+            networkDevices.selectDevice(id, name, peerId)
+        }
+        onWorkspaceRequested: function(kind, id, name) {
+            root.showNotice(name, qsTr("Storage for %1 is not connected yet.").arg(name))
+        }
+    }
+    Connections {
+        target: session
+        function onChanged() { storageNavigation.refreshDeviceSnapshot() }
+        function onRememberedDevicesChanged() { storageNavigation.refreshDeviceSnapshot() }
+    }
+    Connections {
+        target: networkDrive
+        function onHostsChanged() { storageNavigation.refreshDeviceSnapshot() }
+        function onDiscoveryChanged() { storageNavigation.refreshDeviceSnapshot() }
+    }
     PairingPanel {
         id: pairingPanel
         objectName: "pairingPanel"
@@ -148,7 +204,7 @@ LV.ApplicationWindow {
         appWindow: root
         parent: Controls.Overlay.overlay
         onAccountRequested: root.openAccount()
-        onFilesRequested: { if (!networkDrive.hosting) networkDevices.open() }
+        onFilesRequested: { if (!networkDrive.hosting) root.openDevices() }
     }
     Component {
         id: preferencesComponent
@@ -156,6 +212,23 @@ LV.ApplicationWindow {
             network: networkDrive
             transientParent: root
             onDevicesRequested: root.openDevices()
+        }
+    }
+    LV.Sheet {
+        id: mobileEnvironment
+        objectName: "mobileEnvironment"
+        parent: Controls.Overlay.overlay
+        title: qsTr("Environment")
+        presentation: LV.Sheet.Mobile
+        detent: LV.Sheet.Large
+        scrollContent: false
+        contentPadding: 16
+        PreferencesContent {
+            anchors.fill: parent
+            network: networkDrive
+            touchNavigation: true
+            onDevicesRequested: root.openDevices()
+            onDoneRequested: mobileEnvironment.close()
         }
     }
     Shortcut {
@@ -175,6 +248,12 @@ LV.ApplicationWindow {
         id: modelImporter
         objectName: "modelImporter"
         containerPath: drive.contentsAvailable ? drive.rootPath : ""
+        onOrganized: function(containerPath, paths) {
+            if (containerPath === drive.rootPath) {
+                drive.refreshFromDisk()
+                dashboardFiles.refresh()
+            }
+        }
         onFinished: function(containerPath, paths) {
             if (containerPath === drive.rootPath && paths.length > 0) {
                 drive.openSection("models")
@@ -203,18 +282,22 @@ LV.ApplicationWindow {
         id: societyView
         anchors.fill: parent
         anchors.topMargin: root.contentTopInset
-        anchors.bottomMargin: root.mobileSystemSafeBottomInset
+        anchors.bottomMargin: Math.max(root.mobileSystemSafeBottomInset, root.keyboardInset)
         anchors.leftMargin: root.mobileSystemSafeLeftInset
         anchors.rightMargin: root.mobileSystemSafeRightInset
         drive: root.storageDrive
+        navigation: storageNavigation
         modelImporter: root.storageImporter
         files: dashboardFiles
-        desktop: root.isDesktopPlatform
+        desktop: !root.mobileLayout
+        toolbarLeadingInset: root.nativeTitleBarControlsRect.width > 0
+            ? root.nativeTitleBarControlsRect.x + root.nativeTitleBarControlsRect.width : 0
         hostModeAvailable: networkDrive.hostModeAvailable
         signedIn: session.signedIn
         selectedTab: root.selectedTab
         deviceStatus: networkDrive.connected ? qsTr("Online") : drive.hasDrive ? qsTr("Local") : qsTr("Unavailable")
         synchronizationStatus: networkDrive.synchronizationStatus
+        photos: networkDrive.photos
         onTabRequested: function(tab) { root.selectedTab = tab }
         onDevicesRequested: root.openDevices()
         onPreferencesRequested: root.openPreferences()

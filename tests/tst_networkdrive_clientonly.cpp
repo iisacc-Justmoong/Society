@@ -1,9 +1,13 @@
 #include "App/Network/NetworkDriveController.h"
+#include "AccountServer.h"
+#include "MemorySessionStore.h"
+#include <QCryptographicHash>
 #include "App/Network/DevicePairing.h"
 #include "App/Network/PairingQr.h"
 #include "App/Network/QrScanner.h"
 #include "App/Network/MobileSyncActivity.h"
 #include <QFile>
+#include <QJsonDocument>
 #include <QGuiApplication>
 #include <QQmlComponent>
 #include <QQmlEngine>
@@ -20,6 +24,110 @@ using namespace iiServerHost;
 class ClientOnlyNetworkTests : public QObject {
     Q_OBJECT
 private slots:
+    void openingAMobileContainerUsesAnAsyncSnapshotAndCachedGetters() {
+        QTemporaryDir first(SOCIETY_TEST_DIRECTORY "/mobile-sync-state-XXXXXX");
+        QTemporaryDir second(SOCIETY_TEST_DIRECTORY "/mobile-sync-next-XXXXXX");
+        const auto drive = iiSocietyContainer::SocietyDrive::create(first.path());
+        QVERIFY(drive); QVERIFY(iiSocietyContainer::SocietyDrive::create(second.path()));
+        QVERIFY(QDir(first.path()).mkpath(".society-sync"));
+        QFile binding(first.filePath(".society-sync/mirror.json")); QVERIFY(binding.open(QIODevice::WriteOnly));
+        binding.write(QJsonDocument(QJsonObject{{"schema", 1}, {"host", "desktop"},
+            {"container", drive->identifier()}, {"scope", QString(64, 'a')}, {"complete", true}}).toJson());
+        binding.close();
+        NetworkDriveController network;
+        network.setContainerPath(first.path());
+        QVERIFY2(!network.containerReady(), "Mobile container opening must return before reading its sync metadata");
+        QTRY_VERIFY(network.containerReady());
+        const auto manifest = first.filePath(".society-drive.json");
+        QVERIFY(QFile::rename(manifest, manifest + ".held"));
+        // A QML getter must never re-open the filesystem. A lifecycle refresh
+        // asynchronously detects the changed manifest and publishes new state.
+        QVERIFY(network.containerReady());
+        network.setApplicationState(Qt::ApplicationActive);
+        QTRY_VERIFY(!network.containerReady());
+        QVERIFY(QFile::rename(manifest + ".held", manifest));
+        network.setContainerPath(first.path() + "/missing");
+        network.setContainerPath(first.path());
+        network.setContainerPath(second.path());
+        QTest::qWait(100);
+        QCOMPARE(network.containerPath(), second.path());
+        QVERIFY2(!network.containerReady(), "A stale first-container result must not replace the selected container");
+    }
+    void foregroundOpeningAutomaticallyContinuesAnAuthenticatedSyncAndHonorsCancellation() {
+        AccountServer authority; QVERIFY(authority.server.listen(QHostAddress::LocalHost));
+        MemorySessionStore store;
+        AccountController account(authority.url(), &store, nullptr);
+        QVERIFY(account.login("builder@example.com", "FixtureOnly1!")); QTRY_VERIFY(account.signedIn());
+        RelayServer relay([&](const auto &, AuthCompletion done) {
+            done({account.manager()->account()->sub(), QDateTime::currentDateTimeUtc().addSecs(60)});
+        });
+        QVERIFY(relay.listen(QHostAddress::LocalHost));
+        QTemporaryDir root(SOCIETY_TEST_DIRECTORY "/automatic-continued-XXXXXX");
+        QVERIFY(iiSocietyContainer::SocietyDrive::create(root.path()));
+        PeerOptions options; options.relayUrl = QUrl(QString("ws://127.0.0.1:%1").arg(relay.port()));
+        options.credential = "fixture"; options.peerId = "desktop"; options.name = "Desktop";
+        options.service = "com.iisacc.society.files"; options.localEnabled = false;
+        Peer desktop;
+        // A real authenticated peer holds the first manifest response. The
+        // foreground catch-up must obtain a grant before any Sync now click.
+        QVERIFY(desktop.start(options, [](const auto &, const auto &) { return QJsonObject{{"ok", true}, {"pending", true}}; }));
+        QTRY_VERIFY(desktop.isReady());
+        int starts = 0; QList<bool> completions; std::function<void()> expire;
+        NetworkDriveController mobile;
+        mobile.backgroundActivity()->setBackend([](auto) { return true; }, [] {});
+        mobile.backgroundActivity()->setContinuedBackend([&](auto callback) { ++starts; expire = callback; return true; },
+            [&](bool success) { completions.append(success); }, [](auto, auto) {});
+        mobile.setApplicationState(Qt::ApplicationActive);
+        mobile.setContainerPath(root.path()); mobile.setAccountSession(&account);
+        QVERIFY(mobile.configureServer(options.relayUrl, false));
+        QTRY_VERIFY(mobile.connected()); QTRY_COMPARE(starts, 1);
+        QVERIFY(mobile.backgroundActivity()->continued());
+        mobile.setApplicationState(Qt::ApplicationHidden);
+        QVERIFY(mobile.backgroundActivity()->continued());
+        expire(); QTRY_VERIFY(!mobile.connected()); QVERIFY(!mobile.backgroundActivity()->active());
+        QCOMPARE(completions, QList<bool>{false});
+        QTest::qWait(100); QCOMPARE(starts, 1);
+        mobile.setApplicationState(Qt::ApplicationActive);
+        QTRY_VERIFY(mobile.connected()); QTRY_COMPARE(starts, 2);
+    }
+    void continuedSyncUpgradesTheGrantAndCompletesOnlyAfterTheBatch() {
+        MobileSyncActivity activity;
+        int begins = 0, shortEnds = 0;
+        QList<bool> completed;
+        QList<QPair<qint64, qint64>> progress;
+        std::function<void()> expire;
+        activity.setBackend([](auto) { return true; }, [&] { ++shortEnds; });
+        activity.setContinuedBackend([&](auto callback) { ++begins; expire = callback; return true; },
+            [&](bool success) { completed.append(success); },
+            [&](qint64 done, qint64 total) { progress.append({done, total}); });
+        QVERIFY(activity.retain()); QVERIFY(activity.retainContinued());
+        QCOMPARE(shortEnds, 1); QVERIFY(activity.continued());
+        QVERIFY(activity.retainContinued()); QVERIFY(activity.retain()); QCOMPARE(begins, 1);
+        activity.update("Models/first", 50, 100);
+        activity.update("Models/first", 100, 100);
+        activity.update("Models/second", 25, 100);
+        QCOMPARE(progress, (QList<QPair<qint64, qint64>>{{50, 100}, {100, 101}, {125, 200}}));
+        activity.update("Models/second", -1, 100); QCOMPARE(progress.size(), 3);
+        const auto old = expire;
+        activity.release(true); QCOMPARE(completed, QList<bool>{true});
+        QVERIFY(activity.retainContinued()); old(); QCoreApplication::processEvents(); QVERIFY(activity.active());
+        QSignalSpy expired(&activity, &MobileSyncActivity::expired);
+        expire(); QTRY_COMPARE(expired.size(), 1);
+        QCOMPARE(completed, (QList<bool>{true, false})); QVERIFY(!activity.active());
+    }
+    void interleavedPhotoAndFileProgressCountsEachAcknowledgementOnce() {
+        MobileSyncActivity activity; QList<QPair<qint64, qint64>> progress;
+        activity.setContinuedBackend([](auto) { return true; }, [](bool) {},
+            [&](qint64 done, qint64 total) { progress.append({done, total}); });
+        QVERIFY(activity.retainContinued());
+        activity.update("Models/model", 50, 100);
+        activity.update("Photos/index/photo", 20, 20);
+        activity.update("Models/model", 75, 100);
+        activity.update("Photos/index/photo", 20, 20); // Replayed completion.
+        activity.update("Models/model", 100, 100);
+        QCOMPARE(progress, (QList<QPair<qint64, qint64>>{{50,100}, {70,120}, {95,120}, {95,120}, {120,121}}));
+        activity.release(true);
+    }
     void backgroundGrantSurvivesHidingAndExpiresWithoutReusingAnOldCallback() {
         MobileSyncActivity activity; std::function<void()> expire; int begins = 0, ends = 0;
         activity.setBackend([&](auto callback) { ++begins; expire = callback; return true; }, [&] { ++ends; });
@@ -60,6 +168,51 @@ private slots:
         qmlRegisterType<PairingQr>("Society", 1, 0, "PairingQr");
         qmlRegisterType<QrScanner>("Society", 1, 0, "QrScanner");
     }
+    void mobileSheetsFollowTheFingerAndDismissOnRelease() {
+        QQmlEngine engine; engine.addImportPath(QString::fromUtf8(SOCIETY_LVRS_QML_IMPORT_PATH));
+        QQuickWindow window; window.resize(390, 844); window.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+        NetworkDriveController network;
+        QQmlComponent component(&engine, QUrl::fromLocalFile(QString::fromUtf8(SOCIETY_NETWORK_QML_FILE)));
+        QVERIFY2(component.isReady(), qPrintable(component.errorString()));
+        std::unique_ptr<QObject> panel(component.createWithInitialProperties({
+            {"network", QVariant::fromValue(&network)}, {"parent", QVariant::fromValue(window.contentItem())}}));
+        QVERIFY2(panel, qPrintable(component.errorString()));
+        QVERIFY(panel->setProperty("motionEnabled", false));
+        QVERIFY(QMetaObject::invokeMethod(panel.get(), "open")); QTRY_VERIFY(panel->property("opened").toBool());
+        auto *frame = qvariant_cast<QQuickItem *>(panel->property("contentItem")); QVERIFY(frame);
+        auto *grabber = frame->findChild<QQuickItem *>("sheet_grabber"); QVERIFY(grabber); QVERIFY(grabber->isVisible());
+        const auto from = grabber->mapToScene(QPointF(grabber->width() / 2, grabber->height() / 2)).toPoint();
+        static auto *touch = QTest::createTouchDevice();
+        QTest::touchEvent(&window, touch).press(0, from, &window); QTest::qWait(30);
+        QTest::touchEvent(&window, touch).move(0, from + QPoint(0, 30), &window); QTest::qWait(30);
+        QTest::touchEvent(&window, touch).move(0, from + QPoint(0, 190), &window); QTest::qWait(30);
+        QVERIFY(panel->property("_dragOffset").toReal() > 100);
+        QTest::touchEvent(&window, touch).release(0, from + QPoint(0, 190), &window);
+        QTRY_VERIFY(!panel->property("visible").toBool());
+    }
+    void leftEdgeBackGestureIgnoresVerticalScrollingAndModalPages() {
+        QQmlEngine engine; engine.addImportPath(QString::fromUtf8(SOCIETY_LVRS_QML_IMPORT_PATH));
+        QQuickWindow window; window.resize(390, 844); window.show(); window.requestActivate();
+        QVERIFY(QTest::qWaitForWindowExposed(&window)); QTRY_VERIFY(window.isActive());
+        QQmlComponent component(&engine, QUrl::fromLocalFile(QString::fromUtf8(SOCIETY_NETWORK_QML_FILE)).resolved(QUrl("../MobileGestures.qml")));
+        QVERIFY2(component.isReady(), qPrintable(component.errorString()));
+        std::unique_ptr<QObject> gestures(component.createWithInitialProperties({
+            {"appWindow", QVariant::fromValue(&window)}, {"backEnabled", true}, {"parent", QVariant::fromValue(window.contentItem())}}));
+        QVERIFY2(gestures, qPrintable(component.errorString())); QSignalSpy back(gestures.get(), SIGNAL(backRequested()));
+        auto *surface = new QQuickItem(window.contentItem()); surface->setSize(window.size()); surface->setAcceptTouchEvents(true);
+        static auto *touch = QTest::createTouchDevice();
+        const auto swipe = [&](QPoint from, QPoint to) {
+            QTest::touchEvent(&window, touch).press(0, from, &window); QTest::qWait(25);
+            QTest::touchEvent(&window, touch).move(0, (from + to) / 2, &window); QTest::qWait(25);
+            QTest::touchEvent(&window, touch).move(0, to, &window); QTest::qWait(25);
+            QTest::touchEvent(&window, touch).release(0, to, &window); QTest::qWait(25);
+        };
+        swipe({12, 300}, {160, 315}); QTRY_COMPARE(back.size(), 1);
+        swipe({12, 300}, {25, 500}); QCOMPARE(back.size(), 1);
+        swipe({120, 300}, {300, 315}); QCOMPARE(back.size(), 1);
+        QVERIFY(gestures->setProperty("backEnabled", false)); swipe({12, 300}, {160, 315}); QCOMPARE(back.size(), 1);
+    }
     void devicePanelOffersOnlyClientMode() {
         QQmlEngine engine;
         engine.addImportPath(QString::fromUtf8(SOCIETY_LVRS_QML_IMPORT_PATH));
@@ -86,6 +239,12 @@ private slots:
         auto *automatic = panel->findChild<QQuickItem *>("networkAutomaticSync");
         QVERIFY(automatic && automatic->isVisible());
         QCOMPARE(automatic->property("text").toString(), QString("Sign in to sync automatically"));
+        auto *serverAddress = panel->findChild<QQuickItem *>("networkServerAddress");
+        auto *connectServer = panel->findChild<QQuickItem *>("networkConnectServer");
+        auto *hostServer = panel->findChild<QQuickItem *>("networkHostServer");
+        QVERIFY(serverAddress && connectServer && hostServer);
+        QVERIFY(!hostServer->isVisible()); QVERIFY(!connectServer->isEnabled());
+        QVERIFY(serverAddress->width() <= window.width());
         QSignalSpy pairRequested(panel.get(), SIGNAL(pairingRequested()));
         QVERIFY(QMetaObject::invokeMethod(pairButton, "clicked")); QCOMPARE(pairRequested.size(), 1);
         QVERIFY(!settings->isVisible());
@@ -123,6 +282,56 @@ private slots:
         pairing.showHostQr(); QCOMPARE(pairing.phase(), QString("error")); QVERIFY(!network.hosting());
         QVERIFY(!network.startLocalHost()); QVERIFY(!network.localPeer()->hosting());
         QVERIFY(QMetaObject::invokeMethod(panel.get(), "close")); QTRY_COMPARE(pairing.phase(), QString("idle"));
+    }
+    void deviceSelectionWaitsForTransfersAndTracksHostAvailability() {
+        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/sidebar-network-XXXXXX");
+        QFile file(fixture.filePath("shared.txt")); QVERIFY(file.open(QIODevice::WriteOnly));
+        file.write("fixture"); file.close();
+        RelayServer relay([](const auto &, AuthCompletion done) { done({"alice", QDateTime::currentDateTimeUtc().addSecs(60)}); });
+        QVERIFY(relay.listen(QHostAddress::LocalHost));
+        PeerOptions options; options.relayUrl = QUrl(QString("ws://127.0.0.1:%1").arg(relay.port()));
+        options.credential = "alice"; options.peerId = "first-host"; options.name = "First desktop";
+        options.service = "com.iisacc.society.files"; options.localEnabled = false;
+        FileShare files(fixture.path()); Peer first, second;
+        QVERIFY(first.start(options, [&](const auto &, const auto &request) { return files.handle(request); }));
+        options.peerId = "second-host"; options.name = "Second desktop";
+        QVERIFY(second.start(options, [&](const auto &, const auto &request) { return files.handle(request); }));
+        NetworkDriveController network; options.peerId = "client"; QVERIFY(network.startSession(options));
+        QTRY_VERIFY(network.connected() && first.isReady() && second.isReady());
+        QTRY_COMPARE(network.hosts().size(), 2);
+        QQmlEngine engine; engine.addImportPath(SOCIETY_LVRS_QML_IMPORT_PATH);
+        QStringList warnings;
+        connect(&engine, &QQmlEngine::warnings, this, [&](const QList<QQmlError> &errors) {
+            for (const auto &error : errors) warnings.append(error.toString());
+        });
+        QQuickWindow window; window.resize(680, 800); window.show();
+        QQmlComponent component(&engine, QUrl::fromLocalFile(SOCIETY_NETWORK_QML_FILE));
+        QVERIFY2(component.isReady(), qPrintable(component.errorString()));
+        std::unique_ptr<QObject> panel(component.createWithInitialProperties({
+            {"network", QVariant::fromValue(&network)}, {"parent", QVariant::fromValue(window.contentItem())}}));
+        QVERIFY2(panel, qPrintable(component.errorString()));
+        QVERIFY(QMetaObject::invokeMethod(panel.get(), "open")); QTRY_VERIFY(panel->property("opened").toBool());
+        network.browse("first-host"); QVERIFY(network.busy());
+        QVERIFY(QMetaObject::invokeMethod(panel.get(), "selectDevice", Q_ARG(QVariant, "second-host"),
+            Q_ARG(QVariant, "Second desktop"), Q_ARG(QVariant, "second-host")));
+        QVERIFY(!panel->property("selectedFilesVisible").toBool());
+        QTRY_COMPARE(network.currentHost(), QString("second-host")); QTRY_VERIFY(!network.busy());
+        QCOMPARE(network.entries().size(), 1); QVERIFY(panel->property("selectedFilesVisible").toBool());
+        QVERIFY(!panel->property("selectionPending").toBool());
+        second.stop(); QTRY_COMPARE(network.hosts().size(), 1);
+        QTRY_VERIFY(!panel->property("selectedFilesVisible").toBool());
+        // A stale list from the disconnected host stays hidden until a fresh request completes.
+        options.peerId = "second-host"; options.name = "Second desktop";
+        QVERIFY(second.start(options, [&](const auto &, const auto &request) { return files.handle(request); }));
+        QTRY_COMPARE(network.hosts().size(), 2); QTRY_VERIFY(!network.busy());
+        QTRY_VERIFY(panel->property("selectedFilesVisible").toBool());
+        QVERIFY(QMetaObject::invokeMethod(panel.get(), "selectDevice", Q_ARG(QVariant, "offline"),
+            Q_ARG(QVariant, "Offline phone"), Q_ARG(QVariant, "")));
+        QVERIFY(!panel->property("selectedFilesVisible").toBool());
+        QCOMPARE(network.currentHost(), QString("second-host"));
+        QVERIFY(QMetaObject::invokeMethod(panel.get(), "clearDeviceSelection"));
+        QVERIFY(panel->property("selectedDeviceId").toString().isEmpty());
+        QVERIFY2(warnings.isEmpty(), qPrintable(warnings.join('\n')));
     }
     void mobileAlwaysRemainsAClient_data() {
         QTest::addColumn<bool>("local");

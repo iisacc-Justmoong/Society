@@ -1,0 +1,19 @@
+[Unit]
+Description=Society NAS container host
+After=network-online.target society-relay.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=society
+Group=society
+StateDirectory=society
+Environment=IILOCALLLM_DISABLE_APP_MCP=1
+ExecStart=/opt/society/bin/SocietyDaemon --sync --container /srv/society/container --directory /var/lib/society/helper --server ws://127.0.0.1:9443 --host --login-file /etc/society/login.json --status-file /var/lib/society/status.json
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

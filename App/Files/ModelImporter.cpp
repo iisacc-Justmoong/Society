@@ -1,6 +1,7 @@
 #include "ModelImporter.h"
 
 #include <SocietyDrive.h>
+#include <ModelStore.h>
 #include <QDateTime>
 #include <QDir>
 #include <QElapsedTimer>
@@ -8,6 +9,7 @@
 #include <QFileInfo>
 #include <QSet>
 #include <QTemporaryFile>
+#include <QTimer>
 #include <algorithm>
 #ifdef Q_OS_ANDROID
 #include <AndroidStorage.h>
@@ -87,13 +89,47 @@ void ModelImporter::setContainerPath(const QString &path)
 {
     if (m_containerPath == path)
         return;
+    cancel();
     m_containerPath = path;
+    m_needsOrganization = !path.isEmpty();
     if (!busy()) {
         m_status.clear();
         m_error.clear();
         emit stateChanged();
     }
     emit containerPathChanged();
+    QTimer::singleShot(0, this, [this] { if (m_needsOrganization && !busy()) organizeModels(); });
+}
+
+bool ModelImporter::organizeModels()
+{
+    if (busy() || choosingFiles() || m_containerPath.isEmpty()) return false;
+    const auto root = m_containerPath;
+    m_needsOrganization = false;
+    m_cancelled = std::make_shared<std::atomic_bool>(false);
+    const auto cancelled = m_cancelled;
+    const auto report = std::make_shared<iiSocietyContainer::ModelOrganization>();
+    m_progress = 0;
+    m_error.clear();
+    m_status = tr("Organizing models by type…");
+    m_worker = QThread::create([root, report, cancelled] {
+        QString error;
+        const auto store = iiSocietyContainer::ModelStore::open(root, &error);
+        if (store) *report = store->organize(cancelled.get());
+        else report->errors.append(error);
+    });
+    connect(m_worker, &QThread::finished, this, [this, root, report] {
+        m_worker->deleteLater(); m_worker = nullptr; m_cancelled.reset();
+        m_error = report->errors.join('\n');
+        m_progress = report->cancelled ? 0 : 1;
+        m_status = report->cancelled ? tr("Model organization cancelled.") : tr("Organized %1 model(s) by type.").arg(report->moved.size());
+        QStringList paths;
+        for (const auto &move : report->moved) paths.append(move.path);
+        emit stateChanged();
+        emit organized(root, paths);
+        if (m_needsOrganization) QTimer::singleShot(0, this, [this] { organizeModels(); });
+    });
+    m_worker->start(); emit stateChanged(); return true;
 }
 bool ModelImporter::busy() const { return m_worker != nullptr; }
 double ModelImporter::progress() const { return m_progress; }
@@ -188,13 +224,15 @@ bool ModelImporter::importSources(const QList<ModelImportSource> &sources)
     }
 
     const auto root = m_containerPath;
+    const bool organizeFirst = m_needsOrganization;
+    m_needsOrganization = false;
     const auto result = std::make_shared<ImportResult>();
     const auto cancelled = std::make_shared<std::atomic_bool>(false);
     m_cancelled = cancelled;
     m_progress = 0;
     m_error.clear();
     m_status = tr("Preparing models…");
-    m_worker = QThread::create([this, root, sources, result, cancelled] {
+    m_worker = QThread::create([this, root, sources, result, cancelled, organizeFirst] {
         QString driveError;
         const auto drive = SocietyDrive::open(root, &driveError);
         if (!drive) {
@@ -202,6 +240,12 @@ bool ModelImporter::importSources(const QList<ModelImportSource> &sources)
             return;
         }
         const auto models = drive->sectionPath(StoreSection::Models);
+        const auto store = iiSocietyContainer::ModelStore::open(root, &driveError);
+        if (!store || !store->ensureLayout(&driveError)) { result->errors.append(driveError); return; }
+        if (organizeFirst) {
+            const auto organized = store->organize(cancelled.get());
+            if (!organized.errors.isEmpty()) { result->errors.append(organized.errors); return; }
+        }
         QSet<QString> seen;
         qsizetype completed = 0;
         QElapsedTimer throttle;
@@ -227,7 +271,12 @@ bool ModelImporter::importSources(const QList<ModelImportSource> &sources)
                 emit stateChanged();
             }, Qt::QueuedConnection);
             const auto readError = entry.read([&](const QString &path) {
-                const QFileInfo input(path);
+                QString actualPath = path;
+                if (actualPath.startsWith(models + '/') && !QFileInfo::exists(actualPath)) {
+                    const auto resolved = store->resolve(QDir(models).relativeFilePath(actualPath));
+                    if (!resolved.isEmpty()) actualPath = resolved;
+                }
+                const QFileInfo input(actualPath);
                 const QString name = entry.name;
                 bool content = false;
 #ifdef Q_OS_ANDROID
@@ -251,8 +300,10 @@ bool ModelImporter::importSources(const QList<ModelImportSource> &sources)
                     return;
                 }
                 if (canonical.startsWith(models + '/')) {
-                    result->paths.append(canonical);
-                    ++result->existing;
+                    QString error;
+                    const auto placed = store->place(canonical, {}, &error);
+                    if (placed.isEmpty()) result->errors.append(error);
+                    else { result->paths.append(placed); ++result->existing; }
                     return;
                 }
                 QFile source(content ? path : input.absoluteFilePath());
@@ -296,7 +347,9 @@ bool ModelImporter::importSources(const QList<ModelImportSource> &sources)
                 if (error.isEmpty() && !drive->isValid())
                     error = tr("The Society drive changed while the model was being copied.");
                 if (error.isEmpty()) {
-                    const auto destination = publishCopy(copy, models, name);
+                    const auto classification = iiSocietyContainer::ModelClassifier::classify(content ? copy.fileName() : input.absoluteFilePath(), name);
+                    const auto category = store->categoryPath(classification.type, &error);
+                    const auto destination = category.isEmpty() ? QString() : publishCopy(copy, category, name);
                     if (destination.isEmpty())
                         error = tr("Could not save a complete model without replacing an existing item: %1").arg(copy.errorString());
                     else {
@@ -330,6 +383,7 @@ bool ModelImporter::importSources(const QList<ModelImportSource> &sources)
             m_progress = 1;
         emit stateChanged();
         emit finished(root, result->paths);
+        if (m_needsOrganization) QTimer::singleShot(0, this, [this] { organizeModels(); });
     });
     m_worker->start();
     emit stateChanged();

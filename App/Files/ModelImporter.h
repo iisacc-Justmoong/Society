@@ -42,12 +42,14 @@ public:
     Q_INVOKABLE void cancel();
     Q_INVOKABLE void attachWindow(QWindow *window);
     Q_INVOKABLE bool chooseFiles();
+    Q_INVOKABLE bool organizeModels();
 
 signals:
     void containerPathChanged();
     void stateChanged();
     void nativeDragChanged();
     void finished(const QString &containerPath, const QStringList &paths);
+    void organized(const QString &containerPath, const QStringList &paths);
 
 private:
     QString m_containerPath;
@@ -56,6 +58,7 @@ private:
     double m_progress = 0;
     bool m_nativeDragActive = false;
     bool m_choosingFiles = false;
+    bool m_needsOrganization = false;
     QPointer<QWindow> m_window;
     QThread *m_worker = nullptr;
     std::shared_ptr<std::atomic_bool> m_cancelled;
