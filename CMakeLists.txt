@@ -633,9 +633,12 @@ endif()
 
 # Running desktop apps publish authenticated same-user MCP endpoints.
 if(UNIX AND NOT IOS AND NOT ANDROID AND NOT EMSCRIPTEN)
-    find_package(iiLocalLLM 0.10.0 CONFIG REQUIRED HINTS "$ENV{HOME}/.local/SDK/iiLocalLLM")
+    find_package(iiLocalLLM 0.36.0 CONFIG REQUIRED HINTS "$ENV{HOME}/.local/SDK/iiLocalLLM")
     target_sources(Society PRIVATE App/Mcp/SocietyMcp.cpp App/Mcp/SocietyMcp.h)
     target_link_libraries(Society PRIVATE iiLocalLLM::iiLocalLLM)
+    set_source_files_properties("${IILOCALLLM_QML_DIR}/UserQuestionsSheet.qml" PROPERTIES QT_RESOURCE_ALIAS "UserQuestionsSheet.qml")
+    qt_add_resources(Society AgentQuestionUi PREFIX "/iiLocalLLM"
+        FILES "${IILOCALLLM_QML_DIR}/UserQuestionsSheet.qml")
     target_compile_definitions(Society PRIVATE SOCIETY_WITH_LOCAL_MCP=1)
     if(BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)
         # Existing UI tests must not advertise fixtures to the user's live agent.

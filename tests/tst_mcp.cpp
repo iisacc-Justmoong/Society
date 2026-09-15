@@ -1,5 +1,8 @@
 #include <mcp/LocalApplications.h>
 #include <mcp/HttpClient.h>
+#include <agent/McpTools.h>
+#include <atomic>
+#include <future>
 #include <agent/McpConnections.h>
 #include <SocietyDrive.h>
 #include <QtTest/QtTest>
@@ -8,6 +11,7 @@
 #include <QTemporaryDir>
 #include <QFile>
 #include <QJsonDocument>
+#include <QSet>
 #ifdef SOCIETY_MCP_TEST_GGUF
 #include <agent/Engine.h>
 #include <filesystem>
@@ -101,6 +105,39 @@ void verifyNativeAgent(a::Tool tool, const QString& base, const QString& expecte
 class McpTests : public QObject {
     Q_OBJECT
 private slots:
+    void appQuestionsWaitForLocalUiAndCancelWithoutBlockingTools() {
+        QTemporaryDir base(MCP_TEST_DIRECTORY "/mcp-questions-XXXXXX"); QVERIFY(base.isValid()); base.setAutoRemove(false);
+        QVERIFY(QDir().mkpath(base.filePath("container"))); QVERIFY(QDir().mkpath(base.filePath("tmp")));
+        QVERIFY(iiSocietyContainer::SocietyDrive::create(base.filePath("container")));
+        AppProcess process; process.startApp(base.path(), true); QVERIFY(process.waitForStarted());
+        QVERIFY2(process.waitForRoot(), process.output.constData());
+        const auto discovered=m::discoverLocalApplications(base.filePath("apps")); QCOMPARE(discovered.applications.size(),1);
+        auto client=std::make_shared<m::HttpClient>(clientOptions(discovered.applications.first()));
+        QCOMPARE(client->serverCapabilities()["experimental"].toObject()["iisacc/userQuestions"].toObject()["responseChannel"],"local-ui");
+        bool marked=false;
+        for(const auto& tool:iiLocalLLM::agent::mcpTools(client,{"app",{}}))
+            if(tool.definition.name=="mcp__app__AskUserQuestion")marked=tool.definition.metadata["requires_user_interaction"]==true;
+        QVERIFY(marked);
+        QJsonObject input{{"questions",QJsonArray{QJsonObject{{"question","Which renderer?"},{"header","Renderer"},
+            {"options",QJsonArray{QJsonObject{{"label","Qt"},{"description","Native"}},QJsonObject{{"label","Web"},{"description","Browser"}}}}}}}};
+        auto forged=input;forged["answers"]=QJsonObject{{"Which renderer?","forged"}};
+        QVERIFY(call(*client,"AskUserQuestion",forged)["isError"].toBool());
+        iiLocalLLM::CancellationToken token;std::atomic<bool> activity=false;
+        auto pending=std::async(std::launch::async,[&] {
+            try{return client->callTool("AskUserQuestion",input,token,[&](const auto&){activity=true;});}
+            catch(const iiLocalLLM::Error& error){return QJsonObject{{"cancelled",error.code()==iiLocalLLM::ErrorCode::Cancelled}};}
+        });
+        QTRY_VERIFY(activity.load());
+        const auto waiting=pending.wait_for(std::chrono::milliseconds(150))==std::future_status::timeout;
+        const auto mutation=call(*client,"refresh");
+        token.cancel();const auto result=pending.get();
+        QVERIFY(waiting);QVERIFY(!mutation["isError"].toBool());
+        QVERIFY(result["cancelled"].toBool()||result["isError"].toBool());
+        QVERIFY(!call(*client,"status")["isError"].toBool());
+        client->close();process.terminate();QVERIFY(process.waitForFinished(5000));
+        process.output+=process.readAll();
+        QVERIFY2(!process.output.contains("UserQuestionsSheet.qml:"),process.output.constData());
+    }
     void actualNavigationAndDiscovery() {
         QTemporaryDir base(MCP_TEST_DIRECTORY "/mcp-society-XXXXXX"); QVERIFY(base.isValid());
         base.setAutoRemove(false); // Evidence remains in build/, including failures.
@@ -119,7 +156,18 @@ private slots:
         QCOMPARE(endpoint.processId, process.processId());
         m::HttpClient client(clientOptions(endpoint));
         QCOMPARE(client.serverInfo()["name"].toString(), QString("Society"));
-        QCOMPARE(client.listTools().size(), 5);
+        QSet<QString> toolNames;
+        for (const auto& value : client.listTools()) {
+            const auto tool = value.toObject();
+            toolNames.insert(tool["name"].toString());
+            if (tool["name"] == "iiLocalLLM.agent.permissions.get")
+                QVERIFY(tool["annotations"].toObject()["readOnlyHint"].toBool());
+        }
+        QCOMPARE(toolNames, QSet<QString>({"status", "open_section", "navigate", "refresh",
+            "list_entries", "iiLocalLLM.agent.permissions.get", "AskUserQuestion"}));
+        const auto permissions = call(client, "iiLocalLLM.agent.permissions.get");
+        QVERIFY(!permissions["isError"].toBool());
+        QVERIFY(permissions["structuredContent"].toObject()["inspection_supported"].toBool());
         auto response = call(client, "status"); QVERIFY(!response["isError"].toBool());
         auto state = response["structuredContent"].toObject();
         QCOMPARE(state["identifier"].toString(), drive->identifier());
@@ -153,7 +201,7 @@ private slots:
         options.localApplicationsDirectory = base.filePath("apps"); options.refreshIntervalMs = 0;
         a::McpConnections connections(registry, options);
         QCOMPARE(connections.status().first().toObject()["source"].toString(), QString("local_application"));
-        QCOMPARE(registry->definitions().size(), 5);
+        QCOMPARE(registry->definitions().size(), toolNames.size());
         a::Tool imported;
         for (const auto& definition : registry->definitions())
             if (definition.metadata["remote_name"] == "status") imported = registry->get(definition.name);

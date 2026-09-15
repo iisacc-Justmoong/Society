@@ -13,6 +13,12 @@ LV.ApplicationWindow {
     id: root
     objectName: "societyWindow"
     property string initialContainerPath: ""
+    property var agentQuestionInbox: null
+    onAgentQuestionInboxChanged: {
+        if (agentQuestionInbox) agentQuestions.setSource("qrc:/iiLocalLLM/UserQuestionsSheet.qml", {inbox: agentQuestionInbox})
+        else agentQuestions.source = ""
+    }
+    Loader { id: agentQuestions }
     property PreferencesWindow preferencesWindow: null
     readonly property AccountController accountSession: session
     readonly property DriveController storageDrive: drive

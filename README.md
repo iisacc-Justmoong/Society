@@ -330,7 +330,7 @@ iOS 26 이상에서 Devices → **Sync now**로 시작한 동기화는 시스템
 
 ## 로컬 MCP 제어
 
-데스크톱 POSIX 빌드는 iiLocalLLM 0.10.0으로 실행 중인 Society의 컨트롤러를 인증된 로컬 MCP 도구로 제공한다. 자동 발견, 입력·권한·취소 계약과 실제 앱 실행 테스트는 [Mcp.md](docs/Mcp.md)에 기록한다. `IILOCALLLM_DISABLE_APP_MCP=1`로 비활성화할 수 있다.
+데스크톱 POSIX 빌드는 iiLocalLLM 0.36 계열로 실행 중인 Society의 컨트롤러를 인증된 로컬 MCP 도구로 제공한다. SDK의 같은 minor 버전 호환성 정책에 따라 0.36.0 이상 패치 버전을 사용하며 `Society.Mcp` 통합 검사로 설치본과의 연결을 검증한다. 자동 발견, 입력·권한·취소 계약과 실제 앱 실행 테스트는 [Mcp.md](docs/Mcp.md)에 기록한다. `IILOCALLLM_DISABLE_APP_MCP=1`로 비활성화할 수 있다.
 
 
 모바일 진입 시 iiSocietySync의 컨테이너 상태 조회와 파일 처리는 작업 스레드에서 수행한다. 화면은 캐시된 상태만 읽고, 조회·다운로드·동기화 결과를 비동기로 받는다. 모바일 종료는 작업 정리를 기다리지 않으며 데스크톱 실행권 인계의 대기는 유지한다. iiSocietySync 0.5.0 및 [비동기 실행 계약](docs/Synchronization.md#모바일-시작과-화면-응답성)을 따른다.

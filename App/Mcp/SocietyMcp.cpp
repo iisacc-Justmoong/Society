@@ -2,6 +2,8 @@
 #include "App/Drive/DriveController.h"
 #include <agent/ObjectTools.h>
 #include <agent/McpServer.h>
+#include <agent/QuestionInbox.h>
+#include <agent/UserQuestions.h>
 #include <mcp/LocalApplications.h>
 #include <QCoreApplication>
 #include <QDir>
@@ -77,15 +79,24 @@ void installSocietyMcp(QObject* root, QObject* lifetime) {
             return a::ToolResult{"Society directory entries", {{"path", canonical}, {"entries", entries}, {"truncated", iterator.hasNext()}}};
         };
         registry->add(std::move(list));
-        auto policy = std::make_shared<a::RulePolicy>(a::PermissionMode::DontAsk,
+        auto policy = std::make_shared<a::RulePolicy>(a::PermissionMode::Default,
             QList<a::PermissionRule>{{"open_section", a::PermissionBehavior::Allow},
                 {"navigate", a::PermissionBehavior::Allow}, {"refresh", a::PermissionBehavior::Allow}});
         a::McpServerOptions bridge; bridge.workingDirectory = QDir::currentPath(); bridge.appId = "com.iisacc.society";
+        auto* questions = new a::QuestionInbox(a::PermissionRequestsOptions{}, lifetime);
+        registry->add(a::userQuestionTool({false, "markdown"}));
+        bridge.tools.hooks.append(questions->hook());
+        auto protocol = a::mcpServerOptions(registry, policy, std::move(bridge));
+        protocol.experimentalCapabilities["iisacc/userQuestions"] = QJsonObject{
+            {"schema", "iisacc.user-question/1"}, {"tool", "AskUserQuestion"},
+            {"responseChannel", "local-ui"}, {"permissionRequests", false},
+            {"previewFormat", "markdown"}, {"previewRendering", "plain-text"}};
         auto server = std::make_shared<m::LocalApplicationServer>(
             m::LocalApplicationIdentity{"com.iisacc.society", "Society", SOCIETY_APP_VERSION},
-            a::mcpServerOptions(registry, policy, std::move(bridge)));
+            std::move(protocol));
         if (!server->listen()) { qWarning() << "Society MCP:" << server->errorString(); return; }
-        QObject::connect(qApp, &QCoreApplication::aboutToQuit, lifetime, [server] { server->close(); });
-        QObject::connect(drive, &QObject::destroyed, lifetime, [server] { server->close(); });
+        root->setProperty("agentQuestionInbox", QVariant::fromValue(questions));
+        QObject::connect(qApp, &QCoreApplication::aboutToQuit, lifetime, [questions, server] { questions->close(); server->close(); });
+        QObject::connect(drive, &QObject::destroyed, lifetime, [questions, server] { questions->close(); server->close(); });
     } catch (const std::exception& error) { qWarning() << "Society MCP:" << error.what(); }
 }
