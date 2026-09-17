@@ -24,6 +24,8 @@ public:
                              std::shared_ptr<PhotoLibrary> library = {});
     ~PhotoController() override;
     void configure(const QString &container, bool active, const QStringList &authorized = {}, const QStringList &hosts = {});
+    // Call after disabling the controller, before returning a background grant.
+    void waitForDone() { m_worker.waitForDone(); }
     QJsonObject handle(const QString &peer, const QJsonObject &packet);
     void receive(const QString &request, const QJsonObject &reply);
     QVariantList entries() const { return m_entries; }
@@ -37,6 +39,7 @@ public:
     Q_INVOKABLE void refresh();
     Q_INVOKABLE void addFiles(const QList<QUrl> &files);
     Q_INVOKABLE void openPhoto(const QString &id);
+    Q_INVOKABLE void downloadPhoto(const QString &id);
     Q_INVOKABLE void trashPhoto(const QString &id);
 signals:
     void changed();
@@ -56,7 +59,7 @@ private:
     void transfer(bool uploading);
     void nextResource();
     void nextChunk();
-    void finishCycle(const QString &error = {});
+    void finishCycle(const QString &error = {}, bool refreshAfterTransfer = true);
     void destination(const QJsonObject &command, Completion done);
     void source(const QJsonObject &command, Completion done);
     QJsonObject resourceCommand(const QString &action) const;
@@ -68,6 +71,7 @@ private:
     QTimer m_timer, m_timeout;
     QString m_container, m_identifier, m_status, m_host, m_request, m_lease;
     QStringList m_authorized, m_hosts;
+    QString m_requestedOriginal, m_openAfterDownload;
     QVariantList m_entries;
     QJsonArray m_records, m_cycleRecords;
     QJsonObject m_previewStamps;

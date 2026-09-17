@@ -4,6 +4,8 @@
 
 Society를 같은 계정으로 로그인하고 같은 사설 IPv4 LAN에서 실행하면 검증된 기기를 자동 대기열에 넣고 순서대로 연결한다. 패널 열기, 초대 수락, 수동 코드 비교가 필요하지 않다. 모바일은 전경과 OS가 허용한 백그라운드 실행 시간에 동작하며 Files 호스트가 되지 않는다.
 
+iiSocietySync 0.6부터 발견은 SDK `BleDiscovery`의 BLE 광고/GATT bootstrap과 OS Bonjour/NSD를 함께 사용한다. BLE에는 연결 정보만 전달하고 파일은 인증된 TCP/TLS로 전송한다. Bluetooth 권한 거부나 하드웨어 부재에서도 LAN 발견을 계속한다. `NearbyDevices`는 BLE에서 받은 레코드에도 같은 scope/HMAC/nonce 검증을 적용한다. 새 버전끼리는 바이너리 파일 본문과 최대 4개 동시 조각 요청을 사용한다. [SDK 상세 계약](../../../SDK/iiSocietySync/NearbySync.md)을 참고한다. AP 없는 AWDL/Wi-Fi Direct 그룹 생성과 QUIC는 현재 구현에 포함되지 않는다.
+
 ## 연결 정책
 
 Society 컨테이너가 열린 데스크톱 가운데 기기 ID가 사전순으로 가장 앞선 한 대를 호스트로 정한다. 다른 데스크톱, 휴대폰, 태블릿은 그 호스트에 연결한다. 호스트는 한 번에 한 기기를 처리하고, 연결된 ID와 중복 발견은 다시 등록하지 않는다. 대기열은 메모리에만 존재하고 재실행 시 현재 기기로 다시 구성한다.

@@ -100,7 +100,6 @@ LV.ApplicationWindow {
     onActiveChanged: if (active && selectedTab === "Dashboard" && dashboardFiles) dashboardFiles.refresh()
     onSelectedTabChanged: {
         if (mobileLayout && (selectedTab !== "Dashboard" || !societyView || !societyView.searchHasFocus)) platformInputMethod.hide()
-        if (selectedTab === "Dashboard" && dashboardFiles) dashboardFiles.refresh()
     }
 
     Component.onCompleted: {
@@ -117,11 +116,15 @@ LV.ApplicationWindow {
     MobileGestures {
         appWindow: root
         enabled: root.isMobilePlatform
-        backEnabled: root.selectedTab === "Storage" && !drive.atRoot && !drive.busy
+        backEnabled: ((root.selectedTab === "Storage" && !drive.atRoot && !drive.busy)
+            || (root.selectedTab === "Tools" && societyView.toolsCanGoBack))
             && !networkDevices.visible && !pairingPanel.visible
             && !mobileEnvironment.visible && !societyView.navigationOpen
             && root.accountSession.manager.activeView === Accounts.AccountManager.Closed
-        onBackRequested: drive.goUp()
+        onBackRequested: {
+            if (root.selectedTab === "Tools") societyView.goBackTool()
+            else drive.goUp()
+        }
     }
 
     DriveController {
@@ -132,7 +135,7 @@ LV.ApplicationWindow {
     DashboardFiles {
         id: dashboardFiles
         objectName: "dashboardFiles"
-        containerPath: drive.contentsAvailable ? drive.rootPath : ""
+        containerPath: drive.rootPath
         query: societyView.query
     }
     AccountController { id: session; objectName: "societyAccount" }

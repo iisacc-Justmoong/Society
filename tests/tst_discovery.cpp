@@ -7,11 +7,28 @@
 #include <QJsonDocument>
 #include <QTest>
 #include <QUuid>
+#include <NearbyBootstrap.h>
 
 class DiscoveryTests : public QObject {
     Q_OBJECT
     const QString scope = NearbyDevices::accountScope("https://iisacc.com", "noncredential-discovery-fixture");
 private slots:
+    void bleBootstrapStillRequiresAccountProof() {
+        FakeDiscoveryService service; NearbyDevices nearby(&service, QHostAddress::LocalHost);
+        nearby.setIdentity(scope, "phone", "Phone", "phone", false);
+        nearby.setCredentials(localPairingCredentialsFixture(scope));
+        iiSocietySync::NearbyBootstrap bootstrap{{{"v", "1"}, {"scope", scope}, {"id", "desktop"},
+            {"nonce", "nonce"}, {"name", "Desktop"}, {"kind", "pc"}, {"host", "1"}, {"autoHost", "1"},
+            {"epoch", QString::number(QDateTime::currentMSecsSinceEpoch() / 300000)}, {"proof", QString(64, '0')}}, {"192.168.1.10"}, 4444};
+        const auto decoded = iiSocietySync::NearbyBootstrap::decode(bootstrap.encode()); QVERIFY(decoded);
+        emit service.found("ble:desktop", decoded->record, QHostAddress(decoded->addresses.first()), decoded->port);
+        QCOMPARE(nearby.devices().size(), 1);
+        QVERIFY(!nearby.devices().first().toMap().value("verified").toBool());
+        bootstrap.record.insert("scope", QString(64, 'f'));
+        emit service.found("ble:foreign", bootstrap.record, QHostAddress("192.168.1.11"), 4444);
+        QCOMPARE(nearby.devices().size(), 1);
+        nearby.clear(); QVERIFY(nearby.devices().isEmpty());
+    }
     void localSeedsDeriveRotatingKeysAcrossDaysWithoutServer() {
         const auto issued = QDateTime::fromString("2026-09-10T13:00:00Z", Qt::ISODate);
         const auto grant = localPairingCredentialsFixture(scope, 'a', issued);

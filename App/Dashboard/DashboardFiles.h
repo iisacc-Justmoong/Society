@@ -2,6 +2,8 @@
 
 #include <QObject>
 #include <QVariantList>
+#include <QFileSystemWatcher>
+#include <QTimer>
 #include <QtQml/qqmlregistration.h>
 #include <atomic>
 #include <memory>
@@ -35,10 +37,12 @@ signals:
     void filesChanged();
     void loadingChanged();
 private:
-    QVariantList filtered(bool historyOnly) const;
+    QVariantList filtered(bool history) const;
     QString m_path, m_query, m_error;
     QVariantList m_files;
-    bool m_loading = false;
+    bool m_loading = false, m_refreshPending = false;
     quint64 m_revision = 0;
     std::shared_ptr<std::atomic_bool> m_cancel;
+    QFileSystemWatcher m_watches;
+    QTimer m_debounce;
 };

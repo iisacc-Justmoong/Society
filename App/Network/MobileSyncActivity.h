@@ -22,6 +22,7 @@ public:
     void release(bool success = false);
     bool active() const { return m_active; }
     bool continued() const { return m_active && m_continued; }
+    bool batchActive() const { return m_batchActive; }
 signals:
     void expired();
 private:
@@ -29,6 +30,7 @@ private:
     Begin m_beginContinued; Complete m_complete; Progress m_progress;
     bool start(bool continued);
     bool m_continued = false;
+    bool m_batchActive = false;
     QHash<QString, qint64> m_fileProgress, m_remainingWork;
     qint64 m_completedBytes = 0;
     bool m_active = false;
@@ -48,4 +50,5 @@ void societyEndBackgroundSync();
 bool societyBeginContinuedSync(std::function<void()> expired);
 void societyCompleteContinuedSync(bool success);
 void societyUpdateContinuedSync(qint64 completed, qint64 total);
+void societyRestartSyncPresentation();
 #endif

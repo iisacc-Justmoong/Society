@@ -53,7 +53,13 @@ private slots:
         QCOMPARE(network.containerPath(), second.path());
         QVERIFY2(!network.containerReady(), "A stale first-container result must not replace the selected container");
     }
+    void foregroundOpeningAutomaticallyContinuesAnAuthenticatedSyncAndHonorsCancellation_data() {
+        QTest::addColumn<bool>("background");
+        QTest::newRow("foreground-expiration") << false;
+        QTest::newRow("background-expiration") << true;
+    }
     void foregroundOpeningAutomaticallyContinuesAnAuthenticatedSyncAndHonorsCancellation() {
+        QFETCH(bool, background);
         AccountServer authority; QVERIFY(authority.server.listen(QHostAddress::LocalHost));
         MemorySessionStore store;
         AccountController account(authority.url(), &store, nullptr);
@@ -82,9 +88,11 @@ private slots:
         QVERIFY(mobile.configureServer(options.relayUrl, false));
         QTRY_VERIFY(mobile.connected()); QTRY_COMPARE(starts, 1);
         QVERIFY(mobile.backgroundActivity()->continued());
-        mobile.setApplicationState(Qt::ApplicationHidden);
+        if (background) mobile.setApplicationState(Qt::ApplicationHidden);
         QVERIFY(mobile.backgroundActivity()->continued());
-        expire(); QTRY_VERIFY(!mobile.connected()); QVERIFY(!mobile.backgroundActivity()->active());
+        expire(); QTRY_VERIFY(!mobile.backgroundActivity()->active());
+        if (background) QTRY_VERIFY(!mobile.connected());
+        else QVERIFY(mobile.connected());
         QCOMPARE(completions, QList<bool>{false});
         QTest::qWait(100); QCOMPARE(starts, 1);
         mobile.setApplicationState(Qt::ApplicationActive);
@@ -127,6 +135,40 @@ private slots:
         activity.update("Models/model", 100, 100);
         QCOMPARE(progress, (QList<QPair<qint64, qint64>>{{50,100}, {70,120}, {95,120}, {95,120}, {120,121}}));
         activity.release(true);
+    }
+    void presentationProgressAndCompletionSurviveExecutionExpiration() {
+        MobileSyncActivity activity;
+        std::function<void()> expire;
+        QList<bool> completions;
+        QList<QPair<qint64, qint64>> progress;
+        activity.setContinuedBackend([&](auto callback) { expire = callback; return true; },
+            [&](bool success) { completions.append(success); },
+            [&](qint64 done, qint64 total) { progress.append({done, total}); });
+        QVERIFY(activity.retainContinued());
+        activity.update("Models/model", 50, 100);
+        expire();
+        QVERIFY(!activity.active() && activity.batchActive());
+        QCOMPARE(completions, QList<bool>{false});
+        // Foreground work continues despite losing the background grant.
+        activity.update("Models/model", 100, 100);
+        QCOMPARE(progress.last(), (QPair<qint64, qint64>{100, 101}));
+        activity.release(true);
+        QCOMPARE(completions, (QList<bool>{false, true}));
+        QVERIFY(!activity.batchActive());
+        activity.release(true);
+        QCOMPARE(completions.size(), 2);
+    }
+    void expirationKeepsTheGrantUntilWorkersHaveReleasedTheirLocks() {
+        MobileSyncActivity activity; std::function<void()> expire; QStringList order;
+        activity.setContinuedBackend([&](auto callback) { expire = callback; return true; },
+            [&](bool success) { QVERIFY(!success); order.append("released"); }, [](auto, auto) {});
+        connect(&activity, &MobileSyncActivity::expired, this, [&] {
+            QVERIFY(activity.active());
+            order.append("workers-drained");
+        });
+        QVERIFY(activity.retainContinued()); expire();
+        QTRY_COMPARE(order, (QStringList{"workers-drained", "released"}));
+        QVERIFY(!activity.active());
     }
     void backgroundGrantSurvivesHidingAndExpiresWithoutReusingAnOldCallback() {
         MobileSyncActivity activity; std::function<void()> expire; int begins = 0, ends = 0;

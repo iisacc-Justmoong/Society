@@ -8,7 +8,6 @@ Item {
     objectName: "quickGenerate"
 
     property alias prompt: promptField.text
-    property bool touchNavigation: false
     readonly property string mediaType: "Image"
     property string aspectRatio: "1:1"
     property int generationCount: 1
@@ -60,7 +59,6 @@ Item {
             objectName: "promptField"
             Layout.fillWidth: true
             Layout.minimumWidth: 0
-            Layout.minimumHeight: root.touchNavigation ? 44 : 0
             placeholderText: qsTr("Prompt")
             style: roundedStyle
             clearButtonVisible: false
@@ -85,7 +83,6 @@ Item {
                 LV.LabelMenuButton {
                     id: mediaButton
                     objectName: "mediaTypeButton"
-                    Layout.minimumHeight: root.touchNavigation ? 44 : 0
                     text: qsTr("Image")
                     tone: LV.AbstractButton.Default
                     Accessible.name: qsTr("Media type: Image")
@@ -95,7 +92,6 @@ Item {
                 LV.LabelMenuButton {
                     id: ratioButton
                     objectName: "aspectRatioButton"
-                    Layout.minimumHeight: root.touchNavigation ? 44 : 0
                     text: root.aspectRatio
                     tone: LV.AbstractButton.Default
                     Accessible.name: qsTr("Aspect ratio: %1").arg(root.aspectRatio)
@@ -105,7 +101,6 @@ Item {
                 LV.LabelMenuButton {
                     id: countButton
                     objectName: "generationCountButton"
-                    Layout.minimumHeight: root.touchNavigation ? 44 : 0
                     text: String(root.generationCount)
                     tone: LV.AbstractButton.Default
                     Accessible.name: qsTr("Image count: %1").arg(root.generationCount)
@@ -121,7 +116,6 @@ Item {
             LV.LabelButton {
                 id: generateButton
                 objectName: "generateButton"
-                Layout.minimumHeight: root.touchNavigation ? 44 : 0
                 Layout.minimumWidth: implicitWidth
                 text: qsTr("Generate")
                 tone: LV.AbstractButton.Primary

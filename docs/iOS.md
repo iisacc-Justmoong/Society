@@ -75,9 +75,9 @@ iPad는 사용자 지시로 이번 설치에서 제외했다. 파일 앱 위치 
 
 ## Live Activity를 통한 동기화 지속
 
-iOS 26 이상에서 앱을 열거나 전경으로 돌아오면 한 번의 동기화 작업을 준비한다. 인증된 계정 연결의 동기화 또는 권한이 있는 사진 보관함의 처리가 시작되면 `BGContinuedProcessingTask`를 자동으로 요청한다. Devices의 **Sync now**로도 요청할 수 있다. 준비가 늦어지면 앱이 전경일 때 연결이 완료되는 시점에 요청하며, 주기적인 자동 탐색만으로 새 지속 실행 작업을 만들지 않는다. 시스템이 표시하는 Live Activity에서 실제 파일·사진 처리량을 확인하고 취소할 수 있다. CPU·네트워크용 기본 리소스를 사용하며 추가 서비스·유료 의존성·위젯 확장은 없다.
+iOS 26 이상에서 앱을 열거나 전경으로 돌아오면 한 번의 동기화 작업을 준비한다. 인증된 계정 연결의 동기화 또는 권한이 있는 사진 보관함의 처리가 시작되면 `BGContinuedProcessingTask`를 자동으로 요청한다. Devices의 **Sync now**로도 요청할 수 있다. 준비가 늦어지면 앱이 전경일 때 연결이 완료되는 시점에 요청하며, 주기적인 자동 탐색만으로 새 지속 실행 작업을 만들지 않는다. 시스템이 표시하는 Live Activity에서 실제 파일·사진 처리량을 확인하고 취소할 수 있다. CPU·네트워크용 기본 리소스를 사용하며 추가 서비스·유료 의존성은 없다. 아래의 WidgetKit 확장이 실행 권한과 독립적인 상태 표시를 담당한다.
 
-진행량은 파일·사진 리소스별로 수신 확인된 바이트를 합산한다. 서로 다른 작업이 번갈아 진행되거나 완료 콜백이 재전달되어도 중복 합산하지 않으며, 남은 작업을 유지한다. SDK의 파일 동기화와 사진 큐가 모두 끝나야 전체 작업을 완료한다. 실패·연결 종료·로그아웃·실행권 반납 때 작업을 해제하며, 시스템 취소/만료는 전경에서도 전송을 중단한다. 다시 **Sync now**를 누르거나 앱으로 돌아오면 기존 매니페스트·체크포인트를 이용해 재개한다. 구버전 또는 요청 거절 시에는 유한한 UIKit 실행 시간 이후 앱 복귀 때 재개한다. Live Activity 자체는 무기한 실행 권한을 부여하지 않는다.
+진행량은 파일·사진 리소스별로 수신 확인된 바이트를 합산한다. 서로 다른 작업이 번갈아 진행되거나 완료 콜백이 재전달되어도 중복 합산하지 않으며, 남은 작업을 유지한다. SDK의 파일 동기화와 사진 큐가 모두 끝나야 전체 작업을 완료한다. 실패·연결 종료·로그아웃·실행권 반납 때 작업을 해제하며, 시스템 취소/만료는 백그라운드 연결을 정리하며 전경의 현재 전송은 유지한다. 다시 **Sync now**를 누르거나 앱으로 돌아오면 기존 매니페스트·체크포인트를 이용해 재개한다. 구버전 또는 요청 거절 시에는 유한한 UIKit 실행 시간 이후 앱 복귀 때 재개한다. Live Activity 자체는 무기한 실행 권한을 부여하지 않는다.
 
 근거: [Apple 장시간 작업](https://developer.apple.com/documentation/backgroundtasks/performing-long-running-tasks-on-ios-and-ipados), [기본 CPU·네트워크 리소스](https://developer.apple.com/documentation/backgroundtasks/bgcontinuedprocessingtaskrequestresources/bgcontinuedprocessingtaskrequestresourcesdefault). `Society.ClientOnlyNetwork` 회귀는 실행권 승격, 파일 간 진행량, 전체 완료, 취소 및 오래된 콜백 격리를 검사한다. `tests/verify_ios_bundle.py`는 실제 서명 번들의 processing 모드·작업 식별자·BackgroundTasks 링크를 확인한다.
 
@@ -108,3 +108,19 @@ xcodebuild test -project tests/ios/Interactions.xcodeproj \
 기기 로그는 지속 실행 요청·허용·완료와 사진 접근 상태·결과 개수를 기록한다. 진단 로그에 네이티브 자산 식별자·파일명·계정 자격 증명·이미지 내용을 넣지 않는다. 실행 수명과 진행 보고의 근거는 [Apple WWDC 2025](https://developer.apple.com/videos/play/wwdc2025/227/)이다.
 
 Photos는 Files와 같은 최상위 영역이다. Photos/Generation History 타일은 한 번 탭하면 [파일 정보 시트](Gallery.md)를 표시하고, 시트의 View original로 원본을 연다. 네이티브 탐색 테스트도 Files를 경유하지 않고 Photos 영역을 선택한다.
+
+### 지속 실행 중 조기 종료 방지
+
+파일 한 회차 완료만으로 연결을 해제하지 않는다. 사진 원본 수신 후의 목록 갱신까지 busy 상태에 포함하고, 파일·사진 작업의 공통 완료 검사에서 실행 허가를 반환한다. SHA-256 검사 중에도 iiSocietySync의 실제 처리 바이트를 Live Activity에 전달한다. 파일 전송과 무결성 검사의 진행량은 별도로 합산한다. 지속 실행 허가를 받으면 짧은 UIKit assertion을 해제한다. 허가 만료는 백그라운드 연결을 정리하지만 전경의 현재 동기화를 중단하지 않으며, 백그라운드에서 자동으로 새 지속 실행 작업을 만들지 않는다. iOS의 최종 실행 허용 시간과 프로세스 생존은 별도 실기기 검증 대상이다.
+
+실기기 `RUNNINGBOARD 0xdead10cc` 종료를 막기 위해 만료 신호는 실행 허가가 살아 있는 동안 작업 취소를 먼저 전달한다. 사진·파일 worker가 정리되어 파일 잠금을 놓은 다음 허가를 반환한다. 사진 목록·참조·임시 파일 순회와 원본 SHA-256 해시는 취소를 확인하며, 해시는 1 MiB 경계에서 멈추고 부분 digest를 공개하지 않는다. 사진 처리 중간 게시에는 새로 확정한 레코드와 미리보기만 합쳐 사용한다. 매 게시마다 전체 보관함을 디스크에서 다시 읽지 않으므로 큰 목록에서도 실제 진행 보고를 막지 않는다. 회귀 테스트는 게시 배치 간 기존 항목 보존, 해시 중단, worker 종료 후 파일 잠금 반환, 허가 반환 순서를 검사한다.
+
+## 앱 프로세스와 분리된 Live Activity
+
+iOS 16.2 이상에서 `SocietyLiveActivity.appex`는 ActivityKit/WidgetKit으로 동기화 상태를 표시한다. BGContinuedProcessingTask의 실행 허가와 별개이므로 권한 만료, 일시적인 연결 단절, 앱 종료만으로 표시를 종료하지 않는다. 마지막 실제 처리량을 유지한다. 갱신 유효시간은 90초이며 시스템의 stale 상태 반영 후 상태 확인 안내를 표시한다. 화면 갱신 시점은 시스템이 결정한다. 실행 권한이 만료된 뒤 전경에서 계속된 작업의 진행·완료도 같은 카드에 전달한다. 모든 파일·사진 큐가 정상적으로 끝났을 때만 완료 처리한다.
+
+사용자가 지운 카드는 앱 재실행·주기적 탐색으로 다시 만들지 않으며, 명시적인 Sync now 요청에서만 재생성을 허용한다. 앱 종료 중 표시 유지가 로컬 동기화 실행 권한을 제공하는 것은 아니다. OS의 ActivityKit 최대 수명과 표시 정책은 적용된다. 실행 중에는 iOS continued-processing 시스템 카드가 함께 나타날 수 있다.
+
+공통 코드는 설치된 iiSocietyContainer의 optional iOS 모듈이며 별도 외부 패키지를 추가하지 않는다. `Society.ClientOnlyNetwork`는 실행 만료 후 처리량 보존·실제 완료의 1회 전달을 검사하고, `verify_ios_bundle.py`는 ActivityKit 링크와 WidgetKit 확장 서명을 검증한다.
+
+현재 화면은 `LVRS.MobileTabBar`를 사용하므로 iOS 정적 LVRS도 같은 소스로 빌드·설치해야 한다. 호스트용 LVRS만 갱신하면 iOS 앱이 `MobileTabBar is not a type`으로 시작하지 못할 수 있다. 번들 검사는 포함된 LVRS의 MobileTabBar 코드도 확인한다.

@@ -3,6 +3,7 @@ import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls as Controls
 import LVRS 1.0 as LV
+import Society
 
 LV.HStack {
     id: root
@@ -10,11 +11,14 @@ LV.HStack {
     property bool touchNavigation: false
     readonly property int contentInset: touchNavigation && width < 760 ? 16 : 24
     function goHome() { dashboardScroll.contentItem.contentY = 0 }
-    property var recentFiles: []
-    property var historyFiles: []
-    property bool loading: false
-    property string query: ""
-    property string errorString: ""
+    required property DashboardFiles viewModel
+    readonly property var recentFiles: viewModel.recentFiles
+    readonly property var historyFiles: viewModel.generationHistory
+    readonly property bool loading: viewModel.loading
+    readonly property string query: viewModel.query
+    property string driveError: ""
+    readonly property string errorString: viewModel.errorString || driveError
+    property bool initialized: false
     property string deviceStatus: ""
     signal sectionRequested(string section)
     signal fileRequested(string path)
@@ -24,7 +28,14 @@ LV.HStack {
     signal generateRequested(string prompt, string mediaType, string aspectRatio, int count)
     spacing: 0
     alignment: Qt.AlignTop
-    onVisibleChanged: if (!visible) fileMenu.close()
+    Component.onCompleted: {
+        initialized = true
+        viewModel.refresh()
+    }
+    onVisibleChanged: {
+        if (visible && initialized) viewModel.refresh()
+        if (!visible) fileMenu.close()
+    }
 
     function openFileMenu(file, card) {
         fileMenu.filePath = file.path
@@ -74,7 +85,6 @@ LV.HStack {
                         QuickGenerate {
                             Layout.fillWidth: true
                             Layout.minimumWidth: 0
-                            touchNavigation: root.touchNavigation
                             onGenerateRequested: function(prompt, mediaType, aspectRatio, count) {
                                 root.generateRequested(prompt, mediaType, aspectRatio, count)
                             }
@@ -82,7 +92,7 @@ LV.HStack {
                         Repeater {
                             model: [
                                 { title: qsTr("Recent files"), key: "files", name: "RecentFiles" },
-                                { title: qsTr("Generate History"), key: "generation-history", name: "GenerationHistory" }
+                                { title: qsTr("Generate history"), key: "generation-history", name: "GenerationHistory" }
                             ]
                             LV.VStack {
                                 id: section
@@ -92,9 +102,10 @@ LV.HStack {
                                 spacing: 12
                                 LV.HStack {
                                     Layout.fillWidth: true
-                                    Layout.preferredHeight: root.touchNavigation ? 44 : LV.Theme.controlHeightSm
+                                    Layout.preferredHeight: LV.Theme.controlHeightSm
                                     spacing: 12
                                     LV.Label {
+                                        objectName: "dashboard" + section.modelData.name + "Title"
                                         Layout.fillWidth: true
                                         Layout.leftMargin: LV.Theme.gap4
                                         Layout.preferredHeight: LV.Theme.scaleMetric(17)

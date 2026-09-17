@@ -1,5 +1,6 @@
 #pragma once
 #include "PairingCredentialsFixture.h"
+#include <QCryptographicHash>
 #include <QFile>
 #include <QJsonDocument>
 #include <QTcpServer>
@@ -47,8 +48,8 @@ public:
                                   "Set-Cookie: iisacc_auth_refresh=fixture-refresh; Path=/; HttpOnly; Max-Age=3600\r\n"
                                   "Set-Cookie: iisacc_login_session=fixture-session; Path=/; HttpOnly; Max-Age=3600\r\n";
                         if (intent == "pairing") {
-                            auto proof = pairingVersion == 2 ? localPairingCredentialsFixture(QString(64, 'b'))
-                                : pairingCredentialsFixture(QString(64, 'b'));
+                            auto proof = pairingVersion == 2 ? localPairingCredentialsFixture(scope())
+                                : pairingCredentialsFixture(scope());
                             if (pairingVersion == 1)
                                 proof.insert("refreshAt", QDateTime::currentDateTimeUtc().addSecs(200).toString(Qt::ISODate));
                             proof.insert("deviceId", input.value("device").toObject().value("id"));
@@ -65,4 +66,8 @@ public:
         });
     }
     QUrl url() const { return QUrl(QString("http://127.0.0.1:%1").arg(server.serverPort())); }
+    QString scope() const {
+        return QString::fromLatin1(QCryptographicHash::hash("society-auto-pair-v1\n" + url().toEncoded() + '\n'
+            + profile.value("sub").toString().toUtf8(), QCryptographicHash::Sha256).toHex());
+    }
 };

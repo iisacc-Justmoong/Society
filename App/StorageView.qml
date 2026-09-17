@@ -37,6 +37,10 @@ Item {
         id: models
         objectName: "modelCatalog"
         directory: root.drive.contentsAvailable ? root.drive.rootPath + "/Models" : ""
+        onObjectReady: function(path, directory) {
+            if (directory) root.browseModelFolder(path)
+            else root.drive.openFile(path)
+        }
     }
     Connections {
         target: root.drive
@@ -238,7 +242,7 @@ Item {
                         objectName: "fileGridView"
                         anchors.fill: parent
                         visible: root.drive.contentsAvailable && !root.drive.atRoot && !root.modelsOverview && !root.photosOverview
-                        path: root.drive.contentsAvailable ? root.drive.currentPath : ""
+                        path: visible ? root.drive.currentPath : ""
                         heading: root.drive.currentSection
                         imagesOnly: root.drive.currentSection === "Generation History"
                         chronological: root.drive.currentSection === "Files" || filesGrid.imagesOnly
@@ -272,7 +276,7 @@ Item {
                             else root.importModelsRequested()
                         }
                         onCancelImportRequested: root.modelImporter.cancel()
-                        onFileRequested: function(path) { root.drive.openFile(path) }
+                        onFileRequested: function(path) { models.activatePath(path, true) }
                         onFolderRequested: function(path) { root.browseModelFolder(path) }
                         onBrowseFoldersRequested: root.browseModelFolder(root.drive.rootPath + "/Models")
                     }

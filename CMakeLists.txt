@@ -54,13 +54,13 @@ foreach(society_sdk IN LISTS society_sdk_packages)
     if(society_sdk STREQUAL "iiAcountManager")
         find_package(iiAcountManager 0.2.6 CONFIG REQUIRED COMPONENTS Quick HINTS "$ENV{HOME}/.local/SDK/iiAcountManager")
     elseif(society_sdk STREQUAL "iiSocietyContainer")
-        find_package(iiSocietyContainer 0.13.0 CONFIG REQUIRED HINTS "$ENV{HOME}/.local/SDK/iiSocietyContainer")
+        find_package(iiSocietyContainer 0.14.0 CONFIG REQUIRED HINTS "$ENV{HOME}/.local/SDK/iiSocietyContainer")
     elseif(society_sdk STREQUAL "iiServerHost")
-        find_package(iiServerHost 0.4.1 CONFIG REQUIRED HINTS "$ENV{HOME}/.local/SDK/iiServerHost")
+        find_package(iiServerHost 0.6.0 CONFIG REQUIRED HINTS "$ENV{HOME}/.local/SDK/iiServerHost")
     elseif(society_sdk STREQUAL "iiSocietyHelper")
         find_package(iiSocietyHelper 0.7.1 CONFIG REQUIRED HINTS "$ENV{HOME}/.local/SDK/iiSocietyHelper")
     elseif(society_sdk STREQUAL "iiSocietySync")
-        find_package(iiSocietySync 0.5.0 CONFIG REQUIRED HINTS "$ENV{HOME}/.local/SDK/iiSocietySync")
+        find_package(iiSocietySync 0.8.0 CONFIG REQUIRED HINTS "$ENV{HOME}/.local/SDK/iiSocietySync")
     else()
         find_package(${society_sdk} CONFIG REQUIRED HINTS "$ENV{HOME}/.local/SDK/${society_sdk}")
     endif()
@@ -102,55 +102,16 @@ if(NOT IOS AND NOT ANDROID AND NOT EMSCRIPTEN)
     set_target_properties(SocietyDaemon PROPERTIES MACOSX_BUNDLE FALSE QT_QML_MODULE_NO_IMPORT_SCAN TRUE)
 endif()
 
-add_library(SocietyGroupState STATIC App/State/GroupSessionStore.cpp App/State/GroupSessionStore.h
-    App/State/StateCrypto.cpp App/State/StateCrypto.h)
-target_include_directories(SocietyGroupState PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
-target_link_libraries(SocietyGroupState PUBLIC iiAcountManager::iiAcountManager)
-set_target_properties(SocietyGroupState PROPERTIES POSITION_INDEPENDENT_CODE ON)
-if(APPLE)
-    target_sources(SocietyGroupState PRIVATE App/State/AppleStateLocation.mm)
-    set_source_files_properties(App/State/AppleStateLocation.mm PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
-    target_link_libraries(SocietyGroupState PRIVATE "-framework Foundation" "-framework Security")
-endif()
-if(IOS)
-    add_library(SocietyStateCrypto STATIC App/State/IosStateCrypto.swift)
-    set_target_properties(SocietyStateCrypto PROPERTIES AUTOMOC OFF AUTOUIC OFF AUTORCC OFF Swift_LANGUAGE_VERSION 5)
-    target_compile_options(SocietyStateCrypto PRIVATE "$<$<COMPILE_LANGUAGE:Swift>:-parse-as-library>")
-    target_link_libraries(SocietyStateCrypto PRIVATE "-framework CryptoKit" "-framework Foundation")
-    target_link_libraries(SocietyGroupState PRIVATE SocietyStateCrypto)
-elseif(ANDROID)
-    # Reuse the already packaged OpenSSL runtime and matching target headers.
-    set(SOCIETY_ANDROID_OPENSSL_DIR "" CACHE PATH "OpenSSL 3 Android runtime built by tools/build_android_openssl.py")
-    if(NOT EXISTS "${SOCIETY_ANDROID_OPENSSL_DIR}/../include/openssl/evp.h")
-        message(FATAL_ERROR "Society group storage requires the packaged Android OpenSSL headers")
-    endif()
-    target_include_directories(SocietyGroupState PRIVATE "${SOCIETY_ANDROID_OPENSSL_DIR}/../include")
-    target_link_libraries(SocietyGroupState PRIVATE "${SOCIETY_ANDROID_OPENSSL_DIR}/libcrypto_3.so")
-else()
-    find_package(OpenSSL 3 REQUIRED COMPONENTS Crypto)
-    target_link_libraries(SocietyGroupState PRIVATE OpenSSL::Crypto)
-endif()
-
-set(society_account_sources App/Account/AccountController.cpp App/Account/AccountController.h
-    App/Account/DeviceInfo.cpp App/Account/DeviceInfo.h)
-add_library(SocietyDiscovery STATIC App/Network/DiscoveryService.h App/Network/NearbyDevices.h App/Network/NearbyDevices.cpp
-    App/Network/MobileSyncActivity.cpp App/Network/MobileSyncActivity.h
-    App/Network/AutomaticPairing.h App/Network/AutomaticPairing.cpp App/Network/PairingCredentials.h App/Network/PairingCredentials.cpp)
+find_package(iiSocietyClient 0.1.0 CONFIG REQUIRED)
+add_library(SocietyGroupState INTERFACE)
+target_include_directories(SocietyGroupState INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}")
+target_link_libraries(SocietyGroupState INTERFACE iiSocietyClient::iiSocietyClient)
+set(society_account_sources App/Account/AccountController.cpp App/Account/AccountController.h)
+add_library(SocietyDiscovery STATIC App/Network/MobileSyncActivity.cpp App/Network/MobileSyncActivity.h)
 set_target_properties(SocietyDiscovery PROPERTIES AUTOMOC ON POSITION_INDEPENDENT_CODE ON)
-target_compile_features(SocietyDiscovery PUBLIC cxx_std_20)
+target_compile_features(SocietyDiscovery PUBLIC cxx_std_23)
 target_include_directories(SocietyDiscovery PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
-target_link_libraries(SocietyDiscovery PUBLIC Qt6::Network iiServerHost::iiServerHost)
-if(ANDROID)
-    target_sources(SocietyDiscovery PRIVATE App/Network/AndroidDiscoveryService.cpp)
-else()
-    find_path(SOCIETY_DNSSD_INCLUDE dns_sd.h PATH_SUFFIXES avahi-compat-libdns_sd REQUIRED)
-    target_sources(SocietyDiscovery PRIVATE App/Network/DnsSdDiscoveryService.cpp)
-    target_include_directories(SocietyDiscovery PRIVATE "${SOCIETY_DNSSD_INCLUDE}")
-    if(NOT APPLE)
-        find_library(SOCIETY_DNSSD_LIBRARY NAMES dns_sd dnssd REQUIRED)
-        target_link_libraries(SocietyDiscovery PRIVATE "${SOCIETY_DNSSD_LIBRARY}")
-    endif()
-endif()
+target_link_libraries(SocietyDiscovery PUBLIC iiSocietyClient::iiSocietyClient)
 set(society_pairing_sources App/Network/DevicePairing.cpp App/Network/DevicePairing.h
     App/Network/PairingQr.cpp App/Network/PairingQr.h App/Network/QrScanner.cpp App/Network/QrScanner.h
     ThirdParty/qrcodegen/qrcodegen.cpp ThirdParty/qrcodegen/qrcodegen.hpp)
@@ -194,6 +155,7 @@ qt_add_qml_module(Society
         App/Models/ModelsView.qml App/Drive/StorageSidebar.qml App/Photos/PhotosView.qml
         App/Preferences/PreferencesWindow.qml App/Preferences/PreferencesContent.qml
         App/Tools/ModelMergeTool.qml App/Tools/MergePathField.qml App/Tools/MergeModelPicker.qml
+        App/Tools/ToolsView.qml App/Tools/ToolCard.qml
 )
 target_include_directories(Society PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/App/Models")
 target_link_libraries(Society PRIVATE Qt6::Quick Qt6::QuickControls2 iiAcountManager::Quick)
@@ -209,6 +171,11 @@ if(NOT IOS AND NOT ANDROID)
 endif()
 option(SOCIETY_ACCOUNT_RUNTIME_PROBE "Enable credential-free TLS and account panel runtime verification" OFF)
 option(SOCIETY_GROUP_STATE_RUNTIME_PROBE "Enable opt-in synthetic encrypted group state device verification" OFF)
+option(SOCIETY_DASHBOARD_RUNTIME_PROBE "Enable opt-in read-only dashboard device verification" OFF)
+if(SOCIETY_DASHBOARD_RUNTIME_PROBE)
+    target_sources(Society PRIVATE tests/DashboardRuntimeProbe.cpp)
+    target_compile_definitions(Society PRIVATE SOCIETY_DASHBOARD_RUNTIME_PROBE)
+endif()
 if(SOCIETY_GROUP_STATE_RUNTIME_PROBE)
     target_sources(Society PRIVATE tests/GroupStateRuntimeProbe.cpp)
     target_compile_definitions(Society PRIVATE SOCIETY_GROUP_STATE_RUNTIME_PROBE)
@@ -311,10 +278,10 @@ set_target_properties(Society PROPERTIES
 )
 if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
     target_sources(Society PRIVATE App/Files/AppleModelSource.mm App/Files/AppleModelSource.h
-        App/Account/IosDeviceInfo.mm App/Network/IosQrScanner.mm App/Network/AppleQrDecoder.mm App/Network/AppleQrDecoder.h
+        App/Network/IosQrScanner.mm App/Network/AppleQrDecoder.mm App/Network/AppleQrDecoder.h
         App/Files/IosModelDrop.mm App/Files/IosModelDrop.h
         App/Files/IosFileAccess.mm App/Files/IosFileAccess.h)
-    set_source_files_properties(App/Account/IosDeviceInfo.mm App/Network/IosQrScanner.mm App/Network/AppleQrDecoder.mm App/Files/AppleModelSource.mm App/Files/IosModelDrop.mm App/Files/IosFileAccess.mm
+    set_source_files_properties(App/Network/IosQrScanner.mm App/Network/AppleQrDecoder.mm App/Files/AppleModelSource.mm App/Files/IosModelDrop.mm App/Files/IosFileAccess.mm
         PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
     target_link_libraries(Society PRIVATE "-framework UIKit" "-framework Foundation" "-framework AVFoundation"
         "-framework QuickLook" "-framework UniformTypeIdentifiers" "-framework Vision" "-framework CoreVideo" "-framework CoreMedia")
@@ -331,6 +298,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
     set(SOCIETY_IOS_APP_GROUP "group.com.iisacc.society" CACHE STRING "Shared Society App Group")
     set(SOCIETY_IOS_TEAM "" CACHE STRING "Apple development team for the app and extension")
     iiSocietyContainer_add_ios_file_provider(Society APP_GROUP "${SOCIETY_IOS_APP_GROUP}" TEAM "${SOCIETY_IOS_TEAM}")
+    iiSocietyContainer_add_ios_live_activity(Society TEAM "${SOCIETY_IOS_TEAM}")
     option(SOCIETY_IOS_FILES_INTEGRATION_TEST "Run the real iOS File Provider integration probe on launch" OFF)
     if(SOCIETY_IOS_FILES_INTEGRATION_TEST)
         target_sources(SocietyIosDriveBridge PRIVATE tests/IosFilesIntegration.swift)
@@ -465,7 +433,7 @@ if(BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)
     qt_add_executable(SocietyGuiTests tests/tst_filegrid.cpp
         App/Files/DirectoryLocation.cpp App/Files/DirectoryLocation.h)
     target_include_directories(SocietyGuiTests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
-    target_link_libraries(SocietyGuiTests PRIVATE Qt6::Test Qt6::Quick Qt6::QuickControls2)
+    target_link_libraries(SocietyGuiTests PRIVATE Qt6::Test Qt6::Quick Qt6::QuickControls2 iiSocietyContainer::iiSocietyContainer)
     lvrs_configure_qml_app(SocietyGuiTests NO_PLATFORM_RUNTIME_TARGETS)
     target_compile_definitions(SocietyGuiTests PRIVATE
         SOCIETY_QML_FILE="${CMAKE_CURRENT_SOURCE_DIR}/tests/FileGridHarness.qml"
@@ -663,6 +631,12 @@ endif()
 # Only the dedicated photo fixture is allowed to activate its injected library.
 if(BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)
     get_property(society_registered_tests DIRECTORY PROPERTY TESTS)
+    # Test the linked SDK versions, independent of an interactive shell's
+    # installed-library overrides (which can load an older LVRS QML module).
+    set_property(TEST ${society_registered_tests} APPEND PROPERTY ENVIRONMENT_MODIFICATION
+        "DYLD_LIBRARY_PATH=unset:" "DYLD_FRAMEWORK_PATH=unset:" "DYLD_FALLBACK_LIBRARY_PATH=unset:")
+    set_property(TEST ${society_registered_tests} APPEND PROPERTY ENVIRONMENT "SOCIETY_DISABLE_SESSION_RESTORE=1")
+    set_property(TEST ${society_registered_tests} APPEND PROPERTY ENVIRONMENT "IISOCIETYSYNC_DISABLE_BLE=1")
     list(REMOVE_ITEM society_registered_tests Society.Photos)
     set_property(TEST ${society_registered_tests} APPEND PROPERTY ENVIRONMENT "SOCIETY_DISABLE_PHOTOS=1")
 endif()

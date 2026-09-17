@@ -18,6 +18,10 @@ NetworkDriveController::NetworkDriveController(DiscoveryService *service, QHostA
           [this](const QString &link) { return joinLocalHost(link, true); }, [this] { stopTransport(); }),
       m_localBindAddress(bindAddress) {
     connect(m_photos, &society::photos::PhotoController::progress, &m_background, &MobileSyncActivity::update);
+    connect(&m_sync, &iiSocietySync::Controller::verificationProgress, this,
+        [this](const QString &path, qint64 done, qint64 total) {
+            m_background.update("verification/" + path, done, total);
+        });
     connect(m_photos, &society::photos::PhotoController::contentsChanged, &m_sync, &iiSocietySync::Controller::synchronizeNow);
     connect(m_photos, &society::photos::PhotoController::changed, this, [this] {
         updateBackgroundActivity();
@@ -40,13 +44,17 @@ NetworkDriveController::NetworkDriveController(DiscoveryService *service, QHostA
         updateBackgroundActivity();
         emit synchronizationChanged();
     });
+    connect(&m_sync, &iiSocietySync::Controller::namespaceChanged, this, [this](const QJsonObject &state) {
+        if (m_namespace == state) return;
+        m_namespace = state; emit synchronizationChanged();
+    });
     connect(&m_sync, &iiSocietySync::Controller::synchronized, this, [this](const QString &peer) {
         m_photos->refresh();
         if (!hostModeAvailable()) refreshContainerState();
         QTimer::singleShot(0, this, &NetworkDriveController::finishBackgroundActivityIfIdle);
         m_syncPath.clear(); emit synchronizationChanged(); emit containerSynchronized(peer);
-        if (!hostModeAvailable() && !m_photos->busy() && (m_applicationState == Qt::ApplicationSuspended || m_applicationState == Qt::ApplicationHidden))
-            suspendForBackground();
+        // Only the common idle check may finish the grant. A peer completion
+        // can enqueue another file pass or the next photo transfer.
     });
     connect(&m_sync, &iiSocietySync::Controller::progress, this, [this](const QString &path, qint64 done, qint64 total) {
         m_syncPath = path; m_syncDone = done; m_syncTotal = total;
@@ -88,8 +96,6 @@ NetworkDriveController::NetworkDriveController(DiscoveryService *service, QHostA
             m_account->rememberPairedDevice(id, name, kind);
         }
         if (m_automatic.enabled() && !m_local.hosting()) browse(id);
-        if (m_local.hosting() && m_verifiedSyncPeers.contains(id) && m_account)
-            iiSocietySync::Replica::claimPrimaryHost(m_container, m_account->pairingCredentials().value("scope").toString(), m_nearby.deviceId());
         updateDiscovery();
     });
     m_discoveryTimer.setInterval(5000);
@@ -119,8 +125,6 @@ NetworkDriveController::NetworkDriveController(DiscoveryService *service, QHostA
             m_peer.stop(); fail(tr("The server verified a different account. Check its account authority."));
             emit discoveryChanged(); return;
         }
-        if (m_accountSession && m_peer.isReady() && hosting())
-            iiSocietySync::Replica::claimPrimaryHost(m_container, accountSyncScope(), m_session.peerId);
         if (!m_peer.isReady()) m_verifiedSyncPeers.clear();
         if (m_peer.isReady()) m_status = hosting() ? tr("Hosting Files for your account.") : tr("Connected to your devices.");
         else if (!m_peer.errorString().isEmpty()) m_status = m_peer.errorString();
@@ -134,8 +138,8 @@ NetworkDriveController::NetworkDriveController(DiscoveryService *service, QHostA
     if (!hostModeAvailable()) {
         connect(&m_background, &MobileSyncActivity::expired, this, [this] {
             m_backgroundExpired = true;
-            const bool userTask = std::exchange(m_continuedSyncRequested, false);
-            if (userTask || m_applicationState == Qt::ApplicationSuspended || m_applicationState == Qt::ApplicationHidden)
+            m_continuedSyncRequested = false;
+            if (m_applicationState == Qt::ApplicationSuspended || m_applicationState == Qt::ApplicationHidden)
                 suspendForBackground();
         });
         connect(this, &NetworkDriveController::stateChanged, this, &NetworkDriveController::updateBackgroundActivity);
@@ -188,13 +192,18 @@ void NetworkDriveController::updateBackgroundActivity() {
     if (m_applicationState == Qt::ApplicationActive && !m_backgroundExpired && signedIn()) m_background.retain();
 }
 void NetworkDriveController::finishBackgroundActivityIfIdle() {
-    if (hostModeAvailable() || !m_background.continued() || m_sync.busy() || m_photos->busy()) return;
+    if (hostModeAvailable() || !m_background.batchActive() || m_suspended || m_sync.busy() || m_photos->busy()
+        || !m_sync.errorString().isEmpty()
+        || (m_backgroundExpired && m_applicationState != Qt::ApplicationActive)) return;
     m_continuedSyncRequested = false;
     m_background.release(true);
     if (m_applicationState == Qt::ApplicationSuspended || m_applicationState == Qt::ApplicationHidden)
         suspendForBackground();
 }
 void NetworkDriveController::synchronizeNow() {
+#if defined(Q_OS_IOS)
+    societyRestartSyncPresentation();
+#endif
     if (!hostModeAvailable() && m_applicationState == Qt::ApplicationActive && m_runtimeEnabled && signedIn()) {
         m_continuedSyncRequested = true; m_backgroundExpired = false;
         if (m_suspended) { m_suspended = false; updateDiscovery(); restartSession(); }
@@ -203,9 +212,13 @@ void NetworkDriveController::synchronizeNow() {
     m_sync.synchronizeNow(); m_photos->refresh();
 }
 void NetworkDriveController::suspendForBackground() {
-    m_background.release();
-    if (m_suspended) return;
+    if (m_suspended) { m_background.release(); return; }
     m_suspended = true; m_nearby.clear(); stopTransport();
+    // stopTransport cancels both workers. Drain before iOS can suspend us with
+    // PhotoStore's operation.lock (or a replica lock) still held.
+    m_photos->waitForDone(); m_sync.closeAndWait();
+    m_clientLease.reset();
+    m_background.release();
     m_status = tr("Sync will resume when Society becomes active."); emit stateChanged();
 }
 void NetworkDriveController::setAccountSession(AccountController *account) {
@@ -265,6 +278,24 @@ QVariantList NetworkDriveController::nearbyDevices() const {
     return result;
 }
 void NetworkDriveController::updateDiscovery() {
+    if (m_clientLease && (m_suspended || !m_runtimeEnabled || !signedIn())) {
+        m_sync.closeAndWait(); m_clientLease.reset();
+    }
+    if (!hostModeAvailable() && !m_suspended && m_runtimeEnabled && signedIn() && !m_container.isEmpty()) {
+        // A consumer app can run the same Society SDK while this UI is asleep.
+        // Only one process owns the device's authenticated replication session.
+        const auto storage = iiSocietyContainer::SharedStorage::open(m_container, nullptr, true);
+        if (storage && QDir(storage->drive().rootPath()).exists(".society-sync")) {
+            if (!m_clientLease) {
+                m_clientLease = std::make_unique<QLockFile>(QDir(storage->drive().rootPath()).filePath(".society-sync/client-session.lock"));
+                m_clientLease->setStaleLockTime(0);
+            }
+            if (!m_clientLease->isLocked() && !m_clientLease->tryLock()) {
+                m_nearby.clear(); m_sync.close();
+                m_status = tr("Society storage is active in another app on this device."); emit stateChanged(); return;
+            }
+        }
+    }
     if (!m_relayUrl.isEmpty()) {
         m_automatic.setEnabled(false);
         if (m_nearby.active()) m_nearby.clear();
@@ -298,10 +329,25 @@ void NetworkDriveController::updateDiscovery() {
     updateSynchronization();
 }
 void NetworkDriveController::updateSynchronization() {
+    if (m_clientLease && !m_clientLease->isLocked()) {
+        m_sync.close(); m_photos->configure(m_container, false); return;
+    }
     const bool photosActive = m_runtimeEnabled && !m_suspended && containerReady();
-    if (!m_runtimeEnabled || m_suspended || !signedIn() || !connected()
-        || (m_localActive && !m_nearby.authenticated())) {
+    if (!m_runtimeEnabled || m_suspended || !signedIn()) {
+        if (!m_namespace.isEmpty()) { m_namespace = {}; emit synchronizationChanged(); }
         m_photos->configure(m_container, photosActive); m_sync.close(); return;
+    }
+    if (!connected() || (m_localActive && !m_nearby.authenticated())) {
+        m_photos->configure(m_container, photosActive);
+        if (m_mirror.isEmpty() && (!hostModeAvailable() || (!m_relayUrl.isEmpty() && m_mode == ClientMode))) {
+            m_sync.close(); return;
+        }
+        // Network availability affects replication, never the host's authority.
+        // Stable account identity survives expiry of short-lived LAN proofs;
+        // this local scope grants no transport authentication or peer access.
+        const auto scope = accountSyncScope();
+        if (scope.isEmpty()) { m_sync.close(); return; }
+        m_sync.open(m_container, scope); m_sync.setPeers({}, {}); return;
     }
     const auto scope = m_localActive ? m_account->pairingCredentials().value("scope").toString() : accountSyncScope();
     QStringList authorized, hosts;
@@ -323,8 +369,9 @@ void NetworkDriveController::updateSynchronization() {
         else if (hosts.size() > 1) hosts.clear();
     }
     m_photos->configure(m_container, photosActive, authorized, hosts);
-    if (authorized.isEmpty()) { m_sync.close(); return; }
     m_sync.open(m_container, scope);
+    if (hosting() && (m_localActive ? !authorized.isEmpty() : m_accountSession))
+        m_sync.claimPrimaryHost(m_localActive ? m_nearby.deviceId() : m_session.peerId);
     m_sync.setPeers(authorized, hosts);
 }
 void NetworkDriveController::refreshContainerState() {
@@ -348,24 +395,21 @@ QString NetworkDriveController::synchronizationStatus() const {
     if (error == "insufficient_storage") return tr("Not enough free space to continue syncing.");
     if (error == "filename_normalization_collision") return tr("Rename files whose names differ only by case or Unicode form to continue syncing.");
     if (error == "native_sync_filesystem_unsupported_platform") return tr("Container sync is unavailable on this platform.");
+    if (error == "namespace_authority_protocol_required") return tr("Update Society on the host to synchronize this namespace.");
     if (!error.isEmpty()) return tr("Container sync is waiting to retry.");
     if (m_sync.busy() && m_syncTotal > 0 && !m_syncPath.isEmpty())
         return tr("Syncing %1 (%2%)…").arg(m_syncPath.section('/', -1)).arg(m_syncDone * 100 / m_syncTotal);
     if (!containerReady()) return connected() ? tr("Preparing the host's Society drive on this device…")
         : tr("Connect to your desktop to mirror your Society drive.");
     if (m_sync.busy()) return tr("Syncing your container…");
+    if (m_sync.available() && !connected()) return m_mirror.isEmpty()
+        ? tr("Local changes are saved on this host. Replication resumes when devices connect.")
+        : tr("Offline changes are waiting for the primary host.");
     if (m_sync.available()) return tr("Container sync is active.");
     return tr("Waiting for an account-verified device to sync.");
 }
 QString NetworkDriveController::accountSyncScope() const {
-    if (!signedIn()) return {};
-    // Match Auth::PairingCredentials' stable namespace so LAN and server paths
-    // can resume the same replica without needing short-lived LAN credentials.
-    const auto service = m_account->manager()->serviceUrl();
-    const auto origin = service.scheme() + "://" + service.host() + ':'
-        + QString::number(service.port(service.scheme() == "https" ? 443 : 80));
-    return QString::fromLatin1(QCryptographicHash::hash("society-auto-pair-v1\n" + origin.toUtf8() + '\n'
-        + m_account->manager()->account()->sub().toUtf8(), QCryptographicHash::Sha256).toHex());
+    return m_account ? m_account->storageScope() : QString();
 }
 QString NetworkDriveController::automaticPairingStatus() const {
     if (m_relayUrl.isEmpty()) return m_automatic.status();
@@ -401,7 +445,7 @@ void NetworkDriveController::setRuntimeEnabled(bool enabled) {
         m_continuedSyncRequested = false; m_background.release(false);
         m_nearby.clear(); stopTransport();
         if (hostModeAvailable()) m_sync.closeAndWait();
-        else m_sync.close();
+        else { m_sync.closeAndWait(); m_clientLease.reset(); }
     } else {
         if (m_applicationState == Qt::ApplicationActive) m_continuedSyncRequested = true;
         m_automatic.setEnabled(m_relayUrl.isEmpty() && (m_account ? m_account->automaticPairingEnabled() : true));
@@ -409,7 +453,9 @@ void NetworkDriveController::setRuntimeEnabled(bool enabled) {
     }
 }
 void NetworkDriveController::setContainerPath(const QString &path) {
+    if (m_container != path) m_namespace = {};
     if (path == m_container) return;
+    if (m_clientLease) { m_sync.closeAndWait(); m_clientLease.reset(); }
     const bool automatic = m_automatic.enabled();
     m_container = path;
     if (hostModeAvailable()) m_mirror = iiSocietySync::Replica::binding(path);

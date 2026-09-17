@@ -32,6 +32,8 @@ LV.VStack {
     property real toolbarLeadingInset: 0
     readonly property real toolbarHeight: desktop && toolbar.visible ? 56 : 0
     readonly property var toolbarInteractiveItems: [toolbarNavigation, dashboardSearch, dashboardAccount]
+    readonly property bool toolsCanGoBack: tools.canGoBack
+    function goBackTool(): void { tools.goBack() }
 
     signal tabRequested(string tab)
     signal devicesRequested()
@@ -81,7 +83,6 @@ LV.VStack {
                     forceBorderlessTone: false
                     LV.LabelButton {
                         objectName: "dashboardTab"
-                        height: root.desktop ? implicitHeight : 44
                         text: qsTr("Dashboard")
                         tone: root.selectedTab === "Dashboard" ? LV.AbstractButton.Default : LV.AbstractButton.Borderless
                         Accessible.selected: root.selectedTab === "Dashboard"
@@ -89,7 +90,6 @@ LV.VStack {
                     }
                     LV.LabelButton {
                         objectName: "toolsTab"
-                        height: root.desktop ? implicitHeight : 44
                         text: qsTr("Tools")
                         tone: root.selectedTab === "Tools" ? LV.AbstractButton.Default : LV.AbstractButton.Borderless
                         Accessible.name: text
@@ -98,7 +98,6 @@ LV.VStack {
                     }
                     LV.LabelButton {
                         objectName: "storageTab"
-                        height: root.desktop ? implicitHeight : 44
                         text: qsTr("Storage")
                         tone: root.selectedTab === "Storage" ? LV.AbstractButton.Default : LV.AbstractButton.Borderless
                         Accessible.selected: root.selectedTab === "Storage"
@@ -106,14 +105,12 @@ LV.VStack {
                     }
                     LV.LabelButton {
                         objectName: "browseTab"
-                        height: root.desktop ? implicitHeight : 44
                         text: qsTr("Browse")
                         tone: LV.AbstractButton.Borderless
                         onClicked: root.devicesRequested()
                     }
                     LV.LabelButton {
                         objectName: "environmentTab"
-                        height: root.desktop ? implicitHeight : 44
                         text: qsTr("Environment")
                         tone: LV.AbstractButton.Borderless
                         onClicked: root.preferencesRequested()
@@ -124,7 +121,6 @@ LV.VStack {
             LV.InputField {
                 id: dashboardSearch
                 objectName: "dashboardSearch"
-                Layout.minimumHeight: root.desktop ? 0 : 44
                 visible: toolbar.width >= 700
                 Layout.preferredWidth: Math.min(300, Math.max(130, toolbar.width - 500))
                 mode: searchMode
@@ -136,8 +132,6 @@ LV.VStack {
             LV.IconButton {
                 id: dashboardAccount
                 objectName: "dashboardAccount"
-                Layout.minimumWidth: root.desktop ? 0 : 44
-                Layout.minimumHeight: root.desktop ? 0 : 44
                 tone: LV.AbstractButton.Default
                 iconName: "loggedInUser"
                 Accessible.name: root.signedIn ? qsTr("Your iisacc account") : qsTr("Sign in to iisacc")
@@ -159,8 +153,6 @@ LV.VStack {
             spacing: 4
             LV.IconButton {
                 objectName: "mobileNavigationToggle"
-                Layout.preferredWidth: 44
-                Layout.preferredHeight: 44
                 iconName: "toolwindowstructure"
                 tone: LV.AbstractButton.Borderless
                 Accessible.name: qsTr("Open navigation")
@@ -175,8 +167,6 @@ LV.VStack {
             }
             LV.IconButton {
                 objectName: "mobileSearchToggle"
-                Layout.preferredWidth: 44
-                Layout.preferredHeight: 44
                 iconName: "inputFieldSearch"
                 tone: LV.AbstractButton.Borderless
                 Accessible.name: qsTr("Search Society files")
@@ -189,8 +179,6 @@ LV.VStack {
             }
             LV.IconButton {
                 objectName: "mobileAccount"
-                Layout.preferredWidth: 44
-                Layout.preferredHeight: 44
                 iconName: "loggedInUser"
                 tone: LV.AbstractButton.Default
                 Accessible.name: root.signedIn ? qsTr("Your iisacc account") : qsTr("Sign in to iisacc")
@@ -203,7 +191,6 @@ LV.VStack {
             visible: root.searchExpanded && root.selectedTab === "Dashboard"
             Layout.fillWidth: true
             Layout.minimumWidth: 0
-            Layout.preferredHeight: 44
             Layout.leftMargin: 16
             Layout.rightMargin: 16
             Layout.bottomMargin: 8
@@ -223,11 +210,8 @@ LV.VStack {
             anchors.fill: parent
             visible: root.selectedTab === "Dashboard"
             touchNavigation: !root.desktop
-            recentFiles: root.files.recentFiles
-            historyFiles: root.files.generationHistory
-            loading: root.files.loading
-            errorString: root.files.errorString.length > 0 ? root.files.errorString : root.drive.errorString
-            query: root.files.query
+            viewModel: root.files
+            driveError: root.drive.errorString
             deviceStatus: root.deviceStatus
             onSectionRequested: function(section) { root.sectionRequested(section) }
             onFileRequested: function(path) { root.fileRequested(path) }
@@ -238,7 +222,8 @@ LV.VStack {
                 root.generateRequested(prompt, mediaType, aspectRatio, count)
             }
         }
-        ModelMergeTool {
+        ToolsView {
+            id: tools
             anchors.fill: parent
             visible: root.selectedTab === "Tools"
             touchNavigation: !root.desktop
@@ -265,61 +250,29 @@ LV.VStack {
         }
     }
 
-    LV.HStack {
+    LV.MobileTabBar {
+        id: mobileTabs
         objectName: "mobileTabBar"
         visible: root.compactNavigation
         Layout.fillWidth: true
-        Layout.preferredHeight: 60
-        spacing: 0
-        Repeater {
-            model: [
-                { key: "Dashboard", label: qsTr("Dashboard"), icon: "home" },
-                { key: "Tools", label: qsTr("Tools"), icon: "toolwindowbuild" },
-                { key: "Storage", label: qsTr("Storage"), icon: "nodesfolder" },
-                { key: "Browse", label: qsTr("Browse"), icon: "RemoteChanges" },
-                { key: "Environment", label: qsTr("Environment"), icon: "generalsettings" }
-            ]
-            LV.AbstractButton {
-                id: mobileTab
-                required property var modelData
-                objectName: "mobile" + modelData.key + "Tab"
-                Layout.fillWidth: true
-                Layout.preferredWidth: 0
-                Layout.minimumWidth: 0
-                Layout.fillHeight: true
-                horizontalPadding: 0
-                verticalPadding: 12
-                cornerRadius: 0
-                text: modelData.label
-                tone: root.selectedTab === modelData.key ? LV.AbstractButton.Default : LV.AbstractButton.Borderless
-                Accessible.name: modelData.label
-                Accessible.selected: root.selectedTab === modelData.key
-                onClicked: {
-                    root.platformInputMethod.hide()
-                    if (modelData.key === "Browse") root.devicesRequested()
-                    else if (modelData.key === "Environment") root.preferencesRequested()
-                    else root.tabRequested(modelData.key)
-                }
-                contentItem: Column {
-                    spacing: 4
-                    Image {
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        width: 20; height: 20
-                        source: LV.Theme.iconPath(mobileTab.modelData.icon)
-                        sourceSize: Qt.size(40, 40)
-                    }
-                    LV.Label {
-                        objectName: "mobile" + mobileTab.modelData.key + "Label"
-                        width: parent.width
-                        text: mobileTab.modelData.label
-                        style: caption
-                        font.pixelSize: root.width < 360 ? 10 : 11
-                        color: root.selectedTab === mobileTab.modelData.key ? LV.Theme.primary : LV.Theme.textSecondary
-                        horizontalAlignment: Text.AlignHCenter
-                        elide: Text.ElideRight
-                    }
-                }
-            }
+        Layout.preferredHeight: implicitHeight
+        // Main places SocietyView inside the system safe area already.
+        bottomSafeInset: 0
+        autoSelect: false
+        currentIndex: root.selectedTab === "Tools" ? 1 : root.selectedTab === "Storage" ? 2 : 0
+        model: [
+            { key: "Dashboard", text: qsTr("Home"), accessibleName: qsTr("Dashboard"), iconName: "home", objectName: "mobileDashboardTab", labelObjectName: "mobileDashboardLabel" },
+            { key: "Tools", text: qsTr("Tools"), iconName: "toolwindowbuild", objectName: "mobileToolsTab", labelObjectName: "mobileToolsLabel" },
+            { key: "Storage", text: qsTr("Storage"), iconName: "nodesfolder", objectName: "mobileStorageTab", labelObjectName: "mobileStorageLabel" },
+            { key: "Browse", text: qsTr("Browse"), iconName: "RemoteChanges", objectName: "mobileBrowseTab", labelObjectName: "mobileBrowseLabel" },
+            { key: "Environment", text: qsTr("Settings"), accessibleName: qsTr("Environment"), iconName: "generalsettings", objectName: "mobileEnvironmentTab", labelObjectName: "mobileEnvironmentLabel" }
+        ]
+        onActivated: function(index) {
+            root.platformInputMethod.hide()
+            const key = model[index].key
+            if (key === "Browse") root.devicesRequested()
+            else if (key === "Environment") root.preferencesRequested()
+            else root.tabRequested(key)
         }
     }
 

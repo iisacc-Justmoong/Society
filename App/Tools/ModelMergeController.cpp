@@ -98,11 +98,11 @@ QString ModelMergeController::defaultExecutable() const
 {
     const auto override = executable(qEnvironmentVariable("SOCIETY_MODEL_MERGE_EXECUTABLE"));
     if (!override.isEmpty()) return override;
-    QStringList candidates{QDir(QCoreApplication::applicationDirPath()).filePath("iild-merge"),
-        QDir::home().filePath(".local/SDK/iiLocalDiffusion/bin/iild-merge")};
+    QStringList candidates{QDir(QCoreApplication::applicationDirPath()).filePath("iild-merge")};
 #ifdef SOCIETY_MODEL_MERGE_EXECUTABLE
     candidates.append(QString::fromUtf8(SOCIETY_MODEL_MERGE_EXECUTABLE));
 #endif
+    candidates.append(QDir::home().filePath(".local/SDK/iiLocalDiffusion/bin/iild-merge"));
     candidates.append("iild-merge");
     for (const auto &candidate : candidates) {
         const auto result = executable(candidate);
@@ -126,6 +126,7 @@ QString ModelMergeController::suggestedOutput(const QString &base, const QString
     const QFileInfo source(normalized);
     const auto parent = pathFromText(directory).isEmpty() ? source.absolutePath() : pathFromText(directory);
     const auto name = source.isDir() ? source.fileName() : source.completeBaseName();
+    if (mode == "unified") return QDir(parent).filePath(name + "-unified.iildmodel");
     return QDir(parent).filePath(name + (mode == "weighted-difference" ? "-difference" : "-sum")
         + (source.isDir() ? QString() : ".safetensors"));
 }
@@ -153,7 +154,8 @@ bool ModelMergeController::run(const QVariantMap &options, bool validateOnly)
     const auto base = pathFromText(options.value("baseModel").toString());
     if (base.isEmpty() || !QFileInfo::exists(base)) return fail(tr("Choose an existing local base checkpoint or Diffusers folder."));
     const auto mode = options.value("mode", "weighted-sum").toString();
-    if (mode != "weighted-sum" && mode != "weighted-difference") return fail(tr("Choose weighted sum or weighted difference."));
+    if (mode != "weighted-sum" && mode != "weighted-difference" && mode != "unified")
+        return fail(tr("Choose unified cascade, weighted sum or weighted difference."));
     const auto materials = options.value("materials").toList();
     if (materials.isEmpty()) return fail(tr("Add at least one checkpoint or LoRA material."));
     QStringList arguments{"--base-model", base, "--mode", mode};
@@ -183,7 +185,7 @@ bool ModelMergeController::run(const QVariantMap &options, bool validateOnly)
     const auto cache = cacheText.isEmpty() ? QDir(QStandardPaths::writableLocation(QStandardPaths::CacheLocation)).filePath("model-merge") : pathFromText(cacheText);
     if (cache.isEmpty()) return fail(tr("Enter an absolute local conversion cache path."));
     arguments << "--output" << output << "--cache-dir" << cache;
-    if (validateOnly) arguments << "--print-config";
+    if (validateOnly) arguments << "--inspect";
 #ifdef SOCIETY_MODEL_MERGE_PROCESS
     auto environment = QProcessEnvironment::systemEnvironment();
     if (!python.isEmpty()) environment.insert("IILD_PYTHON_EXECUTABLE", python);
@@ -197,7 +199,8 @@ bool ModelMergeController::run(const QVariantMap &options, bool validateOnly)
     m_requestedOutput = output;
     m_validationOnly = validateOnly;
     m_busy = true;
-    m_status = validateOnly ? tr("Checking paths and parameters…") : tr("Merging model tensors…");
+    m_status = validateOnly ? tr("Inspecting model compatibility and LoRA targets…")
+        : mode == "unified" ? tr("Building unified model…") : tr("Merging model tensors…");
     m_elapsed.start(); m_tick.start();
     emit changed();
     m_process.start();
@@ -236,11 +239,13 @@ void ModelMergeController::finish(int exitCode, bool crashed)
     if (success) {
         m_details = QString::fromUtf8(document.toJson(QJsonDocument::Indented));
         if (m_validationOnly) {
-            m_status = tr("Parameters are valid. Tensor compatibility is checked during merging.");
+            m_status = tr("Model structures and LoRA targets are compatible. Building verifies source identity and any weight arithmetic.");
         } else {
             m_completedOutput = m_requestedOutput;
             const auto report = document.object();
-            m_status = tr("Merged %1 tensors from %2 models. Base weight: %3.")
+            m_status = report.value("mode").toString() == "unified"
+                ? tr("Unified model created with %1 stages. Models refine the image in order.").arg(report.value("stages").toArray().size())
+                : tr("Merged %1 tensors from %2 models. Base weight: %3.")
                 .arg(report.value("merged_tensor_count").toInt())
                 .arg(report.value("sources").toArray().size())
                 .arg(report.value("base_weight").toDouble(), 0, 'g', 8);

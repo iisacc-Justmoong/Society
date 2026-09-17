@@ -1,5 +1,7 @@
 #include "MobileSyncActivity.h"
+#include <TaskActivityBridge.h>
 #include <QDebug>
+#include <QElapsedTimer>
 #include <memory>
 #include <utility>
 #import <BackgroundTasks/BackgroundTasks.h>
@@ -13,6 +15,8 @@ struct ContinuedSync {
     BGTask *task = nil;
     std::function<void()> expired;
     qint64 completed = 0, total = 1;
+    QElapsedTimer elapsed;
+    qint64 lastPublished = -250, lastLogged = 0;
 };
 std::shared_ptr<ContinuedSync> continuedSync;
 }
@@ -21,9 +25,13 @@ bool societyBeginContinuedSync(std::function<void()> expired) {
     // The foreground app-opening catch-up or Sync now action owns this finite
     // batch. Discovery timers cannot create another continued-processing task.
     if (UIApplication.sharedApplication.applicationState == UIApplicationStateBackground) return false;
+    static const bool restored = [] { society_activity_restore(); return true; }();
+    Q_UNUSED(restored);
+    society_activity_begin("society-sync", "Society", "arrow.triangle.2.circlepath", "Comparing files…");
     if (@available(iOS 26.0, *)) {
         societyCompleteContinuedSync(false);
         auto current = std::make_shared<ContinuedSync>();
+        current->elapsed.start();
         current->identifier = [@"com.iisacc.society.sync." stringByAppendingString:NSUUID.UUID.UUIDString];
         current->expired = std::move(expired);
         continuedSync = current;
@@ -41,10 +49,14 @@ bool societyBeginContinuedSync(std::function<void()> expired) {
                 task.expirationHandler = ^{
                     dispatch_async(dispatch_get_main_queue(), ^{
                         if (const auto active = weak.lock(); active && continuedSync == active && active->expired)
+                        {
+                            qInfo("Society: background execution expired after %lld ms", active->elapsed.elapsed());
                             active->expired();
+                        }
                     });
                 };
                 societyUpdateContinuedSync(self->completed, self->total);
+                societyEndBackgroundSync();
                 qInfo("Society: continued background synchronization granted");
             }];
         if (!registered) {
@@ -83,12 +95,26 @@ bool societyBeginContinuedSync(std::function<void()> expired) {
 }
 
 void societyUpdateContinuedSync(qint64 completed, qint64 total) {
+    NSString *detail = completed > 0
+        ? [NSString stringWithFormat:NSLocalizedString(@"%@ processed", nil),
+            [NSByteCountFormatter stringFromByteCount:completed countStyle:NSByteCountFormatterCountStyleFile]]
+        : NSLocalizedString(@"Comparing files…", nil);
+    society_activity_update("society-sync", detail.UTF8String, completed, total, "running");
     if (!continuedSync) return;
     continuedSync->completed = completed; continuedSync->total = total;
     if (@available(iOS 26.0, *)) {
         if (auto *task = (BGContinuedProcessingTask *)continuedSync->task) {
+            const auto elapsed = continuedSync->elapsed.elapsed();
+            if (elapsed - continuedSync->lastPublished < 250) return;
+            continuedSync->lastPublished = elapsed;
             task.progress.totalUnitCount = total;
             task.progress.completedUnitCount = completed;
+            if (qEnvironmentVariableIntValue("SOCIETY_DISCOVERY_TRACE") == 1
+                && elapsed - continuedSync->lastLogged >= 5000) {
+                continuedSync->lastLogged = elapsed;
+                qInfo("Society: sync progress elapsed=%lld completed=%lld total=%lld background=%d",
+                    elapsed, completed, total, UIApplication.sharedApplication.applicationState == UIApplicationStateBackground);
+            }
             NSString *subtitle = completed > 0
                 ? [NSString stringWithFormat:NSLocalizedString(@"%@ processed", nil),
                     [NSByteCountFormatter stringFromByteCount:completed countStyle:NSByteCountFormatterCountStyleFile]]
@@ -99,6 +125,7 @@ void societyUpdateContinuedSync(qint64 completed, qint64 total) {
 }
 
 void societyCompleteContinuedSync(bool success) {
+    society_activity_finish("society-sync", success ? "completed" : "paused");
     const auto self = std::exchange(continuedSync, {});
     if (self) {
         qInfo() << "Society: continued synchronization ended; success:" << success;
@@ -116,15 +143,19 @@ void societyCompleteContinuedSync(bool success) {
     }
     societyEndBackgroundSync();
 }
+void societyRestartSyncPresentation() { society_activity_allow_restart("society-sync"); }
 bool societyBeginBackgroundSync(std::function<void()> expired) {
     __block bool granted = false;
     const auto begin = ^{
         if (syncTask == UIBackgroundTaskInvalid)
             syncTask = [UIApplication.sharedApplication beginBackgroundTaskWithName:@"Society container synchronization"
                 expirationHandler:^{
-                    const auto task = syncTask; syncTask = UIBackgroundTaskInvalid;
-                    if (task != UIBackgroundTaskInvalid) [UIApplication.sharedApplication endBackgroundTask:task];
+                    const auto task = syncTask;
                     expired();
+                    if (task != UIBackgroundTaskInvalid && syncTask == task) {
+                        syncTask = UIBackgroundTaskInvalid;
+                        [UIApplication.sharedApplication endBackgroundTask:task];
+                    }
                 }];
         granted = syncTask != UIBackgroundTaskInvalid;
     };

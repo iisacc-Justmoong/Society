@@ -7,6 +7,7 @@
 #include <QCryptographicHash>
 #include <QScopeGuard>
 #include <iiSocietyHelper.h>
+#include <StorageMap.h>
 #include <QFile>
 #include <QGuiApplication>
 #include <QJsonDocument>
@@ -28,7 +29,56 @@
 
 class AccountTests : public QObject {
     Q_OBJECT
+    void download(const QString &root, const QString &key) {
+        iiSocietyContainer::StorageMap map(*iiSocietyContainer::SocietyDrive::open(root));
+        QTRY_COMPARE_WITH_TIMEOUT(map.object(key).value("kind").toString(), QString("file"), 15000);
+        const auto request = map.request({key}); QVERIFY(!request.isEmpty());
+        QTRY_COMPARE_WITH_TIMEOUT(map.requestState(request).value("state").toString(), QString("ready"), 15000);
+    }
 private slots:
+    void aHostCommitsOfflineWithoutAReplicationPeer_data() {
+        QTest::addColumn<bool>("pairingProof");
+        QTest::newRow("cached-pairing-proof") << true;
+        QTest::newRow("unavailable-pairing-proof") << false;
+    }
+    void aHostCommitsOfflineWithoutAReplicationPeer() {
+        QFETCH(bool, pairingProof);
+        qputenv("SOCIETY_TEST_ACCOUNT_DISCOVERY", "1");
+        const auto restore = qScopeGuard([] { qunsetenv("SOCIETY_TEST_ACCOUNT_DISCOVERY"); });
+        AccountServer authority; QVERIFY(authority.server.listen(QHostAddress::LocalHost));
+        MemorySessionStore session;
+        AccountController account(authority.url(), &session, nullptr);
+        QSignalSpy restored(&account, &AccountController::pairingStateRestored);
+        QVERIFY(account.login("builder@example.com", "FixtureOnly1!")); QTRY_VERIFY(account.signedIn());
+        QTRY_COMPARE(restored.size(), 1);
+        QTRY_VERIFY(!account.busy()); account.setAutomaticPairingEnabled(false);
+        if (pairingProof) { account.requestPairingCredentials(); QTRY_VERIFY(!account.pairingCredentials().isEmpty()); }
+        else authority.status = 503; // No fresh discovery proof is available offline.
+        const auto scope = authority.scope();
+        QTemporaryDir root(QString(QT_TESTCASE_BUILDDIR) + "/offline-namespace-XXXXXX");
+        const auto drive = iiSocietyContainer::SocietyDrive::create(root.path()); QVERIFY(drive);
+        FakeDiscoveryService discovery; NetworkDriveController host(&discovery, QHostAddress::LocalHost);
+        host.setContainerPath(root.path()); host.setAccountSession(&account);
+        QTRY_COMPARE(host.namespaceState().value("role").toString(), QString("authority"));
+        const auto head = host.namespaceState().value("head");
+        authority.server.close(); // All subsequent work is device local.
+        QFile file(root.filePath("Files/offline.txt")); QVERIFY(file.open(QIODevice::WriteOnly)); file.write("offline host truth"); file.close();
+        QTRY_VERIFY(host.namespaceState().value("head") != head);
+        const iiSocietyContainer::StorageMap committed(*drive);
+        QTRY_COMPARE_WITH_TIMEOUT(committed.object("files/offline.txt").value("kind").toString(), QString("file"), 15000);
+        QVERIFY(!host.connected()); QVERIFY(!host.synchronizationAvailable());
+        QCOMPARE(host.namespaceState().value("namespace").toString(), drive->identifier());
+        const auto state = host.namespaceState(); host.setRuntimeEnabled(false);
+        iiSocietySync::Replica replica; QVERIFY(replica.open(root.path(), scope));
+        QCOMPARE(replica.namespaceState().value("namespace").toString(), state.value("namespace").toString());
+        QVERIFY(!replica.revision(state.value("head").toString()).isEmpty());
+        QCOMPARE(replica.objectMetadata("files/offline.txt").value("kind"), "file");
+        const auto persistedHead = replica.namespaceState().value("head");
+        const auto persistedFile = replica.objectMetadata("files/offline.txt");
+        replica.close(); QVERIFY(replica.open(root.path(), scope));
+        QCOMPARE(replica.namespaceState().value("head"), persistedHead);
+        QCOMPARE(replica.objectMetadata("files/offline.txt"), persistedFile);
+    }
     void headlessNasHostsThroughTheAccountServer() {
         AccountServer authority; QVERIFY(authority.server.listen(QHostAddress::LocalHost));
         iiServerHost::SessionAuthenticator verifier(authority.url().resolved(QUrl("/Account/Session")));
@@ -59,6 +109,8 @@ private slots:
         QVERIFY(client.configureServer(QUrl(endpoint), false));
         QTRY_VERIFY_WITH_TIMEOUT(iiSocietySync::Replica::binding(root.filePath("client")).value("complete").toBool(), 20000);
         QCOMPARE(iiSocietyContainer::SocietyDrive::open(root.filePath("client"))->identifier(), original->identifier());
+        QVERIFY(!QFileInfo::exists(root.filePath("client/Models/headless.bin")));
+        download(root.filePath("client"), "models/headless.bin");
         QFile mirrored(root.filePath("client/Models/headless.bin")); QVERIFY(mirrored.open(QIODevice::ReadOnly));
         QCOMPARE(mirrored.readAll(), QByteArray("NAS model bytes"));
         QFile status(root.filePath("status.json")); QVERIFY(status.open(QIODevice::ReadOnly));
@@ -120,11 +172,24 @@ private slots:
         QTRY_VERIFY_WITH_TIMEOUT(iiSocietySync::Replica::binding(clientRoot.path()).value("complete").toBool(), 20000);
         const auto scope = iiSocietySync::Replica::binding(clientRoot.path()).value("scope").toString();
         QCOMPARE(iiSocietySync::Replica::primaryHost(hostRoot.path(), scope), hostAccount.manager()->deviceInfo().value("id").toString());
+        QVERIFY(!QFileInfo::exists(clientRoot.filePath("Models/remote-model.bin")));
+        download(clientRoot.path(), "models/remote-model.bin");
         QCOMPARE(read(clientRoot.filePath("Models/remote-model.bin")), contents);
         QCOMPARE(iiSocietyContainer::SocietyDrive::open(clientRoot.path())->identifier(), original->identifier());
         QVERIFY(write(clientRoot.filePath("Files/from-client.txt"), "client upload"));
         QTRY_COMPARE_WITH_TIMEOUT(read(hostRoot.filePath("Files/from-client.txt")), QByteArray("client upload"), 15000);
+        // Host publication precedes the upload acknowledgement. Wait until the
+        // client knows this is a clean cache before testing its invalidation.
+        QTRY_VERIFY_WITH_TIMEOUT(iiSocietyContainer::StorageMap(
+            *iiSocietyContainer::SocietyDrive::open(clientRoot.path()))
+            .object("files/from-client.txt").contains("revision"), 15000);
         QVERIFY(write(hostRoot.filePath("Files/from-client.txt"), "host update"));
+        QTRY_VERIFY_WITH_TIMEOUT(!QFileInfo::exists(clientRoot.filePath("Files/from-client.txt")), 15000);
+        QTRY_COMPARE_WITH_TIMEOUT(iiSocietyContainer::StorageMap(
+            *iiSocietyContainer::SocietyDrive::open(clientRoot.path()))
+            .object("files/from-client.txt").value("hash").toString(),
+            QString::fromLatin1(QCryptographicHash::hash("host update", QCryptographicHash::Sha256).toHex()), 15000);
+        download(clientRoot.path(), "files/from-client.txt");
         QTRY_COMPARE_WITH_TIMEOUT(read(clientRoot.filePath("Files/from-client.txt")), QByteArray("host update"), 15000);
         QVERIFY(QFile::remove(clientRoot.filePath("Files/from-client.txt")));
         QTRY_VERIFY_WITH_TIMEOUT(!QFile::exists(hostRoot.filePath("Files/from-client.txt")), 15000);
@@ -135,6 +200,7 @@ private slots:
         QVERIFY(write(hostRoot.filePath("Files/offline.txt"), "reconnected"));
         QVERIFY(relay.listen(QHostAddress::LocalHost, port));
         QTRY_VERIFY_WITH_TIMEOUT(client.connected() && host.connected(), 10000);
+        download(clientRoot.path(), "files/offline.txt");
         QTRY_COMPARE_WITH_TIMEOUT(read(clientRoot.filePath("Files/offline.txt")), QByteArray("reconnected"), 15000);
         QVERIFY(clientAccount.logout()); QTRY_VERIFY(!clientAccount.signedIn());
         QVERIFY(!client.connected()); QVERIFY(!client.synchronizationAvailable());
@@ -435,7 +501,7 @@ private slots:
         QVERIFY(account.login("builder@example.com", "FixtureOnly1!"));
         QTRY_VERIFY(network.discovery()->authenticated());
         QCOMPARE(server.requests.size(), 2); QVERIFY(discovery.record.contains("proof"));
-        QCOMPARE(discovery.record.value("scope").toString(), QString(64, 'b'));
+        QCOMPARE(discovery.record.value("scope").toString(), server.scope());
         QTest::qWait(5300); // Cross the actual LAN discovery timer without HTTP.
         QCOMPARE(server.requests.size(), 2);
         server.profile.insert("displayName", "Changed through account service");
@@ -469,6 +535,8 @@ private slots:
         QSignalSpy synced(&client, &NetworkDriveController::containerSynchronized);
         QTRY_VERIFY_WITH_TIMEOUT(host.hosting() && client.localPeer()->connected(), 15000);
         QTRY_VERIFY2_WITH_TIMEOUT(synced.size() > 0, qPrintable(client.synchronizationStatus()), 30000);
+        QVERIFY(!QFileInfo::exists(b.filePath("Models/from-desktop.bin")));
+        download(b.path(), "models/from-desktop.bin");
         QFile downloaded(b.filePath("Models/from-desktop.bin")); QVERIFY(downloaded.open(QIODevice::ReadOnly)); QCOMPARE(downloaded.readAll(), QByteArray(700000, 's'));
         QCOMPARE(iiSocietyContainer::SocietyDrive::open(a.path())->identifier(), iiSocietyContainer::SocietyDrive::open(b.path())->identifier());
         QVERIFY(client.containerReady());
@@ -479,6 +547,9 @@ private slots:
         QVERIFY(retained.open(QIODevice::ReadOnly)); QCOMPARE(retained.readAll(), QByteArray("client bytes"));
         QVERIFY(fromClient.open(QIODevice::WriteOnly)); fromClient.write("client bytes"); fromClient.close();
         synced.clear(); client.synchronizeNow(); QTRY_VERIFY_WITH_TIMEOUT(synced.size() > 0, 30000);
+        // An already-running metadata round can finish before the newly
+        // written file is scanned. Verify publication, not that unrelated edge.
+        QTRY_VERIFY_WITH_TIMEOUT(QFileInfo::exists(a.filePath("Files/client.txt")), 15000);
         QFile uploaded(a.filePath("Files/client.txt")); QVERIFY(uploaded.open(QIODevice::ReadOnly)); QCOMPARE(uploaded.readAll(), QByteArray("client bytes"));
         QCOMPARE(server.requests.size(), 4); // Two logins + two grants; synchronization never contacts iisacc.com.
         QVERIFY(host.synchronizationAvailable());

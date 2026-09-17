@@ -7,6 +7,7 @@
 #include <QFile>
 #include <QGuiApplication>
 #include <QImage>
+#include <QJsonArray>
 #include <QJSValue>
 #include <QQmlApplicationEngine>
 #include <QQmlError>
@@ -36,6 +37,7 @@ private slots:
         QVERIFY(image.save(fixtures.filePath("preview #한글.png")));
 
         qmlRegisterType<DirectoryLocation>("Society", 1, 0, "DirectoryLocation");
+        qmlRegisterType<StorageDirectoryModel>("Society", 1, 0, "StorageDirectoryModel");
         engine.addImportPath(QString::fromUtf8(SOCIETY_LVRS_QML_IMPORT_PATH));
         connect(&engine, &QQmlApplicationEngine::warnings, this,
                 [this](const QList<QQmlError> &errors) {
@@ -354,6 +356,39 @@ private slots:
         QTRY_COMPARE(emptyTitle(), QStringLiteral("No folder selected"));
         QCOMPARE(view->property("count").toInt(), 0);
         QCOMPARE(view->property("selectedPath").toString(), QString());
+    }
+
+    void remoteFileShowsDownloadStateAndOpensAfterPublication()
+    {
+        QTemporaryDir remote(QStringLiteral(SOCIETY_TEST_DIRECTORY "/remote-grid-XXXXXX"));
+        const auto drive = iiSocietyContainer::SocietyDrive::create(remote.path()); QVERIFY(drive);
+        iiSocietyContainer::StorageMap map(*drive);
+        QJsonObject entry{{"path", "files/Documents/remote.txt"}, {"kind", "file"}, {"size", "3"},
+            {"version", QString(64, 'a')}, {"hash", QString(64, 'b')}, {"resident", false}};
+        QVERIFY(map.publish({entry}));
+        QVERIFY(view->setProperty("path", remote.filePath("Files/Documents")));
+        QTRY_COMPARE(view->property("count").toInt(), 1);
+        QVERIFY(grid->setProperty("currentIndex", 0));
+        QSignalSpy activated(view, SIGNAL(activated(QString,bool)));
+        QVERIFY(QMetaObject::invokeMethod(view, "activateCurrent"));
+        QCOMPARE(activated.size(), 0);
+        QTRY_COMPARE(map.pendingRequests().size(), 1);
+        QVERIFY(view->property("downloadStatus").toString().contains("Downloading"));
+        const auto request = map.pendingRequests().first().toObject().value("id").toString();
+        QVERIFY(map.finishRequest(request, "host_version_changed"));
+        QTRY_VERIFY(view->property("downloadStatus").toString().contains("retry"));
+        QCOMPARE(activated.size(), 0);
+        QVERIFY(QMetaObject::invokeMethod(view, "activateCurrent"));
+        QTRY_COMPARE(map.pendingRequests().size(), 1);
+        const auto retry = map.pendingRequests().first().toObject().value("id").toString();
+        const auto path = remote.filePath("Files/Documents/remote.txt");
+        QFile file(path); QVERIFY(file.open(QIODevice::WriteOnly)); QCOMPARE(file.write("new"), 3); file.close();
+        entry["resident"] = true; QVERIFY(map.publish({entry})); QVERIFY(map.finishRequest(retry));
+        QTRY_COMPARE(activated.size(), 1);
+        QCOMPARE(activated.first().first().toString(), path);
+        QVERIFY(view->property("downloadStatus").toString().isEmpty());
+        QVERIFY(view->setProperty("path", ""));
+        QTRY_COMPARE(view->property("count").toInt(), 0);
     }
 
     void cleanupTestCase()

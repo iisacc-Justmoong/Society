@@ -1,5 +1,40 @@
 # Tools · Model merge
 
+기본 모드는 **Unified cascade**이다. 서로 다른 체크포인트를
+`.iildmodel` 통합 객체에 보존하고 각 모델이 이전 이미지를 자기 VAE로 인코딩하여 순서대로
+재생성한다. 이는 하나의 신경망으로 가중치를 평균하거나 증류한 결과가 아니다. 체크포인트
+강도는 0–1(기본 0.35), LoRA 강도는 기본 1이다. LoRA는 실제 텐서 이름과 크기가 맞는 가장
+가까운 앞쪽 체크포인트에만 결합한다. 대상 체크포인트 바로 뒤에 LoRA를 배치한다.
+
+선택한 체크포인트와 맞지 않는 LoRA는 SDK의 `LoraCompatibilityBridge`가 입력 체크포인트와
+같은 폴더의 safetensors 후보를 검사한다. 모든 대상 이름·형태·rank·alpha가 맞는 실제
+체크포인트를 찾아 LoRA와 결합한 뒤, 해당 재료 위치에 이미지 재생성 단계를 자동으로 추가한다.
+Anima 후보는 텍스트 인코더와 VAE를 포함한 완성본을 우선한다. 따라서 SDXL·Noob와 Anima
+LoRA를 선택해도 같은 폴더에 호환 Anima가 있으면 연결할 수 있다. `model.diffusion_model.net.*`
+완성본 이름도 지원한다. 연결 강도 기본값은 0.35이며 LoRA 강도와 별개다.
+
+**Check inputs**의 `stages[].compatibility_bridge`에서 선택된 모델과 대상 수를 확인할 수 있다.
+같은 우선순위의 후보가 여럿이면 임의로 고르지 않고 모델 경로를 표시한다. 사용할 체크포인트를
+재료에 직접 추가하면 된다. 일치하는 체크포인트가 없으면 실패하며, LoRA만으로 베이스 가중치를
+복구하거나 다른 신경망의 가중치로 변환하지 않는다. 이 처리는 Unified cascade에만 적용한다.
+
+LoRA 연산이 없는 구성원은 원본 바이트를 그대로 보존한다. 원본의 NaN/무한값도 변경하지
+않으며, 패키징 성공이 모든 텐서의 수치적 정상 여부를 보증하지는 않는다. LoRA를 결합하는
+체크포인트에는 기존의 유한값 입력·출력 검사를 적용한다. 이 검증 범위는 `merge.json`에 기록된다.
+
+**Weighted sum/difference**는 기존 가중치 연산이다. SDXL의 `v_pred`·`ztsnr`와 같은 빈
+예측 마커도 의미가 있으므로 서로 다른 예측 설정을 삭제하거나 평균하지 않는다. 이런 조합과
+다른 신경망 구조는 통합 모드를 사용한다. 통합 생성에는 각 모델을 지원하는 최신 SDK와
+모델의 필수 인코더/VAE가 필요하다. 현재 통합 입력은 단일 체크포인트 파일과 지원되는 LoRA이다.
+완성된 통합 객체를 다시 병합 재료로 사용하거나 Diffusers 폴더를 통합하는 기능은 포함하지 않는다.
+
+**Check inputs**는 SDK `--inspect`로 전체 가중치 해시 전에 구조와 LoRA 대상·강도를 확인한다.
+NaN/Inf 등 실제 텐서 값과 원본 해시는 빌드 시 검사한다. **Copy full report**에 실행 순서와
+출처·파일 해시가 포함된다. SDK 실행 파일 선택은 환경 변수, 앱 옆 실행기, CMake 지정 실행기,
+사용자 설치 경로, PATH 순서로 현재 앱과 검증된 런타임의 연결을 유지한다.
+
+[Tools 카드 목록](Tools.md)의 **Model merge**를 눌러 진입한다. **All tools**로 목록에 돌아가도 설정과 실행 중 작업을 유지한다.
+
 Society 데스크톱의 **Tools → Model merge**는 iiLocalDiffusion의 설치된 `iild-merge`를 사용하여 로컬 체크포인트와 LoRA를 새 모델로 병합한다. 기존 Qt의 `QProcess`가 실행과 취소·결과를 관리하고 LVRS가 입력 UI를 제공한다. 텐서 연산, 모델 형식 검사, LoRA 적용, 원본 검증과 출력 저장은 SDK에 위임한다. 새 라이브러리나 서비스는 추가하지 않는다.
 
 베이스는 전체 체크포인트 파일 또는 Diffusers 폴더이고, 첫 추가 모델은 필수이다. 추가 모델은 체크포인트 또는 LoRA 파일·폴더이며 **Add material**로 개수 제한 없이 늘리고 **Remove**로 제거한다. **입력 모델은 현재 컨테이너의 `Models/` 목록에서 선택한다.** LVRS `LabelMenuButton`을 누르거나 우클릭하면 `ContextMenu`가 열리며, 파일 경로를 입력하거나 운영체제 파일·폴더 선택기를 열 필요가 없다. Society의 시스템 파일 공급자가 `Files/`만 노출하더라도 Models의 모델을 선택할 수 있다.
@@ -14,19 +49,19 @@ Society 데스크톱의 **Tools → Model merge**는 iiLocalDiffusion의 설치�
 | --- | --- | --- |
 | Base model (A) | `--base-model` | Models 드롭다운에서 전체 체크포인트 또는 Diffusers 폴더 선택 |
 | Material 1…N | 반복 `--additional-model` | Models 드롭다운에서 필수 첫 재료와 추가 체크포인트·LoRA 선택 |
-| Weighted sum / Weighted difference | `--mode` | 가중합 또는 직접 가중차 |
+| Unified cascade / Weighted sum / Weighted difference | `--mode` | 통합 객체 또는 호환 가중치의 합·차 |
 | Automatic weights | `--weights` 생략 | SDK가 모델 종류를 검사한 뒤 가중치를 결정 |
 | Shared weight | `--weights`에 값 1개 | 모든 추가 모델에 동일한 가중치 적용 |
 | Per-model weights | `--weights`에 N개 | 재료 순서대로 모든 가중치를 직접 입력 |
 | New model path | `--output` | 체크포인트는 새 `.safetensors`/`.safetensor`, Diffusers는 새 폴더 |
 | Conversion cache | `--cache-dir` | 레거시 체크포인트 변환 캐시 경로 |
-| Check inputs | `--print-config` | 경로와 파라미터를 검증하고 설정 JSON 표시 |
+| Check inputs | `--inspect` | 구조·예측 설정·LoRA 대상과 강도를 검사하여 JSON 표시 |
 | iiLocalDiffusion executable | 실행 프로그램 | 설치된 `iild-merge` 자동 탐색 또는 직접 지정 |
 | Python executable | `IILD_PYTHON_EXECUTABLE` | 선택적 Python 실행 파일. 비우면 SDK의 기본 환경 사용 |
 
 가중치는 유한한 0 이상의 수이며 소수와 과학적 표기법을 지원한다. Per-model에서는 모든 재료의 가중치가 필요하다. `NaN`, 무한대, 음수와 쉼표를 포함하는 숫자는 거부한다. LoRA 강도와 차 방식 가중치를 임의로 1 이하로 제한하지 않는다.
 
-출력을 비우면 열린 Society 컨테이너의 베이스 모델 유형 폴더(`Models/Checkpoint/` 등, 미확정은 `Models/Other/`)에 `<base>-sum.safetensors` 또는 `<base>-difference.safetensors`를 제안한다. Diffusers 베이스에는 확장자 없는 새 폴더를 제안한다. 출력·캐시·실행 환경은 경로 입력과 파일·폴더 선택기를 유지하며 절대 경로, `~/`, 로컬 파일 URL을 정규화한다. **Choose parent folder**로 출력 부모를 고른 뒤 새 이름을 수정할 수 있다. 캐시를 비우면 Society의 운영체제별 애플리케이션 캐시 아래 `model-merge`를 사용한다. UI 기본 경로를 명시적인 SDK 인자로 전달하므로 SDK 설치 디렉터리에 결과를 기록하지 않는다.
+출력을 비우면 열린 Society 컨테이너의 베이스 모델 유형 폴더(`Models/Checkpoint/` 등, 미확정은 `Models/Other/`)에 통합 모드는 `<base>-unified.iildmodel`, 가중치 연산은 `<base>-sum.safetensors` 또는 `<base>-difference.safetensors`를 제안한다. Diffusers 베이스의 가중치 연산에는 확장자 없는 새 폴더를 제안한다. **Choose parent folder**로 출력 부모를 고른 뒤 새 이름을 수정할 수 있다. 캐시를 비우면 Society의 운영체제별 애플리케이션 캐시 아래 `model-merge`를 사용한다.
 
 ## 합·차의 의미
 
@@ -41,7 +76,7 @@ Society 데스크톱의 **Tools → Model merge**는 iiLocalDiffusion의 설치�
 
 ## 실행과 결과
 
-**Check inputs**는 모델 텐서를 로드하거나 결과·캐시를 만들지 않는다. 이 검증만으로 모델끼리 호환된다고 판단하지 않는다. 실제 **Merge models**에서 SDK가 텐서 키·크기·구조·비유한 값과 오버플로를 검사한다. 성공하면 저장 위치, 병합 텐서 수·모델 수·베이스 계수와 SDK 보고서를 제공하며 **Open output folder**로 결과 부모를 연다. **Copy full report**는 원본 해시·실제 가중치·LoRA 종류·출력 해시를 포함한 전체 JSON을 복사한다. 화면 보고서는 처음 16,000자만 표시한다.
+**Check inputs**는 가중치 헤더와 LoRA 스케일 설정으로 구조를 검사한다. 레거시 포맷은 안전한 변환 캐시가 필요하다. 실제 **Merge models**에서 비유한 값·오버플로·출처 해시를 추가로 검사한다. 성공하면 저장 위치와 SDK 보고서를 제공하며 **Open output folder**로 결과 부모를 연다. **Copy full report**는 출처·실제 강도·LoRA 대상·출력 해시를 포함한 전체 JSON을 복사한다. 화면 보고서는 처음 16,000자만 표시한다.
 
 실행은 비동기이며 경과 시간과 실행 상태를 표시한다. SDK는 텐서별 진행률을 내보내지 않으므로 추정 퍼센트를 표시하지 않는다. Unix의 **Cancel**은 해당 자식 프로세스에 SIGINT를 전달하여 SDK의 정리 구문이 실행되게 한다. 현재 네이티브 연산이 끝나야 취소가 처리될 수 있다. Windows에서는 종료 요청 후 필요하면 해당 프로세스를 종료한다. 창을 닫으면 실행 중인 자식도 정리한다. 비정상 강제 종료는 SDK의 임시 디렉터리를 남길 수 있으나 Society가 원본이나 이미 게시된 출력을 삭제하지는 않는다. 완료와 취소가 경합하여 출력이 나타난 경우에는 확인이 필요하다는 상태를 표시한다.
 
@@ -49,7 +84,7 @@ SDK는 기존 출력과 원본 덮어쓰기를 거부하고 스테이징이 완�
 
 ## 설치와 검증
 
-기본 실행 파일 탐색은 `SOCIETY_MODEL_MERGE_EXECUTABLE` 환경 변수, 앱 실행 디렉터리, `~/.local/SDK/iiLocalDiffusion/bin/iild-merge`, CMake가 찾은 설치 경로, PATH 순서이다. SDK와 호환되는 PyTorch·safetensors 환경이 필요하며 LoRA 이름 변환에는 기존 Diffusers 환경을 사용한다. Python 패키지를 자동 설치하거나 모델을 다운로드하지 않는다. 설치형 런처의 기본 가상 환경 또는 화면의 Python 실행 파일을 사용한다.
+SDK와 호환되는 PyTorch·safetensors 환경이 필요하며 LoRA 이름 변환에는 기존 Diffusers 환경을 사용한다. Python 패키지를 자동 설치하거나 모델을 다운로드하지 않는다. 설치형 런처의 기본 가상 환경 또는 화면의 Python 실행 파일을 사용한다.
 
 `Society.ModelMerge`는 실제 설치된 `iild-merge`를 실행하여 다음을 검사한다.
 
@@ -62,4 +97,4 @@ SDK는 기존 출력과 원본 덮어쓰기를 거부하고 스테이징이 완�
 
 텐서 테스트에는 설치된 SDK의 Python 환경이 필요하다. 런타임이 없으면 해당 검사만 명시적으로 skip되며 경로·인자·QML 검증은 계속한다. `Society.Drive`는 Tools·Dashboard·Storage 왕복 시 병합 설정과 기존 폴더·프롬프트 보존을 검사한다. 모델의 미적 품질과 다중 GB 실사용 체크포인트의 실행 시간은 이 작은 텐서 검증이 보장하지 않는다.
 
-모바일 Tools 탭도 동일한 `ModelMergeTool`을 표시한다. 좁은 화면은 16 px 여백과 한 열의 스크롤 폼을 사용하고 터치 입력·버튼의 높이를 확보한다. 플랫폼이 로컬 병합을 지원하지 않으면 기존 `ModelMergeController.supported`에 따라 실행을 비활성화하고 설명을 표시한다. 모바일용 병합 백엔드를 새로 제공하는 변경은 아니다. 설정은 다른 탭이나 화면 방향으로 이동해도 유지한다.
+모바일 Tools 탭도 카드 목록에서 Model merge를 선택하면 동일한 `ModelMergeTool`을 표시한다. 좁은 화면은 16 px 여백과 한 열의 스크롤 폼을 사용하고 터치 입력·버튼의 높이를 확보한다. 플랫폼이 로컬 병합을 지원하지 않으면 기존 `ModelMergeController.supported`에 따라 실행을 비활성화하고 설명을 표시한다. 모바일용 병합 백엔드를 새로 제공하는 변경은 아니다. 설정은 다른 탭이나 화면 방향으로 이동해도 유지한다.

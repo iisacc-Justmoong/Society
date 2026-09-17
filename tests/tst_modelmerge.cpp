@@ -107,7 +107,8 @@ private slots:
         QCOMPARE(result["additional_models"].toArray().size(), 2);
         QCOMPARE(result["output"].toString(), request["output"].toString());
         QCOMPARE(result["cache_dir"].toString(), request["cacheDirectory"].toString());
-        QVERIFY(result["base_weight"].isNull());
+        QCOMPARE(result["base_weight"].toDouble(), 1.0);
+        QCOMPARE(result["inspection"].toString(), QString("structure-only"));
         QVERIFY(!QFileInfo::exists(request["output"].toString()));
         QVERIFY(!QFileInfo::exists(request["cacheDirectory"].toString()));
     }
@@ -186,6 +187,23 @@ private slots:
         QTRY_VERIFY(!catalog.loading());
         QVERIFY(catalog.models().isEmpty());
         QVERIFY(!catalog.errorString().isEmpty());
+    }
+
+    void unifiedObjectRunsThroughInstalledSdkAndReportsStages()
+    {
+        if (!m_hasRuntime) QSKIP("The SDK tensor runtime is unavailable.");
+        ModelMergeController controller;
+        auto request = options("combined.iildmodel");
+        request["mode"] = "unified";
+        QSignalSpy done(&controller, &ModelMergeController::finished);
+        QVERIFY(controller.run(request));
+        QTRY_COMPARE_WITH_TIMEOUT(done.count(), 1, 60000);
+        QVERIFY2(done.first().first().toBool(), qPrintable(controller.errorString()));
+        const auto report = QJsonDocument::fromJson(controller.details().toUtf8()).object();
+        QCOMPARE(report["mode"].toString(), QString("unified"));
+        QCOMPARE(report["stages"].toArray().size(), 2);
+        QVERIFY(controller.status().contains("2 stages"));
+        QVERIFY(python({"verify-unified", m_fixture.path(), controller.completedOutput()}));
     }
 
     void catalogUsesModelTypesForSelectionAndOutput()
@@ -326,7 +344,7 @@ private slots:
         QCOMPARE(engine.rootObjects().size(), 1);
         auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first()); QVERIFY(window);
         QVERIFY(QTest::qWaitForWindowExposed(window));
-        auto *tool = window->findChild<QQuickItem *>("toolsView"); QVERIFY(tool);
+        auto *tool = window->findChild<QQuickItem *>("modelMergeTool"); QVERIFY(tool);
         auto *catalog = window->findChild<MergeModelCatalog *>("mergeModelCatalog"); QVERIFY(catalog);
         auto *base = window->findChild<QQuickItem *>("mergeBaseField"); QVERIFY(base);
         auto *button = window->findChild<QQuickItem *>("mergeBaseFieldButton"); QVERIFY(button);
@@ -455,7 +473,7 @@ private slots:
         engine.load(QUrl::fromLocalFile(QString::fromUtf8(SOCIETY_MERGE_QML_FILE)));
         QCOMPARE(engine.rootObjects().size(), 1);
         auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first()); QVERIFY(window);
-        auto *tool = window->findChild<QQuickItem *>("toolsView"); QVERIFY(tool);
+        auto *tool = window->findChild<QQuickItem *>("modelMergeTool"); QVERIFY(tool);
         auto *controller = window->findChild<ModelMergeController *>("modelMergeController"); QVERIFY(controller);
         auto *catalog = window->findChild<MergeModelCatalog *>("mergeModelCatalog"); QVERIFY(catalog);
         QVERIFY(QTest::qWaitForWindowExposed(window));
@@ -480,6 +498,9 @@ private slots:
         const auto base = m_fixture.filePath("base.safetensors");
         select("mergeBaseField", base);
         QCOMPARE(tool->property("baseModel").toString(), base);
+        QCOMPARE(tool->property("mode").toString(), QString("unified"));
+        QCOMPARE(tool->property("suggestedPath").toString(), m_fixture.filePath("Other/base-unified.iildmodel"));
+        QVERIFY(tool->setProperty("mode", "weighted-sum"));
         QCOMPARE(tool->property("suggestedPath").toString(), m_fixture.filePath("Other/base-sum.safetensors"));
         QVERIFY(tool->setProperty("weightMode", "per-model"));
         QVERIFY(tool->setProperty("cacheDirectory", m_fixture.filePath("form cache")));

@@ -11,8 +11,47 @@ Item {
     required property var controller
     property bool touchNavigation: Qt.platform.os === "ios" || Qt.platform.os === "android"
     property string selectedId: ""
-    property real savedScroll: 0
+    property var pendingViewState: null
+    property bool initialPositionPending: true
     objectName: "photosView"
+
+    function resetView(): void {
+        pendingViewState = null
+        initialPositionPending = true
+        Qt.callLater(root.restoreView)
+    }
+
+    function rememberView(): void {
+        // Coalesce partial catalog updates before the grid has restored its layout.
+        if (initialPositionPending || pendingViewState || grid.count === 0) return
+        pendingViewState = { contentY: grid.contentY, atEnd: grid.atYEnd }
+    }
+
+    function restoreView(): void {
+        if (!root.visible || !root.controller || grid.width <= 0 || grid.height <= 0
+                || grid.count !== root.controller.entries.length) return
+        if (grid.count === 0) {
+            pendingViewState = null
+            initialPositionPending = true
+            return
+        }
+        grid.forceLayout()
+        if (initialPositionPending) {
+            grid.positionViewAtEnd()
+            initialPositionPending = false
+            pendingViewState = null
+            return
+        }
+        const state = pendingViewState
+        pendingViewState = null
+        if (!state) return
+        if (state.atEnd)
+            grid.positionViewAtEnd()
+        else
+            grid.contentY = Math.max(grid.originY, Math.min(state.contentY,
+                grid.originY + Math.max(0, grid.contentHeight - grid.height)))
+    }
+
     function showInformation(entry): void {
         selectedId = entry.id
         info.fileName = entry.name
@@ -26,19 +65,20 @@ Item {
         ]
         info.open()
     }
-    onVisibleChanged: if (!visible) info.close()
+    onVisibleChanged: {
+        if (visible) resetView()
+        else info.close()
+    }
+    onControllerChanged: resetView()
+    Component.onCompleted: resetView()
     onSelectedIdChanged: if (selectedId.length === 0) info.close()
     Connections {
         target: root.controller
-        function onEntriesAboutToChange() { root.savedScroll = grid.contentY }
+        function onEntriesAboutToChange() { root.rememberView() }
         function onEntriesChanged() {
             if (root.selectedId.length > 0 && !root.controller.entries.some(function(entry) { return entry.id === root.selectedId }))
                 root.selectedId = ""
-            Qt.callLater(function() {
-                grid.forceLayout()
-                grid.contentY = Math.max(grid.originY, Math.min(root.savedScroll,
-                    grid.originY + Math.max(0, grid.contentHeight - grid.height)))
-            })
+            Qt.callLater(root.restoreView)
         }
     }
     ColumnLayout {
@@ -86,7 +126,11 @@ Item {
                 cellHeight: cellWidth
                 interactive: !zoom.interacting
                 model: root.controller ? root.controller.entries : []
+                currentIndex: -1
                 boundsBehavior: Flickable.StopAtBounds
+                onCountChanged: Qt.callLater(root.restoreView)
+                onHeightChanged: if (root.initialPositionPending) Qt.callLater(root.restoreView)
+                onWidthChanged: if (root.initialPositionPending) Qt.callLater(root.restoreView)
                 Controls.ScrollBar.vertical: Controls.ScrollBar {}
                 delegate: GalleryTile {
                     id: tile

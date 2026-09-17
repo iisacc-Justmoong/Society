@@ -8,12 +8,12 @@ import Society
 
 Item {
     id: root
-    objectName: "toolsView"
+    objectName: "modelMergeTool"
     property string modelsDirectory: ""
     property bool modelsBusy: false
     property bool touchNavigation: false
     property string baseModel: ""
-    property string mode: "weighted-sum"
+    property string mode: "unified"
     property string weightMode: "automatic"
     property string sharedWeight: "0.5"
     property string outputPath: ""
@@ -178,6 +178,15 @@ Item {
                             text: qsTr("Models & weights")
                             style: header
                         }
+                        LV.LabelButton {
+                            objectName: "mergeUnifiedMode"
+                            text: qsTr("Unified cascade")
+                            Accessible.name: text
+                            Accessible.selected: root.mode === "unified"
+                            Layout.minimumHeight: root.touchNavigation ? 44 : 0
+                            tone: root.mode === "unified" ? LV.AbstractButton.Default : LV.AbstractButton.Borderless
+                            onClicked: root.mode = "unified"
+                        }
                         LV.LabelSegmentedControl {
                             forceBorderlessTone: false
                             LV.LabelButton {
@@ -203,7 +212,9 @@ Item {
                         }
                         LV.Label {
                             Layout.fillWidth: true
-                            text: root.mode === "weighted-sum" ? qsTr("(1 − Σ checkpoint weights) × A + Σ weighted checkpoints + Σ weighted LoRA deltas") : qsTr("A − Σ weighted checkpoints − Σ weighted LoRA deltas")
+                            text: root.mode === "unified"
+                                ? qsTr("Keeps each model's architecture. Each checkpoint refines the previous image; this is not a single-network weight merge. Checkpoint strengths: 0–1 (default 0.35). LoRA strength: default 1; applied to the nearest preceding compatible checkpoint.")
+                                : root.mode === "weighted-sum" ? qsTr("(1 − Σ checkpoint weights) × A + Σ weighted checkpoints + Σ weighted LoRA deltas") : qsTr("A − Σ weighted checkpoints − Σ weighted LoRA deltas")
                             wrapMode: Text.Wrap
                             sizeToContentHeight: true
                             textFormat: Text.PlainText
@@ -236,7 +247,9 @@ Item {
                         }
                         LV.Label {
                             Layout.fillWidth: true
-                            text: root.weightMode === "automatic" ? qsTr("Automatic: equal checkpoint shares for sum, 0.5 per checkpoint for difference. LoRA strength is 1.") : qsTr("Use nonnegative numbers, including scientific notation. Sum checkpoint weights must total ≤ 1. LoRA strengths and difference weights may exceed 1.")
+                            text: root.mode === "unified"
+                                  ? (root.weightMode === "automatic" ? qsTr("Automatic: each refinement strength is 0.35. LoRA strength is 1.") : qsTr("Checkpoint refinement strengths must be between 0 and 1. LoRA strengths must be nonnegative."))
+                                  : (root.weightMode === "automatic" ? qsTr("Automatic: equal checkpoint shares for sum, 0.5 per checkpoint for difference. LoRA strength is 1.") : qsTr("Use nonnegative numbers, including scientific notation. Sum checkpoint weights must total ≤ 1. LoRA strengths and difference weights may exceed 1."))
                             wrapMode: Text.Wrap
                             sizeToContentHeight: true
                             style: caption
@@ -363,7 +376,7 @@ Item {
                             label: qsTr("New model path")
                             path: root.outputPath
                             placeholder: root.suggestedPath || qsTr("Choose the base model first")
-                            allowFile: !mergeController.isDirectory(root.baseModel)
+                            allowFile: root.mode !== "unified" && !mergeController.isDirectory(root.baseModel)
                             saveFile: true
                             folderIsParent: true
                             nameFilters: [qsTr("Safetensors (*.safetensors *.safetensor)"), qsTr("All files (*)")]
@@ -376,7 +389,9 @@ Item {
                         }
                         LV.Label {
                             Layout.fillWidth: true
-                            text: qsTr("Single checkpoints save as safetensors. Diffusers models save to a new folder. Existing outputs are never replaced.")
+                            text: root.mode === "unified"
+                                ? qsTr("Creates an .iildmodel folder containing independent model weights. Use it with the updated iiLocalDiffusion native runtime. Single-file checkpoints and compatible LoRAs are supported.")
+                                : qsTr("Single checkpoints save as safetensors. Diffusers models save to a new folder. Existing outputs are never replaced.")
                             wrapMode: Text.Wrap
                             sizeToContentHeight: true
                             style: caption
@@ -512,7 +527,7 @@ Item {
                     Layout.minimumHeight: root.touchNavigation ? 44 : 0
                     objectName: "mergeRun"
                     height: Math.max(implicitHeight, root.touchNavigation ? 44 : 0)
-                    text: qsTr("Merge models")
+                    text: root.mode === "unified" ? qsTr("Create unified model") : qsTr("Merge models")
                     tone: LV.AbstractButton.Primary
                     enabled: mergeController.supported && !mergeController.busy && root.inputModelsReady
                     onClicked: mergeController.run(root.requestOptions(), false)

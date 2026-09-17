@@ -30,3 +30,11 @@ private:
     QUrl m_folderUrl;
     QString m_errorString;
 };
+
+#include <StorageDirectoryModel.h>
+class StorageDirectoryModel : public iiSocietyContainer::StorageDirectoryModel {
+    Q_OBJECT
+    QML_ELEMENT
+public:
+    using iiSocietyContainer::StorageDirectoryModel::StorageDirectoryModel;
+};

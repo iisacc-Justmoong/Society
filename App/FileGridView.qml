@@ -3,7 +3,6 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Controls as Controls
 import QtQuick.Layouts
-import Qt.labs.folderlistmodel
 import LVRS 1.0 as LV
 import Society
 import "Gallery"
@@ -19,20 +18,29 @@ Item {
     readonly property int count: grid.count
     readonly property string selectedPath: directoryModel && grid.currentIndex >= 0
                                            ? directoryModel.get(grid.currentIndex, "filePath") : ""
-    readonly property FolderListModel directoryModel: modelLoader.item as FolderListModel
+    readonly property StorageDirectoryModel directoryModel: modelLoader.item as StorageDirectoryModel
     readonly property bool loading: directoryModel !== null
-                                    && directoryModel.status === FolderListModel.Loading
+                                    && directoryModel.status === StorageDirectoryModel.Loading
     property var pendingViewState: null
     property bool initialPositionPending: true
+    property string downloadStatus: ""
 
     signal activated(string path, bool isDirectory)
+
+    function openEntry(index: int): void {
+        if (!directoryModel || index < 0 || index >= directoryModel.count) return
+        downloadStatus = directoryModel.get(index, "fileResident")
+                       ? "" : qsTr("Downloading from the Society host…")
+        directoryModel.activate(index)
+    }
 
     function showInformation(index: int): void {
         if (!directoryModel || index < 0 || index >= directoryModel.count) return
         grid.currentIndex = index
         info.fileName = directoryModel.get(index, "fileName")
-        info.preview = directoryModel.get(index, "fileUrl")
+        info.preview = directoryModel.get(index, "filePreviewUrl")
         info.fields = [
+            { label: qsTr("Availability"), value: directoryModel.get(index, "fileResident") ? qsTr("On this device") : qsTr("Download when opened") },
             { label: qsTr("Size"), value: info.formatSize(directoryModel.get(index, "fileSize")) },
             { label: qsTr("Modified"), value: Qt.formatDateTime(directoryModel.get(index, "fileModified"), "yyyy-MM-dd HH:mm") },
             { label: qsTr("Location"), value: selectedPath }
@@ -43,7 +51,7 @@ Item {
     function activateCurrent(): void {
         if (directoryModel && grid.currentIndex >= 0) {
             if (imagesOnly) showInformation(grid.currentIndex)
-            else activated(selectedPath, directoryModel.isFolder(grid.currentIndex))
+            else openEntry(grid.currentIndex)
         }
     }
 
@@ -63,7 +71,7 @@ Item {
     }
 
     function rememberView(): void {
-        // FolderListModel can publish its first count before inserting rows into the view.
+        // StorageDirectoryModel can publish its first count before inserting rows into the view.
         if (initialPositionPending || pendingViewState || !directoryModel || grid.count === 0)
             return
         pendingViewState = { model: directoryModel, path: root.path,
@@ -72,7 +80,7 @@ Item {
     }
 
     function restoreView(): void {
-        if (!directoryModel || directoryModel.status !== FolderListModel.Ready
+        if (!directoryModel || directoryModel.status !== StorageDirectoryModel.Ready
                 || grid.count !== directoryModel.count || grid.width <= 0 || grid.height <= 0)
             return
         if (initialPositionPending) {
@@ -114,6 +122,7 @@ Item {
     Component.onCompleted: resetModel()
 
     onPathChanged: {
+        downloadStatus = ""
         info.close()
         pendingViewState = null
         initialPositionPending = true
@@ -127,7 +136,7 @@ Item {
         onFolderUrlChanged: root.resetModel()
     }
 
-    // A disabled Loader avoids FolderListModel's implicit working-directory fallback.
+    // A disabled Loader avoids StorageDirectoryModel's implicit working-directory fallback.
     Loader {
         id: modelLoader
         objectName: "fileModelLoader"
@@ -135,7 +144,7 @@ Item {
         property bool filterImages: false
         property bool sortChronologically: false
         active: false
-        sourceComponent: FolderListModel {
+        sourceComponent: StorageDirectoryModel {
             // Snapshot the location, filters and order before the asynchronous scan.
             // Reusing a model while changing its path and filters can retain old rows.
             folder: modelLoader.folderUrl
@@ -146,7 +155,7 @@ Item {
             showDirsFirst: true
             showDotAndDotDot: false
             showHidden: false
-            sortField: modelLoader.sortChronologically ? FolderListModel.Time : FolderListModel.Name
+            sortField: modelLoader.sortChronologically ? StorageDirectoryModel.Time : StorageDirectoryModel.Name
             sortReversed: modelLoader.sortChronologically
             sortCaseSensitive: false
         }
@@ -154,6 +163,13 @@ Item {
 
     Connections {
         target: root.directoryModel
+        function onActivated(path: string, directory: bool): void {
+            root.downloadStatus = ""
+            root.activated(path, directory)
+        }
+        function onDownloadFailed(error: string): void {
+            root.downloadStatus = qsTr("Could not download this file. Select it again to retry.")
+        }
         function onModelAboutToBeReset(): void { root.rememberView() }
         function onRowsAboutToBeRemoved(): void { root.rememberView() }
         function onRowsAboutToBeInserted(): void { root.rememberView() }
@@ -209,6 +225,16 @@ Item {
                 textFormat: Text.PlainText
                 elide: Text.ElideMiddle
             }
+
+            LV.Label {
+                objectName: "fileDownloadStatus"
+                visible: root.downloadStatus.length > 0
+                Layout.fillWidth: true
+                style: description
+                text: root.downloadStatus
+                textFormat: Text.PlainText
+                wrapMode: Text.Wrap
+            }
         }
 
         Rectangle {
@@ -258,6 +284,8 @@ Item {
                     required property string fileName
                     required property string filePath
                     required property url fileUrl
+                    required property url filePreviewUrl
+                    required property bool fileResident
                     required property string fileSuffix
                     required property bool fileIsDir
                     objectName: "fileTile"
@@ -269,7 +297,10 @@ Item {
                         width: grid.cellWidth - 2
                         height: width
                         name: entry.fileName
-                        preview: root.imagesOnly ? entry.fileUrl : ""
+                        // Old rows can outlive the Files → gallery filter change.
+                        preview: root.imagesOnly && !entry.fileIsDir
+                                 && ["png", "jpg", "jpeg", "webp"].includes(entry.fileSuffix.toLowerCase())
+                                 ? entry.filePreviewUrl : ""
                         previewObjectName: "galleryThumbnail"
                         selected: grid.currentIndex === entry.index
                         onClicked: root.showInformation(entry.index)
@@ -293,11 +324,11 @@ Item {
                             grid.currentIndex = entry.index
                             grid.forceActiveFocus()
                             if (root.touchNavigation)
-                                root.activated(entry.filePath, entry.fileIsDir)
+                                root.openEntry(entry.index)
                         }
                         onDoubleClicked: {
                             if (!root.touchNavigation)
-                                root.activated(entry.filePath, entry.fileIsDir)
+                                root.openEntry(entry.index)
                         }
 
                         background: Rectangle {
@@ -321,7 +352,7 @@ Item {
                                     anchors.fill: parent
                                     source: !root.imagesOnly && !entry.fileIsDir
                                             && /^(png|jpe?g|webp|gif|bmp|svg)$/i.test(entry.fileSuffix)
-                                            ? entry.fileUrl : ""
+                                            ? entry.filePreviewUrl : ""
                                     sourceSize: Qt.size(256, 256)
                                     asynchronous: true
                                     autoTransform: true
@@ -437,6 +468,6 @@ Item {
     }
     GalleryInfo {
         id: info
-        onOpenRequested: if (root.selectedPath.length > 0) root.activated(root.selectedPath, false)
+        onOpenRequested: root.openEntry(grid.currentIndex)
     }
 }

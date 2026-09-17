@@ -110,6 +110,7 @@ bool PhotoStore::load() {
     m_references.clear();
     QDirIterator references(m_private + "/references", {"*.json"}, QDir::Files | QDir::NoDotAndDotDot);
     while (references.hasNext()) {
+        if (m_cancelled) return fail("The photo session ended.");
         const auto file = references.next(), id = QFileInfo(file).completeBaseName();
         if (!hex(id) || !confined(m_root, file)) return fail("A local photo reference is invalid.");
         const auto reference = readJson(file);
@@ -135,11 +136,20 @@ bool PhotoStore::saveReference(const QString &id, const QJsonObject &reference) 
     if (m_references.value(id) != reference && !writeJson(path, reference)) return fail("Could not save the local photo reference.");
     m_references[id] = reference; return true;
 }
-QString PhotoStore::digestFile(const QString &path, QString *error) {
+QString PhotoStore::digestFile(const QString &path, QString *error, const std::function<bool()> &cancelled) {
     QFile file(path); if (!ordinary(path) || !file.open(QIODevice::ReadOnly)) { if (error) *error = "Could not read the original resource."; return {}; }
     QCryptographicHash digest(QCryptographicHash::Sha256);
-    if (!digest.addData(&file)) { if (error) *error = "Could not hash the original resource."; return {}; }
+    QByteArray chunk(1024 * 1024, Qt::Uninitialized);
+    while (!file.atEnd()) {
+        if (cancelled && cancelled()) { if (error) *error = "The photo session ended."; return {}; }
+        const auto bytes = file.read(chunk.data(), chunk.size());
+        if (bytes <= 0) { if (error) *error = "Could not hash the original resource."; return {}; }
+        digest.addData(QByteArrayView(chunk.constData(), bytes));
+    }
     return QString::fromLatin1(digest.result().toHex());
+}
+QString PhotoStore::hashResource(const QString &path, QString *error) const {
+    return digestFile(path, error, [this] { return m_cancelled.load(); });
 }
 bool PhotoStore::validRecord(const QJsonObject &record) {
     if (record.value("schema") != 1 || !hex(record.value("id").toString())
@@ -162,6 +172,7 @@ QJsonArray PhotoStore::catalog() {
     if (!intact()) return result;
     QDirIterator it(m_photos, QDir::Files | QDir::NoDotAndDotDot, QDirIterator::Subdirectories);
     while (it.hasNext()) {
+        if (m_cancelled) { fail("The photo session ended."); return {}; }
         const auto path = it.next(); if (!path.endsWith(".societyphoto")) continue;
         if (!confined(m_root, path)) { fail("A photo alias was redirected."); break; }
         const auto record = readJson(path); if (!validRecord(record)) continue;
@@ -176,6 +187,7 @@ QJsonArray PhotoStore::catalog() {
     return result;
 }
 QJsonObject PhotoStore::readRecord(const QString &id) const {
+    if (m_cancelled) return {};
     const auto path = m_paths.value(id, m_photos + '/' + id + ".societyphoto"); if (!hex(id) || !confined(m_root, path)) return {};
     const auto record = readJson(path); return validRecord(record) && record.value("id") == id ? record : QJsonObject();
 }
@@ -207,7 +219,7 @@ QString PhotoStore::previewPath(const QString &id) const {
 bool PhotoStore::cacheValid(const QJsonObject &resource) const {
     const auto path = cachePath(resource.value("hash").toString());
     return !path.isEmpty() && ordinary(path) && QFileInfo(path).size() == resource.value("size").toString().toLongLong()
-        && digestFile(path) == resource.value("hash").toString();
+        && hashResource(path) == resource.value("hash").toString();
 }
 bool PhotoStore::hasOriginal(const QString &id) {
     if (!intact()) return false;
@@ -290,7 +302,7 @@ bool PhotoStore::refreshImpl(const Progress &progress) {
         for (const auto &resource : asset.resources) {
             const auto temporary = m_private + "/incoming/export-" + QUuid::createUuid().toString(QUuid::WithoutBraces);
             if (!m_library->exportResource(asset.identifier, resource.token, temporary, &m_error)) { QFile::remove(temporary); return false; }
-            const auto digest = digestFile(temporary, &m_error); const auto size = QFileInfo(temporary).size();
+            const auto digest = hashResource(temporary, &m_error); const auto size = QFileInfo(temporary).size();
             if (digest.isEmpty() || size <= 0) { QFile::remove(temporary); return fail("The photo original is unavailable."); }
             // Discovery hashes a transient native export. Retain only the
             // reference and preview; a transfer stages an original on demand.
@@ -311,10 +323,10 @@ bool PhotoStore::refreshImpl(const Progress &progress) {
         if (preview.isEmpty() || !confined(m_root, temporary)) return fail("The photo preview location was redirected.");
         QFile::remove(temporary);
         if (!m_library->preview(asset.identifier, temporary, &m_error)) { QFile::remove(temporary); return false; }
-        const auto previewHash = digestFile(temporary, &m_error);
+        const auto previewHash = hashResource(temporary, &m_error);
         if (previewHash.isEmpty()) { QFile::remove(temporary); return false; }
         record["previewHash"] = previewHash;
-        if (digestFile(preview) != previewHash) {
+        if (hashResource(preview) != previewHash) {
             QSaveFile output(preview); QFile input(temporary);
             if (!input.open(QIODevice::ReadOnly) || !output.open(QIODevice::WriteOnly)) { QFile::remove(temporary); return fail("Could not save the photo preview."); }
             const auto bytes = input.readAll();
@@ -336,6 +348,7 @@ bool PhotoStore::refreshImpl(const Progress &progress) {
     if (snapshot.complete) {
         const auto identifiers = m_references.keys();
         for (const auto &id : identifiers) {
+            if (m_cancelled) return false;
             auto local = m_references.value(id);
             if (seen.contains(local.value("identifier").toString()) || local.value("unavailable").toBool()) continue;
             auto record = readRecord(id);
@@ -346,15 +359,9 @@ bool PhotoStore::refreshImpl(const Progress &progress) {
     m_local["complete"] = snapshot.complete;
     m_local["libraryRevision"] = snapshot.revision;
     if (!save() || !importLooseFiles()) return false;
-    const auto records = catalog();
-    for (const auto &value : records) {
-        const auto record = value.toObject(); const auto id = record.value("id").toString();
-        if (record.value("deleted").toBool()) continue;
-        const auto local = m_references.value(id);
-        if ((local.value("identifier").toString().isEmpty() || local.value("unavailable").toBool()
-            || local.value("content") != contentId(record.value("resources").toArray()))
-            && hasOriginal(id) && !consumeImpl(id)) return false;
-    }
+    // A verified original can be a viewing cache downloaded from the host.
+    // Only an explicit import or the upload destination's consume command may
+    // register it in the native library; refreshing a catalog must not do so.
     return firstError.isEmpty() || fail(firstError);
 }
 bool PhotoStore::prepare(const QString &id) {
@@ -367,7 +374,7 @@ bool PhotoStore::prepare(const QString &id) {
         if (local.value("identifier").toString().isEmpty() || i >= tokens.size() || local.value("unavailable").toBool()) return fail("Waiting for a device with this photo original.");
         const auto path = cachePath(resource.value("hash").toString()), temporary = m_private + "/incoming/read-" + QUuid::createUuid().toString(QUuid::WithoutBraces);
         if (path.isEmpty() || !m_library->exportResource(local.value("identifier").toString(), tokens[i].toString(), temporary, &m_error)) { QFile::remove(temporary); return false; }
-        if (digestFile(temporary) != resource.value("hash").toString()) { QFile::remove(temporary); return fail("The original changed. Refresh Photos before transferring it."); }
+        if (hashResource(temporary) != resource.value("hash").toString()) { QFile::remove(temporary); return fail("The original changed. Refresh Photos before transferring it."); }
         if (QFile::exists(path)) QFile::remove(path);
         if (!intact() || !QFile::rename(temporary, path)) { QFile::remove(temporary); return fail("Could not stage the photo original."); }
     }
@@ -396,13 +403,14 @@ bool PhotoStore::consume(const QString &id) {
 }
 bool PhotoStore::importLooseFiles() {
     QStringList files; QDirIterator it(m_photos, QDir::Files | QDir::NoDotAndDotDot, QDirIterator::Subdirectories);
-    while (it.hasNext()) { const auto path = it.next(); if (!path.endsWith(".societyphoto") && !QDir(m_photos).relativeFilePath(path).startsWith('.')) files.append(path); }
+    while (it.hasNext()) { if (m_cancelled) return false; const auto path = it.next(); if (!path.endsWith(".societyphoto") && !QDir(m_photos).relativeFilePath(path).startsWith('.')) files.append(path); }
     for (const auto &path : files) {
+        if (m_cancelled) return false;
         if (!intact() || !confined(m_photos, path) || !ordinary(path)) continue;
         const auto mime = QMimeDatabase().mimeTypeForFile(path, QMimeDatabase::MatchContent).name();
         const auto media = mime.startsWith("image/") ? QString("photo") : mime.startsWith("video/") ? QString("video") : QString();
         if (media.isEmpty()) continue;
-        const auto digest = digestFile(path, &m_error); if (digest.isEmpty()) return false;
+        const auto digest = hashResource(path, &m_error); if (digest.isEmpty()) return false;
         const QJsonArray resources{QJsonObject{{"name", safeName(QFileInfo(path).fileName())}, {"role", media}, {"hash", digest}, {"size", QString::number(QFileInfo(path).size())}}};
         const auto id = contentId(resources), cache = cachePath(digest);
         if (cache.isEmpty() || (!QFile::exists(cache) && !QFile::copy(path, cache))) return fail("Could not prepare the photo import.");
@@ -415,12 +423,12 @@ bool PhotoStore::importLooseFiles() {
             const auto image = reader.read(); const auto preview = previewPath(id);
             QSaveFile output(preview);
             if (!image.isNull() && !preview.isEmpty() && output.open(QIODevice::WriteOnly)
-                && image.save(&output, "JPEG", 85) && output.commit()) record["previewHash"] = digestFile(preview);
+                && image.save(&output, "JPEG", 85) && output.commit()) record["previewHash"] = hashResource(preview);
         }
         if (!writeRecord(record, m_paths.value(id, QFileInfo(path).dir().filePath(id + ".societyphoto"))) || !consumeImpl(id)) return false;
         if (!m_references.value(id).value("identifier").toString().isEmpty()) {
             // Verify the source again; an editor may have changed it during import.
-            if (digestFile(path) == digest && !QFile::remove(path)) return fail("The photo was imported, but its temporary Files copy could not be removed.");
+            if (hashResource(path) == digest && !QFile::remove(path)) return fail("The photo was imported, but its temporary Files copy could not be removed.");
         }
     }
     return true;
@@ -459,6 +467,7 @@ QString PhotoStore::originalForViewing(const QString &id) {
 void PhotoStore::releaseExports() {
     if (!intact()) return;
     for (auto i = m_references.begin(); i != m_references.end(); ++i) {
+        if (m_cancelled) return;
         const auto local = i.value();
         if (local.value("identifier").toString().isEmpty() || local.value("unavailable").toBool() || local.value("tokens").toArray().isEmpty()) continue;
         for (const auto &resource : readRecord(i.key()).value("resources").toArray()) {
@@ -483,6 +492,7 @@ void PhotoStore::pruneExports() {
         if (!confined(m_root, directory)) continue;
         QDirIterator files(directory, QDir::Files | QDir::NoDotAndDotDot);
         while (files.hasNext()) {
+            if (m_cancelled) return;
             const auto path = files.next(); const QFileInfo info(path);
             const qint64 age = hex(info.fileName()) ? 7LL * 24 * 60 * 60 * 1000 : 24LL * 60 * 60 * 1000;
             if (confined(m_root, path) && ordinary(path) && now - info.lastModified().toMSecsSinceEpoch() > age) QFile::remove(path);
@@ -491,6 +501,7 @@ void PhotoStore::pruneExports() {
     for (auto &leases : m_leases) for (auto i = leases.begin(); i != leases.end();)
         if (now - i.value() > 60 * 60 * 1000) i = leases.erase(i); else ++i;
     for (auto i = m_references.begin(); i != m_references.end(); ++i) {
+        if (m_cancelled) return;
         const auto local = i.value();
         if (local.value("identifier").toString().isEmpty() || local.value("unavailable").toBool() || local.value("tokens").toArray().isEmpty()) continue;
         for (const auto &value : readRecord(i.key()).value("resources").toArray()) {
@@ -538,7 +549,7 @@ QJsonObject PhotoStore::command(const QJsonObject &request) {
     }
     if (action == "commit") {
         if (cacheValid(resource)) return {{"ok", true}};
-        if (QFileInfo(incoming).size() != size || digestFile(incoming) != resource.value("hash").toString()) { QFile::remove(incoming); return failed("resource_hash_mismatch"); }
+        if (QFileInfo(incoming).size() != size || hashResource(incoming) != resource.value("hash").toString()) { QFile::remove(incoming); return failed("resource_hash_mismatch"); }
         if (QFile::exists(path) && !QFile::remove(path)) return failed("resource_replace_failed");
         if (!QFile::rename(incoming, path)) return failed("resource_commit_failed");
         return {{"ok", true}};

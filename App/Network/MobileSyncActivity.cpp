@@ -1,8 +1,10 @@
 #include "MobileSyncActivity.h"
 #include <QPointer>
 #include <QTimer>
+#include <QThread>
 #include <algorithm>
 #include <limits>
+#include <utility>
 
 MobileSyncActivity::MobileSyncActivity(QObject *parent) : QObject(parent) {
 #if defined(Q_OS_IOS) || defined(Q_OS_ANDROID)
@@ -27,18 +29,24 @@ bool MobileSyncActivity::start(bool continued) {
     const auto &begin = continued ? m_beginContinued : m_begin;
     if (!begin || (continued ? !m_complete : !m_end)) return false;
     m_continued = continued; m_fileProgress.clear(); m_remainingWork.clear(); m_completedBytes = 0;
+    if (continued) m_batchActive = true;
     const auto generation = ++m_generation; const QPointer<MobileSyncActivity> guard(this);
     m_active = begin([guard, generation] {
         if (!guard) return;
-        QTimer::singleShot(0, guard, [guard, generation] {
+        const auto stop = [guard, generation] {
             if (!guard || guard->m_generation != generation || !guard->m_active) return;
-            guard->release(); emit guard->expired();
-        });
+            // Cancellation must drain file workers before returning the grant;
+            // iOS kills a suspended process that still owns a shared file lock.
+            emit guard->expired();
+            if (guard && guard->m_generation == generation) guard->release();
+        };
+        if (QThread::currentThread() == guard->thread()) stop();
+        else QTimer::singleShot(0, guard, stop);
     });
     return m_active;
 }
 void MobileSyncActivity::update(const QString &path, qint64 done, qint64 total) {
-    if (!continued() || !m_progress || path.isEmpty() || done < 0 || total <= 0 || done > total) return;
+    if (!m_batchActive || !m_progress || path.isEmpty() || done < 0 || total <= 0 || done > total) return;
     const auto previous = m_fileProgress.value(path);
     const auto delta = done >= previous ? done - previous : done;
     const auto maximum = std::numeric_limits<qint64>::max();
@@ -56,6 +64,9 @@ void MobileSyncActivity::update(const QString &path, qint64 done, qint64 total) 
 }
 void MobileSyncActivity::release(bool success) {
     ++m_generation;
+    // Finishing actual work is independent of an execution grant that expired.
+    const bool finishedBatch = success && std::exchange(m_batchActive, false);
+    if (finishedBatch && !continued() && m_complete) m_complete(true);
     if (!m_active) return;
     m_active = false;
     if (m_continued) { m_continued = false; if (m_complete) m_complete(success); }

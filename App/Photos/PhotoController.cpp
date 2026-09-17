@@ -13,8 +13,10 @@
 namespace society::photos {
 namespace {
 QJsonObject photoSnapshot(PhotoStore &store, bool ok) {
+    if (store.cancelled()) return {{"ok", false}};
     const auto records = store.catalog(); QJsonObject previews;
     for (const auto &value : records) {
+        if (store.cancelled()) return {{"ok", false}};
         const auto id = value.toObject().value("id").toString(); const QFileInfo preview(store.previewPath(id));
         previews[id] = preview.exists() ? QString::number(preview.lastModified().toMSecsSinceEpoch()) + ':' + QString::number(preview.size()) : QString();
     }
@@ -28,6 +30,12 @@ PhotoController::PhotoController(Sender sender, QObject *parent, std::shared_ptr
     m_timeout.setSingleShot(true); m_timeout.setInterval(30000);
     connect(&m_timeout, &QTimer::timeout, this, [this] { finishCycle(tr("Photo transfer is waiting for the other device. It will retry.")); });
     m_status = tr("Connect your photo library to synchronize photos and videos.");
+    connect(this, &PhotoController::changed, this, [this] {
+        if (!busy() && !m_openAfterDownload.isEmpty() && m_requestedOriginal.isEmpty()) {
+            const auto id = std::exchange(m_openAfterDownload, {});
+            QTimer::singleShot(0, this, [this, id] { openPhoto(id); });
+        }
+    });
 }
 PhotoController::~PhotoController() { if (m_store) m_store->cancel(); m_worker.waitForDone(); }
 void PhotoController::configure(const QString &container, bool enabled, const QStringList &authorized, const QStringList &hosts) {
@@ -36,13 +44,14 @@ void PhotoController::configure(const QString &container, bool enabled, const QS
     auto drive = enabled ? iiSocietyContainer::SocietyDrive::open(container) : std::nullopt;
     const auto identifier = drive && drive->isReady() ? drive->identifier() : QString();
     if (m_container == container && m_identifier == identifier) {
-        if (m_cycle && !m_hosts.contains(m_host)) finishCycle();
+        if (m_cycle && !m_hosts.contains(m_host)) finishCycle({}, false);
         return;
     }
-    ++m_generation; finishCycle(); m_timer.stop(); m_jobs.clear();
+    ++m_generation; finishCycle({}, false); m_timer.stop(); m_jobs.clear();
     if (m_store) { m_store->cancel(); if (!m_customLibrary) m_library = nativePhotoLibrary(); }
     m_store.reset();
     m_container = container; m_identifier = identifier; m_refreshing = false;
+    m_requestedOriginal.clear(); m_openAfterDownload.clear();
     updateEntries({});
     if (identifier.isEmpty()) { emit changed(); return; }
     m_store = std::make_shared<PhotoStore>(container, m_library);
@@ -96,7 +105,7 @@ void PhotoController::updateEntries(const QJsonArray &records) {
     std::sort(entries.begin(), entries.end(), [](const QVariant &a, const QVariant &b) {
         const auto left = a.toMap(), right = b.toMap();
         return left.value("created") == right.value("created") ? left.value("id").toString() < right.value("id").toString()
-            : left.value("created").toString() > right.value("created").toString();
+            : left.value("created").toString() < right.value("created").toString();
     });
     if (m_entries != entries) { emit entriesAboutToChange(); m_entries = entries; emit entriesChanged(); }
 }
@@ -112,23 +121,38 @@ void PhotoController::refresh() {
     const QPointer<PhotoController> guard(this); const auto generation = m_generation;
     work([guard, generation](PhotoStore &store) {
         QElapsedTimer published;
+        QJsonArray pendingRecords; QJsonObject pendingPreviews;
         const bool ok = store.refresh([&](const QJsonObject &record) {
-            // Publish the first result immediately, then bound catalog copies
-            // while a large native library is still being indexed.
+            // Read only the newly committed preview. Re-reading the entire
+            // catalog for every partial update stalls large libraries for
+            // seconds under operation.lock and starves real progress reports.
+            const auto id = record.value("id").toString();
+            const QFileInfo preview(store.previewPath(id));
+            pendingRecords.append(record);
+            pendingPreviews[id] = preview.exists() ? QString::number(preview.lastModified().toMSecsSinceEpoch())
+                + ':' + QString::number(preview.size()) : QString();
             const bool publish = !published.isValid() || published.elapsed() >= 500;
-            const auto snapshot = publish ? photoSnapshot(store, true) : QJsonObject{};
+            const auto records = publish ? std::exchange(pendingRecords, {}) : QJsonArray{};
+            const auto previews = publish ? std::exchange(pendingPreviews, {}) : QJsonObject{};
             if (publish) published.start();
             if (!guard) return;
-            QMetaObject::invokeMethod(guard, [guard, generation, record, snapshot] {
+            QMetaObject::invokeMethod(guard, [guard, generation, record, records, previews] {
                 if (!guard || guard->m_generation != generation) return;
                 const auto resources = record.value("resources").toArray();
                 for (int i = 0; i < resources.size(); ++i) {
                     const auto bytes = resources[i].toObject().value("size").toString().toLongLong();
                     emit guard->progress("Photos/index/" + record.value("id").toString() + '/' + QString::number(i), bytes, bytes);
                 }
-                if (!snapshot.isEmpty()) {
-                    guard->m_previewStamps = snapshot.value("previews").toObject();
-                    guard->updateEntries(snapshot.value("records").toArray());
+                if (!records.isEmpty()) {
+                    auto merged = guard->m_records;
+                    for (const auto &value : records) {
+                        const auto id = value.toObject().value("id").toString();
+                        qsizetype index = 0;
+                        while (index < merged.size() && merged[index].toObject().value("id") != id) ++index;
+                        if (index == merged.size()) merged.append(value); else merged[index] = value;
+                        guard->m_previewStamps[id] = previews.value(id);
+                    }
+                    guard->updateEntries(merged);
                     guard->m_status = tr("Updating photos and videos… %1 available").arg(guard->m_entries.size());
                     emit guard->changed(); emit guard->contentsChanged();
                 }
@@ -145,8 +169,9 @@ void PhotoController::refresh() {
         else if (access() == "limited") m_status = tr("Synchronizing the photos and videos allowed by this device.");
         else if (access() == "full") m_status = tr("%1 photos and videos. Originals stay in your photo library.").arg(m_entries.size());
         else m_status = tr("Connect your photo library to add these photos to this device.");
-        emit this->changed(); if (changed) emit contentsChanged();
+        if (changed) emit contentsChanged();
         startCycle();
+        if (!m_cycle) emit this->changed();
     });
 }
 void PhotoController::addFiles(const QList<QUrl> &files) {
@@ -162,12 +187,19 @@ void PhotoController::addFiles(const QList<QUrl> &files) {
 void PhotoController::openPhoto(const QString &id) {
     if (busy() || !m_store) return;
     m_refreshing = true; emit changed();
-    work([id](PhotoStore &store) { const auto path = store.originalForViewing(id); return QJsonObject{{"ok", !path.isEmpty()}, {"path", path}, {"error", store.errorString()}}; }, [this](const auto &result) {
+    work([id](PhotoStore &store) { const auto path = store.originalForViewing(id); return QJsonObject{{"ok", !path.isEmpty()}, {"path", path}, {"error", store.errorString()}}; }, [this, id](const auto &result) {
         m_refreshing = false;
         if (result.value("ok").toBool()) QDesktopServices::openUrl(QUrl::fromLocalFile(result.value("path").toString()));
-        else m_status = result.value("error").toString();
+        else if (!m_hosts.isEmpty()) { m_openAfterDownload = id; downloadPhoto(id); }
+        else m_status = tr("Connect to the Society host to download this original.");
         emit changed();
     });
+}
+void PhotoController::downloadPhoto(const QString &id) {
+    if (!m_store) return;
+    bool exists = false; for (const auto &value : m_records) if (value.toObject().value("id") == id && !value.toObject().value("deleted").toBool()) exists = true;
+    if (!exists) return;
+    m_requestedOriginal = id; startCycle();
 }
 void PhotoController::trashPhoto(const QString &id) {
     if (busy() || !m_store) return;
@@ -250,12 +282,13 @@ void PhotoController::nextPhoto() {
     local({{"action", "available"}, {"id", id}}, [this, id](const auto &localReply) {
         if (!accepted(localReply)) return;
         const bool have = localReply.value("available").toBool();
+        if (have && id.toString() == m_requestedOriginal) m_requestedOriginal.clear();
         remote({{"action", "available"}, {"id", id}}, [this, have](const auto &reply) {
             if (reply.value("error") == "photo_unavailable") { ++m_waitingOriginals; nextPhoto(); return; } // Metadata sync may still be applying.
             if (!accepted(reply)) return;
             const bool there = reply.value("available").toBool();
             if (have && !there) transfer(true);
-            else if (!have && there) transfer(false);
+            else if (!have && there && m_photo.value("id").toString() == m_requestedOriginal) transfer(false);
             else { if (!have && !there) ++m_waitingOriginals; nextPhoto(); }
         });
     });
@@ -274,6 +307,11 @@ void PhotoController::destination(const QJsonObject &command, Completion done) {
 void PhotoController::nextResource() {
     if (!m_cycle) return;
     if (m_resourceIndex >= m_photo.value("resources").toArray().size()) {
+        if (!m_uploading) {
+            m_requestedOriginal.clear();
+            source({{"action", "release"}, {"id", m_photo.value("id")}, {"lease", m_lease}}, [this](const auto &released) { if (accepted(released)) nextPhoto(); });
+            return;
+        }
         destination({{"action", "consume"}, {"id", m_photo.value("id")}}, [this](const auto &reply) {
             if (!accepted(reply)) return;
             source({{"action", "release"}, {"id", m_photo.value("id")}, {"lease", m_lease}}, [this](const auto &released) { if (accepted(released)) nextPhoto(); });
@@ -309,7 +347,7 @@ void PhotoController::nextChunk() {
         });
     });
 }
-void PhotoController::finishCycle(const QString &error) {
+void PhotoController::finishCycle(const QString &error, bool refreshAfterTransfer) {
     ++m_cycleGeneration;
     const bool wasRunning = m_cycle;
     m_cycle = false; m_timeout.stop(); m_reply = {}; m_request.clear(); m_packet = {};
@@ -320,12 +358,12 @@ void PhotoController::finishCycle(const QString &error) {
         else m_status = tr("Photos and videos are synchronized with this Society host.");
     }
     if (wasRunning) {
-        emit changed();
-        if (error.isEmpty() && m_transferred) {
+        if (error.isEmpty() && m_transferred && refreshAfterTransfer) {
             m_transferred = false;
-            const auto generation = m_generation;
-            QTimer::singleShot(0, this, [this, generation] { if (generation == m_generation) refresh(); });
-        }
+            // Account for the post-import catalog refresh before publishing
+            // idle; otherwise the background owner disconnects in this gap.
+            refresh();
+        } else emit changed();
     }
 }
 }

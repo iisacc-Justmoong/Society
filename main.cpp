@@ -26,6 +26,9 @@ void societyAccountRuntimeProbe(QObject *root);
 #ifdef SOCIETY_GROUP_STATE_RUNTIME_PROBE
 void societyGroupStateRuntimeProbe(QObject *root);
 #endif
+#ifdef SOCIETY_DASHBOARD_RUNTIME_PROBE
+void societyDashboardRuntimeProbe(QObject *root);
+#endif
 #ifdef SOCIETY_IOS_FILES_INTEGRATION_TEST
 #include <QTimer>
 extern "C" void society_ios_files_integration_test();
@@ -116,6 +119,9 @@ int main(int argc, char *argv[])
 #endif
 #ifdef SOCIETY_GROUP_STATE_RUNTIME_PROBE
                     societyGroupStateRuntimeProbe(root);
+#endif
+#ifdef SOCIETY_DASHBOARD_RUNTIME_PROBE
+                    societyDashboardRuntimeProbe(root);
 #endif
                 }
             });

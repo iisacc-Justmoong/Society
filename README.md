@@ -15,7 +15,7 @@ Android는 현재 LVRS 소스를 `SDK/LVRS/build/society-android`에서 같은 Q
 iiAccountManager SDK가 소유하는 로그인·회원가입 화면을 데스크톱·iPhone·Android에서 호출한다.
 공통 계정 화면에서 iisacc.com 이메일과 비밀번호로 바로 로그인한다. 앱 소유 보안 저장소에 세션을 보관하여 다음 실행부터 자동으로 복원하고 전체 계정 객체를 갱신한다. 비밀번호를 저장하지 않으며 로그아웃·서버 만료·철회 시 복원을 해제한다. [계정 연결 계약](docs/Account.md)을 참고한다.
 
-같은 iisacc 계정의 Society 기기를 LAN에서 탐색하고, 계정 서버가 발급한 단기 증명을 검증하여 자동 대기열에 넣고 연결한다. 한 데스크톱 호스트에 다른 데스크톱·휴대폰·태블릿이 순서대로 연결하며 실패한 기기는 자동 재시도한다. LAN 탐색은 Apple Bonjour와 Android NSD를 사용한다. [자체 호스트 웹서버·NAS](docs/SelfHosting.md)를 설정하면 같은 계정의 기기를 인터넷에서도 연결하며 전체 컨테이너를 동기화한다. [자동 연결 계약](docs/AutomaticPairing.md)과 [수동 초대·QR 절차](docs/Pairing.md)를 참고한다.
+같은 iisacc 계정의 Society 기기를 BLE와 LAN에서 탐색하고, 계정 서버가 발급한 증명을 검증하여 자동 대기열에 넣고 연결한다. 한 데스크톱 호스트에 다른 데스크톱·휴대폰·태블릿이 순서대로 연결하며 실패한 기기는 자동 재시도한다. BLE는 작은 연결 정보를 교환하고 파일은 Wi-Fi/LAN의 TCP/TLS로 전송한다. Apple Bonjour와 Android NSD 발견도 유지한다. [자체 호스트 웹서버·NAS](docs/SelfHosting.md)를 설정하면 같은 계정의 기기를 인터넷에서도 연결하며 전체 컨테이너를 동기화한다. [자동 연결 계약](docs/AutomaticPairing.md)과 [수동 초대·QR 절차](docs/Pairing.md)를 참고한다.
 
 ## iisacc 계정
 
@@ -168,7 +168,7 @@ FileGridView {
 - CMake 3.31 이상, Ninja, C++20 컴파일러
 - Qt 6.8.3: Quick, QuickControls2, Qt.labs.folderlistmodel, 테스트용 Test 모듈
 - 설치된 LVRS CMake 패키지와 QML 모듈
-- iiSocietyHelper 0.7.1, iiSocietySync 0.2.0, iiServerHost 0.4.1 이상
+- iiSocietyHelper 0.7.1, iiSocietySync 0.7.0, iiServerHost 0.6.0 이상
 - iiSocietyContainer 0.9.1 이상; macOS 네이티브 연결은 서명된 어댑터와 macOS 15 이상
 
 기존 Qt/LVRS의 창, 글꼴, 테마, 앱 부트스트랩을 재사용한다.
@@ -211,7 +211,7 @@ LVRS `~/.local/SDK/LVRS` 설치본을 사용한다.
 `iiXml`, `iiHtmlBlock`, `iiPaintEngine` 등 간접 의존성은 각 SDK 패키지가 선언한다.
 
 파일 그리드는 Qt의 로컬 파일 목록과 이미지 로더를 사용한다.
-계정으로 검증된 Society 연결에는 iiSocietySync 0.2.0의 컨테이너 동기화를 실행한다. 책임 분리·충돌·복구 계약은 [동기화 문서](docs/Synchronization.md)를 따른다.
+계정으로 검증된 Society 연결에는 iiSocietySync 0.7.0의 호스트 권한 기반 Namespace 복제를 실행한다. 호스트가 리비전·변경 저널을 확정하고 클라이언트는 변경을 제출한 뒤 확정 결과를 받는다. Mac Storage·NAS·S3 공급자는 이 권한 아래에 있으며 Mac의 로컬 기록은 오프라인에도 유지한다. 책임 분리·충돌·복구 계약은 [동기화 문서](docs/Synchronization.md)를 따른다.
 iiSocietyContainer의 새 드라이브 API는 앱과 `Society.Drive` 테스트에서 사용한다.
 
 ## 빌드 및 실행

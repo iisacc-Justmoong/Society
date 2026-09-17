@@ -114,13 +114,19 @@ Item {
                     showAction: false
                     selectable: false
                     selected: root.selectedPath === modelData.path
-                    footnote: modelData.sizeText
+                    Accessible.name: modelData.name
+                    footnote: root.catalog.requestedPath === modelData.path && root.catalog.downloadStatus.length > 0
+                        ? root.catalog.downloadStatus : modelData.sizeText
                     rows: [
                         { label: qsTr("Architecture"), value: modelData.architecture },
                         { label: qsTr("Format"), value: modelData.format },
                         { label: qsTr("Precision"), value: modelData.precision }
                     ]
-                    onClicked: { cards.currentIndex = index; root.selectedPath = modelData.path }
+                    onClicked: {
+                        cards.currentIndex = index
+                        root.selectedPath = modelData.path
+                        if (modelData.available === false) root.catalog.activatePath(modelData.path)
+                    }
                     onActiveFocusChanged: if (activeFocus) {
                         cards.currentIndex = index
                         cards.positionViewAtIndex(index, ListView.Contain)
@@ -131,6 +137,7 @@ Item {
                         onLongPressed: root.openMenu(card.modelData, card)
                     }
                     TapHandler {
+                        acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
                         acceptedButtons: Qt.RightButton
                         onTapped: root.openMenu(card.modelData, card)
                     }
@@ -243,9 +250,9 @@ Item {
                         objectName: "modelsStatus"
                         Layout.fillWidth: true
                         style: caption
-                        text: root.importing ? root.importStatus : root.catalog.uncategorizedCount > 0
+                        text: root.importing ? root.importStatus : root.catalog.downloadStatus || (root.catalog.uncategorizedCount > 0
                             ? qsTr("%1 models · %2 need a category").arg(root.catalog.count).arg(root.catalog.uncategorizedCount)
-                            : qsTr("%1 models").arg(root.catalog.count)
+                            : qsTr("%1 models").arg(root.catalog.count))
                         elide: Text.ElideRight
                         textFormat: Text.PlainText
                     }
@@ -275,8 +282,8 @@ Item {
         showIconSlot: false
         items: [qsTr("Open"), qsTr("Show in folder")]
         onItemTriggered: function(index) {
-            if (index === 0 && !modelEntry.directory) root.fileRequested(modelEntry.path)
-            else root.folderRequested(index === 0 ? modelEntry.path : modelEntry.folderPath)
+            if (index === 0) root.fileRequested(modelEntry.path)
+            else root.folderRequested(modelEntry.folderPath)
         }
     }
 }

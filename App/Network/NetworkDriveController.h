@@ -9,6 +9,7 @@
 #include <SharedStorage.h>
 #include <QPointer>
 #include <QSet>
+#include <QLockFile>
 #include <QtQml/qqmlregistration.h>
 
 class NetworkDriveController : public QObject {
@@ -43,6 +44,7 @@ class NetworkDriveController : public QObject {
     Q_PROPERTY(bool synchronizationAvailable READ synchronizationAvailable NOTIFY synchronizationChanged)
     Q_PROPERTY(bool synchronizing READ synchronizing NOTIFY synchronizationChanged)
     Q_PROPERTY(QString synchronizationStatus READ synchronizationStatus NOTIFY synchronizationChanged)
+    Q_PROPERTY(QVariantMap namespaceState READ namespaceState NOTIFY synchronizationChanged)
     Q_PROPERTY(bool containerReady READ containerReady NOTIFY synchronizationChanged)
     Q_PROPERTY(QObject *photos READ photos CONSTANT)
 public:
@@ -97,7 +99,11 @@ public:
     QString currentPath() const { return m_remote.path(); }
     QString nextCursor() const { return m_remote.nextCursor(); }
     QString transport() const { return m_remote.transport(); }
-    bool synchronizationAvailable() const { return m_sync.available(); }
+    bool synchronizationAvailable() const {
+        return m_sync.available() && connected() && (m_localActive
+            ? m_nearby.authenticated() && !m_local.pairedDeviceIds().isEmpty() : !m_peer.peers().isEmpty());
+    }
+    QVariantMap namespaceState() const { return m_namespace.toVariantMap(); }
     bool synchronizing() const { return m_sync.busy(); }
     QString synchronizationStatus() const;
     bool containerReady() const;
@@ -166,9 +172,11 @@ private:
     bool m_suspended = false, m_runtimeEnabled = true;
     bool m_backgroundExpired = false;
     bool m_continuedSyncRequested = false;
+    std::unique_ptr<QLockFile> m_clientLease;
     Qt::ApplicationState m_applicationState = Qt::ApplicationActive;
     QString m_discoverySession;
     QJsonObject m_mirror;
+    QJsonObject m_namespace;
     QString m_containerIdentifier, m_primaryHost, m_inspectionScope;
     bool m_containerStateKnown = false;
     QString m_syncPath;

@@ -24,6 +24,16 @@ if action == "create":
         (target / "model_index.json").write_text(json.dumps({"_class_name": "FixturePipeline"}))
         (target / "unet/config.json").write_text('{"sample_size": 2}')
         save_file({"layer.weight": value}, target / "unet/model.safetensors")
+elif action == "verify-unified":
+    output = Path(sys.argv[3])
+    manifest = json.loads((output / "model_index.json").read_text())
+    assert manifest["schema"] == "iild-unified-model-v1"
+    assert len(manifest["stages"]) == 2
+    first, second = manifest["stages"]
+    torch.testing.assert_close(load_file(output / first["model"])["layer.weight"], base)
+    torch.testing.assert_close(load_file(output / second["model"])["layer.weight"], additional + delta)
+    assert second["loras"] == [{"source_index": 2, "strength": 1.0}]
+    print("Verified unified members and checkpoint-specific LoRA fusion.")
 elif action == "verify":
     output, mode, weight_mode = Path(sys.argv[3]), sys.argv[4], sys.argv[5]
     checkpoint_weight, lora_weight = {"automatic": (0.5, 1.0), "shared": (0.25, 0.25),

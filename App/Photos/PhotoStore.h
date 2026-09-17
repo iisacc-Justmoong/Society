@@ -28,9 +28,11 @@ public:
     QString errorString() const { return m_error; }
     QString containerId() const;
     void cancel() { m_cancelled = true; m_library->cancel(); }
+    bool cancelled() const { return m_cancelled; }
     void releaseExports();
     static bool validRecord(const QJsonObject &record);
-    static QString digestFile(const QString &path, QString *error = nullptr);
+    static QString digestFile(const QString &path, QString *error = nullptr,
+                              const std::function<bool()> &cancelled = {});
     static constexpr qint64 ChunkBytes = 256 * 1024;
 private:
     bool intact();
@@ -47,6 +49,7 @@ private:
     bool consumeImpl(const QString &id);
     QJsonObject readRecord(const QString &id) const;
     bool cacheValid(const QJsonObject &resource) const;
+    QString hashResource(const QString &path, QString *error = nullptr) const;
     QString cachePath(const QString &hash) const;
     QString m_root, m_private, m_photos, m_error;
     std::optional<iiSocietyContainer::SocietyDrive> m_drive;
