@@ -1,3 +1,5 @@
+> Account host policy (2026-09-21): server-provided `societyContainerDrive.hostDeviceId` and `containerId` take precedence over saved mirror bindings and discovery election. Manual QR also requires mutual account proofs. Account changes revoke current peer access; an authorized replacement preserves old contents in `.society-sync/detached/` before receiving its new namespace. See [Pairing](Pairing.md).
+
 # Society 컨테이너 동기화와 SDK 책임
 
 같은 기기의 앱 협업은 iiSocietyHelper, 기기 간 복제는 iiSocietySync, 인증·발견·자동 페어링 세션은 iiSocietyClient가 담당한다. Dreamscapes는 Society 앱이 중단되어도 앱 안의 iiSocietyClient로 호스트에 연결한다. 생성은 로컬 iiLocalDiffusion이 담당한다. [이미지 생성 책임](Generation.md)을 참조한다.

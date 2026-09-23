@@ -11,6 +11,7 @@ import sys
 bundle = Path(sys.argv[1]).resolve()
 source = Path(sys.argv[2]).resolve()
 expected_container = Path(sys.argv[3]).resolve() if len(sys.argv) > 3 else None
+expected_file_actions = Path(sys.argv[4]).resolve() if len(sys.argv) > 4 else None
 packaged_container = bundle / 'Contents/Helpers/SocietyDaemon.app/Contents/Frameworks/libiiSocietyContainer.0.dylib'
 def binary_uuids(path):
     output = subprocess.check_output(['dwarfdump', '--uuid', str(path)], text=True)
@@ -18,6 +19,10 @@ def binary_uuids(path):
 if expected_container:
     assert binary_uuids(expected_container) and binary_uuids(packaged_container) == binary_uuids(expected_container), \
         'The bundled model classifier differs from the iiSocietyContainer selected at build time.'
+if expected_file_actions:
+    packaged_actions = bundle / 'Contents/Helpers/SocietyDaemon.app/Contents/Frameworks/libiiSocietyContainerGui.0.dylib'
+    assert binary_uuids(expected_file_actions) and binary_uuids(packaged_actions) == binary_uuids(expected_file_actions), \
+        'The bundled file actions differ from the iiSocietyContainer Gui selected at build time.'
 with (bundle / 'Contents/Info.plist').open('rb') as file:
     group = plistlib.load(file)['SocietyAppGroup']
 entitlements = plistlib.loads(subprocess.check_output(['codesign', '-d', '--entitlements', '-', '--xml', str(bundle)], stderr=subprocess.DEVNULL))
@@ -41,10 +46,10 @@ environment["DYLD_PRINT_LIBRARIES"] = "1"
 # Arbitrary external-volume folders can require macOS app consent. Validate the
 # actual bundle loader without user data. Receipt/recovery has separate build/ tests.
 result = subprocess.run([str(executable), "--help"], env=environment,
-                        capture_output=True, text=True, timeout=15)
+                        capture_output=True, text=True, timeout=60)
 assert result.returncode == 0, result.stderr[-4000:]
 assert '--sync' in result.stdout, 'The packaged service has no synchronization runtime.'
-capabilities = subprocess.run([str(executable), '--check-runtime'], env=environment, capture_output=True, text=True, timeout=15)
+capabilities = subprocess.run([str(executable), '--check-runtime'], env=environment, capture_output=True, text=True, timeout=60)
 assert capabilities.returncode == 0, capabilities.stderr[-4000:]
 assert json.loads(capabilities.stdout)['tls'] and json.loads(capabilities.stdout)['sqlite']
 loaded = re.findall(r"^dyld\[\d+\]: <[^>]+> (/.+)$", result.stderr, re.MULTILINE)

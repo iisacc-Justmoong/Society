@@ -1,9 +1,10 @@
 # Storage 사이드바
 
-[Figma 39:1275](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=39-1275)의 사이드바를 `App/Drive/StorageSidebar.qml`로 구성한다. 기존 LVRS Label·ListItem.Navigation·VStack과 Qt Flickable을 사용하며 추가 외부 의존성은 없다.
+[Figma 39:1275](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=39-1275)의 사이드바를 `src/App/Drive/StorageSidebar.qml`로 구성한다. 기존 LVRS Label·ListItem.Navigation·VStack과 Qt Flickable을 사용하며 추가 외부 의존성은 없다.
 
 - 폭 228 px, 안쪽 여백 12 px, 항목 폭 204 px, 행 높이 32 px, 간격 8 px이다. 그룹 제목은 Caption 11 px, 항목은 Body 13 px, 아이콘 영역은 18 px이다. 배경은 panelBackground04, 선택 배경은 panelBackground12, 맨 아래 1 px 구분선은 panelBackground08이다.
 - My storage → Other devices → Guild → Organization 순서이다. My storage의 순서는 Files, Photos, Asset Library, Generation History, Models, Thinking Space, Forked, Published, Deleted이다.
+- Storage 탭은 데스크톱·모바일 모두 바로 Files 최상위 폴더를 연다. 탭 재선택이나 다른 탭에서 돌아올 때도 Files로 이동하며, 기존 Overview 영역 그리드는 제공하지 않는다. 다른 영역은 사이드바·모바일 탐색 시트로 선택한다. Dashboard의 특정 영역·폴더 바로가기는 지정한 목적지를 유지한다. Storage에서 뒤로 이동해 컨테이너 루트에 도달하거나 초기 동기화가 완료되면 Files를 표시한다.
 - 짧은 창과 긴 목록은 사이드바 안에서 세로 스크롤한다. 휠·트랙패드·드래그·스크롤바를 지원하며 키보드로 초점을 이동하면 해당 행을 보이게 한다. 목록 스크롤은 파일·모델 콘텐츠 스크롤과 독립적이다. 760 px 미만 모바일에서는 같은 항목을 탐색 시트로 제공한다.
 
 ## 탐색 객체와 실제 데이터
@@ -20,10 +21,12 @@ Guild·Organization 목록은 `replaceMemberships(accountId, guilds, organizatio
 
 ## 검증
 
+`SocietyDriveTests storageTabOpensFilesDirectly`는 실제 데스크톱·모바일 탭 클릭, 탭 재선택·왕복, Files 선택 표시, Overview 제거, 특정 영역 바로가기, 루트 복귀와 초기 동기화 완료 후 Files 표시를 검사한다.
+
 `SocietyDriveTests storageNavigationUsesStableIdentitiesAndAccountScopedMemberships`는 ID 병합·자기 기기 제외·미검증 기기 제외·오프라인 유지·계정 격리·변경 없는 스냅샷·선택 라우팅을 검사한다. `sidebarMatchesFigmaAndRoutesDynamicTargets`는 실제 Main에서 네 그룹의 좌표·크기·아이콘·기기 선택·빈 상태·워크스페이스 선택·짧은 창 스크롤·키보드 초점·모바일 숨김을 확인한다. `SOCIETY_SIDEBAR_SCREENSHOT_PATH`를 설정하면 합성 기기·멤버십을 사용하는 검증 화면을 저장한다. `Society.Account`는 기기 이력의 즉시 알림과 로그아웃 후 빈 목록을 확인한다. `Society.ClientOnlyNetwork`의 `deviceSelectionWaitsForTransfersAndTracksHostAvailability`는 두 테스트 호스트를 사용해 진행 중인 조회 이후 새 기기 선택, 호스트 재연결과 오프라인 기기의 이전 파일 숨김을 확인한다. 기존 Models·Files·동기화 회귀 테스트와 전체 빌드·QML 검사를 함께 실행한다.
 
-Photos의 안정 키는 `photos`이며 `Society/Photos/`로 직접 이동한다. 모바일 영역 그리드와 breadcrumb에서도 Files와 같은 계층이다.
+Photos의 안정 키는 `photos`이며 `Society/Photos/`로 직접 이동한다. 모바일 탐색 시트에서도 Files와 같은 계층이다.
 
 최상위 Photos 행 추가로 하위 그룹 제목과 Models 행이 기존 기준에서 40 px 아래로 이동한다. 각 행의 32 px 높이·8 px 간격과 사이드바 스크롤은 유지한다.
 
-모바일에서도 같은 `StorageNavigation`의 9개 영역·기기·Guild·Organization 항목을 사용한다. 760 px 미만에서는 상단 탐색 버튼으로 여는 LVRS 시트에 같은 `StorageSidebar`를 배치하고, 항목을 탭하면 시트를 닫아 본문을 표시한다. 760 px 이상에서는 사이드바를 유지하며 터치 행 높이는 44 px이다. 데스크톱의 32 px 행과 기존 위치는 유지한다. 모바일 가져오기·컨테이너 선택·OS 연결은 breadcrumb 옆 `Storage actions` 시트에서 실행한다. 상세 기준과 검증은 [MobileViews.md](MobileViews.md)에 기록한다.
+모바일에서도 같은 `StorageNavigation`의 9개 영역·기기·Guild·Organization 항목을 사용한다. 760 px 미만에서는 상단 탐색 버튼으로 여는 LVRS 시트에 같은 `StorageSidebar`를 배치하고, 항목을 탭하면 시트를 닫아 본문을 표시한다. 760 px 이상에서는 사이드바를 유지하며 터치 행 높이는 44 px이다. 데스크톱의 32 px 행과 기존 위치는 유지한다. Up·breadcrumb 표시줄은 모든 Storage 영역에서 제거한다. 모바일 가져오기·컨테이너 선택·OS 연결은 앱 상단 바의 `Storage actions` 버튼이 여는 시트에서 실행한다. 상세 기준과 검증은 [MobileViews.md](MobileViews.md)에 기록한다.

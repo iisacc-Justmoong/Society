@@ -1,3 +1,6 @@
+#include "MobileNetworkDevice.h"
+#include "AccountServer.h"
+#include <QElapsedTimer>
 #include "App/Network/DevicePairing.h"
 #include "PairingCredentialsFixture.h"
 #include "App/Network/PairingQr.h"
@@ -26,13 +29,30 @@ QQuickItem *visualItem(QQuickItem *root, const QString &name) {
 }
 struct Fixture {
     QTemporaryDir container{SOCIETY_TEST_DIRECTORY "/pairing-files-XXXXXX"};
-    NetworkDriveController host, client;
+    AccountServer authority;
+    std::unique_ptr<AccountController> hostAccount, clientAccount;
+    NetworkDriveController host; MobileNetworkDevice client;
     bool start() {
         if (!iiSocietyContainer::SocietyDrive::create(container.path())) return false;
         QFile file(container.filePath("Files/hello.txt"));
         if (!file.open(QIODevice::WriteOnly) || file.write("hello from desktop") < 0) return false;
         file.close();
-        host.setContainerPath(container.path());
+        if (!authority.server.listen(QHostAddress::LocalHost)) return false;
+        authority.profile.insert("societyContainerDrive", QJsonObject{{"hostDeviceId", QString(64, 'a')},
+            {"containerId", iiSocietyContainer::SocietyDrive::open(container.path())->identifier()},
+            {"revision", "1d02e288-9704-4c5a-979e-f9b60d1799ca"}, {"imagePath", "/Volumes/Society.sparsebundle"}});
+        hostAccount = std::make_unique<AccountController>(authority.url()); clientAccount = std::make_unique<AccountController>(authority.url());
+        const auto wait = [](auto predicate) { QElapsedTimer elapsed; elapsed.start(); while (!predicate() && elapsed.elapsed() < 5000) QTest::qWait(10); return predicate(); };
+        char id = 'a';
+        for (auto *account : {hostAccount.get(), clientAccount.get()}) {
+            auto device = account->manager()->deviceInfo(); device.insert("id", QString(64, id++));
+            if (!account->manager()->setDeviceInfo(device) || !account->login("builder@example.com", "FixtureOnly1!")) return false;
+            if (!wait([&] { return account->signedIn() && !account->busy(); })) return false;
+            account->setAutomaticPairingEnabled(false); account->requestPairingCredentials();
+            if (!wait([&] { return !account->pairingCredentials().isEmpty(); })) return false;
+        }
+        qputenv("SOCIETY_TEST_ACCOUNT_DISCOVERY", "1");
+        host.setContainerPath(container.path()); host.setAccountSession(hostAccount.get()); client.setAccountSession(clientAccount.get());
         return true;
     }
 };
@@ -40,6 +60,10 @@ struct Fixture {
 class PairingTests : public QObject {
     Q_OBJECT
 private slots:
+    void unauthenticatedQrReportsTheAccountRequirement() {
+        NetworkDriveController host; DevicePairing panel; panel.setNetwork(&host); panel.showHostQr();
+        QVERIFY(!host.hosting()); QVERIFY(panel.qrText().isEmpty()); QCOMPARE(panel.phase(), QString("error"));
+    }
     void initTestCase() {
         QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, QStringLiteral(SOCIETY_TEST_DIRECTORY "/pairing-settings"));
         qmlRegisterType<AccountController>("Society", 1, 0, "AccountController");
@@ -48,11 +72,13 @@ private slots:
         qmlRegisterType<PairingQr>("Society", 1, 0, "PairingQr");
         qmlRegisterType<QrScanner>("Society", 1, 0, "QrScanner");
     }
+    void cleanup() { qunsetenv("SOCIETY_TEST_ACCOUNT_DISCOVERY"); }
     void init() { QSettings(QSettings::IniFormat, QSettings::UserScope, "iisacc", "SocietyPairing").clear(); }
-    void selectingTheCurrentModeDoesNotPauseAutomaticConnections() {
+    void fixedRoleDoesNotPauseAutomaticConnections() {
         NetworkDriveController network;
         QVERIFY(network.automaticPairingEnabled());
-        network.setMode(network.mode()); QVERIFY(network.automaticPairingEnabled());
+        QVERIFY(!network.setProperty("mode", NetworkDriveController::ClientMode));
+        QCOMPARE(network.mode(), NetworkDriveController::HostMode); QVERIFY(network.automaticPairingEnabled());
         network.setRuntimeEnabled(false); QVERIFY(!network.runtimeEnabled());
         QVERIFY(!network.startLocalHost()); QVERIFY(!network.discovering());
         network.setRuntimeEnabled(true); QVERIFY(network.automaticPairingEnabled());
@@ -88,7 +114,7 @@ private slots:
     }
     void automaticQueuePairsSeveralDevicesAndSurvivesPanelClosing() {
         FakeDiscoveryService a, b, c;
-        NetworkDriveController desktop(&a, QHostAddress::LocalHost), phone(&b, QHostAddress::LocalHost), tablet(&c, QHostAddress::LocalHost);
+        NetworkDriveController desktop(&a, QHostAddress::LocalHost); MobileNetworkDevice phone(&b, QHostAddress::LocalHost), tablet(&c, QHostAddress::LocalHost);
         QTemporaryDir root(SOCIETY_TEST_DIRECTORY "/automatic-files-XXXXXX");
         QVERIFY(iiSocietyContainer::SocietyDrive::create(root.path())); desktop.setContainerPath(root.path());
         QFile file(root.filePath("Files/automatic.txt")); QVERIFY(file.open(QIODevice::WriteOnly)); file.write("automatic LAN transfer"); file.close();
@@ -98,7 +124,7 @@ private slots:
         tablet.discovery()->setIdentity(scope, "tablet", "Tablet", "tablet", false);
         // Two-day-old grants must complete TLS pairing and transfer without a
         // service request or a freshly issued five-minute key.
-        for (auto *network : {&desktop, &phone, &tablet})
+        for (auto *network : std::initializer_list<NetworkDriveController *>{&desktop, &phone, &tablet})
             network->discovery()->setCredentials(localPairingCredentialsFixture(scope, 'a', QDateTime::currentDateTimeUtc().addDays(-2)));
         a.announceTo(b); a.announceTo(c); b.announceTo(a); c.announceTo(a);
         QSignalSpy paired(desktop.localPeer(), &iiServerHost::LanPeer::paired);
@@ -136,6 +162,7 @@ private slots:
         a.announceTo(b); b.announceTo(a);
         QTRY_VERIFY_WITH_TIMEOUT(newcomer.localPeer()->connected(), 10000);
         QVERIFY(established.hosting()); QVERIFY(!newcomer.hosting());
+        QCOMPARE(newcomer.mode(), NetworkDriveController::HostMode); // Primary selection is a transport concern.
         // A remembered mirror does not elect itself while its primary is absent.
         newcomer.discovery()->setCredentials(localPairingCredentialsFixture(scope), false, "z-primary");
         established.discovery()->clear(); QTest::qWait(700);
@@ -164,7 +191,7 @@ private slots:
     }
     void discoverySelectionAcceptAndCodeConfirmationExposeFiles() {
         FakeDiscoveryService a, b;
-        NetworkDriveController desktop(&a, QHostAddress::LocalHost), phone(&b, QHostAddress::LocalHost);
+        NetworkDriveController desktop(&a, QHostAddress::LocalHost); MobileNetworkDevice phone(&b, QHostAddress::LocalHost);
         QTemporaryDir root(SOCIETY_TEST_DIRECTORY "/discovered-files-XXXXXX");
         QVERIFY(iiSocietyContainer::SocietyDrive::create(root.path())); desktop.setContainerPath(root.path());
         const auto scope = NearbyDevices::accountScope("test", "noncredential-device-discovery");
@@ -220,7 +247,7 @@ private slots:
     }
     void endingDiscoveryIdentityCancelsUnconfirmedConnection() {
         FakeDiscoveryService a, b;
-        NetworkDriveController desktop(&a, QHostAddress::LocalHost), phone(&b, QHostAddress::LocalHost);
+        NetworkDriveController desktop(&a, QHostAddress::LocalHost); MobileNetworkDevice phone(&b, QHostAddress::LocalHost);
         QTemporaryDir root(SOCIETY_TEST_DIRECTORY "/ending-discovery-XXXXXX");
         QVERIFY(iiSocietyContainer::SocietyDrive::create(root.path())); desktop.setContainerPath(root.path());
         const auto scope = NearbyDevices::accountScope("test", "noncredential-identity");
@@ -235,7 +262,7 @@ private slots:
     }
     void qrScanPairsBothSidesAndReadsFiles() {
         Fixture fixture; QVERIFY(fixture.start());
-        QVERIFY(!fixture.host.signedIn()); QVERIFY(fixture.host.relayUrl().isEmpty());
+        QVERIFY(fixture.host.signedIn()); QVERIFY(fixture.host.relayUrl().isEmpty());
         DevicePairing host, client; host.setNetwork(&fixture.host); client.setNetwork(&fixture.client);
         QSignalSpy h(&host, &DevicePairing::paired), c(&client, &DevicePairing::paired);
         host.showHostQr(); QTRY_COMPARE(host.phase(), QString("showing"));
@@ -252,7 +279,8 @@ private slots:
         iiServerHost::LanLink link; QVERIFY(iiServerHost::LanLink::decode(qr, &link));
         QCOMPARE(client.peerName(), link.name);
         QTRY_VERIFY(!fixture.client.busy()); QCOMPARE(fixture.client.currentHost(), link.hostId);
-        QCOMPARE(fixture.client.entries().size(), 4); // Standard directories and hello.txt.
+        QCOMPARE(fixture.client.entries().size(), 1); // Only the public Files root is exposed.
+        QCOMPARE(fixture.client.entries().first().toMap().value("name").toString(), QString("hello.txt"));
         QCOMPARE(fixture.client.transport(), QString("local"));
         QSignalSpy downloaded(&fixture.client, &NetworkDriveController::downloadFinished);
         fixture.client.download("hello.txt", QUrl::fromLocalFile(fixture.container.filePath("paired-download.txt")));
@@ -268,12 +296,13 @@ private slots:
         client.cancel(); client.scanCode(qr); QTRY_COMPARE(client.phase(), QString("error"));
         QCOMPARE(c.size(), 1); // The captured image cannot be replayed.
     }
-    void switchingBackToClientStopsLocalHosting() {
+    void disconnectStopsLocalHostingWithoutChangingRole() {
         Fixture fixture; QVERIFY(fixture.start());
         DevicePairing host, client; host.setNetwork(&fixture.host); client.setNetwork(&fixture.client);
         host.showHostQr(); QTRY_COMPARE(host.phase(), QString("showing"));
         client.scanCode(host.qrText()); QTRY_COMPARE(client.phase(), QString("paired"));
-        fixture.host.setMode(NetworkDriveController::ClientMode);
+        fixture.host.disconnectSession();
+        QCOMPARE(fixture.host.mode(), NetworkDriveController::HostMode);
         QVERIFY(!fixture.host.hosting()); QTRY_VERIFY(!fixture.client.connected());
     }
     void failedFilesProbeNeverCompletesPairing() {
@@ -306,6 +335,8 @@ private slots:
     }
     void qrPanelFitsSmallAndDesktopWindows() {
         QFETCH(QSize, size); Fixture fixture; QVERIFY(fixture.start());
+        fixture.host.resumeAutomaticPairing();
+        QTRY_VERIFY(fixture.host.discovering());
         DevicePairing pairing; pairing.setNetwork(&fixture.host); QrScanner scanner;
         QQmlEngine engine; engine.addImportPath(SOCIETY_LVRS_QML_IMPORT_PATH);
         QStringList warnings;

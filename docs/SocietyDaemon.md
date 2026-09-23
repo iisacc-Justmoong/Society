@@ -27,7 +27,7 @@ flowchart LR
 
 ## macOS 백그라운드 등록
 
-패키징은 CMake의 런타임 의존성 분석으로 원본 데몬에 연결된 라이브러리의 검색 경로를 구한 뒤 `macdeployqt`에 전달하고, Qt 배포 도구가 누락한 네이티브 dylib도 분석 결과에서 보충한다. iiServerHost의 libcurl과 Brotli 같은 간접 의존성도 같은 방식으로 포함하며, 특정 패키지 관리자의 설치 위치를 하드코딩하지 않는다. 패키지 검증은 외부 라이브러리 로딩·누락된 간접 dylib·번들 밖을 가리키는 라이브러리 심볼릭 링크를 거부한다.
+`tools/deploy_macos_runtime.py`는 본체와 데몬의 Mach-O 의존성을 분석하고 CMake에서 선택한 SDK 버전을 우선하여 배포한다. iiServerHost의 libcurl과 Brotli 같은 간접 의존성도 포함하며, 특정 패키지 관리자의 설치 위치를 하드코딩하지 않는다. 패키지 검증은 외부 라이브러리 로딩·누락된 간접 dylib·번들 밖을 가리키는 라이브러리 심볼릭 링크를 거부한다.
 
 Society.app 안에 다음 두 파일을 포함한다.
 
@@ -55,9 +55,32 @@ cmake --build build --target SocietyDaemonPackage
 build/package/Society.app/Contents/MacOS/Society --daemon-service register
 ```
 
-`SocietyDaemonPackage`는 기존 Qt의 macdeployqt로 `build/package/Society.app`의 데몬에 필요한 Core·Gui·Qml·Network·Sql 및 SDK와 SQLite·SecureTransport TLS 드라이버를 포함한다. `SOCIETY_MAC_SIGN_IDENTITY` CMake 설정으로 키체인의 서명 인증서를 지정하며 기본값 `-`는 ad-hoc이다. 데몬 실행 파일을 먼저 서명하고 본체 번들을 마지막에 서명한다. macOS 버전과 서명 상태에 따라 ad-hoc 패키지는 등록 후 실행 제약에 실패할 수 있으므로 실제 수신 여부를 확인한다. 본체 GUI는 현재 개발 SDK 링크 경로를 유지하며, 이 대상은 전체 GUI 앱의 독립 배포·공증을 대신하지 않는다. 로컬 검증용 패키지는 보안 타임스탬프를 요청하지 않는다. 패키징 검증은 실제 데몬의 번들 밖 비시스템 라이브러리 로딩 여부와 SQLite 드라이버의 번들 내부 링크를 검사한다. 수신·종료·복구는 데몬 테스트와 실제 로그인 서비스 실행으로 별도 검증한다.
+`Society` 빌드는 `build/bin/Society.app`의 본체와 내장 데몬에 필요한 런타임을 함께 준비한다.
+Qt의 macdeployqt로 프레임워크와 QML 모듈을 배치하고, CMake에서 선택한 LVRS·SDK 및
+OpenSSL·curl 등의 네이티브 의존성을 번들 내부 상대 경로로 고정한다. Qt 플러그인은
+플랫폼·이미지·아이콘·네트워크 정보와 실제 사용하는 SQLite·SecureTransport로 한정한다.
+ODBC·PostgreSQL·Mimer 드라이버의 별도 설치를 앱 시작 조건으로 만들지 않는다.
+`SocietyDaemonPackage`는 이 준비된 앱을 `build/package/Society.app`로 복사하고 검증한다.
 
-데몬은 별도 `Contents/Helpers/SocietyDaemon.app` 안의 Frameworks·PlugIns를 사용한다. 본체 GUI가 데몬의 SQL 플러그인을 발견해 Qt 런타임을 두 벌 로딩하지 않도록 저장 위치도 분리한다. 본체의 기존 라이브러리 연결을 보존하는지 검사하며, 데몬 소스만 변경해도 본체 번들에 새 실행 파일이 복사되도록 빌드 의존성을 연결한다.
+`SOCIETY_MAC_SIGN_IDENTITY`의 기본값 `-`는 로컬 ad-hoc 서명이다. 라이브러리·프레임워크·
+내장 데몬·본체 순서로 서명하며 보안 타임스탬프를 요청하지 않는다. 개발자 서명은 같은
+CMake 설정으로 지정한다. 로그인 서비스 등록·실제 수신·공증은 런타임 포함 검사와 별개이다.
+
+데몬은 별도 `Contents/Helpers/SocietyDaemon.app` 안의 Frameworks·PlugIns를 사용하며,
+GUI는 본체의 Frameworks·PlugIns·Resources/qml을 사용한다. 본체와 데몬 모두 개발 머신의
+DYLD 환경 변수나 SDK 설치 경로에 의존하지 않아야 한다. SDK를 갱신하면 CMake에서 선택한
+버전을 다시 복사하므로 과거에 배포한 컨테이너 런타임이 새 SDK를 가리지 않는다.
+
+빌드 후 `verify_macos_runtime.py`는 DYLD·Qt·QML 검색 경로를 제거한 환경에서 본체의 읽기 전용
+서비스 상태 조회와 데몬의 `--check-runtime`을 실행한다. 실제 로더가 번들 외부의 비시스템
+라이브러리를 읽으면 실패한다. `Society.MacRuntimeLaunch`는 사용자 설정과 분리된 임시 경로에서
+컨테이너 없는 GUI 시작, QML 루트 생성 및 플러그인 로딩까지 검사한다.
+`Society.MacRuntimeDeployment`는 실제 Mach-O 시험 바이너리로 누락된 OpenSSL 경로,
+선택한 SDK 버전 우선순위, 원본 디렉터리가 사라진 뒤의 전이 의존성 로딩을 검증한다.
+MLX의 Metal 라이브러리는 `Resources`에 저장하고 `Frameworks`의 상대 심볼릭 링크로
+탐색을 유지한다. 이 리소스 배치도 서명 검증에 포함한다.
+패키지 복사 직후 데몬의 최초 라이브러리 로딩에는 추가 시간이 걸릴 수 있으므로,
+패키지 검사의 데몬 명령은 각각 최대 60초를 허용한다.
 
 위 갱신 예시는 기존 패키지가 등록된 경우이다. 최초 설치에서는 해제 단계를 생략한다. 앱 위치나 서명·helper 구성을 변경한 개발 패키지는 해당 앱만 Launch Services에 다시 등록해 메타데이터를 갱신한다. 다른 앱의 백그라운드 설정을 초기화하지 않는다.
 
@@ -88,3 +111,9 @@ iOS는 독립 상주 데몬을 지원하지 않는다. 동일한 Society App Gro
 `--check-runtime`은 서비스·사용자 계정을 열지 않고 SQLite와 TLS 백엔드의 실제 로딩 결과를 JSON으로 반환한다. 패키지 검사는 외부 DYLD/Qt 경로를 제거한 환경에서 이 검사를 실행한다. `--status-file <절대 경로>`를 명시하면 기밀 데이터 없이 소유권·로그인 여부·컨테이너 준비·연결·전송 상태를 기록한다. Society.SyncOwnership은 별도 GUI 모사 프로세스를 강제 종료한 뒤 데몬이 남은 잠금을 회수하는 경로도 검사한다.
 
 GUI도 소유권 반환 시 closeAndWait()로 SDK 작업 큐의 종료를 기다린다. 디스크 해시 계산 취소가 끝나기 전에 새 데몬이 같은 저널을 여는 간극을 방지한다. 반대 방향은 데몬의 NetworkDriveController 파괴와 작업 스레드 join이 끝난 뒤 소유권을 반환한다.
+
+여러 SDK staging 경로가 같은 install name을 제공하면 CMake에서 선택한 동적 라이브러리를
+우선 사용한다. 명시하지 않은 전이 의존성은 원본 라이브러리의 loader path·rpath와 지정된
+런타임 검색 디렉터리에서 해결한다. 찾지 못한 의존성은 빌드 오류이다.
+`verify_daemon_package.py`는 내장된 iiSocietyContainer Core·Gui의 Mach-O UUID를 선택된 SDK와
+대조하며, 본체와 데몬의 실제 로더 검사는 Qt 및 네이티브 라이브러리의 외부 경로 사용을 거부한다.

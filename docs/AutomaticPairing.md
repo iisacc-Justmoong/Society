@@ -1,3 +1,5 @@
+> Account host policy (2026-09-21): server-provided `societyContainerDrive.hostDeviceId` and `containerId` take precedence over saved mirror bindings and discovery election. Manual QR also requires mutual account proofs. Account changes revoke current peer access; an authorized replacement preserves old contents in `.society-sync/detached/` before receiving its new namespace. See [Pairing](Pairing.md).
+
 # 같은 iisacc 계정의 자동 LAN 페어링
 
 이 문서는 직접 LAN 연결 경로의 계약이다. Society의 전체 동기화 범위에는 [계정 기반 자체 서버·NAS 호스팅](SelfHosting.md)도 포함된다.
@@ -8,7 +10,7 @@ iiSocietySync 0.6부터 발견은 SDK `BleDiscovery`의 BLE 광고/GATT bootstra
 
 ## 연결 정책
 
-Society 컨테이너가 열린 데스크톱 가운데 기기 ID가 사전순으로 가장 앞선 한 대를 호스트로 정한다. 다른 데스크톱, 휴대폰, 태블릿은 그 호스트에 연결한다. 호스트는 한 번에 한 기기를 처리하고, 연결된 ID와 중복 발견은 다시 등록하지 않는다. 대기열은 메모리에만 존재하고 재실행 시 현재 기기로 다시 구성한다.
+인증된 계정의 `societyContainerDrive.hostDeviceId`와 `containerId`에 등록된 호스트·컨테이너만 연결 대상으로 사용한다. 등록이 없거나 현재 데스크톱의 식별자가 일치하지 않으면 호스트를 자동 선출하지 않는다. 다른 데스크톱, 휴대폰, 태블릿은 등록된 호스트에만 연결한다. 호스트는 한 번에 한 기기를 처리하고, 연결된 ID와 중복 발견은 다시 등록하지 않는다. 대기열은 메모리에만 존재하고 재실행 시 현재 기기로 다시 구성한다.
 
 각 시도는 최대 20초이다. 실패하면 0.25·0.5·1·2·4초 간격으로 LAN에서 재시도하면서 다른 후보를 진행한다. 이탈한 기기는 대기열에서 지우고 재발견 시 다시 시도한다. 계정 변경·로그아웃·로컬 권한 만료·모바일 백그라운드 실행 시간 만료는 자동 연결과 미완료 작업을 정리한다. 전경 복귀는 유효한 내부 상태를 사용하며 서버 요청을 매번 만들지 않는다.
 
@@ -18,7 +20,7 @@ Society 컨테이너가 열린 데스크톱 가운데 기기 ID가 사전순으�
 
 ## 인증
 
-공개 계정 ID 해시만으로 접근을 허용하지 않는다. `AccountController`는 기존 HTTPS 쿠키 저장소를 사용하여 `/Account/Session/App`에 `intent: pairing`을 보낸다. Rails의 `app_pairing`은 활성 세션, 원래 등록된 기기 ID·유형과 `com.iisacc.society` 앱 ID를 검사하고 계정 subject와 서비스 origin에 묶인 LAN 전용 키를 발급한다. 이 키로 iisacc에 로그인할 수는 없다.
+공개 계정 ID 해시만으로 접근을 허용하지 않는다. `AccountController`는 기존 HTTPS 쿠키 저장소를 사용하여 `/Account/GraphQL`의 `appSession` mutation에 `variables.input.intent: "pairing"`을 보낸다. Rails의 `app_pairing`은 활성 세션, 원래 등록된 기기 ID·유형과 `com.iisacc.society` 앱 ID를 검사하고 계정 subject와 서비스 origin에 묶인 LAN 전용 키를 발급한다. 이 키로 iisacc에 로그인할 수는 없다.
 
 현재 앱은 기기 요청에 `pairingVersion: 2`를 포함한다. 서버는 현재 UTC 날짜부터 최대 7일의 계정·origin 전용 일별 seed를 준비하고, 앱의 `SocietyPairingCredentials`가 해당 날짜 seed에서 5분 구간별 HMAC-SHA-256 키를 직접 계산한다. 기간이 바뀌거나 기기가 늘어날 때 서버에 질의하지 않는다. 새 권한은 여섯 번째 UTC 자정부터 준비하며 기존 권한의 만료까지 계속 LAN을 사용할 수 있다. 발급 세션 만료가 더 빠르면 그 시각까지만 유효하다.
 

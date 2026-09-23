@@ -29,7 +29,7 @@ struct AppProcess : QProcess {
         output += readAll();
         QFile log(logPath); if (log.open(QIODevice::WriteOnly)) log.write(output);
     }
-    void startApp(const QString& base, bool enabled) {
+    void startApp(const QString& base, bool enabled, const QStringList &links = {}) {
         auto env = QProcessEnvironment::systemEnvironment();
         for (const auto* name : {"DYLD_LIBRARY_PATH", "DYLD_FRAMEWORK_PATH", "DYLD_FALLBACK_LIBRARY_PATH", "QML_IMPORT_PATH", "QML2_IMPORT_PATH"}) env.remove(name);
         env.insert("SOCIETY_HELPER_DIRECTORY", base + "/helper");
@@ -42,7 +42,7 @@ struct AppProcess : QProcess {
         env.insert("QML_DISABLE_DISK_CACHE", "1");
         setProcessEnvironment(env); setProcessChannelMode(MergedChannels); setWorkingDirectory(base);
         logPath = base + "/app.log";
-        start(MCP_APP_EXECUTABLE, {"--container", base + "/container"});
+        start(MCP_APP_EXECUTABLE, QStringList{"--container", base + "/container"} + links);
     }
     bool waitForRoot() {
         QElapsedTimer timer; timer.start();
@@ -105,6 +105,21 @@ void verifyNativeAgent(a::Tool tool, const QString& base, const QString& expecte
 class McpTests : public QObject {
     Q_OBJECT
 private slots:
+    void historyApplicationLinkOpensStorage() {
+        QTemporaryDir base(MCP_TEST_DIRECTORY "/mcp-history-link-XXXXXX"); QVERIFY(base.isValid());
+        QVERIFY(QDir().mkpath(base.filePath("container")));
+        QVERIFY(iiSocietyContainer::SocietyDrive::create(base.filePath("container")));
+        AppProcess process; process.startApp(base.path(), true, {"society://generation-history"});
+        QVERIFY(process.waitForStarted());
+        QVERIFY2(process.waitForRoot(), process.output.constData());
+        const auto endpoints = m::discoverLocalApplications(base.filePath("apps")).applications;
+        QCOMPARE(endpoints.size(), 1);
+        m::HttpClient client(clientOptions(endpoints.first()));
+        const auto result = call(client, "status");
+        QVERIFY(!result["isError"].toBool());
+        const auto state = result["structuredContent"].toObject();
+        QCOMPARE(state["current_path"].toString(), base.filePath("container/Generation History"));
+    }
     void appQuestionsWaitForLocalUiAndCancelWithoutBlockingTools() {
         QTemporaryDir base(MCP_TEST_DIRECTORY "/mcp-questions-XXXXXX"); QVERIFY(base.isValid()); base.setAutoRemove(false);
         QVERIFY(QDir().mkpath(base.filePath("container"))); QVERIFY(QDir().mkpath(base.filePath("tmp")));

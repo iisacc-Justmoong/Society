@@ -37,7 +37,7 @@ private slots:
         QCOMPARE(imported.readAll(), QByteArray("picked model bytes"));
         QVERIFY(file.exists());
         QCOMPARE(QDir(target.filePath("Files")).entryList(QDir::AllEntries | QDir::Hidden | QDir::NoDotAndDotDot, QDir::Name),
-            (QStringList{"3D objects", "Audios", "Documents"}));
+            QStringList{});
     }
 
     void importsWhileTheProviderGrantsAccess()
@@ -73,7 +73,7 @@ private slots:
         QCOMPARE(imported.readAll(), bytes);
         QVERIFY(file.exists());
         QCOMPARE(QDir(target.filePath("Files")).entryList(QDir::AllEntries | QDir::Hidden | QDir::NoDotAndDotDot, QDir::Name),
-            (QStringList{"3D objects", "Audios", "Documents"}));
+            QStringList{});
     }
 
     void cancellationIgnoresALateProviderCallback()

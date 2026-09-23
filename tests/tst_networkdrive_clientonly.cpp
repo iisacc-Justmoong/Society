@@ -18,12 +18,30 @@
 #include <QTcpServer>
 #include <QTemporaryDir>
 #include <QTest>
+#include <QMetaProperty>
 #include "backend/runtime/appbootstrap.h"
 
 using namespace iiServerHost;
 class ClientOnlyNetworkTests : public QObject {
     Q_OBJECT
 private slots:
+    void legacyHostPreferenceCannotPromoteMobileAfterSessionRestore() {
+        AccountServer authority; QVERIFY(authority.server.listen(QHostAddress::LocalHost));
+        MemorySessionStore store;
+        AccountController account(authority.url(), &store, nullptr);
+        QSignalSpy restored(&account, &AccountController::pairingStateRestored);
+        QVERIFY(account.login("builder@example.com", "FixtureOnly1!"));
+        QTRY_VERIFY(account.signedIn()); QTRY_COMPARE(restored.size(), 1);
+        const QUrl endpoint("wss://nas.example.test/society");
+        QVERIFY(account.setServerConfiguration({{"url", endpoint.toString()}, {"host", true}}));
+        AccountController reopened(authority.url(), &store, nullptr);
+        NetworkDriveController mobile; mobile.setRuntimeEnabled(false); mobile.setAccountSession(&reopened);
+        QTRY_VERIFY(reopened.signedIn()); QTRY_COMPARE(mobile.relayUrl(), endpoint);
+        QCOMPARE(mobile.mode(), NetworkDriveController::ClientMode);
+        QVERIFY(!mobile.hosting()); QVERIFY(!reopened.serverConfiguration().contains("host"));
+        QVERIFY(mobile.configureServer({}));
+        QCOMPARE(mobile.mode(), NetworkDriveController::ClientMode);
+    }
     void openingAMobileContainerUsesAnAsyncSnapshotAndCachedGetters() {
         QTemporaryDir first(SOCIETY_TEST_DIRECTORY "/mobile-sync-state-XXXXXX");
         QTemporaryDir second(SOCIETY_TEST_DIRECTORY "/mobile-sync-next-XXXXXX");
@@ -31,13 +49,19 @@ private slots:
         QVERIFY(drive); QVERIFY(iiSocietyContainer::SocietyDrive::create(second.path()));
         QVERIFY(QDir(first.path()).mkpath(".society-sync"));
         QFile binding(first.filePath(".society-sync/mirror.json")); QVERIFY(binding.open(QIODevice::WriteOnly));
-        binding.write(QJsonDocument(QJsonObject{{"schema", 1}, {"host", "desktop"},
-            {"container", drive->identifier()}, {"scope", QString(64, 'a')}, {"complete", true}}).toJson());
+        AccountServer authority; QVERIFY(authority.server.listen(QHostAddress::LocalHost));
+        authority.profile.insert("societyContainerDrive", QJsonObject{{"hostDeviceId", QString(64, 'a')}, {"containerId", drive->identifier()},
+            {"revision", "1d02e288-9704-4c5a-979e-f9b60d1799ca"}, {"imagePath", "/Volumes/Society.sparsebundle"}});
+        AccountController account(authority.url()); QVERIFY(account.login("builder@example.com", "FixtureOnly1!")); QTRY_VERIFY(account.signedIn());
+        binding.write(QJsonDocument(QJsonObject{{"schema", 1}, {"host", QString(64, 'a')},
+            {"container", drive->identifier()}, {"scope", account.storageScope()}, {"complete", true}}).toJson());
         binding.close();
         NetworkDriveController network;
+        network.setAccountSession(&account);
         network.setContainerPath(first.path());
         QVERIFY2(!network.containerReady(), "Mobile container opening must return before reading its sync metadata");
         QTRY_VERIFY(network.containerReady());
+        QVERIFY2(!network.hostConnectionReady(), "An offline complete mirror cannot bypass host validation at launch");
         const auto manifest = first.filePath(".society-drive.json");
         QVERIFY(QFile::rename(manifest, manifest + ".held"));
         // A QML getter must never re-open the filesystem. A lifecycle refresh
@@ -85,8 +109,9 @@ private slots:
             [&](bool success) { completions.append(success); }, [](auto, auto) {});
         mobile.setApplicationState(Qt::ApplicationActive);
         mobile.setContainerPath(root.path()); mobile.setAccountSession(&account);
-        QVERIFY(mobile.configureServer(options.relayUrl, false));
+        QVERIFY(mobile.configureServer(options.relayUrl));
         QTRY_VERIFY(mobile.connected()); QTRY_COMPARE(starts, 1);
+        QVERIFY2(!mobile.hostConnectionReady(), "An authenticated socket with a pending manifest is not a usable host connection");
         QVERIFY(mobile.backgroundActivity()->continued());
         if (background) mobile.setApplicationState(Qt::ApplicationHidden);
         QVERIFY(mobile.backgroundActivity()->continued());
@@ -205,6 +230,8 @@ private slots:
     }
     void initTestCase() {
         qmlRegisterType<NetworkDriveController>("Society", 1, 0, "NetworkDriveController");
+        // This isolated network UI fixture keeps the optional drive property null.
+        qmlRegisterUncreatableType<QObject>("Society", 1, 0, "DriveController", "No drive in this network fixture");
         qmlRegisterType<AccountController>("Society", 1, 0, "AccountController");
         qmlRegisterType<DevicePairing>("Society", 1, 0, "DevicePairing");
         qmlRegisterType<PairingQr>("Society", 1, 0, "PairingQr");
@@ -255,7 +282,7 @@ private slots:
         swipe({120, 300}, {300, 315}); QCOMPARE(back.size(), 1);
         QVERIFY(gestures->setProperty("backEnabled", false)); swipe({12, 300}, {160, 315}); QCOMPARE(back.size(), 1);
     }
-    void devicePanelOffersOnlyClientMode() {
+    void devicePanelShowsFixedMobileRoleWithoutSelectors() {
         QQmlEngine engine;
         engine.addImportPath(QString::fromUtf8(SOCIETY_LVRS_QML_IMPORT_PATH));
         QStringList warnings;
@@ -274,7 +301,7 @@ private slots:
         auto *modeLabel = panel->findChild<QQuickItem *>("networkModeLabel");
         auto *settings = panel->findChild<QQuickItem *>("networkPreferences");
         QVERIFY(modeLabel && settings);
-        QCOMPARE(modeLabel->property("text").toString(), QString("Client mode"));
+        QCOMPARE(modeLabel->property("text").toString(), QString("Mobile client"));
         auto *pairButton = panel->findChild<QQuickItem *>("networkPairing");
         QVERIFY(pairButton && pairButton->isVisible());
         QCOMPARE(pairButton->property("text").toString(), QString("Connect manually…"));
@@ -284,8 +311,8 @@ private slots:
         auto *serverAddress = panel->findChild<QQuickItem *>("networkServerAddress");
         auto *connectServer = panel->findChild<QQuickItem *>("networkConnectServer");
         auto *hostServer = panel->findChild<QQuickItem *>("networkHostServer");
-        QVERIFY(serverAddress && connectServer && hostServer);
-        QVERIFY(!hostServer->isVisible()); QVERIFY(!connectServer->isEnabled());
+        QVERIFY(serverAddress && connectServer);
+        QVERIFY(!hostServer); QVERIFY(!connectServer->isEnabled());
         QVERIFY(serverAddress->width() <= window.width());
         QSignalSpy pairRequested(panel.get(), SIGNAL(pairingRequested()));
         QVERIFY(QMetaObject::invokeMethod(pairButton, "clicked")); QCOMPARE(pairRequested.size(), 1);
@@ -298,8 +325,8 @@ private slots:
         QVERIFY(QMetaObject::invokeMethod(preferences.get(), "open"));
         QVERIFY(!preferences->property("visible").toBool()); // Desktop preferences cannot be opened on mobile.
         auto *hostButton = preferences->findChild<QQuickItem *>("preferencesHostMode");
-        QVERIFY(hostButton); QVERIFY(!hostButton->isEnabled());
-        QVERIFY(QMetaObject::invokeMethod(hostButton, "clicked"));
+        QVERIFY(!hostButton);
+        QVERIFY(!preferences->findChild<QQuickItem *>("preferencesClientMode"));
         QCOMPARE(network.mode(), NetworkDriveController::ClientMode);
         QVERIFY(!network.hosting());
         QVERIFY2(warnings.isEmpty(), qPrintable(warnings.join('\n')));
@@ -316,6 +343,7 @@ private slots:
             {"appWindow", QVariant::fromValue(&window)}, {"parent", QVariant::fromValue(window.contentItem())}}));
         QVERIFY2(panel, qPrintable(component.errorString())); QVERIFY(QMetaObject::invokeMethod(panel.get(), "open"));
         QTRY_VERIFY(panel->property("visible").toBool()); QVERIFY(!panel->property("desktop").toBool());
+        QVERIFY(panel->property("useQr").toBool());
         auto *scan = panel->findChild<QQuickItem *>("pairingScan");
         auto *refresh = panel->findChild<QQuickItem *>("pairingRefresh");
         QVERIFY(scan && refresh); QVERIFY(scan->isVisible() && scan->isEnabled()); QVERIFY(!refresh->isVisible());
@@ -400,11 +428,12 @@ private slots:
         options.hostFiles = true; options.localHostingEnabled = true; options.localPort = occupied.serverPort();
         options.metadata = {{"section", "must-not-leak"}};
         NetworkDriveController mobile;
-        QSignalSpy modeChanged(&mobile, &NetworkDriveController::modeChanged);
+        const auto role = mobile.metaObject()->property(mobile.metaObject()->indexOfProperty("mode"));
+        QVERIFY(role.isConstant()); QVERIFY(!role.isWritable());
         QVERIFY(!mobile.hostModeAvailable());
         QCOMPARE(mobile.mode(), NetworkDriveController::ClientMode);
         mobile.setContainerPath(container.path());
-        mobile.setMode(NetworkDriveController::HostMode);
+        QVERIFY(!mobile.setProperty("mode", NetworkDriveController::HostMode));
         QCOMPARE(mobile.mode(), NetworkDriveController::ClientMode);
         QVERIFY(mobile.startSession(options)); // Would fail to bind the occupied port if hosting were enabled.
         QTRY_VERIFY(mobile.connected() && desktop.isReady());
@@ -421,19 +450,19 @@ private slots:
 
         QSignalSpy state(&mobile, &NetworkDriveController::stateChanged);
         mobile.setContainerPath(container.filePath("missing"));
-        mobile.setMode(NetworkDriveController::HostMode);
+        QVERIFY(!mobile.setProperty("mode", NetworkDriveController::HostMode));
         QVERIFY(mobile.connected()); QCOMPARE(state.size(), 0);
         QVERIFY(QMetaObject::invokeMethod(qGuiApp, "applicationStateChanged", Qt::DirectConnection,
             Q_ARG(Qt::ApplicationState, Qt::ApplicationSuspended)));
         QVERIFY(!mobile.connected());
-        mobile.setMode(NetworkDriveController::HostMode);
+        QVERIFY(!mobile.setProperty("mode", NetworkDriveController::HostMode));
         QVERIFY(mobile.startSession(options));
         QVERIFY(!mobile.connected()); // A supplied session cannot bypass mobile suspension.
         QVERIFY(QMetaObject::invokeMethod(qGuiApp, "applicationStateChanged", Qt::DirectConnection,
             Q_ARG(Qt::ApplicationState, Qt::ApplicationActive)));
         QTRY_VERIFY(mobile.connected());
         QCOMPARE(mobile.mode(), NetworkDriveController::ClientMode);
-        QVERIFY(!mobile.hosting()); QCOMPARE(modeChanged.size(), 0);
+        QVERIFY(!mobile.hosting());
         QSignalSpy result(&desktop, &Peer::completed);
         const auto request = desktop.request("mobile", {{"op", "list"}, {"path", ""}});
         QTRY_COMPARE(result.size(), 1);

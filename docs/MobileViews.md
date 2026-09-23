@@ -1,6 +1,6 @@
 # Society 모바일 공통 화면
 
-데스크톱의 `SocietyView`·`Dashboard`·`ToolsView`·`StorageView`를 iOS와 Android에서도 그대로 사용한다. 모바일 기본 화면은 Dashboard이다. 화면 인스턴스를 유지하여 탭 전환이나 회전으로 프롬프트·검색·모델 병합 설정·현재 폴더·갤러리 선택을 초기화하지 않는다. `DashboardFiles`는 플랫폼과 관계없이 준비된 컨테이너를 읽으며, 초기 동기화가 끝나기 전에는 미완료 드라이브를 검색하지 않는다.
+데스크톱의 `SocietyView`·`Dashboard`·`ToolsView`·`StorageView`를 iOS와 Android에서도 그대로 사용한다. 모바일 기본 화면은 Dashboard이다. 화면 인스턴스를 유지하여 탭 전환이나 회전으로 프롬프트·대시보드 검색·모델 병합 설정을 초기화하지 않는다. 화면 회전은 현재 폴더도 유지하지만, Storage 탭을 누르면 Files 최상위 폴더를 바로 연다. Overview 영역 그리드는 제공하지 않는다. `DashboardFiles`는 플랫폼과 관계없이 준비된 컨테이너를 읽으며, 초기 동기화가 끝나기 전에는 미완료 드라이브를 검색하지 않는다.
 
 | 영역 | 760 px 미만 모바일 | 넓은 모바일 화면 / 데스크톱 |
 | --- | --- | --- |
@@ -9,8 +9,8 @@
 | 사이드바 | 상단 탐색 버튼으로 Workspace 또는 Storage 시트 열기 | 기존 사이드바 표시 |
 | Dashboard | 16 px 본문 여백, 22 px 생성 입력·버튼과 제목 행, 140×160 px 파일 카드 | 24 px 본문 여백과 같은 컨트롤·카드 크기 |
 | Tools | 모델 병합 카드 → 작업 화면. 한 열 카드, All tools·가장자리 뒤로 가기 | 모델 병합 카드 하나, 검색·작업 화면 |
-| Storage | 2열부터 시작하는 영역 그리드, breadcrumb와 뒤로 이동 | 기존 영역·파일·모델 화면 |
-| Storage 작업 | breadcrumb 오른쪽의 작업 시트 | 기존 가져오기·OS 연결 영역 |
+| Storage | Files로 바로 진입하고 탐색 시트로 영역 선택. 가장자리 뒤로 이동 지원. Up·breadcrumb 표시줄 없음 | Files로 바로 진입하고 사이드바로 영역 선택. Up·breadcrumb 표시줄 없음 |
+| Storage 작업 | 앱 상단 바의 Storage actions 버튼에서 작업 시트 열기 | 넓은 모바일도 앱 상단 바, 데스크톱은 기존 가져오기·OS 연결 영역 |
 | Environment | 공통 `PreferencesContent`를 LVRS 시트에서 표시 | 공통 내용을 별도 Preferences 창에서 표시 |
 
 하단바는 LVRS의 `MobileTabBar`를 사용한다. iOS에서는 떠 있는 캡슐, Android에서는 Material 3의 활성 표시와 아이콘·레이블 배치를 적용한다. QML 기반 플랫폼 형태이며 UIKit/Android Views 자체를 삽입하지 않는다. `autoSelect: false`와 `selectedTab`에서 계산한 `currentIndex`로 선택 바인딩을 유지한다. Browse와 Settings는 패널을 여는 동작이므로 현재 Dashboard·Tools·Storage의 선택을 바꾸지 않는다. 작은 화면에서도 잘리지 않도록 Home·Settings를 가시 레이블로 사용하고, 접근성 이름은 기존 Dashboard·Environment를 유지한다.
@@ -23,7 +23,7 @@ LVRS ApplicationWindow의 상하좌우 시스템 안전 영역 안에 콘텐츠�
 
 새 외부 의존성은 추가하지 않는다. LVRS Tabs 페이지를 구현한 `MobileTabBar`·`MobileTab`과 기존 입력·카드·시트·접근성 계약을 사용한다. Main이 시스템 안전 영역을 이미 적용하므로 탭바의 `bottomSafeInset`은 0으로 둔다. 선택·키보드 탐색·터치 영역과 플랫폼별 탭바 모양은 LVRS가 담당하고 Society는 목적지와 화면·패널 연결을 담당한다.
 
-Dashboard 본문의 크기는 Qt의 논리 px를 기준으로 한다. `QuickGenerate`는 LVRS 입력·버튼의 기본 높이 22 px를 그대로 사용하고 섹션 제목 행도 같은 높이로 배치한다. 터치 모드에서 최소 높이를 44 px로 덮어쓰던 처리를 제거하여 iPhone에서 본문 컨트롤과 섹션 간격이 확대되지 않도록 한다. Retina 화면의 실제 픽셀 비율은 Qt가 처리하며, 화면 회전이나 모바일 여부로 본문의 크기 배율을 추가하지 않는다.
+Dashboard 본문의 크기는 Qt의 논리 px를 기준으로 한다. Tools 탭 최상단의 `QuickGenerate`는 LVRS 입력·버튼의 기본 높이 22 px를 그대로 사용하고 섹션 제목 행도 같은 높이로 배치한다. 터치 모드에서 최소 높이를 44 px로 덮어쓰던 처리를 제거하여 iPhone에서 본문 컨트롤과 섹션 간격이 확대되지 않도록 한다. Retina 화면의 실제 픽셀 비율은 Qt가 처리하며, 화면 회전이나 모바일 여부로 본문의 크기 배율을 추가하지 않는다.
 
 Recent files는 `Files/` 및 하위 폴더에서, Generation history는 `Generation History/`에서 각각 최신 20개까지 표시한다. 검색도 각 출처 안에서 같은 상한을 적용하며 데스크톱과 동일한 `DashboardFiles` 데이터 모델을 사용한다. [조회·검증 기준](Dashboard.md)을 따른다.
 
@@ -33,4 +33,4 @@ Recent files는 `Files/` 및 하위 폴더에서, Generation history는 `Generat
 
 검증은 `SocietyDriveTests mobileViewsShareDesktopContentAndKeepState mobileStorageKeepsSectionsActionsAndGalleryReachable`로 실행한다. 320×568·390×844·844×390·1024×768의 실제 Main 화면에서 터치 탭·검색 데이터·상태 보존·패널·가용 높이·버튼 범위를 확인한다. 기존 데스크톱 상단 창 버튼 정렬, 카드·Models·Storage·갤러리 회귀 검사도 함께 실행한다. `SOCIETY_MOBILE_SCREENSHOT_DIRECTORY`를 지정하면 합성 파일을 사용하는 화면 캡처를 저장한다. 호스트에서의 모바일 레이아웃 검증과 iPhone/Android 실기기 검증·설치 완료는 각각 별도로 기록한다. 실기기 회귀 시나리오는 `tests/ios/InteractionsTests.swift`에 포함한다.
 
-하단 탭바 회귀 검사는 `SocietyDriveTests mobileViewsShareDesktopContentAndKeepState`의 iOS·Android 두 행에 포함한다. PageTabList/PageTab 역할, 선택 상태, Browse·Environment 패널을 연 뒤의 선택 유지, 기존 화면·입력·폴더 보존과 작은 화면의 레이블 경계를 확인한다. 같은 검사에서 상단 버튼의 22×22 px 화면 좌표 크기, 18×18 px 아이콘, 펼친 검색창과 가로 화면 컨트롤의 22 px 높이를 확인한다. 캡처 이름에도 플랫폼을 포함한다. LVRS의 세부 API는 `docs/components/navigation/Tabs.md`를 참조한다.
+하단 탭바 회귀 검사는 `SocietyDriveTests mobileViewsShareDesktopContentAndKeepState`의 iOS·Android 두 행에 포함한다. PageTabList/PageTab 역할, 선택 상태, Browse·Environment 패널을 연 뒤의 선택 유지, 기존 화면·입력 보존, Storage 탭의 Files 복귀와 작은 화면의 레이블 경계를 확인한다. 같은 검사에서 상단 버튼의 22×22 px 화면 좌표 크기, 18×18 px 아이콘, 펼친 검색창과 가로 화면 컨트롤의 22 px 높이를 확인한다. 캡처 이름에도 플랫폼을 포함한다. LVRS의 세부 API는 `docs/components/navigation/Tabs.md`를 참조한다.

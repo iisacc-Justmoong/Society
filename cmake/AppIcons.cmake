@@ -36,7 +36,7 @@ function(society_add_app_icons target)
     elseif(WIN32)
         enable_language(RC)
         set(SOCIETY_WINDOWS_ICON "${icons}/windows/Society.ico")
-        configure_file("${CMAKE_CURRENT_SOURCE_DIR}/platform/windows/Society.rc.in"
+        configure_file("${CMAKE_CURRENT_SOURCE_DIR}/src/platform/windows/Society.rc.in"
             "${CMAKE_CURRENT_BINARY_DIR}/Society-icon.rc" @ONLY)
         target_sources(${target} PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/Society-icon.rc")
         set_property(SOURCE "${CMAKE_CURRENT_BINARY_DIR}/Society-icon.rc" APPEND PROPERTY OBJECT_DEPENDS "${SOCIETY_WINDOWS_ICON}")
@@ -48,7 +48,7 @@ function(society_add_app_icons target)
     elseif(UNIX)
         include(GNUInstallDirs)
         install(DIRECTORY "${icons}/linux/hicolor/" DESTINATION "${CMAKE_INSTALL_DATADIR}/icons/hicolor")
-        install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/platform/linux/com.iisacc.society.desktop"
+        install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/src/platform/linux/com.iisacc.society.desktop"
             DESTINATION "${CMAKE_INSTALL_DATADIR}/applications")
         install(TARGETS ${target} RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
     endif()

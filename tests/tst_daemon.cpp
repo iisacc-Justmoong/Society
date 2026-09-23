@@ -9,6 +9,7 @@
 #include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QTest>
+#include <QScopeGuard>
 
 class DaemonTests : public QObject {
     Q_OBJECT
@@ -35,12 +36,22 @@ private slots:
     void isolatedSyncServicePublishesStateWithoutAccessingAnAccount() {
         QTemporaryDir root(SOCIETY_TEST_DIRECTORY "/daemon-sync-XXXXXX");
         QProcess daemon;
-        daemon.start(QStringLiteral(SOCIETY_DAEMON_EXECUTABLE), {"--directory", root.path(), "--sync", "--status-file", root.filePath("status.json"), "--exit-after-ms", "1200"});
-        QVERIFY(daemon.waitForStarted()); QVERIFY(daemon.waitForFinished(4000)); QCOMPARE(daemon.exitCode(), 0);
-        QFile file(root.filePath("status.json")); QVERIFY(file.open(QIODevice::ReadOnly));
-        const auto state = QJsonDocument::fromJson(file.readAll()).object();
-        QVERIFY(state.value("ownsNetwork").toBool()); QVERIFY(!state.value("signedIn").toBool()); QVERIFY(!state.value("connected").toBool());
+        daemon.start(QStringLiteral(SOCIETY_DAEMON_EXECUTABLE), {"--directory", root.path(), "--sync", "--status-file", root.filePath("status.json")});
+        const auto stop = qScopeGuard([&] {
+            if (daemon.state() != QProcess::NotRunning) { daemon.terminate(); if (!daemon.waitForFinished(4000)) { daemon.kill(); daemon.waitForFinished(); } }
+        });
+        QVERIFY(daemon.waitForStarted());
+        const auto readState = [&] {
+            QFile file(root.filePath("status.json"));
+            return file.open(QIODevice::ReadOnly) ? QJsonDocument::fromJson(file.readAll()).object() : QJsonObject{};
+        };
+        // Observe ownership while running; shutdown correctly releases it and
+        // may publish that final state while draining asynchronous workers.
+        QTRY_VERIFY_WITH_TIMEOUT(readState().value("ownsNetwork").toBool(), 5000);
+        const auto state = readState();
+        QVERIFY(!state.value("signedIn").toBool()); QVERIFY(!state.value("connected").toBool());
         QVERIFY(!state.contains("credentials"));
+        daemon.terminate(); QVERIFY(daemon.waitForFinished(4000)); QCOMPARE(daemon.exitCode(), 0);
         QLockFile owner(root.filePath("SyncRuntime/owner.lock")); QVERIFY(owner.tryLock());
     }
     void offlineQueueAndLateSocietyReceiver()
@@ -103,6 +114,10 @@ private slots:
         QTRY_VERIFY(contains(offline));
 
         auto environment = QProcessEnvironment::systemEnvironment();
+        // The packaged GUI must load its own Qt/SQLite runtime even when the
+        // native test executable uses explicitly selected SDK libraries.
+        for (const auto *key : {"DYLD_LIBRARY_PATH", "DYLD_FRAMEWORK_PATH", "DYLD_FALLBACK_LIBRARY_PATH"})
+            environment.remove(QString::fromLatin1(key));
         environment.insert("SOCIETY_HELPER_DIRECTORY", root.path());
         environment.insert("SOCIETY_STORAGE_SETTINGS_PATH", root.filePath("storage.json"));
         environment.insert("SOCIETY_DISABLE_SESSION_RESTORE", "1");
@@ -117,7 +132,9 @@ private slots:
         QByteArray output;
         QElapsedTimer timer;
         timer.start();
-        while (timer.elapsed() < 5000 && !output.contains(offline.toUtf8())) {
+        // A cold packaged Qt/QML launch may exceed five seconds on external storage.
+        // Keep the receipt check bounded while allowing the actual window runtime to load.
+        while (timer.elapsed() < 30000 && society.state() != QProcess::NotRunning && !output.contains(offline.toUtf8())) {
             QTest::qWait(50);
             output += society.readAll();
         }

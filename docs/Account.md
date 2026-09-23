@@ -14,7 +14,7 @@ LVRS 입력 필드·버튼·라벨과 화면 크기에 맞는 스크롤 패널�
 `Main.qml`이 `objectName: societyAccount`인 `AccountController` 하나를 소유한다.
 이 컨트롤러가 `iisacc::accounts::AccountManager`와 전용 `QNetworkAccessManager`를 소유한다.
 `NetworkDriveController.accountSession`은 이를 `QPointer`로 참조하고 별도 계정을 만들지 않는다.
-공통 `main.cpp`는 루트 생성 후 같은 manager를 `iiSocietyHelper::Helper::setAccountManager()`에 연결한다.
+공통 `src/main.cpp`는 루트 생성 후 같은 manager를 `iiSocietyHelper::Helper::setAccountManager()`에 연결한다.
 따라서 모든 플랫폼에서 계정 패널, 네트워크 드라이브, Helper가 같은 Account·AuthorDetails 객체를 읽는다.
 계정이 파괴되거나 교체되면 네트워크 연결을 해제하며 Helper의 비소유 참조도 자동 해제된다.
 
@@ -22,7 +22,7 @@ Society의 `signedIn`은 SDK의 `isAuthenticated()`를 그대로 따른다. 공�
 
 ## 인증 흐름
 
-1. 이메일·비밀번호를 `POST https://iisacc.com/Account/Session/App`, `intent: login`으로 보낸다.
+1. 이메일·비밀번호를 `POST https://iisacc.com/Account/GraphQL`의 `appSession` mutation, `variables.input.intent: "login"`으로 보낸다.
 2. 서버가 Cognito에서 비밀번호와 반환된 ID token을 검증하고 기기 한도를 확인한 뒤 같은 응답으로
    전체 Account 10개 필드·AuthorDetails 20개 필드·앱 로그인 세션을 반환한다. 이메일 코드 입력은 없다.
 3. 화면에 표시 이름, 이메일, 사용자 ID, Society Cloud 멤버십을 표시한다. `refresh`로 다시 조회할 수 있다.
@@ -131,7 +131,7 @@ iPhone 앱의 서명·번들 검사를 통과했고 연결된 iPhone 15 Pro Max�
 
 ## 2026-09-09 SDK 소유 화면으로 전환
 
-`App/Main.qml`은 `import iiAccountManager as Accounts` 후 `Accounts.AccountViews`에
+`src/App/Main.qml`은 `import iiAccountManager as Accounts` 후 `Accounts.AccountViews`에
 `accountSession.manager`와 창 overlay만 연결한다. 계정 버튼은 `manager.showAccount()`를 호출한다.
 로그인에서 가입으로 이동하는 동작도 SDK의 `showSignUp()`이며 가입 폼을 외부 브라우저로 열지 않는다.
 표시 이름·유저 ID·메일·비밀번호/확인·약관·선택 이메일 동의를 입력하고 이메일 코드로 가입을 완료한다.
@@ -152,3 +152,18 @@ macOS Metal 화면 구조 7/7(초기화·정리 포함)이 통과했다. Society
 같은 갱신본은 서명·App Group·File Provider 번들 검사 후 연결된 iPhone 15 Pro Max에 설치했다.
 설치 결과는 `build/ios-device/account-views-install.json`에 있으며 앱 로그인은 실행하지 않았다.
 Android는 서명되지 않은 Release APK를 생성했고 SDK 가입 API 및 AccountViews/SignUpView 포함을 확인했다.
+
+## 2026-09-19 계정 소유 컨테이너 위치
+
+공유 계정 SDK의 `societyContainerDrive`가 `containerId`, `hostDeviceId`, `imagePath`, `revision`을
+관리한다. 경로는 호스트의 디스크 이미지 위치이며, 각 기기의 마운트 경로나 복제본 경로와 구분한다.
+위치 변경은 기존 드라이브 UUID 검증 후 계정 서버에 저장하며 다른 로그인 기기는 30초 간격으로
+수신한다. 오프라인 기기는 연결 복구 후 반영한다. 상세 사용자 흐름과 호환성은 `Onboarding.md`에 있다.
+
+## GraphQL 전환
+
+iiAcountManager 0.2.8과 갱신한 iiSocietyClient/iiServerHost를 함께 빌드한다. 계정 모델,
+컨테이너 위치, 페어링 증명은 `data.appSession`에서 읽고 릴레이는
+`data.accountSession.account.sub`를 확인한다. HTTP 200의 `errors`를 성공으로 처리하지
+않으며 로그인 만료도 기존 UI/세션 정리 흐름으로 전달한다. 로컬 fixture는 GraphQL POST와
+변수 계약을 검사한다. 위의 과거 운영 상태 기록은 당시 관측이며 이번 소스 변경은 배포가 아니다.

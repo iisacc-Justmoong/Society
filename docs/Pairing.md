@@ -1,3 +1,15 @@
+# QR 수동 페어링 진입 (2026-09-21)
+
+데스크톱과 모바일의 Devices 화면에서 **Pair with QR code…**를 누르면 자동 탐색 상태와 관계없이 QR 수동 연결 화면을 연다. 데스크톱은 등록된 호스트의 일회용 QR을 표시하며, 모바일은 **Scan QR code**로 카메라를 실행한다. 모바일의 호스트 연결 안내 화면에서도 같은 버튼으로 직접 진입할 수 있어 초기 동기화가 끝나지 않은 상태에서도 사용할 수 있다.
+
+수동 초대를 받은 경우에는 기존 수락 화면을 유지한다. QR은 연결 주소를 전달하는 수단이며, 동일 계정 인증과 계정에 등록된 호스트·컨테이너 검증을 우회하지 않는다. 데스크톱은 호스트, 모바일은 클라이언트 역할을 유지한다.
+
+# Account host requirement (2026-09-21)
+
+Every Society LAN/QR connection requires a signed-in account and current server-issued pairing credentials on both endpoints. The QR supplies transport coordinates, not authorization. Both endpoints prove account membership before Files access. Clients connect only to `societyContainerDrive.hostDeviceId`, and replication checks `containerId` before adopting or uploading data. Missing registration, a different account, expired credentials or another host stops synchronization.
+
+An account-authorized host/container change invalidates mobile readiness immediately. The previous mirror and offline edits are retained under `.society-sync/detached/`; the registered host supplies the replacement namespace. They are never uploaded to the replacement host. The UI becomes ready after that host completes an authenticated round.
+
 # 로컬 네트워크 기기 탐색·페어링
 
 이 문서는 직접 LAN 연결 경로의 계약이다. Society의 전체 동기화 범위에는 [계정 기반 자체 서버·NAS 호스팅](SelfHosting.md)도 포함된다.
@@ -26,7 +38,7 @@ iPhone 스캐너는 AVFoundation의 QR 메타데이터 인식과 실제 카메�
 
 기기 목록은 OS의 Bonjour/NSD 발견·이탈 통지와 6초 주기의 주소 재확인을 이용한다. Apple의 주소 확인은 DNSServiceGetAddrInfo로 발견한 네트워크 인터페이스의 IPv4를 직접 조회한다. 최신 상태를 25초 동안 받지 못한 항목은 제거한다. 인터페이스 변경은 다음 확인에 반영하며 탐색 오류는 5초 뒤 재시도한다. 초대는 60초 수명이며 2초 간격으로 제한된 크기의 UDP 유니캐스트만 재전송한다. 수락·거절·취소·완료 시 중단한다. 계정 ID·서비스 origin의 SHA-256 범위 태그, 기기 ID·이름·유형·실행 nonce만 탐색 레코드에 넣으며 이메일·비밀번호·로그인 쿠키·전체 계정 모델은 전송하지 않는다.
 
-계정 범위 태그는 일반 Society 앱 사이에서 다른 계정의 후보를 제외하는 필터이며 원격 기기의 서버 인증을 증명하는 서명이 아니다. DNS-SD 메타데이터나 초대 수신만으로 Files 권한을 주지 않는다. 최종 권한은 양쪽 TLS 연결에 바인딩된 코드 비교와 사용자의 데스크탑 확인으로 부여한다. 로컬 탐색·초대에는 외부 서버 조회, 로그인 정보 재전송, 클라우드 relay가 없다. 계정 로그인·세션 갱신 자체는 기존 iiAccountManager가 담당한다.
+계정 범위 태그는 일반 Society 앱 사이에서 다른 계정의 후보를 제외하는 필터이며 원격 기기의 서버 인증을 증명하는 서명이 아니다. DNS-SD 메타데이터나 초대 수신만으로 Files 권한을 주지 않는다. 최종 권한에는 양쪽 TLS 연결에 바인딩된 서버 발급 계정 증명과 등록된 호스트·컨테이너의 일치가 반드시 필요하다. 수동 초대는 이에 더해 코드 비교와 데스크톱 확인을 요구한다. 로컬 탐색·초대에는 외부 서버 조회, 로그인 정보 재전송, 클라우드 relay가 없다. 계정 로그인·세션 갱신 자체는 기존 iiAccountManager가 담당한다.
 
 `NearbyDevices`는 계정 범위·목록·초대·수명을, `DiscoveryService`의 플랫폼 구현은 발견·재확인·이탈 통지를 담당한다. `NetworkDriveController`가 앱 계정 수명과 연결하고 `DevicePairing`과 LVRS 기반 `PairingPanel.qml`이 선택·수신·코드 확인 UI를 소유한다. `iiServerHost::LanPeer::createDeviceOffer()`와 `confirmDevice()`는 최종 확인 전 파일 접근을 차단한다.
 
@@ -40,15 +52,15 @@ iPhone 스캐너는 AVFoundation의 QR 메타데이터 인식과 실제 카메�
 
 ## 사용 절차
 
-1. 데스크탑과 iPhone/iPad/Android를 같은 Wi-Fi 또는 연결된 사설 LAN에 둔다.
-2. 데스크탑에서 Society 컨테이너를 열고 **Devices → Pair mobile device**를 누른다. 호스트 모드로 전환하면서 QR을 즉시 만든다.
+1. 양쪽에서 같은 계정으로 로그인하고, 계정에 등록된 데스크톱 호스트와 iPhone/iPad/Android를 같은 Wi-Fi 또는 연결된 사설 LAN에 둔다.
+2. 데스크탑에서 Society 컨테이너를 열고 **Devices → Pair mobile device**를 누른다. 고정된 호스트 역할로 연결을 준비하고 QR을 즉시 만든다.
 3. 모바일에서 **Devices → Pair desktop → Scan QR code**를 누르고 데스크탑 QR을 비춘다. 최초 카메라·로컬 네트워크 권한을 허용한다.
 4. 모바일이 QR의 주소로 직접 연결하고 인증서를 확인한다. 데스크탑의 Files 목록을 읽고 확인 응답까지 끝나면 양쪽에 완료를 표시한다.
 5. 모바일의 **Open host Files**로 목록을 탐색하거나 내려받는다. 데스크탑의 **Done**은 QR 창만 닫고 연결은 유지한다.
 
-LAN 페어링은 iisacc 로그인과 독립적이다. 비밀번호, 로그인 쿠키, 계정 데이터와 세션을 다른 기기로 전달하지 않는다. QR을 촬영한 기기에 사용자가 접근을 승인하는 방식이므로 같은 계정 검사도 이 경로의 권한 근거가 아니다. 기존 iiAccountManager 로그인·회원가입 및 PC 2대/태블릿 2대/휴대폰 2대 로그인 정책은 계정 기능에 그대로 남는다. 로그인 테스트는 실행하지 않는다.
+LAN pairing requires both devices to sign in to the same account. Server-issued pairing keys authenticate both peer identities, the TLS certificate, the one-use offer and its nonce before Files access. The account registered host and container are mandatory. Legacy unauthenticated QR connections are rejected.
 
-QR 수명은 60초이고 한 번만 소비한다. 재발급·창 닫기·취소·호스트 종료로 미완료 요청을 무효화한다. Files 확인 단계는 최대 15초이다. 다른 기기가 코드를 재사용하거나 인증서가 다르면 완료하지 않는다. 이미 완료된 연결은 QR 만료나 Done으로 끊지 않는다. **Disconnect**, 데스크탑 Client mode 전환, 컨테이너 변경, 앱 종료 또는 모바일 백그라운드 전환은 연결을 닫는다. 연결이 끊기거나 앱이 재시작되면 새 QR로 다시 페어링한다. 장기 접근 토큰이나 QR은 디스크에 저장하지 않는다.
+QR 수명은 60초이고 한 번만 소비한다. 재발급·창 닫기·취소·호스트 종료로 미완료 요청을 무효화한다. Files 확인 단계는 최대 15초이다. 다른 기기가 코드를 재사용하거나 인증서가 다르면 완료하지 않는다. 이미 완료된 연결은 QR 만료나 Done으로 끊지 않는다. **Disconnect**, 컨테이너 변경, 앱 종료 또는 모바일 백그라운드 전환은 연결을 닫는다. 연결이 끊기거나 앱이 재시작되면 새 QR로 다시 페어링한다. 장기 접근 토큰이나 QR은 디스크에 저장하지 않는다.
 
 ## 코드 책임
 
@@ -57,7 +69,7 @@ QR 수명은 60초이고 한 번만 소비한다. 재발급·창 닫기·취소�
 | `NetworkDevices.qml` | 데스크탑 QR 표시 / 모바일 스캔 진입과 로컬 Files 탐색 |
 | `PairingPanel.qml` | 플랫폼 역할에 따른 QR·스캔 버튼·진행·만료·완료 표시 |
 | `DevicePairing` | UI 상태와 `NetworkDriveController.localPeer()` 연결 |
-| `NetworkDriveController` | 호스트 모드·컨테이너 수명·Files 공개·다운로드 관리 |
+| `NetworkDriveController` | 플랫폼 역할·컨테이너 수명·Files 공개·다운로드 관리 |
 | `iiServerHost::LanPeer` | 직접 TLS 리스너/클라이언트, 일회용 키, Files 확인, 연결 수명, 요청·응답 |
 | `iiServerHost::LanLink` | 버전 2 QR의 사설 IPv4 주소·포트·인증서 지문·코드·만료 정보 검증 |
 | `PairingQr` | 고정된 Nayuki C++ 라이브러리로 QR 행렬 생성·정수 배율 렌더링 |
@@ -74,9 +86,11 @@ Qt 6.8.3 Core/Network/WebSockets를 재사용한다. 데스크탑 인증서 생�
 
 Android 카메라는 [ZXing Android Embedded 4.3.0](https://github.com/journeyapps/zxing-android-embedded)의 공개 안정 버전을 고정한다. Apache 2.0이며 카메라·프레임 수명 관리는 해당 라이브러리에 맡긴다. AndroidX 및 ZXing decoder 전이 의존성이 있고 서버나 별도 설치 앱은 필요하지 않다. 배포 간격이 긴 라이브러리이므로 target SDK를 변경할 때 실제 카메라 회귀 검증이 필요하다. QR만 해독하며 이미지 저장·업로드·마이크 접근·소리를 사용하지 않는다.
 
-`iiServerHost.lan`과 설치 소비자는 실제 TLS 연결·파일 바이트·재사용·취소·만료·인증서 불일치를 검사한다. `Society.Pairing`은 로그인/중계가 없는 기본 상태에서 QR 생성·해독·페어링·파일 다운로드·모드 전환·Files 실패와 여러 창 크기를 검사한다. `Society.ClientOnlyNetwork`는 로그인 없이 모바일 스캔 버튼을 제공하고 호스팅을 차단하는지 검사한다. 실제 카메라로 모니터를 촬영하는 검증과 자동 해독·빌드 검증은 구분해서 보고한다.
+`iiServerHost.lan` verifies real TLS, mutual account proofs, rejection before Files access, replay, expiry and certificate mismatches. Society QR fixtures now authenticate against a local account server and register the expected host. Society.Account verifies manual and automatic synchronization, unregistered account rejection and revocation after account-host changes. Physical camera/device verification must be reported separately.
 
 ## 2026-09-09 검증 기록
+
+다음은 당시 버전의 역사적 기록이다. 로그인 없는 QR 연결은 2026-09-21 계정 호스트 정책으로 폐기되었다.
 
 - macOS 실제 Society 앱에서 로그인하지 않은 상태로 **Devices → Pair mobile device**를 눌러 QR과 60초 카운트다운이 표시되는 것을 확인했다.
 - Society의 로그인 검사를 제외한 CTest 13/13과 QML 정적 검사가 통과했다. 로컬 페어링/클라이언트 전용/기존 네이티브 파일 경계 검사를 포함한다.

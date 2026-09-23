@@ -65,7 +65,7 @@ private slots:
             QCOMPARE(readFile(source.filePath(name)), bytes);
         }
         QCOMPARE(entries(target.filePath("Models/Other")).size(), 2);
-        QCOMPARE(entries(target.filePath("Files")), (QStringList{"3D objects", "Audios", "Documents"}));
+        QCOMPARE(entries(target.filePath("Files")), QStringList{});
     }
 
     void keepsConflictingFilesAndReusesModelsAlreadyInTheDrive()
@@ -157,7 +157,7 @@ private slots:
         QVERIFY(importer.importFiles({QUrl::fromLocalFile(path)}));
         QTRY_COMPARE(done.size(), 2);
         QVERIFY(!importer.errorString().isEmpty());
-        QCOMPARE(entries(target.filePath("Files")), (QStringList{"3D objects", "Audios", "Documents"}));
+        QCOMPARE(entries(target.filePath("Files")), QStringList{});
         QCOMPARE(readFile(path), QByteArray("private model"));
     }
 

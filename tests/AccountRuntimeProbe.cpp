@@ -15,10 +15,11 @@ void societyAccountRuntimeProbe(QObject *root)
     auto *account = root->findChild<AccountController *>(QStringLiteral("societyAccount"));
     if (!account) { qWarning("Society account probe: missing controller"); return; }
     auto *network = new QNetworkAccessManager(root);
-    QNetworkRequest request(QUrl("https://iisacc.com/Account/Session/App"));
+    QNetworkRequest request(QUrl("https://iisacc.com/Account/GraphQL"));
     request.setTransferTimeout(20000);
     request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::ManualRedirectPolicy);
-    auto *reply = network->get(request);
+    request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+    auto *reply = network->post(request, R"({"query":"query AccountSession { accountSession { account { sub } } }"})");
     QObject::connect(reply, &QNetworkReply::finished, root, [account, reply] {
         const auto device = account->manager()->deviceInfo();
         const QJsonObject report{{"supportsSsl", QSslSocket::supportsSsl()},

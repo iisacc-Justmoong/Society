@@ -1,13 +1,11 @@
-# 소비 앱의 로컬 이미지 생성
+# 호스트 우선 이미지 생성
 
-Society는 Society끼리 컨테이너를 동기화한다. 이미지 생성은 모델을 소비하는 각 기기의 Dreamscapes가 담당한다.
+클라이언트가 모델 원본을 아직 보유하지 않았으면 `society.generation` 요청을 기존 인증 연결에서 처리한다. NetworkDriveController는 계정·페어링·호스트 역할을 확인하고 iiSocietyGeneration::Host에 위임한다. 실제 큐·모델 참조 검증·iiLocalDiffusion 실행·결과 청크 전송은 SDK 책임이다. 모바일 Society는 호스트 추론을 제공하지 않는다.
 
-호스트의 저장소 맵 → 아이폰의 SharedStorage 모델 목록 → Generate 시 iiSocietyClient/iiSocietySync 선택 다운로드 → App Group 컨테이너 → Dreamscapes의 로컬 iiLocalDiffusion 순서이다. Society 앱이 중단되어도 Dreamscapes 안의 SDK가 저장된 인증과 호스트 연결을 사용한다. 앱 UI에 별도 서버 설정이나 원격 생성 요청을 추가하지 않는다.
+요청 접수와 모델 복제는 독립적이다. Dreamscapes가 접수 확인 후 StorageMap 다운로드 요청을 남기므로 복제 완료 전에도 결과를 받을 수 있다. 복제 요청은 생성 취소나 실패 후에도 유지한다. 호스트 임시 결과는 `Models/.society-runtime/iiSocietyGeneration/`에 두며 이 경로는 동기화 대상에서 제외된다. 클라이언트가 최종 이미지를 Generation History에 공개한 뒤 기존 Society 복제가 처리한다.
 
-`GenerationBridge`와 호스트의 Dreamscapes worker 실행 경로를 제거했다. 수동 페어링 링크는 Society 클라이언트를 연결할 때만 사용한다. 전체 컨테이너 동기화에는 기존 계정 인증이 필요하고 수동 QR만으로 Models 접근 권한을 주지 않는다.
+검증: SDK 프로토콜 테스트와 실제 loopback TLS의 Dreamscapes LocalSociety 통합 테스트가 모델 전송을 보류한 상태의 생성 완료, 후속 다운로드, 다운로드 완료 후 오프라인 로컬 생성을 확인한다. 주입 엔진의 테스트 결과와 실제 기기·모델 추론 증거는 별도로 취급한다.
 
-Dreamscapes는 생성 중 파일을 앱 임시 저장소에 두고 완성 PNG만 로컬 `Generation History/`에 게시한다. 파일 공개 직후 앱 내부 Society SDK에 동기화를 요청한다. 호스트가 오프라인이면 파일을 유지하고 재연결 시 업로드한다. 오프라인 생성도 이미 내려받은 모델과 해당 기기의 추론 엔진으로 수행한다.
+Society의 동기화와 모델 소유권은 유지한다. Dreamscapes UI에는 별도 호스트 주소나 인증 설정을 추가하지 않는다. 수동 QR만으로 모델 사용 권한을 부여하지 않으며 계정 및 인증된 호스트 연결이 필요하다. 완전히 내려받은 모델과 리소스는 클라이언트의 기존 로컬 엔진으로 오프라인에서도 실행할 수 있다.
 
-검증은 [Dreamscapes.LocalSociety](../../Dreamscapes/App/Generation/tst_LocalSociety.cpp), Society 네트워크 테스트, iOS 번들 검사를 함께 사용한다. 작은 fixture의 생성은 저장 계약만 검사하며 실제 모델 추론은 별도이다. 과거 Workspace `build/iphone-remote-generation/`의 PNG 수신 기록은 아이폰 자체 추론 성공을 뜻하지 않는다.
-
-Generation History는 [공통 갤러리](Gallery.md)로 표시한다. 이미지의 비율과 무관하게 정사각형으로 중앙을 잘라 채우고 파일 이름을 숨긴다. 클릭·터치 또는 키보드 Enter로 파일 정보·크기·수정 시각·경로를 열며, 원본은 정보 시트의 View original로 연다.
+Generation History는 [공통 갤러리](Gallery.md)로 표시한다. 생성 중 파일은 Society의 기기 전용 runtime에 두고 검증된 완성 이미지만 공개한다.

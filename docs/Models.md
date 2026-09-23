@@ -10,7 +10,7 @@ Society는 iiSocietyContainer 0.11.2의 `ModelStore`를 사용해 `Models/`를 2
 - 미보유 모델 카드를 누르면 그 파일 또는 패키지만 다운로드하며 카드에 진행 상태를 표시한다. Open은 검증된 다운로드 완료 후 파일을 열거나 패키지로 이동한다. 목록 조회·새로고침은 원본 요청을 만들지 않는다. 숨겨진 파일 그리드는 폴더 조회를 중단한다.
 - 일반 터치는 모델 선택·다운로드만 실행한다. 우클릭 메뉴 처리는 마우스·터치패드로 제한하고, 터치 화면의 메뉴는 길게 누르기 또는 메뉴 버튼으로 연다. 단일 터치 뒤 의도하지 않은 메뉴가 다음 탭 이동을 막지 않는지 실제 터치 이벤트로 검사한다.
 - 하단 `Society / Models`를 누르면 기존 23개 폴더와 미분류 모델을 탐색할 수 있다. 사이드바 Models를 누르면 네 목록으로 돌아온다. 각 Import models… 버튼은 기존 자동 분류 가져오기를 연다. 가져오기 형식과 원본 보존 정책은 아래 계약을 유지한다.
-- 모델 추가·삭제·수정, 가져오기·정리 완료 및 화면 재진입 시 목록을 갱신한다. 바뀌지 않은 스냅샷은 갱신 신호를 내보내지 않으며, 실제 변경 시에도 선택 경로와 카테고리별 가로 스크롤을 복원한다. 컨테이너 전환은 이전 비동기 결과를 폐기한다.
+- 모델 추가·삭제·수정, 가져오기·정리 완료 및 화면 재진입 시 목록을 갱신한다. 바뀌지 않은 스냅샷은 갱신 신호를 내보내지 않으며, 실제 변경 시에도 선택·키보드 탐색 항목을 경로로 찾아 복원한다. 카테고리별 가로 스크롤과 페이지 세로 스크롤을 함께 유지하고, 카드 재배치 중 포커스가 카메라를 이동시키지 않는다. 연속 변경은 최초 저장한 위치로 합치며 컨테이너 전환은 이전 비동기 결과를 폐기한다.
 
 `modelCatalogUsesHostIdentificationBeforeLocalHeaders`는 호스트 식별 정보를 원본 헤더보다 우선하는지 검사한다. SDK `shared_storage`는 8,000개 원격 항목의 비동기 조회, 폴더 전환의 오래된 결과 폐기, 미선택 원본 부재와 선택 파일의 버전 고정 요청을 검사한다. iOS `testModelsShowsMetadataAndRemainsResponsive`와 `testModelsDownloadsOnlyTheTappedCard`는 설치 앱의 Models 진입·재탐색과 카드 선택을 검사한다. 두 테스트 사이에 App Group 원본 부재를, 선택 뒤 파일 해시와 미선택 원본 부재를 별도 검증한다.
 
@@ -37,3 +37,29 @@ macOS 패키지는 CMake가 선택한 iiSocietyContainer를 내장 데몬에도 
 분류에는 파일 구조 검사가 포함되지만 가중치 값의 무결성·실행 가능성을 보장하지 않는다. 불명확한 레거시 가중치를 실행하거나 파일명만으로 종류를 추측하지 않는다. 필요한 경우 `model.safetensors.model.json`에 `{"type":"Checkpoint"}`처럼 명시하고 다시 정리하거나 SDK `place(path, ModelType::Checkpoint)`로 수정한다. 앱의 외부 가져오기 확장자 계약은 safetensors 두 종류이며, 이미 Models에 있는 다른 형식과 패키지도 관리 객체의 분류 대상이다.
 
 `Society.ModelImport`는 Anima의 Other 복구·이름을 바꾼 신규 가져오기, 열기 시 정리, 가져오기 유형별 목적지·바이트 보존, 충돌·오류·취소와 컨테이너 전환을 검증한다. `Society.ModelMerge`는 유형별 입력 역할·기본 출력 경로·분류 중 입력 잠금을 검사하고 `Society.Drive`는 23개 폴더 표시와 드롭 후 이동을 검사한다. `SOCIETY_MODEL_TYPES_SCREENSHOT_PATH`로 유형 폴더 화면을 저장할 수 있다. `Society.AppleModelSource`는 파일 공급자의 임시 파일명에서도 헤더를 판정하고 유형별 경로·원본 보존·늦은 콜백 취소를 검사한다. SDK 설치 후 Society 및 동일 SDK를 사용하는 소비 앱을 재빌드한다. 작업 공간 검증은 `SDK/iiSocietyContainer/build/anima-classification/stage`의 패키지를 사용하며 사용자 설치 경로를 갱신하지 않는다.
+
+## 생성용 보정 모델의 단일 보관
+
+일반 모델 임포터는 입력 하나를 복사·분류할 뿐 `-complete` 파생본을 자동 생성하지 않는다.
+2026-09-20 Dreamscapes 실생성 검증에서 Anima 체크포인트에 기존 Qwen 텍스트 인코더와 VAE를
+합친 완성본을 별도로 게시하여 원본과 완성본이 각각 카드로 표시되었다.
+
+이처럼 하나의 체크포인트를 실행하기 위해 구성요소를 보충한 경우 Society에는 실행 가능한 패키지
+하나만 게시한다. 원본 체크포인트 가중치와 텍스트 인코더·VAE가 통합된 safetensors를 패키지 내부
+`model.safetensors`로 내장하고 `model_index.json`에 상대 경로·크기·SHA-256과 출처를 기록한다.
+원본 denoiser가 내장 가중치에 이미 포함되어 있으므로 패키지 안에 동일 원본을 다시 중복 저장하지 않는다.
+
+기존 `iild-unified-model-v1` / `IILDUnifiedCascade` 규격의 단일 stage(strength 1)를 사용한다.
+여러 모델을 합성하는 추가 추론 단계는 없으며 기존 네이티브 실행기가 내장 체크포인트를 실행한다.
+패키지 확장자는 SDK의 정식 표기인 `.iildmodel`을 사용하며, ZIP64 stored 컨테이너의 단일 파일이다.
+Society는 `.iildmodel` 파일 자체를 한 모델 및 병합 인자로 관리하고 내부 구성요소를 별도 카드로 노출하지 않는다.
+SDK는 중앙 디렉터리와 `model_index.json`, 구성요소 크기·CRC·SHA-256을 검사한 뒤 로컬 캐시에 안전하게 물질화한다.
+과거 디렉터리형 `.iildmodel`은 읽기 호환만 유지하며 새 병합 결과는 항상 단일 파일로 게시한다.
+패키지 내부 가중치는 카탈로그에 별도 모델로 표시되지 않는다.
+
+보정 전 원본과 조립 검증 기록은 Models 밖의 작업 공간에 보관한다. 파일명만으로 자동 병합하거나
+삭제하지 않으며, 원본 출처 해시 및 내장 가중치 무결성을 확인한 뒤 게시한다.
+이전 safetensors 및 complete 경로는 `.model-paths.json`의 별칭으로 패키지에 연결한다.
+
+현재 패키지는 `chosenIrisesMix_v20Anima.iildmodel`과 `miaomiaoRealskin_anima13.iildmodel`이다.
+패키징 검증은 `build/model-packaging/`, 앞선 원본 백업은 `build/model-consolidation/originals/`에 있다.

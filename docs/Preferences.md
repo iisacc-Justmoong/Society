@@ -1,28 +1,28 @@
 # Society Preferences
 
-데스크톱 상단의 **Preferences…** 또는 **⌘+,**(macOS), **Ctrl+,**(Windows/Linux)로 독립 설정 창을 연다. 창 폭이 좁으면 상단 버튼을 설정 아이콘으로 표시한다. Devices의 **Preferences…** 버튼도 같은 창을 연다. LVRS의 설치된 `LV.Window`, `LV.RadioButton`, `LV.PushButton`을 사용하며 외부 의존성을 추가하지 않았다.
+데스크톱 상단의 **Preferences…** 또는 **⌘+,**(macOS), **Ctrl+,**(Windows/Linux)로 독립 LVRS 설정 창을 연다. 좁은 창에서는 설정 아이콘을 표시하며 Devices의 **Preferences…**도 같은 창을 연다. 창은 최초 요청 때 생성하고 이후에는 기존 창을 활성화한다. **Done**, Escape, OS 창 닫기로 숨기며 메인 창을 닫으면 함께 닫는다. 본문은 스크롤하고 하단 버튼은 창 안에 유지된다.
 
-설정 창은 최초 요청 때만 생성한다. 반복해서 열면 기존 창을 활성화하며, 메인 창을 계속 사용할 수 있다. **Done**, Escape, OS의 창 닫기 버튼·단축키로 숨기고 다시 열면 현재 선택을 표시한다. 메인 창을 닫으면 설정 창도 닫는다. 창은 560×440으로 시작하며 360×320까지 줄일 수 있다. 본문은 스크롤하고 하단 버튼은 창 내부에 유지된다.
+Preferences에는 호스트·클라이언트 선택 항목이 없다. 계정의 컨테이너 드라이브 위치, 이동한 디스크 연결, 연결 상태와 **Devices…**를 제공한다. 모바일 Environment는 같은 `PreferencesContent`를 LVRS 시트로 사용하며 역할 선택 항목을 표시하지 않는다.
 
-**Client mode**는 다른 기기의 Files 탐색·다운로드를 제공한다. **Host mode**는 이 기능에 더해 현재 Society 컨테이너의 `Files/`를 같은 계정의 기기에 공개한다. 선택은 앱의 단일 `NetworkDriveController.mode`에 즉시 적용한다. 별도의 설정용 연결이나 인증 세션을 만들지 않는다. 이미 연결된 상태에서는 기존 호스팅을 종료한 뒤 새 모드로 재연결하며, 진행 중 다운로드를 취소하고 기존 목적지 파일을 보존한다.
+기기 역할은 플랫폼으로 고정된다.
 
-설정 창은 실제 호스팅·접속 상태와 연결 오류를 표시한다. 유효한 컨테이너가 없는 호스트 모드에서는 컨테이너 열기를 안내한다. **Devices…** 버튼으로 로그인과 기기 탐색 화면을 열 수 있다. 자체 서버를 설정한 경우 호스트 모드도 로그인 세션과 함께 복원한다. 서버 설정이 없으면 새 실행의 기본값은 클라이언트이다. 선택만으로 로그인하지 않는다.
+| 플랫폼 | 역할 |
+| --- | --- |
+| macOS, Windows, Linux 데스크톱 및 NAS의 SocietyDaemon | Host |
+| iOS, Android | Client |
 
-iOS/Android에는 Preferences 진입 버튼과 단축키를 활성화하지 않는다. 설정 창의 열기 함수도 모바일 정책을 확인하며, 호스트 라디오 동작을 직접 호출해도 C++의 클라이언트 전용 제한을 우회할 수 없다.
+`NetworkDriveController.mode`는 읽기 전용 상수이며 런타임 변경 API가 없다. 서버 연결·연결 해제·로그아웃·컨테이너 변경도 이 값을 바꾸지 않는다. Devices는 현재 기기의 역할을 설명하고 서버 연결 버튼 하나만 제공한다. 데스크톱은 유효한 컨테이너와 인증된 연결이 준비되면 호스팅하며, 모바일에서는 호스팅 옵션을 전달해도 파일 서버를 열지 않는다.
 
-`Society.Drive`는 Preferences를 실제 클릭하여 열고 인증 fixture 중계에 연결한 앱을 호스트/클라이언트로 전환한다. 다른 Peer의 호스트 목록에 나타나고 사라지는지, 중복 창 없이 닫기·단축키 재열기·Devices 왕복이 가능한지, 외부 모드 변경이 라디오 선택에 반영되는지 검사한다. 작은 창과 큰 창에서 하단 버튼의 위치도 확인한다. `Society.ClientOnlyNetwork`는 모바일 정책에서 Preferences 열기 및 호스트 선택을 차단하는지 검사한다.
+서버 설정에는 주소만 저장한다. 이전 버전이 저장한 `host` 값은 복원 시 제거하고 주소와 로그인 세션은 유지한다. 기기 역할과 컨테이너의 기본 호스트는 서로 다른 개념이다. 기존 미러의 기본 호스트 연결·자동 선출·데이터 보존 정책은 유지하며, 다른 기본 호스트에 연결된 데스크톱도 기기 역할은 Host이다.
+
+`Society.NetworkDrive`는 데스크톱 기본 호스팅, 읽기 전용 역할, 연결 해제 시 다운로드 보존을 검사한다. `Society.ClientOnlyNetwork`는 모바일로 별도 컴파일하여 역할 고정, 레거시 호스트 설정 무시, 호스팅 옵션 차단과 LVRS 화면의 선택 항목 제거를 검사한다. `Society.Account`는 데스크톱의 레거시 클라이언트 설정 복원을, `Society.Pairing`은 여러 기기의 페어링을 검사한다. 한 프로세스 안의 여러 기기 통합 검사는 생성 시 역할이 고정된 `MobileNetworkDevice` fixture를 사용한다. 제품의 기본 생성자는 항상 빌드 플랫폼을 따른다.
+
+`Society.Drive`의 `preferencesKeepsPlatformHostingAndReusesItsWindow`는 역할 선택 없이 호스팅이 시작되는지와 창 재사용, 크기 변경, 키보드 닫기·재열기, Devices 왕복을 검사한다.
 
 ```sh
 cmake --build build --parallel 4
-ctest --test-dir build --output-on-failure
+ctest --test-dir build --output-on-failure -R 'Society\.(NetworkDrive|ClientOnlyNetwork|Account|Pairing|Drive|Daemon)$'
 cmake --build build --target Society_qmllint
-
-env -u QT_QPA_PLATFORM -u QT_QUICK_BACKEND \
-  QSG_RHI_BACKEND=metal QML_DISABLE_DISK_CACHE=1 \
-  SOCIETY_PREFERENCES_SCREENSHOT_PATH="$PWD/build/preferences-native.png" \
-  build/bin/SocietyDriveTests preferencesControlsHostingAndReusesItsWindow
 ```
 
-실제 모바일 기기 실행과 공용 중계 배포 검증은 이 호스트 환경의 UI·정책 테스트와 별도로 수행한다. 로컬/원격 전송 및 공개 범위의 세부 계약은 [NetworkDrive.md](NetworkDrive.md)를 따른다.
-
-모바일 `Environment`는 별도 창을 생성하지 않고 LVRS Large 시트를 연다. `PreferencesContent`를 데스크톱 창과 공유하며 기기 모드·연결 상태·Devices·Done을 유지한다. 모바일에서는 Host mode가 비활성화되고 데스크톱에서 사용할 수 있다는 설명을 표시한다. 기기 탐색이나 계정 화면으로 이동할 때 설정 시트를 닫는다.
+실제 모바일 기기 실행과 외부 서버 배포 검증은 데스크톱의 정책·통합 검사와 별도이다. 연결 및 공개 범위의 상세 계약은 [NetworkDrive.md](NetworkDrive.md)를 따른다.

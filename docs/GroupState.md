@@ -13,6 +13,20 @@ Android에는 Apple App Group 파일 경로가 없으므로 Society가 관리하
 
 macOS는 `SOCIETY_MAC_APP_GROUP=<TeamID>.com.iisacc.society`와 그 팀의 `SOCIETY_MAC_SIGN_IDENTITY`를 설정해 빌드한다. 빌드는 앱·내장 helper를 서명하고 앱에 해당 그룹 entitlement를 포함한다. 패키징도 이 권한을 유지한다. iOS/iPadOS는 기존 `group.com.iisacc.society`와 App Group provisioning을 사용한다. ad-hoc 서명만으로 macOS 보호 그룹의 쓰기 권한이 확보됐다고 간주하지 않는다.
 
+개발자 팀 서명이 없는 비샌드박스 macOS 빌드는 iiSocietyClient가 실제 코드 서명을 확인한 후
+사용자 Application Support의 `iisacc/Development Groups/<SocietyAppGroup>/Library/Application Support/SocietyState`에
+동일한 암호화 형식으로 저장한다. GUI와 helper는 같은 위치를 사용하며 개발용 Keychain 항목은
+정식 빌드와 분리한다. 팀 서명·sandbox·iOS의 보호 그룹 접근 실패에는 이 경로를 사용하지 않는다.
+2026-09-19의 로그인 정보 삭제 오류는 팀 그룹을 지정한 임시 서명 앱에서 발생했으며,
+해당 개발 빌드 경로 선택을 SDK의 네이티브 서명 회귀 검사로 검증한다.
+
+해당 수정의 SDK 검사 2개, Society 계정 27개 및 그룹 상태 10개 검사가 통과했다.
+실제 앱과 같은 그룹 entitlement를 적용한 임시 서명 검사에서도 개발 경로 선택과
+네이티브 Keychain의 합성 항목 저장·읽기·삭제가 통과했다. 최종 앱의 재빌드·번들 서명과
+`Society.MacRuntimeDeployment`, `Society.MacRuntimeLaunch`도 통과했다. 실행 검사는
+개발용 라이브러리 경로 없이 GUI·helper 로딩과 QML 루트 초기화를 확인했다.
+운영 계정 API의 404는 별도 서버 배포 불일치이며 이 저장소 수정만으로 해결되지 않는다.
+
 모바일 경로 검사는 OS가 반환한 관리 루트에서 시작해 그 아래 구성요소를 검증한다. 앱 샌드박스 밖의 `/var`·`/data/user` 등을 열람해야만 저장할 수 있도록 만들지 않는다. 하위 디렉터리와 레코드의 symlink는 계속 거부한다.
 
 각 평문 레코드는 최대 256 KiB이다. SDK가 허용하는 전체 계정 스냅샷과 기기 이력을 함께 담을 수 있으며, 초과한 쓰기는 기존 레코드를 교체하지 않는다. 암호문은 이 제한에 버전·철회 세대·nonce·인증 태그 48바이트를 더한 크기까지만 읽는다.
