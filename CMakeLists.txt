@@ -613,7 +613,7 @@ if(BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)
             list(APPEND society_drop_include_args "-I${society_native_package_root}/platform/ios")
             get_filename_component(society_qt_frameworks "${Qt6_DIR}/../.." ABSOLUTE)
             add_test(NAME Society.IosDropSyntax COMMAND "${CMAKE_OBJCXX_COMPILER}"
-                -fsyntax-only -x objective-c++ -std=c++20 -fobjc-arc
+                -fsyntax-only -x objective-c++ -std=c++23 -fobjc-arc
                 -target "${CMAKE_SYSTEM_PROCESSOR}-apple-ios16.0-macabi"
                 -isysroot "${society_macos_sdk}"
                 -iframework "${society_uikit_frameworks}"

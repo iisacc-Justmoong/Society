@@ -14,3 +14,4 @@ test setup checks that this path is nonempty and executable, so packaging
 regressions fail before an empty QProcess command can obscure the cause.
 
 The iOS build contract checks the complete named SDK set, including iiPhotoLibrary. The Mac Catalyst drop syntax check includes AccountManager and Qt Concurrent headers used by DriveController; this is syntax validation, not an iOS runtime test.
+The syntax check uses C++23, matching SDK public headers such as DiskImage.h that expose std::expected.
