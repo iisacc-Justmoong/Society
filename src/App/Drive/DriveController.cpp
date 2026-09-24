@@ -159,6 +159,7 @@ void DriveController::setAccountManager(iisacc::accounts::AccountManager* manage
         });
     }
     emit accountManagerChanged();
+    QTimer::singleShot(0, this, &DriveController::applyAccountDrive);
 }
 
 bool DriveController::saveContainerToAccount()
@@ -197,7 +198,10 @@ void DriveController::applyAccountDrive()
         return; // An explicit relocation remains selected until its server result arrives.
     }
     if (saved.isEmpty()) {
-        setAccountDriveStatus(tr("Save this drive to your account to synchronize its location."));
+        // A verified local disk is the initial host. The account API's revision
+        // precondition protects a host registered concurrently on another device.
+        if (!managedContainer() && hasDrive() && !m_diskImagePath.isEmpty()) saveContainerToAccount();
+        else setAccountDriveStatus(tr("Open a Society disk on your desktop to connect your devices automatically."));
         return;
     }
     const auto revision = saved.value("revision").toString();
@@ -363,7 +367,7 @@ void DriveController::prepareDisk(const QString &location, bool create, const QS
             if (!m_account || !m_account->isAuthenticated())
                 setAccountDriveStatus(tr("Sign in, then save this drive location to your account to share future changes."));
             else saveContainerToAccount();
-        }
+        } else applyAccountDrive();
     });
     watcher->setFuture(QtConcurrent::run([location, create, expectedId] {
         Result result;
@@ -431,6 +435,7 @@ bool DriveController::openContainer(const QString &path)
     emit locationChanged();
     emit systemChanged();
     emit contentsChanged();
+    applyAccountDrive();
     return true;
 }
 

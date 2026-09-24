@@ -137,7 +137,7 @@ private slots:
         QVERIFY(local.openContainer(disk->rootPath()));
         const auto replica = fixture.filePath("local-replica"); QVERIFY(QDir().mkpath(replica));
         QVERIFY(iiSocietyContainer::SocietyDrive::create(replica)); QVERIFY(remote.openContainer(replica));
-        QVERIFY(local.saveContainerToAccount());
+        // Opening the existing host disk while signed in must register it automatically.
         QTRY_COMPARE(host.account()->societyContainerDrive().value("imagePath").toString(), image);
         QVERIFY(iiSocietyContainer::DiskImage::detach(image.toStdString()));
         QVERIFY(!local.reloadFromDisk()); QVERIFY(!local.hasDrive());

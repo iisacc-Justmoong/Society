@@ -81,7 +81,7 @@ public:
     QString automaticPairingStatus() const;
     bool automaticPairingEnabled() const { return m_relayUrl.isEmpty() ? m_automatic.enabled() : m_serverEnabled; }
     bool automaticPairingActive() const { return m_automatic.active(); }
-    void pauseAutomaticPairing();
+    void pauseAutomaticPairing(bool remember = true);
     Q_INVOKABLE void resumeAutomaticPairing();
     void setRelayUrl(const QUrl &url);
     static bool validServerUrl(const QUrl &url);

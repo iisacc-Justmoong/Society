@@ -44,5 +44,6 @@ signals:
 private:
     QPointer<NetworkDriveController> m_network;
     QString m_error;
-    bool m_active = false;
+    void takeManualControl();
+    bool m_active = false, m_resumeAutomatic = false;
 };

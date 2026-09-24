@@ -117,3 +117,15 @@ iOS 16.2 이상에서 `SocietyLiveActivity.appex`는 ActivityKit/WidgetKit으로
 공통 코드는 설치된 iiSocietyContainer의 optional iOS 모듈이며 별도 외부 패키지를 추가하지 않는다. `Society.ClientOnlyNetwork`는 실행 만료 후 처리량 보존·실제 완료의 1회 전달을 검사하고, `verify_ios_bundle.py`는 ActivityKit 링크와 WidgetKit 확장 서명을 검증한다.
 
 현재 화면은 `LVRS.MobileTabBar`를 사용하므로 iOS 정적 LVRS도 같은 소스로 빌드·설치해야 한다. 호스트용 LVRS만 갱신하면 iOS 앱이 `MobileTabBar is not a type`으로 시작하지 못할 수 있다. 번들 검사는 포함된 LVRS의 MobileTabBar 코드도 확인한다.
+
+### Pairing diagnostics
+
+The opt-in `SOCIETY_GROUP_STATE_RUNTIME_PROBE` mirror inspection reports current host/container readiness, runtime ownership, registered device/container identities, and pairing grant validity without exporting credentials or signing keys. Use a fresh report filename and its timestamp when inspecting an installed app; an old report does not prove its current state.
+
+Opening an existing desktop disk while signed in now registers the initial host automatically if the account has no host. A different registered host is never replaced automatically. Optional QR pairing only pauses discovery while its panel is open; closing it resumes the previous automatic setting and never saves a permanent pause. Explicit Disconnect continues to persist its pause.
+
+초기 온보딩은 인증된 호스트 목록과 모델 인덱스를 준비한 뒤 해제한다. 사진 식별 파일 및 미리보기는 iiSocietySync의 후속 16개 단위 전송으로 채우므로 대규모 사진 보관함이 첫 연결을 막지 않는다. 읽기 전용 `mirror-inspect` 진단에는 실제 루트 화면의 `onboardingRequired`도 포함된다.
+
+준비된 미러의 재연결은 현재 인증 채널에서 등록 호스트와 컨테이너를 다시 확인한 `hostValidated` 시점에 온보딩을 해제한다. 첫 연결은 미러 준비 완료까지 기다리되, 아이폰의 사진 업로드 전체 완료를 기다리지는 않는다. 계정/컨테이너 불일치 및 연결 종료 시에는 기존 준비 상태 무효화 규칙을 유지한다.
+
+인증된 준비 상태에서 잠시 발생하는 `sync_store_busy`는 동기화 재시도로 표시하며 온보딩으로 되돌리지 않는다. 호스트 인증이나 컨테이너 불일치 오류와 연결 종료는 계속 준비 상태를 해제한다.

@@ -1,6 +1,7 @@
 #include "MobileNetworkDevice.h"
 #include "AccountServer.h"
 #include <QElapsedTimer>
+#include <QLockFile>
 #include "App/Network/DevicePairing.h"
 #include "PairingCredentialsFixture.h"
 #include "App/Network/PairingQr.h"
@@ -111,6 +112,45 @@ private slots:
 #else
         QSKIP("Apple camera decoder requires macOS.");
 #endif
+    }
+    void closingOptionalQrResumesAutomaticPairing() {
+        Fixture fixture; QVERIFY(fixture.start());
+        fixture.host.resumeAutomaticPairing();
+        DevicePairing panel; panel.setNetwork(&fixture.host); panel.showHostQr();
+        QVERIFY(!panel.qrText().isEmpty()); QVERIFY(!fixture.host.automaticPairingEnabled());
+        panel.cancel();
+        QVERIFY(fixture.host.automaticPairingEnabled());
+        QVERIFY(fixture.hostAccount->automaticPairingEnabled());
+    }
+    void authenticatedFirstLaunchAutomaticallyOpensTheHostContainer() {
+        Fixture fixture; QVERIFY(fixture.start());
+        fixture.host.setAccountSession(nullptr); fixture.client.setAccountSession(nullptr);
+        FakeDiscoveryService hostDiscovery, phoneDiscovery;
+        QTemporaryDir mirror(SOCIETY_TEST_DIRECTORY "/first-launch-XXXXXX");
+        NetworkDriveController host(&hostDiscovery, QHostAddress::LocalHost);
+        MobileNetworkDevice phone(&phoneDiscovery, QHostAddress::LocalHost);
+        QVERIFY(iiSocietyContainer::SocietyDrive::create(mirror.path()));
+        fixture.hostAccount->setAutomaticPairingEnabled(true);
+        fixture.clientAccount->setAutomaticPairingEnabled(true);
+        host.setContainerPath(fixture.container.path()); phone.setContainerPath(mirror.path());
+        host.setAccountSession(fixture.hostAccount.get()); phone.setAccountSession(fixture.clientAccount.get());
+        QTimer announce; announce.setInterval(100);
+        connect(&announce, &QTimer::timeout, this, [&] {
+            hostDiscovery.announceTo(phoneDiscovery); phoneDiscovery.announceTo(hostDiscovery);
+        });
+        announce.start();
+        QTRY_VERIFY_WITH_TIMEOUT(host.discovery()->authenticated() && phone.discovery()->authenticated(), 5000);
+        QTRY_VERIFY_WITH_TIMEOUT(phone.connected(), 15000);
+        QTRY_VERIFY_WITH_TIMEOUT(phone.hostConnectionReady(), 15000);
+        QCOMPARE(iiSocietyContainer::SocietyDrive::open(mirror.path())->identifier(),
+                 iiSocietyContainer::SocietyDrive::open(fixture.container.path())->identifier());
+        QLockFile operation(fixture.container.filePath(".society-sync/operation.lock"));
+        QTRY_VERIFY_WITH_TIMEOUT(operation.isLocked() || operation.tryLock(), 5000);
+        phone.synchronizeNow();
+        QTRY_COMPARE_WITH_TIMEOUT(phone.synchronizationStatus(), QString("Container sync is waiting to retry."), 10000);
+        QVERIFY(phone.hostConnectionReady()); // Local catalog contention is not lost authentication.
+        operation.unlock();
+        phone.disconnectSession(); QVERIFY(!phone.hostConnectionReady());
     }
     void automaticQueuePairsSeveralDevicesAndSurvivesPanelClosing() {
         FakeDiscoveryService a, b, c;

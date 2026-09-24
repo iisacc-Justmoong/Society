@@ -52,7 +52,7 @@ NetworkDriveController::NetworkDriveController(Mode deviceMode, DiscoveryService
     connect(&m_remote, &iiSocietySync::RemoteFiles::entriesChanged, this, &NetworkDriveController::entriesChanged);
     connect(&m_remote, &iiSocietySync::RemoteFiles::downloadFinished, this, &NetworkDriveController::downloadFinished);
     connect(&m_sync, &iiSocietySync::Controller::changed, this, [this] {
-        if (!m_sync.errorString().isEmpty()) invalidateHostConnection();
+        if (!m_sync.errorString().isEmpty() && m_sync.errorString() != "sync_store_busy") invalidateHostConnection();
         if (!m_sync.busy() && !m_photos->busy() && !m_sync.errorString().isEmpty()) {
             m_continuedSyncRequested = false; m_background.release(false);
             if (!hostModeAvailable() && (m_applicationState == Qt::ApplicationSuspended || m_applicationState == Qt::ApplicationHidden))
@@ -65,10 +65,17 @@ NetworkDriveController::NetworkDriveController(Mode deviceMode, DiscoveryService
         if (m_namespace == state) return;
         m_namespace = state; emit synchronizationChanged();
     });
+    connect(&m_sync, &iiSocietySync::Controller::hostValidated, this, [this](const QString &peer) {
+        // Ready cached metadata still needs a fresh authenticated host check.
+        // Uploading the phone's photo backlog must not keep onboarding open.
+        if (!hostModeAvailable() && signedIn() && connected() && m_syncHosts.contains(peer)) {
+            m_validatedHost = peer;
+            refreshContainerState();
+            emit synchronizationChanged();
+        }
+    });
     connect(&m_sync, &iiSocietySync::Controller::synchronized, this, [this](const QString &peer) {
-        // A cached mirror or an open relay socket does not prove that its host
-        // is usable. Only a completed, authenticated round in this connection
-        // can release the mobile startup/reconnection gate.
+        // A completed round also refreshes the authenticated host milestone.
         if (!hostModeAvailable() && signedIn() && connected() && m_syncHosts.contains(peer))
             m_validatedHost = peer;
         m_photos->refresh();
@@ -442,7 +449,8 @@ void NetworkDriveController::invalidateHostConnection() {
 bool NetworkDriveController::hostConnectionReady() const {
     return hostModeAvailable() || (m_runtimeEnabled && !m_suspended && signedIn() && connected()
         && containerReady() && !m_validatedHost.isEmpty() && m_syncHosts.contains(m_validatedHost)
-        && m_validatedHost == m_mirror.value("host").toString() && m_sync.errorString().isEmpty());
+        && m_validatedHost == m_mirror.value("host").toString()
+        && (m_sync.errorString().isEmpty() || m_sync.errorString() == "sync_store_busy"));
 }
 QString NetworkDriveController::synchronizationStatus() const {
     if (!signedIn()) return tr("Sign in to connect to your account's Society host.");
@@ -592,12 +600,12 @@ bool NetworkDriveController::startLocalHost(bool automatic) {
     if (!pairingAuthenticated() || accountHost() != m_account->manager()->deviceInfo().value("id").toString()
         || !drive || accountContainer() != drive->identifier()) { fail(tr("Sign in and register this host drive with your account before pairing.")); return false; }
     if (!m_runtimeEnabled || m_suspended) return false;
-    if (!automatic) pauseAutomaticPairing();
+    if (!automatic) pauseAutomaticPairing(false);
     if (!hostModeAvailable()) { fail(tr("Only desktop Society can host Files.")); return false; }
     if (!m_mirror.isEmpty()) { fail(tr("This device mirrors its primary Society host.")); return false; }
     if (m_local.hosting()) return true;
     if (automatic) { m_session = {}; m_accountSession = false; stopTransport(); }
-    else disconnectSession();
+    else disconnectSessionImpl(false);
     QString error; m_storage = iiSocietyContainer::SharedStorage::open(m_container, &error);
     if (!m_storage) { fail(error.isEmpty() ? tr("Open a Society container before pairing.") : error); return false; }
     const auto files = iiSocietySync::filesHandler(m_storage->drive().rootPath());
@@ -621,7 +629,7 @@ bool NetworkDriveController::joinLocalHost(const QString &qr, bool automatic) {
     }
     if (!m_runtimeEnabled || m_suspended) return false;
     if (automatic) { m_session = {}; m_accountSession = false; stopTransport(); }
-    else disconnectSession();
+    else disconnectSessionImpl(false);
     // Joining a primary host changes the transport, never the device role.
     m_localActive = true;
     const auto id = m_nearby.active() ? m_nearby.deviceId() : m_account ? m_account->manager()->deviceInfo().value("id").toString() : QUuid::createUuid().toString(QUuid::WithoutBraces);
@@ -721,10 +729,10 @@ QJsonObject NetworkDriveController::handleGeneration(const QString &peer, const 
     return {{"ok", false}, {"error", "generation_host_unavailable_on_mobile"}};
 #endif
 }
-void NetworkDriveController::pauseAutomaticPairing() {
+void NetworkDriveController::pauseAutomaticPairing(bool remember) {
     m_serverEnabled = false;
     m_automatic.setEnabled(false);
-    if (m_account && signedIn()) m_account->setAutomaticPairingEnabled(false);
+    if (remember && m_account && signedIn()) m_account->setAutomaticPairingEnabled(false);
 }
 void NetworkDriveController::resumeAutomaticPairing() {
     m_serverEnabled = !m_relayUrl.isEmpty();
