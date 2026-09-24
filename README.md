@@ -374,8 +374,10 @@ The file grid and photo gallery test harnesses import their views from `src/App`
 회귀 시험을 포함한다. `tests/verify_macos_runtime.py APP --gui`로 개발용 로더
 환경변수 없이 GUI·데몬·QML 기동을 확인한 뒤 패키지를 교체한다.
 
-같은 빌드의 `build/package/Society.app`가 이미 독립 실행과 서명 검사를 통과했다면,
+같은 빌드의 `build/bin/Society.app`가 이미 독립 실행과 서명 검사를 통과했다면,
 GUI·데몬·SDK의 Mach-O UUID가 일치하는지 먼저 확인한 뒤 중단된 개발 실행본을
 백업하고 검증된 패키지의 전체 번들로 복원할 수 있다. 실행 파일만 복사하면
 외부 라이브러리 경로가 다시 유입될 수 있으므로 Frameworks·Helpers·Resources와
 서명까지 함께 보존한다. 소스나 SDK 빌드가 다르면 이 복원 방식을 사용하지 않는다.
+
+macOS 창 닫기·앱 종료·Dock 재열기 동작은 [애플리케이션 수명 정책](docs/ApplicationLifetime.md)을 따른다.

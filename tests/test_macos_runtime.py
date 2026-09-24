@@ -20,7 +20,7 @@ class RuntimeDeploymentTests(unittest.TestCase):
         self.fixture = tempfile.TemporaryDirectory(prefix="runtime-deployment-", dir=ROOT / "build")
         self.addCleanup(self.fixture.cleanup)
         self.root = Path(self.fixture.name)
-        self.app = self.root / "Fixture.app"
+        self.app = self.root / "Fixture.bundle"
         self.executable = self.app / "Contents/MacOS/Fixture"
         self.executable.parent.mkdir(parents=True)
         with (self.app / "Contents/Info.plist").open("wb") as file:
@@ -54,6 +54,46 @@ class RuntimeDeploymentTests(unittest.TestCase):
         with entitlements.open("wb") as file:
             plistlib.dump({}, file)
         deployment.sign(self.app, "-", entitlements)
+
+    def test_plugin_framework_is_copied_without_redeploying_the_app(self):
+        qt = self.root / "qt"
+        source = self.library(qt / "lib/QtFixture.framework/Versions/A", "choice", 5,
+                              "@rpath/QtFixture.framework/Versions/A/QtFixture")
+        framework_binary = source.with_name("QtFixture")
+        source.rename(framework_binary)
+        framework = qt / "lib/QtFixture.framework"
+        (framework / "Versions/Current").symlink_to("A")
+        (framework / "QtFixture").symlink_to("Versions/Current/QtFixture")
+        (framework / "Resources").symlink_to("Versions/Current/Resources")
+        resources = framework / "Versions/A/Resources"
+        resources.mkdir()
+        with (resources / "Info.plist").open("wb") as file:
+            plistlib.dump({"CFBundleIdentifier": "com.iisacc.fixture.framework",
+                          "CFBundleExecutable": "QtFixture", "CFBundlePackageType": "FMWK",
+                          "CFBundleVersion": "1"}, file)
+        self.link(framework_binary, 5)
+        deployment.complete_frameworks(self.app, qt)
+        destination = self.app / "Contents/Frameworks/QtFixture.framework/Versions/A/QtFixture"
+        self.assertTrue(destination.is_file())
+        deployment.localize(self.app)
+        self.seal()
+        framework_binary.unlink()
+        self.assertEqual(self.execute().returncode, 0)
+
+    def test_plain_helper_is_relocated_and_signed_without_nested_app(self):
+        library = self.library(self.root / "vendor", "choice", 4)
+        self.link(library, 4)
+        helper = self.executable.with_name("Helper")
+        import shutil
+        shutil.copy2(self.executable, helper)
+        deployment.prepare_native(self.app, [], [], helper)
+        deployment.prepare_native(self.app, [], [])
+        self.seal()
+        library.unlink()
+        result = subprocess.run([str(helper)], capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(list(self.app.rglob("*.app")))
+        deployment.run("codesign", "--verify", "--strict", helper)
 
     def test_selected_sdk_replaces_an_older_transitive_copy(self):
         old = self.library(self.root / "old", "choice", 1)

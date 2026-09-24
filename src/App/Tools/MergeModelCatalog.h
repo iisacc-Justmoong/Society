@@ -23,11 +23,14 @@ public:
     QVariantList models() const { return m_models; }
     bool loading() const { return m_loading; }
     QString errorString() const { return m_error; }
-    // Resolve a single embedded checkpoint without flattening cascades or adapters.
+    // Resolve a merge input. Single-checkpoint legacy wrappers resolve to their
+    // payload; multi-stage .iildmodel directories remain one package path.
     static QString checkpointPath(const QString &path);
     Q_INVOKABLE void refresh();
     Q_INVOKABLE bool contains(const QString &path, bool baseOnly = false) const;
     Q_INVOKABLE QString outputDirectory(const QString &basePath) const;
+    Q_INVOKABLE QString ecosystemDescription(const QString &path) const;
+    Q_INVOKABLE QString compatibilityDescription(const QString &basePath, const QString &materialPath) const;
 signals:
     void directoryChanged();
     void modelsChanged();

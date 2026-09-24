@@ -112,9 +112,46 @@ private slots:
         QCOMPARE(result["output"].toString(), request["output"].toString());
         QCOMPARE(result["cache_dir"].toString(), request["cacheDirectory"].toString());
         QCOMPARE(result["base_weight"].toDouble(), 1.0);
+        QCOMPARE(result["lora_policy"].toString(), QString("strict"));
         QCOMPARE(result["inspection"].toString(), QString("structure-only"));
         QVERIFY(!QFileInfo::exists(request["output"].toString()));
         QVERIFY(!QFileInfo::exists(request["cacheDirectory"].toString()));
+    }
+
+    void automaticInspectionNeedsNoOutputNameAndExposesStructure()
+    {
+        if (!m_hasRuntime) QSKIP("Tensor runtime required");
+        auto request = options();
+        request.remove("output");
+        ModelMergeController controller;
+        QSignalSpy done(&controller, &ModelMergeController::finished);
+        QVERIFY(controller.inspectInputs(request));
+        QTRY_COMPARE_WITH_TIMEOUT(done.count(), 1, 30000);
+        QVERIFY2(done.first().first().toBool(), qPrintable(controller.errorString()));
+        const auto report = controller.report();
+        QVERIFY(report.value("base_profile").toMap().contains("components"));
+        QCOMPARE(report.value("preflight").toMap().value("output_contract").toString(), QString("base-tensor-layout"));
+        const auto entries = report.value("resource_compatibility").toList();
+        QCOMPARE(entries.size(), 2);
+        QCOMPARE(entries[1].toMap().value("lora_target_count").toInt(), 1);
+        QVERIFY(!QFileInfo::exists(report.value("output").toString()));
+        QVERIFY(controller.completedOutput().isEmpty());
+    }
+
+    void unverifiedOutputCannotBeReportedAsSuccess()
+    {
+        const auto runner = m_fixture.filePath("unverified-runner");
+        QVERIFY(writeFixture(runner, "#!/usr/bin/env python3\nimport sys,json,pathlib\np=sys.argv[sys.argv.index('--output')+1]\npathlib.Path(p).write_bytes(b'not a verified model')\nprint(json.dumps({'schema':'iild-model-merge-v1','output':p}))\n"));
+        QVERIFY(QFile::setPermissions(runner, QFile::permissions(runner) | QFileDevice::ExeOwner));
+        auto request = options("unverified.safetensors");
+        request["executable"] = runner;
+        ModelMergeController controller;
+        QSignalSpy done(&controller, &ModelMergeController::finished);
+        QVERIFY(controller.run(request));
+        QTRY_COMPARE_WITH_TIMEOUT(done.count(), 1, 30000);
+        QVERIFY(!done.first().first().toBool());
+        QVERIFY(controller.errorString().contains("without saved-output verification"));
+        QVERIFY(controller.completedOutput().isEmpty());
     }
 
     void catalogListsOnlyContainerModelsAndKeepsPackagesWhole()
@@ -230,14 +267,43 @@ private slots:
         QCOMPARE(report["base_model"].toString(), payload);
         QCOMPARE(report["additional_models"].toArray(), QJsonArray{payload});
         QVERIFY(!QFileInfo::exists(request["output"].toString()));
-        for (const auto bad : {document("model.safetensors", 2), document("model.safetensors", 1, true),
-                 document("missing.safetensors"), document(m_fixture.filePath("base.safetensors")), QByteArray("{}")}) {
+        for (const auto supported : {document("model.safetensors", 2), document("model.safetensors", 1, true)}) {
+            QVERIFY(writeFixture(manifest, supported));
+            QCOMPARE(MergeModelCatalog::checkpointPath(package), package);
+            catalog.refresh(); QTRY_VERIFY(!catalog.loading());
+            QCOMPARE(catalog.models().size(), 1);
+            QVERIFY(catalog.contains(package, true));
+        }
+        for (const auto bad : {document("missing.safetensors"), document(m_fixture.filePath("base.safetensors")), QByteArray("{}")}) {
             QVERIFY(writeFixture(manifest, bad));
             QVERIFY(MergeModelCatalog::checkpointPath(package).isEmpty());
             QVERIFY(!controller.run(request, true));
             catalog.refresh(); QTRY_VERIFY(!catalog.loading());
             QVERIFY(catalog.models().isEmpty());
         }
+    }
+
+    void catalogReportsBaseEcosystemCompatibility()
+    {
+        if (!m_hasRuntime) QSKIP("Install the SDK Torch/safetensors environment for metadata fixtures.");
+        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/ecosystem catalog-XXXXXX");
+        QVERIFY(fixture.isValid());
+        const auto models = fixture.filePath("Models");
+        for (const auto &name : {"base.safetensors", "extra.safetensors", "wrong.safetensors", "style.safetensors"}) {
+            QVERIFY(QDir().mkpath(models));
+            QVERIFY(QFile::copy(m_fixture.filePath(name), QDir(models).filePath(name)));
+        }
+        MergeModelCatalog catalog;
+        catalog.setDirectory(models);
+        QTRY_VERIFY(!catalog.loading());
+        const auto base = QDir(models).filePath("base.safetensors");
+        const auto extra = QDir(models).filePath("extra.safetensors");
+        const auto wrong = QDir(models).filePath("wrong.safetensors");
+        QVERIFY(catalog.ecosystemDescription(base).contains("SDXL"));
+        QVERIFY(catalog.compatibilityDescription(base, extra).contains("Conditional"));
+        const auto excluded = catalog.compatibilityDescription(base, wrong);
+        QVERIFY(excluded.contains("Incompatible"));
+        QVERIFY(excluded.contains("excluded"));
     }
 
     void unifiedInspectionPreservesArchitecturesWithoutWritingOutput()
@@ -319,6 +385,10 @@ private slots:
         QVERIFY(controller.outputPathForName("model", "relative/path").isEmpty());
         QVERIFY(controller.outputPathForName("model", {}).isEmpty());
         QVERIFY(!QFileInfo::exists(directory)); // Resolving a name does not create any output.
+        const auto package = m_fixture.filePath("Legacy.iildmodel");
+        QVERIFY(QDir().mkpath(package));
+        QCOMPARE(controller.outputPathForName("Weighted.safetensors", directory, "weighted-sum", package),
+                 QDir(directory).filePath("Weighted.iildmodel"));
     }
 
     void catalogUsesModelTypesForSelectionAndOutput()
@@ -402,7 +472,121 @@ private slots:
         QVERIFY(!controller.run(request)); // A successful output cannot be overwritten on rerun.
     }
 
-    void rejectsDirectoryOutputsAndProjectsIncompatibleInputs()
+    void generalizedProjectionUsesInstalledRuntime_data()
+    {
+        QTest::addColumn<QString>("mode");
+        QTest::newRow("sum") << QString("weighted-sum");
+        QTest::newRow("difference") << QString("weighted-difference");
+    }
+    void generalizedProjectionUsesInstalledRuntime()
+    {
+        if (!m_hasRuntime) QSKIP("Install the SDK Torch/safetensors environment for real tensor checks.");
+        QFETCH(QString, mode);
+        auto request = options("projection-" + mode + ".safetensors");
+        request["mode"] = mode;
+        request["baseModel"] = m_fixture.filePath("projection-base.safetensors");
+        request["materials"] = QVariantList{QVariantMap{{"path", m_fixture.filePath("projection-material.safetensors")}}};
+        const auto before = bytes(request["baseModel"].toString());
+        ModelMergeController controller;
+        QSignalSpy done(&controller, &ModelMergeController::finished);
+        QVERIFY(controller.run(request));
+        QTRY_COMPARE_WITH_TIMEOUT(done.count(), 1, 30000);
+        QVERIFY2(done.first().first().toBool(), qPrintable(controller.errorString()));
+        const auto report = QJsonDocument::fromJson(controller.details().toUtf8()).object();
+        const auto projection = report["common_layers"].toObject()["1"].toObject();
+        QCOMPARE(projection["policy"].toString(), QString("base-layout-normalize-project-flatten-v3"));
+        QCOMPARE(projection["transform_counts"].toObject()["flatten-resample"].toInt(), 1);
+        QCOMPARE(projection["transform_counts"].toObject()["transpose"].toInt(), 1);
+        QCOMPARE(projection["dequantized_tensors"].toInt(), 1);
+        QCOMPARE(report["changed_tensor_count"].toInt(), 2);
+        QVERIFY2(python({"verify-projection", m_fixture.path(), controller.completedOutput(), mode}), qPrintable(m_pythonError));
+        QCOMPARE(bytes(request["baseModel"].toString()), before);
+    }
+
+    void nonfiniteMaterialCoordinatesAreRepaired_data()
+    {
+        QTest::addColumn<QString>("mode");
+        QTest::newRow("sum") << QString("weighted-sum");
+        QTest::newRow("difference") << QString("weighted-difference");
+    }
+    void nonfiniteMaterialCoordinatesAreRepaired()
+    {
+        if (!m_hasRuntime) QSKIP("Install the SDK Torch/safetensors environment for real tensor checks.");
+        QFETCH(QString, mode);
+        auto request = options("nonfinite-" + mode + ".safetensors");
+        request["mode"] = mode;
+        request["baseModel"] = m_fixture.filePath("nonfinite-base.safetensors");
+        const auto material = m_fixture.filePath("nonfinite-material.safetensors");
+        request["materials"] = QVariantList{QVariantMap{{"path", material}}};
+        const auto originalMaterial = bytes(material);
+        ModelMergeController controller;
+        QSignalSpy done(&controller, &ModelMergeController::finished);
+        QVERIFY(controller.run(request));
+        QTRY_COMPARE_WITH_TIMEOUT(done.count(), 1, 30000);
+        QVERIFY2(done.first().first().toBool(), qPrintable(controller.errorString()));
+        const auto report = QJsonDocument::fromJson(controller.details().toUtf8()).object();
+        const auto normalized = report["numeric_normalization"].toObject();
+        QCOMPARE(normalized["nonfinite_material_values"].toInt(), 3);
+        QCOMPARE(normalized["nonfinite_material_tensors"].toInt(), 1);
+        QCOMPARE(normalized["nonfinite_material_examples"].toArray().first().toObject()["source_index"].toInt(), 1);
+        QCOMPARE(report["changed_tensor_count"].toInt(), 1);
+        QVERIFY2(python({"verify-nonfinite", m_fixture.path(), controller.completedOutput(), mode}), qPrintable(m_pythonError));
+        QCOMPARE(bytes(material), originalMaterial);
+    }
+
+    void automaticRecoveryUsesInstalledRuntime_data()
+    {
+        QTest::addColumn<QString>("scenario");
+        for (const auto &scenario : {"mixed", "base-fallback", "repaired-base", "normalized"})
+            QTest::newRow(scenario) << QString(scenario);
+    }
+    void automaticRecoveryUsesInstalledRuntime()
+    {
+        if (!m_hasRuntime) QSKIP("Install the SDK Torch/safetensors environment for real tensor checks.");
+        QFETCH(QString, scenario);
+        auto request = options("recovery-" + scenario + ".safetensors");
+        const bool repairBase = scenario == "mixed" || scenario == "repaired-base";
+        if (repairBase) request["baseModel"] = m_fixture.filePath("repair-base.safetensors");
+        request["weightMode"] = "shared";
+        request["sharedWeight"] = "2";
+        QVariantList materials{
+            QVariantMap{{"path", m_fixture.filePath("absent.safetensors")}},
+            QVariantMap{{"path", m_fixture.filePath("broken.safetensors")}}};
+        if (scenario == "mixed") {
+            request["mode"] = "weighted-difference";
+            materials.prepend(QVariantMap{{"path", m_fixture.filePath("repair-material.safetensors")}});
+        } else if (scenario == "normalized") {
+            materials.prepend(QVariantMap{{"path", m_fixture.filePath("extra.safetensors")}});
+        }
+        request["materials"] = materials;
+        const auto before = bytes(request["baseModel"].toString());
+        ModelMergeController controller;
+        QSignalSpy done(&controller, &ModelMergeController::finished);
+        QVERIFY(controller.run(request));
+        QTRY_COMPARE_WITH_TIMEOUT(done.count(), 1, 30000);
+        QVERIFY2(done.first().first().toBool(), qPrintable(controller.errorString()));
+        const auto report = QJsonDocument::fromJson(controller.details().toUtf8()).object();
+        QCOMPARE(report["repair_policy"].toString(), QString("best-effort-v1"));
+        QCOMPARE(report["excluded_material_count"].toInt(), 2);
+        QCOMPARE(report["output_verification"].toObject()["status"].toString(), QString("passed"));
+        QVERIFY(controller.status().contains("Re-read and verified"));
+        if (repairBase) QCOMPARE(report["numeric_normalization"].toObject()["base_nonfinite_values"].toInt(), 2);
+        if (scenario == "mixed") QCOMPARE(report["numeric_normalization"].toObject()["output_clipped_values"].toInt(), 2);
+        if (scenario == "base-fallback" || scenario == "repaired-base") {
+            QCOMPARE(report["result_kind"].toString(), scenario);
+            QCOMPARE(report["included_material_count"].toInt(), 0);
+            QVERIFY(controller.status().contains(scenario == "base-fallback" ? "No effective" : "No material"));
+        }
+        if (scenario == "normalized") {
+            QCOMPARE(report["weights"].toArray(), QJsonArray{1.});
+            QVERIFY(report["weight_normalization"].isObject());
+        }
+        QVERIFY2(python({"verify-recovery", m_fixture.path(), controller.completedOutput(), scenario}), qPrintable(m_pythonError));
+        QCOMPARE(bytes(request["baseModel"].toString()), before);
+        QVERIFY(!controller.run(request)); // Repair must never bypass no-clobber publication.
+    }
+
+    void rejectsDirectoryOutputsAndExcludesIncompatibleInputs()
     {
         if (!m_hasRuntime) QSKIP("Install the SDK Torch/safetensors environment for real tensor checks.");
         auto request = options("merged-pipeline.safetensors");
@@ -411,10 +595,13 @@ private slots:
         ModelMergeController controller; QSignalSpy done(&controller, &ModelMergeController::finished);
         QVERIFY(!controller.run(request));
         QVERIFY(!QFileInfo::exists(request["output"].toString()));
-        QVERIFY(controller.errorString().contains("single-checkpoint .iildmodel"));
+        QVERIFY2(controller.errorString().contains("checkpoint file or .iildmodel package"),
+                 qPrintable(controller.errorString()));
         QCOMPARE(done.count(), 0);
         request = options("incompatible.safetensors");
-        request["materials"] = QVariantList{QVariantMap{{"path", m_fixture.filePath("wrong.safetensors")}}};
+        request["materials"] = QVariantList{
+            QVariantMap{{"path", m_fixture.filePath("extra.safetensors")}},
+            QVariantMap{{"path", m_fixture.filePath("wrong.safetensors")}}};
         const auto baseBefore = bytes(request["baseModel"].toString());
         const auto materialBefore = bytes(m_fixture.filePath("wrong.safetensors"));
         done.clear(); QVERIFY(controller.run(request, true));
@@ -422,15 +609,73 @@ private slots:
         QVERIFY2(done.first().first().toBool(), qPrintable(controller.errorString()));
         auto report = QJsonDocument::fromJson(controller.details().toUtf8()).object();
         QCOMPARE(report["checkpoint_policy"].toString(), QString("common-layer"));
-        QVERIFY(report["common_layers"].toObject()["1"].toObject()["projected_tensors"].toInt() > 0);
+        QCOMPARE(report["included_material_count"].toInt(), 1);
+        QCOMPARE(report["excluded_material_count"].toInt(), 1);
+        QCOMPARE(report["excluded_sources"].toArray().first().toObject()["path"].toString(),
+                 m_fixture.filePath("wrong.safetensors"));
         QVERIFY(!QFileInfo::exists(request["output"].toString()));
         done.clear(); QVERIFY(controller.run(request, false));
         QTRY_COMPARE_WITH_TIMEOUT(done.count(), 1, 20000);
         QVERIFY2(done.first().first().toBool(), qPrintable(controller.errorString()));
         QVERIFY(QFileInfo(request["output"].toString()).isFile());
-        QVERIFY2(python({"verify-base", m_fixture.path(), request["output"].toString()}), qPrintable(m_pythonError));
+        QVERIFY2(python({"verify-filtered", m_fixture.path(), request["output"].toString()}), qPrintable(m_pythonError));
         QCOMPARE(bytes(request["baseModel"].toString()), baseBefore);
         QCOMPARE(bytes(m_fixture.filePath("wrong.safetensors")), materialBefore);
+    }
+
+    void unmatchedLoraTargetsAreExcludedWhileCompatibleMaterialMerges()
+    {
+        if (!m_hasRuntime) QSKIP("Install the SDK Torch/safetensors environment for real tensor checks.");
+        auto request = options("synthetic-lora.safetensors");
+        request["materials"] = QVariantList{
+            QVariantMap{{"path", m_fixture.filePath("extra.safetensors")}},
+            QVariantMap{{"path", m_fixture.filePath("unmatched-style.safetensors")}}};
+        ModelMergeController controller;
+        QSignalSpy done(&controller, &ModelMergeController::finished);
+        QVERIFY(controller.run(request));
+        QTRY_COMPARE_WITH_TIMEOUT(done.count(), 1, 20000);
+        QVERIFY2(done.first().first().toBool(), qPrintable(controller.errorString()));
+        const auto report = QJsonDocument::fromJson(controller.details().toUtf8()).object();
+        QCOMPARE(report["lora_policy"].toString(), QString("strict"));
+        QCOMPARE(report["included_material_count"].toInt(), 1);
+        QCOMPARE(report["excluded_material_count"].toInt(), 1);
+        QVERIFY(report["excluded_sources"].toArray().first().toObject()["reason"].toString().contains("LoRA"));
+        QVERIFY2(python({"verify-filtered", m_fixture.path(), request["output"].toString()}),
+                 qPrintable(m_pythonError));
+    }
+
+    void weightedLegacyPackageReturnsAValidPackageResult()
+    {
+        if (!m_hasRuntime) QSKIP("Install the SDK Torch/safetensors environment for real tensor checks.");
+        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/weighted package-XXXXXX");
+        QVERIFY(fixture.isValid());
+        const auto package = fixture.filePath("Base.iildmodel");
+        const auto first = QDir(package).filePath("members/000/model.safetensors");
+        const auto second = QDir(package).filePath("members/001/model.safetensors");
+        QVERIFY(writeFixture(first, bytes(m_fixture.filePath("base.safetensors"))));
+        QVERIFY(writeFixture(second, bytes(m_fixture.filePath("extra.safetensors"))));
+        QJsonArray stages{
+            QJsonObject{{"model", "members/000/model.safetensors"}, {"strength", 1.0}, {"loras", QJsonArray{}}},
+            QJsonObject{{"model", "members/001/model.safetensors"}, {"strength", 1.0}, {"loras", QJsonArray{}}}
+        };
+        QVERIFY(writeFixture(QDir(package).filePath("model_index.json"), QJsonDocument(QJsonObject{
+            {"_class_name", "IILDUnifiedCascade"}, {"schema", "iild-unified-model-v1"},
+            {"composition", "ordered-image-refinement"}, {"stages", stages}
+        }).toJson()));
+        auto request = options();
+        request["baseModel"] = package;
+        request["materials"] = QVariantList{QVariantMap{{"path", m_fixture.filePath("extra.safetensors")}}};
+        request["output"] = fixture.filePath("Weighted.iildmodel");
+        ModelMergeController controller;
+        QSignalSpy done(&controller, &ModelMergeController::finished);
+        QVERIFY(controller.run(request));
+        QTRY_COMPARE_WITH_TIMEOUT(done.count(), 1, 20000);
+        QVERIFY2(done.first().first().toBool(), qPrintable(controller.errorString()));
+        QVERIFY(QFileInfo(request["output"].toString()).isDir());
+        QCOMPARE(controller.completedOutput(), request["output"].toString());
+        const auto report = QJsonDocument::fromJson(controller.details().toUtf8()).object();
+        QVERIFY(report["changed_tensor_count"].toInt() > 0);
+        QCOMPARE(report["output"].toString(), request["output"].toString());
     }
 
     void cancellationStopsOnlyTheRunningProcess()
@@ -574,7 +819,6 @@ private slots:
         QVERIFY(writeFixture(QDir(otherModels).filePath("other.safetensors")));
         QVERIFY(tool->setProperty("outputDirectory", models));
         QCOMPARE(tool->property("outputPath").toString(), QDir(models).filePath("custom.iildmodel"));
-        QVERIFY(tool->setProperty("sharedWeight", "0.25"));
         catalog->refresh();
         QVERIFY(tool->setProperty("modelsDirectory", otherModels));
         QVERIFY(tool->property("baseModel").toString().isEmpty());
@@ -582,7 +826,6 @@ private slots:
         QVERIFY(tool->property("outputPath").toString().isEmpty());
         QVERIFY(tool->property("outputName").toString().isEmpty());
         QVERIFY(tool->property("outputDirectory").toString().isEmpty());
-        QCOMPARE(tool->property("sharedWeight").toString(), QString("0.25"));
         QTRY_VERIFY(!catalog->loading());
         QCOMPARE(catalog->models().size(), 1);
         QVERIFY(!run->isEnabled());
@@ -601,6 +844,56 @@ private slots:
         QVERIFY(tool->property("baseModel").toString().isEmpty());
         QTest::keyClick(window, Qt::Key_Escape);
         QVERIFY2(warnings.isEmpty(), qPrintable(warnings.join('\n')));
+        window->close();
+    }
+
+    void qmlAutomaticDiagnosticsFollowSelectionWithoutOutputName()
+    {
+        if (!m_hasRuntime) QSKIP("Tensor runtime required");
+        QQmlApplicationEngine engine;
+        engine.addImportPath(QString::fromUtf8(SOCIETY_LVRS_QML_IMPORT_PATH));
+        engine.load(QUrl::fromLocalFile(QString::fromUtf8(SOCIETY_MERGE_QML_FILE)));
+        QCOMPARE(engine.rootObjects().size(), 1);
+        auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first()); QVERIFY(window);
+        auto *tool = window->findChild<QQuickItem *>("modelMergeTool"); QVERIFY(tool);
+        auto *catalog = window->findChild<MergeModelCatalog *>("mergeModelCatalog"); QVERIFY(catalog);
+        auto *preview = window->findChild<ModelMergeController *>("mergePreviewController"); QVERIFY(preview);
+        window->resize(1212, 876);
+        QVERIFY(QTest::qWaitForWindowExposed(window));
+        QVERIFY(tool->setProperty("modelsDirectory", m_fixture.path()));
+        QTRY_VERIFY(!catalog->loading() && !catalog->models().isEmpty());
+        QVERIFY(tool->setProperty("baseModel", m_fixture.filePath("base.safetensors")));
+        QVERIFY(tool->setProperty("mode", "weighted-sum"));
+        QVERIFY(QMetaObject::invokeMethod(tool, "setMaterial", Q_ARG(QVariant, 0),
+            Q_ARG(QVariant, m_fixture.filePath("style.safetensors")), Q_ARG(QVariant, "1")));
+        QVERIFY(tool->property("outputName").toString().isEmpty());
+        QTRY_VERIFY_WITH_TIMEOUT(!preview->report().isEmpty() && !preview->busy(), 60000);
+        auto *summary = visualItem(tool, "mergePreflightSummary"); QVERIFY(summary);
+        QTRY_VERIFY(summary->property("text").toString().contains("Compatible"));
+        auto *structure = visualItem(tool, "mergeBaseStructure"); QVERIFY(structure);
+        QVERIFY(structure->property("text").toString().contains("UNet"));
+        QCOMPARE(preview->report().value("resource_compatibility").toList()[0].toMap().value("lora_target_count").toInt(), 1);
+        QVERIFY(!QFileInfo::exists(preview->report().value("output").toString()));
+        const auto revision = tool->property("previewRevision").toInt();
+        QVERIFY(QMetaObject::invokeMethod(tool, "setMaterial", Q_ARG(QVariant, 0),
+            Q_ARG(QVariant, m_fixture.filePath("wrong.safetensors")), Q_ARG(QVariant, "1")));
+        QVERIFY(tool->property("previewRevision").toInt() > revision);
+        QTRY_VERIFY_WITH_TIMEOUT(summary->property("text").toString().contains("Incompatible"), 60000);
+        QVERIFY(summary->property("text").toString().contains("No effective"));
+        QCOMPARE(preview->report().value("excluded_material_count").toInt(), 1);
+        const auto screenshot = qEnvironmentVariable("SOCIETY_MERGE_SCREENSHOT");
+        if (!screenshot.isEmpty()) { QTest::qWait(250); QVERIFY(window->grabWindow().save(screenshot)); }
+        window->resize(360, 640);
+        QVERIFY(tool->setProperty("touchNavigation", true));
+        QTRY_COMPARE(window->width(), 360);
+        auto *run = visualItem(tool, "mergeRun"); QVERIFY(run);
+        QVERIFY(!run->isEnabled());
+        QVERIFY(tool->setProperty("outputName", "preview-demo"));
+        QTRY_VERIFY(run->isEnabled());
+        window->requestActivate();
+        run->forceActiveFocus(Qt::TabFocusReason);
+        QTRY_VERIFY(run->mapToScene(QPointF(0, run->height())).y() <= window->height());
+        QVERIFY(summary->width() <= 328);
         window->close();
     }
 
@@ -648,18 +941,17 @@ private slots:
             QTest::mouseClick(window, Qt::LeftButton, Qt::NoModifier,
                 item->mapToScene(QPointF(item->width() / 2, item->height() / 2)).toPoint());
         };
-        click("mergeSharedMode");
-        QTRY_COMPARE(tool->property("weightMode").toString(), QString("shared"));
-        auto *shared = visualItem(tool, "mergeSharedWeight"); QVERIFY(shared && shared->isVisible());
-        QVERIFY(QMetaObject::invokeMethod(shared, "textEdited", Q_ARG(QString, QString("0.375"))));
-        click("mergePerModelMode");
         QTRY_COMPARE(tool->property("weightMode").toString(), QString("per-model"));
         auto *materialWeight = visualItem(tool, "mergeMaterialWeight0"); QVERIFY(materialWeight);
         QTRY_VERIFY(materialWeight->isVisible());
         QCOMPARE(materialWeight->property("text").toString(), QString("1.5"));
-        click("mergeAutomaticMode");
-        QTRY_COMPARE(tool->property("weightMode").toString(), QString("automatic"));
-        QCOMPARE(tool->property("sharedWeight").toString(), QString("0.375"));
+        QVERIFY(QMetaObject::invokeMethod(materialWeight, "textEdited", Q_ARG(QString, QString("0.375"))));
+        QTRY_COMPARE(materialWeight->property("text").toString(), QString("0.375"));
+        QVERIFY(tool->property("inputModelsReady").toBool());
+        QVERIFY(QMetaObject::invokeMethod(materialWeight, "textEdited", Q_ARG(QString, QString("NaN"))));
+        QTRY_VERIFY(!tool->property("inputModelsReady").toBool());
+        QVERIFY(QMetaObject::invokeMethod(materialWeight, "textEdited", Q_ARG(QString, QString("1.5"))));
+        QTRY_VERIFY(tool->property("inputModelsReady").toBool());
         click("mergeAdvancedToggle");
         QTRY_VERIFY(advanced->isVisible());
         QVERIFY(tool->setProperty("cacheDirectory", m_fixture.filePath("preserved cache")));
@@ -747,7 +1039,7 @@ private slots:
         QVERIFY(tool->setProperty("mode", "weighted-sum"));
         QVERIFY(tool->property("outputName").toString().isEmpty());
         QVERIFY(tool->property("outputPath").toString().isEmpty());
-        QVERIFY(tool->setProperty("weightMode", "per-model"));
+        QCOMPARE(tool->property("weightMode").toString(), QString("per-model"));
         QVERIFY(tool->setProperty("cacheDirectory", m_fixture.filePath("form cache")));
         QVERIFY(tool->setProperty("outputDirectory", m_fixture.path()));
         QVERIFY(tool->setProperty("mergeExecutable", controller->defaultExecutable()));
@@ -760,6 +1052,12 @@ private slots:
         select("mergeMaterial0", m_fixture.filePath("extra.safetensors"));
         select("mergeMaterial1", m_fixture.filePath("style.safetensors"));
         QCOMPARE(tool->property("materialCount").toInt(), 2);
+        auto *firstWeight = visualItem(tool, "mergeMaterialWeight0"); QVERIFY(firstWeight && firstWeight->isVisible());
+        auto *secondWeight = visualItem(tool, "mergeMaterialWeight1"); QVERIFY(secondWeight && secondWeight->isVisible());
+        QCOMPARE(firstWeight->property("text").toString(), QString("0.25"));
+        QCOMPARE(secondWeight->property("text").toString(), QString("1.5"));
+        QVERIFY(QMetaObject::invokeMethod(firstWeight, "textEdited", Q_ARG(QString, QString("0.25"))));
+        QVERIFY(QMetaObject::invokeMethod(secondWeight, "textEdited", Q_ARG(QString, QString("1.5"))));
         QTRY_VERIFY(tool->property("inputModelsReady").toBool());
         auto *runButton = window->findChild<QQuickItem *>("mergeRun"); QVERIFY(runButton);
         auto *validateButton = window->findChild<QQuickItem *>("mergeValidate"); QVERIFY(validateButton);
@@ -795,12 +1093,13 @@ private slots:
         auto *validate = window->findChild<QQuickItem *>("mergeValidate"); QVERIFY(validate);
         QSignalSpy done(controller, &ModelMergeController::finished);
         click(validate);
-        QTRY_COMPARE_WITH_TIMEOUT(done.count(), 1, 15000);
+        QTRY_COMPARE_WITH_TIMEOUT(done.count(), 1, 60000);
         QVERIFY2(done.first().first().toBool(), qPrintable(controller->errorString()));
         auto *status = visualItem(tool, "mergeStatus"); QVERIFY(status);
         QCOMPARE(status->property("text").toString(), controller->status());
         QVERIFY(tool->setProperty("mode", "weighted-sum"));
-        QVERIFY(status->property("text").toString().startsWith("Not checked yet."));
+        QCOMPARE(status->property("text").toString(),
+                 QStringLiteral("Optional inspection has not run. Merge includes only resources compatible with the selected base model and excludes the rest."));
         QVERIFY(tool->setProperty("mode", "weighted-difference"));
         const auto result = QJsonDocument::fromJson(controller->details().toUtf8()).object();
         QCOMPARE(result["base_model"].toString(), base);

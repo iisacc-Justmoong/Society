@@ -1,5 +1,7 @@
 package com.iisacc.society;
 
+import com.iisacc.iiphotolibrary.PhotoLibrary;
+
 import android.Manifest;
 import android.app.Dialog;
 import android.content.Intent;
@@ -87,7 +89,7 @@ public final class SocietyActivity extends QtActivity {
 
     @Override public void onRequestPermissionsResult(int request, String[] permissions, int[] results) {
         super.onRequestPermissionsResult(request, permissions, results);
-        if (request == SocietyPhotoLibrary.PERMISSION_REQUEST) { SocietyPhotoLibrary.photoAccessFinished(); return; }
+        if (request == PhotoLibrary.PERMISSION_REQUEST) { PhotoLibrary.photoAccessFinished(); return; }
         if (request != CAMERA_PERMISSION || qrRequest == 0) return;
         if (results.length > 0 && results[0] == PackageManager.PERMISSION_GRANTED) showQrCamera();
         else finishQr("", "Allow camera access in Settings to scan the desktop QR code.", true);
@@ -97,7 +99,7 @@ public final class SocietyActivity extends QtActivity {
 
     @Override protected void onActivityResult(int request, int result, Intent data) {
         super.onActivityResult(request, result, data);
-        if (request == SocietyPhotoLibrary.TRASH_REQUEST) SocietyPhotoLibrary.consentFinished(result);
+        if (request == PhotoLibrary.TRASH_REQUEST) PhotoLibrary.consentFinished(result);
     }
 
     public void openCameraSettings() {

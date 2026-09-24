@@ -10,9 +10,10 @@ import sys
 
 bundle = Path(sys.argv[1]).resolve()
 source = Path(sys.argv[2]).resolve()
+assert not list(bundle.rglob("*.app")), "Nested application bundles are forbidden"
 expected_container = Path(sys.argv[3]).resolve() if len(sys.argv) > 3 else None
 expected_file_actions = Path(sys.argv[4]).resolve() if len(sys.argv) > 4 else None
-packaged_container = bundle / 'Contents/Helpers/SocietyDaemon.app/Contents/Frameworks/libiiSocietyContainer.0.dylib'
+packaged_container = bundle / 'Contents/Frameworks/libiiSocietyContainer.0.dylib'
 def binary_uuids(path):
     output = subprocess.check_output(['dwarfdump', '--uuid', str(path)], text=True)
     return re.findall(r'UUID: ([0-9A-F-]+) \(([^)]+)\)', output)
@@ -20,7 +21,7 @@ if expected_container:
     assert binary_uuids(expected_container) and binary_uuids(packaged_container) == binary_uuids(expected_container), \
         'The bundled model classifier differs from the iiSocietyContainer selected at build time.'
 if expected_file_actions:
-    packaged_actions = bundle / 'Contents/Helpers/SocietyDaemon.app/Contents/Frameworks/libiiSocietyContainerGui.0.dylib'
+    packaged_actions = bundle / 'Contents/Frameworks/libiiSocietyContainerGui.0.dylib'
     assert binary_uuids(expected_file_actions) and binary_uuids(packaged_actions) == binary_uuids(expected_file_actions), \
         'The bundled file actions differ from the iiSocietyContainer Gui selected at build time.'
 with (bundle / 'Contents/Info.plist').open('rb') as file:
@@ -38,7 +39,7 @@ assert agent["Label"] == "com.iisacc.society.daemon"
 assert agent["RunAtLoad"] and agent["KeepAlive"]
 assert "--sync" in agent["ProgramArguments"]
 executable = bundle / agent["BundleProgram"]
-helper_entitlements = plistlib.loads(subprocess.check_output(['codesign', '-d', '--entitlements', '-', '--xml', str(executable.parent.parent.parent)], stderr=subprocess.DEVNULL))
+helper_entitlements = plistlib.loads(subprocess.check_output(['codesign', '-d', '--entitlements', '-', '--xml', str(executable)], stderr=subprocess.DEVNULL))
 assert group in helper_entitlements.get('com.apple.security.application-groups', []), 'Daemon cannot restore the shared account state.'
 environment = {key: value for key, value in os.environ.items()
                if not key.startswith(("DYLD_", "QT_", "SOCIETY_HELPER_"))}

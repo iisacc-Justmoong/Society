@@ -10,6 +10,7 @@
 #include <iiSocietyHelper.h>
 #include <StorageMap.h>
 #include <QFile>
+#include <QFileInfo>
 #include <QGuiApplication>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -260,6 +261,8 @@ private slots:
         QVERIFY(network.configureServer({})); QVERIFY(network.relayUrl().isEmpty());
     }
     void initTestCase() {
+        const QString daemon = QStringLiteral(SOCIETY_DAEMON_EXECUTABLE);
+        QVERIFY2(!daemon.isEmpty() && QFileInfo(daemon).isExecutable(), qPrintable(daemon));
         QNetworkProxy::setApplicationProxy(QNetworkProxy::NoProxy);
         qmlRegisterType<AccountController>("Society", 1, 0, "AccountController");
     }

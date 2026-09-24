@@ -182,7 +182,11 @@ private slots:
             "list_entries", "iiLocalLLM.agent.permissions.get", "AskUserQuestion"}));
         const auto permissions = call(client, "iiLocalLLM.agent.permissions.get");
         QVERIFY(!permissions["isError"].toBool());
-        QVERIFY(permissions["structuredContent"].toObject()["inspection_supported"].toBool());
+        const auto policy = permissions["structuredContent"].toObject();
+        QVERIFY(policy["inspection_supported"].toBool());
+        QCOMPARE(policy["provider"].toString(), QString("rules"));
+        QCOMPARE(policy["mode"].toString(), QString("default"));
+        QVERIFY(policy["rules"].isArray());
         auto response = call(client, "status"); QVERIFY(!response["isError"].toBool());
         auto state = response["structuredContent"].toObject();
         QCOMPARE(state["identifier"].toString(), drive->identifier());

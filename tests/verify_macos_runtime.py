@@ -28,7 +28,7 @@ def verify(bundle, gui=False):
     assert result.returncode == 0, result.stderr[-5000:]
     assert json.loads(result.stdout)["ok"], result.stdout
     report = {"guiLoaderLibraries": check_loaded(result.stderr, bundle)}
-    helper = bundle / "Contents/Helpers/SocietyDaemon.app/Contents/MacOS/SocietyDaemon"
+    helper = bundle / "Contents/MacOS/SocietyDaemon"
     result = subprocess.run([str(helper), "--check-runtime"], env=env,
                             capture_output=True, text=True, timeout=30)
     assert result.returncode == 0, result.stderr[-5000:]

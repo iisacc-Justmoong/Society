@@ -26,20 +26,20 @@ NetworkDriveController::NetworkDriveController(DiscoveryService *service, QHostA
 NetworkDriveController::NetworkDriveController(Mode deviceMode, DiscoveryService *service, QHostAddress bindAddress, QObject *parent)
     : QObject(parent), m_remote([this](const auto &peer, const auto &payload) { return request(peer, payload); }),
       m_sync([this](const auto &peer, const auto &payload) { return request(peer, payload); }),
-      m_photos(new society::photos::PhotoController([this](const auto &peer, const auto &payload) { return request(peer, payload); }, this)), m_nearby(service, bindAddress),
+      m_photos(new iiPhotoLibrary::PhotoController([this](const auto &peer, const auto &payload) { return request(peer, payload); }, this)), m_nearby(service, bindAddress),
       m_automatic(&m_nearby, &m_local, [this] { return startLocalHost(true); },
           [this](const QString &link) { return joinLocalHost(link, true); }, [this] { stopTransport(); }),
       m_localBindAddress(bindAddress), m_mode(deviceMode) {
     m_local.setPairingAuthentication(
         [this](const QByteArray &context) { return pairingAuthenticated() ? SocietyPairingCredentials::sign(m_account->pairingCredentials(), context) : QJsonObject{}; },
         [this](const QByteArray &context, const QJsonObject &proof) { return pairingAuthenticated() && SocietyPairingCredentials::verify(m_account->pairingCredentials(), context, proof); });
-    connect(m_photos, &society::photos::PhotoController::progress, &m_background, &MobileSyncActivity::update);
+    connect(m_photos, &iiPhotoLibrary::PhotoController::progress, &m_background, &MobileSyncActivity::update);
     connect(&m_sync, &iiSocietySync::Controller::verificationProgress, this,
         [this](const QString &path, qint64 done, qint64 total) {
             m_background.update("verification/" + path, done, total);
         });
-    connect(m_photos, &society::photos::PhotoController::contentsChanged, &m_sync, &iiSocietySync::Controller::synchronizeNow);
-    connect(m_photos, &society::photos::PhotoController::changed, this, [this] {
+    connect(m_photos, &iiPhotoLibrary::PhotoController::contentsChanged, &m_sync, &iiSocietySync::Controller::synchronizeNow);
+    connect(m_photos, &iiPhotoLibrary::PhotoController::changed, this, [this] {
         updateBackgroundActivity();
         // The photo catalog emits contentsChanged and starts its remote cycle
         // after changed. Let those operations start before finishing the batch.
@@ -371,7 +371,8 @@ void NetworkDriveController::updateSynchronization() {
         m_syncHosts.clear(); invalidateHostConnection();
         m_sync.close(); m_photos->configure(m_container, false); return;
     }
-    const bool photosActive = m_runtimeEnabled && !m_suspended && signedIn() && containerReady();
+    const bool photosActive = m_runtimeEnabled && !m_suspended && signedIn() && containerReady()
+        && qEnvironmentVariableIntValue("SOCIETY_DISABLE_PHOTOS") != 1;
     if (!m_runtimeEnabled || m_suspended || !signedIn()) {
         if (!m_namespace.isEmpty()) { m_namespace = {}; emit synchronizationChanged(); }
         m_photos->configure(m_container, photosActive); m_sync.close(); return;
@@ -700,7 +701,8 @@ void NetworkDriveController::stopTransport() {
     // A reconnect or credential refresh must not discard an accepted job.
     if (!signedIn() || !m_runtimeEnabled || m_mode != HostMode) m_generationHost.close();
 #endif
-    m_photos->configure(m_container, m_runtimeEnabled && !m_suspended && containerReady());
+    m_photos->configure(m_container, m_runtimeEnabled && !m_suspended && containerReady()
+        && qEnvironmentVariableIntValue("SOCIETY_DISABLE_PHOTOS") != 1);
     emit transportStopped();
     m_sync.close(); m_verifiedSyncPeers.clear(); m_remote.reset(); m_storage.reset();
     m_localActive = false; m_local.stop(); m_peer.stop(); emit entriesChanged(); emit hostsChanged();

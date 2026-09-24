@@ -31,7 +31,7 @@ flowchart LR
 
 Society.app 안에 다음 두 파일을 포함한다.
 
-- `Contents/Helpers/SocietyDaemon.app/Contents/MacOS/SocietyDaemon`
+- `Contents/MacOS/SocietyDaemon`
 - `Contents/Library/LaunchAgents/com.iisacc.society.daemon.plist`
 
 SMAppService의 LaunchAgent로 등록한다. 시스템 전체 root 데몬이 아닌 현재 로그인 사용자의 서비스이므로 같은 사용자의 Helper 저장 위치를 사용한다. 등록이 활성화되면 창 종료 후에도 실행하고 다음 로그인 시 다시 시작하며, 종료되면 launchd가 다시 가동한다. 실행 파일은 앱 번들 상대 경로를 사용한다. 외장 드라이브의 앱 번들이 접근 가능해야 한다.
@@ -39,9 +39,9 @@ SMAppService의 LaunchAgent로 등록한다. 시스템 전체 root 데몬이 아
 일반 Society 실행 시 등록을 시도한다. `SOCIETY_HELPER_DIRECTORY`가 명시된 격리 실행은 사용자 로그인 서비스를 바꾸지 않는다. 명령행에서도 등록 상태를 관리할 수 있다.
 
 ```sh
-build/package/Society.app/Contents/MacOS/Society --daemon-service status
-build/package/Society.app/Contents/MacOS/Society --daemon-service register
-build/package/Society.app/Contents/MacOS/Society --daemon-service unregister
+build/bin/Society.app/Contents/MacOS/Society --daemon-service status
+build/bin/Society.app/Contents/MacOS/Society --daemon-service register
+build/bin/Society.app/Contents/MacOS/Society --daemon-service unregister
 ```
 
 반환 JSON의 `status`는 enabled/requires-approval/not-registered/not-found/unsupported 중 하나이다. 등록 결과와 실제 데몬의 실행은 별도로 확인한다. macOS가 백그라운드 항목 승인을 요구하면 그 상태를 반환하며 성공으로 보고하지 않는다. 창을 닫는 것은 서비스를 해제하지 않는다.
@@ -49,25 +49,25 @@ build/package/Society.app/Contents/MacOS/Society --daemon-service unregister
 SMAppService는 서명된 번들을 요구한다. 데몬의 Qt·Helper·SQLite 드라이버도 앱 번들에 포함해야 한다. 외장 볼륨에 있는 개발용 SDK를 직접 참조하면 launchd가 데몬을 시작해도 macOS의 외장 볼륨 접근 처리에서 라이브러리 로딩이 대기할 수 있다. 등록된 바이너리나 plist를 갱신할 때에는 기존 서비스를 해제하고 패키징한 뒤 다시 등록해야 한다.
 
 ```sh
-build/package/Society.app/Contents/MacOS/Society --daemon-service unregister
+build/bin/Society.app/Contents/MacOS/Society --daemon-service unregister
 cmake --build build --target SocietyDaemonPackage
-/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$PWD/build/package/Society.app"
-build/package/Society.app/Contents/MacOS/Society --daemon-service register
+/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$PWD/build/bin/Society.app"
+build/bin/Society.app/Contents/MacOS/Society --daemon-service register
 ```
 
 `Society` 빌드는 `build/bin/Society.app`의 본체와 내장 데몬에 필요한 런타임을 함께 준비한다.
-Qt의 macdeployqt로 프레임워크와 QML 모듈을 배치하고, CMake에서 선택한 LVRS·SDK 및
+Qt의 qmlimportscanner로 필요한 QML 모듈을 찾고 Mach-O 의존 그래프에 따라 프레임워크를 배치하며, CMake에서 선택한 LVRS·SDK 및
 OpenSSL·curl 등의 네이티브 의존성을 번들 내부 상대 경로로 고정한다. Qt 플러그인은
 플랫폼·이미지·아이콘·네트워크 정보와 실제 사용하는 SQLite·SecureTransport로 한정한다.
 ODBC·PostgreSQL·Mimer 드라이버의 별도 설치를 앱 시작 조건으로 만들지 않는다.
-`SocietyDaemonPackage`는 이 준비된 앱을 `build/package/Society.app`로 복사하고 검증한다.
+`SocietyDaemonPackage`는 이 준비된 앱을 제자리에서 검증하며 복사본을 만들지 않는다.
 
 `SOCIETY_MAC_SIGN_IDENTITY`의 기본값 `-`는 로컬 ad-hoc 서명이다. 라이브러리·프레임워크·
 내장 데몬·본체 순서로 서명하며 보안 타임스탬프를 요청하지 않는다. 개발자 서명은 같은
 CMake 설정으로 지정한다. 로그인 서비스 등록·실제 수신·공증은 런타임 포함 검사와 별개이다.
 
-데몬은 별도 `Contents/Helpers/SocietyDaemon.app` 안의 Frameworks·PlugIns를 사용하며,
-GUI는 본체의 Frameworks·PlugIns·Resources/qml을 사용한다. 본체와 데몬 모두 개발 머신의
+데몬은 `Contents/MacOS/SocietyDaemon` 일반 실행 파일이며 GUI와 본체의 Frameworks·PlugIns를 공유한다.
+GUI는 본체의 Resources/qml을 사용한다. 본체와 데몬 모두 개발 머신의
 DYLD 환경 변수나 SDK 설치 경로에 의존하지 않아야 한다. SDK를 갱신하면 CMake에서 선택한
 버전을 다시 복사하므로 과거에 배포한 컨테이너 런타임이 새 SDK를 가리지 않는다.
 

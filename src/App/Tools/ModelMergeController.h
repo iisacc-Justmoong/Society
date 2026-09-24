@@ -24,6 +24,7 @@ class ModelMergeController : public QObject
     Q_PROPERTY(QString status READ status NOTIFY changed)
     Q_PROPERTY(QString errorString READ errorString NOTIFY changed)
     Q_PROPERTY(QString details READ details NOTIFY changed)
+    Q_PROPERTY(QVariantMap report READ report NOTIFY changed)
     Q_PROPERTY(QString completedOutput READ completedOutput NOTIFY changed)
     Q_PROPERTY(int elapsedSeconds READ elapsedSeconds NOTIFY elapsedChanged)
 public:
@@ -37,12 +38,15 @@ public:
     QString status() const { return m_status; }
     QString errorString() const { return m_error; }
     QString details() const { return m_details; }
+    QVariantMap report() const { return m_report; }
     QString completedOutput() const { return m_completedOutput; }
     int elapsedSeconds() const { return m_elapsedSeconds; }
     Q_INVOKABLE bool run(const QVariantMap &options, bool validateOnly = false);
+    Q_INVOKABLE bool inspectInputs(QVariantMap options);
     Q_INVOKABLE void cancel();
     Q_INVOKABLE QString localPath(const QUrl &url) const;
-    Q_INVOKABLE QString outputPathForName(const QString &name, const QString &directory, const QString &mode = "weighted-sum") const;
+    Q_INVOKABLE QString outputPathForName(const QString &name, const QString &directory,
+                                          const QString &mode = "weighted-sum", const QString &baseModel = {}) const;
     Q_INVOKABLE void copyDetails() const;
     Q_INVOKABLE void openOutputFolder() const;
 signals:
@@ -56,6 +60,7 @@ private:
     bool m_busy = false, m_cancelled = false, m_validationOnly = false;
     QString m_status, m_error, m_details, m_completedOutput, m_requestedOutput;
     QByteArray m_stdout, m_stderr;
+    QVariantMap m_report;
     QElapsedTimer m_elapsed;
     QTimer m_tick;
     int m_elapsedSeconds = 0;

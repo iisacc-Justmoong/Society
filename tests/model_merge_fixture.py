@@ -17,17 +17,37 @@ up = torch.tensor([[0.25], [0.5]])
 delta = up @ down
 
 if action == "create":
+    sdxl = {"modelspec.architecture": "stable-diffusion-xl"}
     base_path = directory / "base.safetensors"
-    save_file({"layer.weight": base, "steps": torch.tensor(42)}, base_path)
-    save_file({"layer.weight": additional, "steps": torch.tensor(42)}, directory / "extra.safetensors")
-    save_file({"layer.lora_A.weight": down, "layer.lora_B.weight": up}, directory / "style.safetensors")
-    save_file({"wrong.weight": base}, directory / "wrong.safetensors")
+    save_file({"layer.weight": base, "steps": torch.tensor(42)}, base_path, metadata=sdxl)
+    save_file({"layer.weight": additional, "steps": torch.tensor(42)}, directory / "extra.safetensors", metadata=sdxl)
+    save_file({"layer.lora_A.weight": down, "layer.lora_B.weight": up}, directory / "style.safetensors", metadata=sdxl)
+    save_file({"lora_te1_text_model_encoder_layers_0_mlp_fc1.lora_A.weight": down,
+               "lora_te1_text_model_encoder_layers_0_mlp_fc1.lora_B.weight": up},
+              directory / "unmatched-style.safetensors", metadata=sdxl)
+    save_file({"wrong.weight": base}, directory / "wrong.safetensors",
+              metadata={"modelspec.architecture": "flux2"})
+    save_file({"layer.weight": torch.zeros(2, 2), "denoiser.sigmas": torch.tensor([1., .5, 0.]),
+               "attn.to_q.weight": torch.zeros(2, 3)}, directory / "projection-base.safetensors", metadata=sdxl)
+    save_file({"layer.weight": torch.tensor([2., 4., 6.]),
+               "attn.to_q.weight": torch.tensor([[1, 2], [3, 4], [5, 6]], dtype=torch.int8),
+               "attn.to_q.weight_scale": torch.tensor([2., 3., 4.])},
+              directory / "projection-material.safetensors", metadata=sdxl)
+    save_file({"layer.weight": torch.tensor([2., 4., 6., 8.])},
+              directory / "nonfinite-base.safetensors", metadata=sdxl)
+    save_file({"layer.weight": torch.tensor([float("nan"), float("inf"), -float("inf"), 12.])},
+              directory / "nonfinite-material.safetensors", metadata=sdxl)
+    save_file({"layer.weight": torch.tensor([[float("nan"), 60000.], [float("inf"), -60000.]], dtype=torch.float16)},
+              directory / "repair-base.safetensors", metadata=sdxl)
+    save_file({"layer.weight": torch.tensor([[2., -60000.], [4., 60000.]], dtype=torch.float16)},
+              directory / "repair-material.safetensors", metadata=sdxl)
+    (directory / "broken.safetensors").write_bytes(b"invalid checkpoint")
     for name, value in (("base-pipeline", base), ("extra-pipeline", additional)):
         target = directory / name
         (target / "unet").mkdir(parents=True)
         (target / "model_index.json").write_text(json.dumps({"_class_name": "FixturePipeline"}))
         (target / "unet/config.json").write_text('{"sample_size": 2}')
-        save_file({"layer.weight": value}, target / "unet/model.safetensors")
+        save_file({"layer.weight": value}, target / "unet/model.safetensors", metadata=sdxl)
     member = "members/base.safetensors"
     contents = base_path.read_bytes()
     manifest = {
@@ -46,6 +66,29 @@ if action == "create":
             info.compress_type = zipfile.ZIP_STORED
             info.external_attr = 0o100444 << 16
             archive.writestr(info, payload)
+elif action == "verify-recovery":
+    state = load_file(Path(sys.argv[3]))
+    case = sys.argv[4]
+    expected = {"mixed": torch.tensor([[-4., 65504.], [-8., -65504.]]),
+                "base-fallback": base,
+                "repaired-base": torch.tensor([[0., 60000.], [0., -60000.]]),
+                "normalized": additional}[case]
+    torch.testing.assert_close(state["layer.weight"].float(), expected, rtol=0, atol=0)
+    assert torch.isfinite(state["layer.weight"]).all()
+    print("Verified automatic repairs and explicit base-only fallback through the installed SDK.")
+elif action == "verify-nonfinite":
+    state = load_file(Path(sys.argv[3]))
+    expected = [2., 4., 6., 2.] if sys.argv[4] == "weighted-difference" else [2., 4., 6., 10.]
+    torch.testing.assert_close(state["layer.weight"], torch.tensor(expected), rtol=0, atol=0)
+    assert torch.isfinite(state["layer.weight"]).all()
+    print("Verified nonfinite coordinate fallback and the remaining finite contribution.")
+elif action == "verify-projection":
+    state = load_file(Path(sys.argv[3]))
+    sign = -1 if sys.argv[4] == "weighted-difference" else 1
+    torch.testing.assert_close(state["layer.weight"], sign * torch.tensor([[1., 2.], [2., 3.]]))
+    torch.testing.assert_close(state["attn.to_q.weight"], sign * torch.tensor([[1., 4.5, 10.], [2., 6., 12.]]))
+    torch.testing.assert_close(state["denoiser.sigmas"], torch.tensor([1., .5, 0.]))
+    print("Verified flattening, transposed dequantization and preserved schedule through the installed SDK.")
 elif action == "verify-unified":
     output = Path(sys.argv[3])
     with tempfile.TemporaryDirectory() as temporary:
@@ -82,5 +125,15 @@ elif action == "verify-base":
     torch.testing.assert_close(state["layer.weight"], base)
     assert state["steps"].item() == 42
     print("Verified common-layer projection preserves the executable base layout.")
+elif action == "verify-filtered":
+    state = load_file(Path(sys.argv[3]))
+    torch.testing.assert_close(state["layer.weight"], (base + additional) / 2)
+    assert state["steps"].item() == 42
+    print("Verified incompatible materials were omitted from base-compatible arithmetic.")
+elif action == "verify-synthetic":
+    state = load_file(Path(sys.argv[3]))
+    torch.testing.assert_close(state["layer.weight"], base + delta)
+    assert state["steps"].item() == 42
+    print("Verified an unmatched LoRA target was projected and merged.")
 else:
     raise SystemExit("Unknown fixture action")

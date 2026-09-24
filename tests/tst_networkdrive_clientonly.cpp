@@ -304,7 +304,7 @@ private slots:
         QCOMPARE(modeLabel->property("text").toString(), QString("Mobile client"));
         auto *pairButton = panel->findChild<QQuickItem *>("networkPairing");
         QVERIFY(pairButton && pairButton->isVisible());
-        QCOMPARE(pairButton->property("text").toString(), QString("Connect manually…"));
+        QCOMPARE(pairButton->property("text").toString(), QString("Pair with QR code…"));
         auto *automatic = panel->findChild<QQuickItem *>("networkAutomaticSync");
         QVERIFY(automatic && automatic->isVisible());
         QCOMPARE(automatic->property("text").toString(), QString("Sign in to sync automatically"));

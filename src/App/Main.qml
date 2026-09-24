@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import QtQuick.Dialogs
+import Qt.labs.platform as Platform
 import QtQuick.Controls as Controls
 import LVRS 1.0 as LV
 import Society
@@ -20,6 +21,27 @@ LV.ApplicationWindow {
     }
     Loader { id: agentQuestions }
     property PreferencesWindow preferencesWindow: null
+    Platform.MenuBar {
+        objectName: "globalMenuBar"
+        window: root
+        Platform.Menu {
+            title: qsTr("File")
+            Platform.MenuItem {
+                objectName: "globalPreferencesAction"
+                text: qsTr("Preferences…")
+                role: Platform.MenuItem.PreferencesRole
+                onTriggered: root.openPreferences()
+            }
+            Platform.MenuItem {
+                text: qsTr("Quit Society")
+                role: Platform.MenuItem.QuitRole
+                onTriggered: Qt.quit()
+            }
+        }
+        Platform.Menu { title: qsTr("Edit") }
+        Platform.Menu { title: qsTr("Window") }
+        Platform.Menu { title: qsTr("Help") }
+    }
     readonly property AccountController accountSession: session
     readonly property DriveController storageDrive: drive
     readonly property bool onboardingRequired: !drive.hasDrive || !networkDrive.hostConnectionReady
@@ -248,7 +270,7 @@ LV.ApplicationWindow {
         objectName: "preferencesShortcut"
         sequence: "Ctrl+,"
         context: Qt.ApplicationShortcut
-        enabled: !root.onboardingRequired && networkDrive.hostModeAvailable
+        enabled: networkDrive.hostModeAvailable
         onActivated: root.openPreferences()
     }
     Shortcut {

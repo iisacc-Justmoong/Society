@@ -1,6 +1,7 @@
-#include "App/Photos/PhotoStore.h"
-#include "App/Photos/PhotoController.h"
+#include <iiPhotoLibrary/PhotoStore.h>
+#include <iiPhotoLibrary/PhotoController.h>
 #include <QFile>
+#include <QResource>
 #include <QDir>
 #include <QImage>
 #include <QPointingDevice>
@@ -21,7 +22,7 @@
 #include "backend/runtime/appbootstrap.h"
 #include <iiSocietySync.h>
 
-using namespace society::photos;
+using namespace iiPhotoLibrary;
 namespace {
 QQuickItem *visualItem(QQuickItem *parent, const QString &name) {
     if (parent->objectName() == name) return parent;
@@ -118,6 +119,12 @@ struct Fixture {
 class PhotosTest : public QObject {
     Q_OBJECT
 private slots:
+    void sdkQmlIsBundledWithTheApplication() {
+        QVERIFY(QResource(":/qt/qml/iiPhotoLibrary/qmldir").isValid());
+        QVERIFY(QResource(":/qt/qml/iiPhotoLibrary/PhotosView.qml").isValid());
+        QVERIFY(QResource(":/qt/qml/iiPhotoLibrary/GalleryTile.qml").isValid());
+        QVERIFY(!QResource(":/qt/qml/Society/App/Photos/PhotosView.qml").isValid());
+    }
     void galleryIndexesOutwardAndReprioritizesWithoutExportingOriginals() {
         Fixture f;
         const auto epoch = QDateTime::fromString("2026-01-01T00:00:00Z", Qt::ISODate);
@@ -556,7 +563,8 @@ private slots:
             return !controller.busy() && !view->property("initialPositionPending").toBool()
                 && (pending.isNull() || pending.value<QJSValue>().isNull());
         };
-        QTRY_VERIFY(settled());
+        // The initial fixture scan includes external-volume I/O, not a UI latency assertion.
+        QTRY_VERIFY_WITH_TIMEOUT(settled(), 15000);
         QVERIFY(QDir().mkpath(QStringLiteral(SOCIETY_TEST_DIRECTORY "/photos")));
         QTest::qWait(100);
         QVERIFY(window->grabWindow().save(QStringLiteral(SOCIETY_TEST_DIRECTORY "/photos/chronological-%1.png")
@@ -773,7 +781,8 @@ private slots:
         QVERIFY(client.join(host.createOffer(), "phone", "Phone")); QTRY_VERIFY2(client.connected(), qPrintable(client.errorString()));
         hosting.open(desktop.temporary.path() + "/drive", QString(64, 'a'));
         syncing.open(phone.temporary.path() + "/drive", QString(64, 'a'));
-        QTRY_VERIFY(hosting.available() && syncing.available());
+        // Opening the fixture stores can exceed the default 5 s on external storage.
+        QTRY_VERIFY_WITH_TIMEOUT(hosting.available() && syncing.available(), 15000);
         hosting.setPeers({"phone"}, {});
         QSignalSpy mirrored(&syncing, &iiSocietySync::Controller::synchronized);
         syncing.setPeers({"desktop"}, {"desktop"});

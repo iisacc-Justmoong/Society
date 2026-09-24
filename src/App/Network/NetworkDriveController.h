@@ -5,7 +5,7 @@
 #include "NearbyDevices.h"
 #include "AutomaticPairing.h"
 #include "MobileSyncActivity.h"
-#include "App/Photos/PhotoController.h"
+#include <iiPhotoLibrary/PhotoController.h>
 #include <SharedStorage.h>
 #include <QPointer>
 #include <QSet>
@@ -170,7 +170,7 @@ private:
     iiServerHost::LanPeer m_local;
     iiSocietySync::RemoteFiles m_remote;
     iiSocietySync::Controller m_sync;
-    society::photos::PhotoController *m_photos;
+    iiPhotoLibrary::PhotoController *m_photos;
     QSet<QString> m_verifiedSyncPeers;
     NearbyDevices m_nearby;
     AutomaticPairing m_automatic;

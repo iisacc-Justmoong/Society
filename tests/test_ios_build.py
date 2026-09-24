@@ -55,7 +55,9 @@ class IosBuildTest(unittest.TestCase):
         for mode, sdk in (('ios-device', 'iphoneos'), ('ios-simulator', 'iphonesimulator')):
             plan = build_ios.commands(mode, Path('/Volumes/Storage/Qt/6.8.3'), 'TESTTEAM', 'Debug')
             configurations = [step for step in plan if '-S' in step]
-            self.assertEqual(len(configurations), 7)
+            self.assertEqual({Path(c[c.index('-S') + 1]).name for c in configurations},
+                             {'LVRS', 'iiAcountManager', 'iiServerHost', 'iiSocietyContainer',
+                              'iiSocietyHelper', 'iiSocietySync', 'iiPhotoLibrary', 'Society'})
             for command in configurations:
                 self.assertIn(f'-DCMAKE_OSX_SYSROOT={sdk}', command)
                 output = Path(command[command.index('-B') + 1])
@@ -69,7 +71,7 @@ class IosBuildTest(unittest.TestCase):
             variables = next(p['cacheVariables'] for p in presets if p['name'] == mode)
             self.assertEqual(variables['CMAKE_OSX_SYSROOT'], sdk)
             self.assertEqual({k for k in variables if k.startswith('ii')},
-                             {'iiAcountManager_DIR', 'iiServerHost_DIR', 'iiSocietyContainer_DIR', 'iiSocietyHelper_DIR', 'iiSocietySync_DIR'})
+                             {'iiAcountManager_DIR', 'iiServerHost_DIR', 'iiSocietyContainer_DIR', 'iiSocietyHelper_DIR', 'iiSocietySync_DIR', 'iiPhotoLibrary_DIR'})
             hosting = next(c for c in configurations if Path(c[c.index('-S') + 1]).name == 'iiServerHost')
             self.assertIn('-DBUILD_SHARED_LIBS=OFF', hosting)
             self.assertIn(mode, variables['LVRS_DIR'])

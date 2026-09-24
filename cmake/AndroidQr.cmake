@@ -11,8 +11,10 @@ function(society_add_android_qr target)
     file(WRITE "${package}/AndroidManifest.xml" "${manifest}")
     configure_file("${CMAKE_CURRENT_SOURCE_DIR}/src/platform/android/src/com/iisacc/society/SocietyActivity.java"
         "${package}/src/com/iisacc/society/SocietyActivity.java" COPYONLY)
-    configure_file("${CMAKE_CURRENT_SOURCE_DIR}/src/platform/android/src/com/iisacc/society/SocietyPhotoLibrary.java"
-        "${package}/src/com/iisacc/society/SocietyPhotoLibrary.java" COPYONLY)
+    # Remove only the obsolete generated bridge left by earlier configurations.
+    file(REMOVE "${package}/src/com/iisacc/society/SocietyPhotoLibrary.java")
+    configure_file("${iiPhotoLibrary_ANDROID_SOURCE_DIR}/com/iisacc/iiphotolibrary/PhotoLibrary.java"
+        "${package}/src/com/iisacc/iiphotolibrary/PhotoLibrary.java" COPYONLY)
     configure_file("${CMAKE_CURRENT_SOURCE_DIR}/src/platform/android/src/com/iisacc/society/SocietyDiscovery.java"
         "${package}/src/com/iisacc/society/SocietyDiscovery.java" COPYONLY)
     configure_file("${CMAKE_CURRENT_SOURCE_DIR}/src/platform/android/src/com/iisacc/society/SocietySyncService.java"

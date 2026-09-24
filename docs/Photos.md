@@ -1,5 +1,29 @@
 # Photos와 기기 사진 보관함
 
+## iiPhotoLibrary 연결
+
+사진 저장·인덱스·기기 보관함 접근·원본 전송은 `iiPhotoLibrary 0.1` SDK를 사용한다.
+앱과 데몬의 `NetworkDriveController`가 SDK `PhotoController`를 소유하며 기존 피어 인증·
+컨테이너 검사·백그라운드 생명주기 전달을 유지한다. `StorageView`는 `iiPhotoLibrary 1.0`의
+`PhotosView`를 사용한다. SDK QML 모듈은 앱과 화면 테스트의 `/qt/qml/iiPhotoLibrary`에
+포함하므로 설치 경로를 런타임에 읽을 필요가 없다.
+
+기존 `src/App/Photos/*`와 `SocietyPhotoLibrary.java`는 참조용으로 보존하며 빌드·패키징에서
+제외한다. 사진 기능 변경은 `SDK/iiPhotoLibrary`에서 수행하고 재설치한 뒤 Society를 빌드한다.
+`SOCIETY_DISABLE_PHOTOS=1`은 앱 통합 계층에서 계속 지원한다. SDK 자체 비활성화 변수는
+`IIPHOTOLIBRARY_DISABLE_PHOTOS=1`이다. 저장 형식과 `society.photos` 채널은 바뀌지 않는다.
+
+CMake는 `find_package(iiPhotoLibrary 0.1 CONFIG REQUIRED)`를 사용한다. 호스트 개발에서는
+`-DiiPhotoLibrary_DIR=<SDK 설치본>/lib/cmake/iiPhotoLibrary`를 지정할 수 있으며, 저장소 내
+`SDK/iiPhotoLibrary/build/install`도 검색한다. 교차 컴파일에서는 같은 타깃 ABI의 설치본을
+명시해야 한다. iOS/Android 빌드 도구는 iiPhotoLibrary를 의존 SDK로 먼저 빌드·설치한다.
+Android 패키지에는 SDK의 `com.iisacc.iiphotolibrary.PhotoLibrary`를 복사하며
+SocietyActivity가 권한·휴지통 콜백을 전달한다.
+
+검증은 `Society.Photos`의 SDK 회귀·QML 렌더링, `Society.PhotoLibraryIntegration`의 실제 SDK 타입·
+비활성화·미인증 요청 검사, `Society.PhotosNavigation`의 Photos 진입·모바일 갤러리 검사로 수행한다.
+
+
 `Society/Photos`는 사진과 비디오를 함께 관리하는 고정 디렉터리이다. Files 디렉터리는 수동 보관을 유지한다. Photos에 사용자가 넣은 사진·비디오는 연결된 기기의 사진 보관함에도 추가하며, Photos 바깥의 파일을 종류별로 이동하지 않는다.
 
 ## 저장 계약

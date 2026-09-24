@@ -1,7 +1,7 @@
 pragma ComponentBehavior: Bound
 import QtQuick
 import LVRS 1.0 as LV
-import "../../src/App/Photos" as Photos
+import iiPhotoLibrary 1.0 as Photos
 
 LV.ApplicationWindow {
     id: window

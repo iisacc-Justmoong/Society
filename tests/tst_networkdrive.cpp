@@ -12,6 +12,22 @@ using namespace iiServerHost;
 class NetworkDriveTests : public QObject {
     Q_OBJECT
 private slots:
+    void photosUsesSdkAndKeepsLegacyDisableSwitch() {
+        NetworkDriveController network;
+        auto *photos = qobject_cast<iiPhotoLibrary::PhotoController *>(network.photos());
+        QVERIFY(photos);
+        QCOMPARE(photos->parent(), &network);
+        QTemporaryDir root(SOCIETY_TEST_DIRECTORY "/photo-sdk-XXXXXX");
+        QVERIFY(iiSocietyContainer::SocietyDrive::create(root.path()));
+        const auto previous = qgetenv("SOCIETY_DISABLE_PHOTOS");
+        qputenv("SOCIETY_DISABLE_PHOTOS", "1");
+        network.setContainerPath(root.path());
+        network.disconnectSession();
+        const bool active = photos->active();
+        if (previous.isNull()) qunsetenv("SOCIETY_DISABLE_PHOTOS"); else qputenv("SOCIETY_DISABLE_PHOTOS", previous);
+        QVERIFY(!active);
+        QVERIFY(!photos->handle("untrusted-peer", {{"op", "society.photos"}}).value("ok").toBool());
+    }
     void manualPairingDoesNotAuthorizeRemoteImageGeneration() {
         QTemporaryDir root(SOCIETY_TEST_DIRECTORY "/network-local-only-XXXXXX");
         QVERIFY(iiSocietyContainer::SocietyDrive::create(root.path()));

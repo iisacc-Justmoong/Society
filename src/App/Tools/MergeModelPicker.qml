@@ -12,6 +12,7 @@ LV.VStack {
     property bool touchNavigation: false
     property string label: ""
     property string path: ""
+    property string detailText: ""
     property bool baseOnly: false
     readonly property var choices: catalog.models.filter(model => !baseOnly || model.baseEligible)
     readonly property int selectedIndex: choices.findIndex(model => model.path === path)
@@ -54,7 +55,9 @@ LV.VStack {
         backgroundColorPressed: LV.Theme.accentMuted
         enabled: root.catalog.directory.length > 0
         Accessible.name: root.label + ": " + (root.selectedModel ? root.selectedModel.relativePath : label)
-        Accessible.description: root.selectedModel ? qsTr("Models / %1 · %2").arg(root.selectedModel.relativePath).arg(root.formatLabel(root.selectedModel)) : root.label
+        Accessible.description: root.selectedModel
+            ? qsTr("Models / %1 · %2. %3").arg(root.selectedModel.relativePath).arg(root.formatLabel(root.selectedModel)).arg(root.detailText)
+            : root.label
         onClicked: root.openMenu()
         Keys.onPressed: function(event) {
             if (event.key === Qt.Key_Down || event.key === Qt.Key_Menu
@@ -77,6 +80,17 @@ LV.VStack {
         sizeToContentHeight: true
         style: caption
     }
+    LV.Label {
+        objectName: root.objectName + "Compatibility"
+        Layout.fillWidth: true
+        visible: root.selectedModel !== null && root.detailText.length > 0
+        text: root.detailText
+        textFormat: Text.PlainText
+        wrapMode: Text.Wrap
+        sizeToContentHeight: true
+        style: caption
+        color: LV.Theme.textSecondary
+    }
 
     LV.ContextMenu {
         id: menu
@@ -84,7 +98,8 @@ LV.VStack {
         showIconSlot: false
         selectedIndex: root.selectedIndex
         items: root.choices.length > 0 ? root.choices.map(model => ({
-            label: model.relativePath + " · " + root.formatLabel(model), path: model.path
+            label: model.relativePath + " · " + root.formatLabel(model)
+                + (model.ecosystemLabel ? " · " + model.ecosystemLabel : ""), path: model.path
         })) : [{label: root.catalog.loading ? qsTr("Loading models…") : qsTr("No models found in Models"), enabled: false}]
         implicitWidth: Math.max(0, Math.min(root.width, parent ? parent.width - edgeMargin * 2 : root.width))
         itemWidth: Math.max(0, implicitWidth - leftPadding - rightPadding)

@@ -53,7 +53,7 @@ LVRS QML 등록·리소스·SQLite 초기화 심볼을 설치 전에 검사한�
 
 ```sh
 DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer \
-python3 -B tests/verify_ios_bundle.py build/ios-device/bin/Debug/Society.app \
+python3 -B tests/verify_ios_bundle.py build/bin/Society.app \
   --device <iPhone-UDID>
 ```
 
@@ -94,14 +94,7 @@ Society는 이 계약을 가진 iiSocietySync 0.5.0 이상을 요구한다. `Soc
 
 Devices·페어링·계정 화면은 LVRS Sheet의 모바일 손잡이와 끌어서 닫기를 사용한다. 저장소 화면에서는 왼쪽 가장자리 28 논리 픽셀 안에서 시작한 한 손가락 드래그가 수평으로 72 픽셀 이상 이동하면 상위 폴더로 돌아간다. 세로 스크롤·가장자리 밖의 제스처·모달 화면에서는 뒤쪽 저장소가 이동하지 않는다. 스크롤하거나 입력란 바깥을 누르면 소프트웨어 키보드를 내린다. `Society.ClientOnlyNetwork`는 실제 Qt 터치 이벤트로 시트 닫기·가장자리 탐색과 인증된 전경 동기화 수명을 검사한다.
 
-실기기 터치 검증 프로젝트는 `tests/ios/Interactions.xcodeproj`이다. 다음 명령에서 실제 기기 식별자를 지정한다.
-
-```sh
-xcodebuild test -project tests/ios/Interactions.xcodeproj \
-  -scheme SocietyInteractions -destination 'platform=iOS,id=<device UDID>' \
-  -derivedDataPath build/ios-interactions \
-  -resultBundlePath build/ios-interactions/results.xcresult
-```
+`tests/ios/InteractionsTests.swift`의 실기기 터치 테스트 소스는 보존한다. 다만 독립 XCTest UI 테스트는 Xcode가 별도 `SocietyInteractions-Runner.app`을 생성하므로 현재 단일 앱 출력 정책과 양립하지 않는다. `Interactions.xcodeproj`의 진입점은 제품을 생성하지 않는 aggregate guard이며, 빌드 시 명시적인 오류로 종료한다. 러너 없는 검증 경로를 마련하기 전에는 기존 `xcodebuild test` 명령을 사용하지 않는다.
 
 선택한 개발 팀으로 기기를 등록하며, 최초 UI Automation 활성화에는 소유자가 기기에서 직접 암호를 입력해야 할 수 있다. 검증은 설치된 앱을 사용하고 계정·컨테이너·사진을 유지한다. 각 테스트의 앱 재실행은 진행 중인 백그라운드 작업을 종료하므로 시스템에 해당 작업의 실패 기록이 남을 수 있다. 마지막 백그라운드 검증은 홈으로 나가 20초 후 기존 프로세스를 활성화하여 Photos 화면의 복귀를 확인한다. 스크린샷과 접근성 계층은 결과 번들 안에 보관한다.
 

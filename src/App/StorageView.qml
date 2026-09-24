@@ -6,7 +6,7 @@ import LVRS 1.0 as LV
 import Society
 import "Models"
 import "Drive"
-import "Photos"
+import iiPhotoLibrary 1.0 as Photos
 
 Item {
     id: root
@@ -196,7 +196,7 @@ Item {
                     }
                     // The persistent folder model watches real filesystem changes
                     // asynchronously; sync status must not recreate it.
-                    PhotosView {
+                    Photos.PhotosView {
                         anchors.fill: parent
                         touchNavigation: !root.desktop
                         visible: root.photosOverview

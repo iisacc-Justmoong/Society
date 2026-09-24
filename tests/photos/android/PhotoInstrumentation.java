@@ -7,7 +7,7 @@ import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.MediaStore;
-import com.iisacc.society.SocietyPhotoLibrary;
+import com.iisacc.iiphotolibrary.PhotoLibrary;
 import java.io.*;
 import java.security.MessageDigest;
 import java.util.*;
@@ -19,7 +19,7 @@ public final class PhotoInstrumentation extends Instrumentation {
     @Override public void onCreate(Bundle arguments) { super.onCreate(arguments); start(); }
     private void check(boolean value, String message) { ++checks; if (!value) throw new AssertionError(message); }
     private JSONObject call(JSONObject command) throws Exception {
-        JSONObject result = new JSONObject(SocietyPhotoLibrary.execute(getTargetContext(), command.toString()));
+        JSONObject result = new JSONObject(PhotoLibrary.execute(getTargetContext(), command.toString()));
         check(result.optBoolean("ok"), result.optString("error", "Photo library operation failed")); return result;
     }
     private String hash(File file) throws Exception {
@@ -70,7 +70,7 @@ public final class PhotoInstrumentation extends Instrumentation {
         check(find(id).getJSONArray("resources").length() == files.size(), "A retry lost resources");
         JSONObject changed = new JSONObject(record.toString());
         changed.getJSONArray("resources").getJSONObject(0).put("hash", String.join("", Collections.nCopies(64, "0")));
-        JSONObject conflict = new JSONObject(SocietyPhotoLibrary.execute(getTargetContext(),
+        JSONObject conflict = new JSONObject(PhotoLibrary.execute(getTargetContext(),
             new JSONObject().put("action", "import").put("record", changed).put("paths", paths).toString()));
         check(!conflict.optBoolean("ok"), "A different native original was incorrectly accepted as the requested version");
         if (live) {
@@ -95,7 +95,7 @@ public final class PhotoInstrumentation extends Instrumentation {
             .put(new JSONObject().put("name", "partial.mp4").put("role", "pairedVideo").put("hash", hash(video)));
         JSONObject request = new JSONObject().put("action", "import").put("record", new JSONObject().put("id", id).put("resources", resources))
             .put("paths", new JSONArray().put(image.getAbsolutePath()).put(new File(getTargetContext().getCacheDir(), "missing-original").getAbsolutePath()));
-        JSONObject failed = new JSONObject(SocietyPhotoLibrary.execute(getTargetContext(), request.toString()));
+        JSONObject failed = new JSONObject(PhotoLibrary.execute(getTargetContext(), request.toString()));
         check(!failed.optBoolean("ok"), "An incomplete original was published");
         int remaining = 0;
         for (Uri collection : new Uri[]{MediaStore.Images.Media.EXTERNAL_CONTENT_URI, MediaStore.Video.Media.EXTERNAL_CONTENT_URI}) {
@@ -109,7 +109,7 @@ public final class PhotoInstrumentation extends Instrumentation {
     @Override public void onStart() {
         Bundle output = new Bundle();
         try {
-            check(SocietyPhotoLibrary.access(getTargetContext()).equals("full"), "Grant photo and video permissions before the native probe");
+            check(PhotoLibrary.access(getTargetContext()).equals("full"), "Grant photo and video permissions before the native probe");
             File image = new File(getTargetContext().getCacheDir(), "image.png"), video = new File(getTargetContext().getCacheDir(), "video.mp4");
             Bitmap bitmap = Bitmap.createBitmap(32, 32, Bitmap.Config.ARGB_8888); bitmap.eraseColor(0xff2468ab);
             try (OutputStream stream = new FileOutputStream(image)) { bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream); } bitmap.recycle();
@@ -118,8 +118,8 @@ public final class PhotoInstrumentation extends Instrumentation {
             }
             media(image, video, false); media(image, video, true);
             failedImportRemovesPendingResources(image, video);
-            String session = UUID.randomUUID().toString(); SocietyPhotoLibrary.cancelSession(session);
-            JSONObject cancelled = new JSONObject(SocietyPhotoLibrary.execute(getTargetContext(), new JSONObject().put("action", "scan").put("session", session).toString()));
+            String session = UUID.randomUUID().toString(); PhotoLibrary.cancelSession(session);
+            JSONObject cancelled = new JSONObject(PhotoLibrary.execute(getTargetContext(), new JSONObject().put("action", "scan").put("session", session).toString()));
             check(!cancelled.optBoolean("ok"), "A retired photo session continued reading the gallery");
             output.putString("result", "PASS"); output.putInt("checks", checks);
         } catch (Throwable error) { output.putString("result", "FAIL"); output.putString("error", error.toString()); output.putInt("checks", checks); }

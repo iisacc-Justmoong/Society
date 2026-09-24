@@ -2707,14 +2707,10 @@ private slots:
         window->close();
     }
 
-    void preferencesKeepsPlatformHostingAndReusesItsWindow()
+    void preferencesDriveLocationAndWindowLifecycle()
     {
         QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/preferences-gui-XXXXXX");
         QVERIFY(iiSocietyContainer::SocietyDrive::create(fixture.path()));
-        iiServerHost::RelayServer relay([](const auto &, iiServerHost::AuthCompletion done) {
-            done({"alice", QDateTime::currentDateTimeUtc().addSecs(60)});
-        });
-        QVERIFY(relay.listen(QHostAddress::LocalHost));
         QQmlApplicationEngine engine;
         QStringList warnings;
         connect(&engine, &QQmlApplicationEngine::warnings, this, [&](const QList<QQmlError> &errors) {
@@ -2731,18 +2727,9 @@ private slots:
         QVERIFY(network && open);
         window->setProperty("selectedTab", "Storage");
         QVERIFY(!window->findChild<QQuickWindow *>("preferencesWindow")); // Created only when requested.
-        iiServerHost::PeerOptions options;
-        options.relayUrl = QUrl(QString("ws://127.0.0.1:%1").arg(relay.port()));
-        options.credential = "alice"; options.peerId = "desktop"; options.name = "Desktop";
-        options.localEnabled = false;
-        QVERIFY(network->startSession(options));
-        iiServerHost::Peer observer;
-        options.peerId = "observer"; options.hostFiles = false; options.service = "com.iisacc.society.files";
-        QVERIFY(observer.start(options));
-        QTRY_VERIFY(network->connected() && observer.isReady());
-        QTRY_VERIFY(window->isVisible() && open->isVisible());
-        QTest::mouseClick(window, Qt::LeftButton, Qt::NoModifier,
-            open->mapToScene(QPointF(open->width()/2, open->height()/2)).toPoint());
+        auto *preferencesAction = window->findChild<QObject *>("globalPreferencesAction");
+        QVERIFY(preferencesAction);
+        QVERIFY(QMetaObject::invokeMethod(preferencesAction, "triggered"));
         auto *preferences = window->findChild<QQuickWindow *>("preferencesWindow");
         QVERIFY(preferences && preferences != window);
         QTRY_VERIFY(preferences->isVisible());
@@ -2758,25 +2745,37 @@ private slots:
         QCOMPARE(preferences->modality(), Qt::NonModal);
         auto *host = preferences->findChild<QQuickItem *>("preferencesHostMode");
         auto *client = preferences->findChild<QQuickItem *>("preferencesClientMode");
-        auto *done = preferences->findChild<QQuickItem *>("closePreferences");
-        QVERIFY(!host && !client && done);
-        const auto click = [&](QQuickItem *item) {
-            QTest::mouseClick(preferences, Qt::LeftButton, Qt::NoModifier,
-                item->mapToScene(QPointF(item->width()/2, item->height()/2)).toPoint());
-        };
+        QVERIFY(!host && !client);
+        QVERIFY(preferences->findChild<QQuickItem *>("preferencesDriveCategory"));
+        QVERIFY(preferences->findChild<QQuickItem *>("preferencesDriveDetails"));
+        auto *location = preferences->findChild<QQuickItem *>("preferencesDriveLocation");
+        auto *apply = preferences->findChild<QQuickItem *>("applySocietyDrive");
+        auto *current = preferences->findChild<QQuickItem *>("preferencesCurrentDrive");
+        QVERIFY(location && apply && current);
+        QTemporaryDir other(SOCIETY_TEST_DIRECTORY "/preferences-other-XXXXXX");
+        QVERIFY(iiSocietyContainer::SocietyDrive::create(other.path()));
+        QVERIFY(location->setProperty("text", other.path()));
+        QVERIFY(QMetaObject::invokeMethod(apply, "clicked"));
+        QTRY_COMPARE(current->property("text").toString(), other.path());
+        QCOMPARE(iiSocietyContainer::SharedStorage::open()->drive().rootPath(), other.path());
+        QVERIFY(location->setProperty("text", other.filePath("missing")));
+        QVERIFY(QMetaObject::invokeMethod(apply, "clicked"));
+        QVERIFY(preferences->property("locationFailed").toBool());
+        QCOMPARE(current->property("text").toString(), other.path());
+        location->setProperty("text", other.path());
+        QVERIFY(QMetaObject::invokeMethod(apply, "clicked"));
+        QVERIFY(!preferences->findChild<QQuickItem *>("closePreferences"));
+        QVERIFY(window->findChild<QObject *>("globalMenuBar"));
         QCOMPARE(network->mode(), NetworkDriveController::HostMode);
-        QTRY_VERIFY(network->hosting()); QTRY_COMPARE(observer.peers().size(), 1);
         QVERIFY(!network->setProperty("mode", NetworkDriveController::ClientMode));
-        QVERIFY(network->hosting());
 
-        for (const auto size : {QSize(360, 320), QSize(760, 540), QSize(560, 440)}) {
+        for (const auto size : {QSize(360, 320), QSize(760, 540), QSize(720, 440)}) {
             preferences->resize(size); QTRY_COMPARE(preferences->size(), size);
-            QTRY_VERIFY(QRectF(QPointF(), size).contains(done->mapToScene(QPointF(done->width()/2, done->height()/2))));
         }
         const auto screenshot = qEnvironmentVariable("SOCIETY_PREFERENCES_SCREENSHOT_PATH");
         if (!screenshot.isEmpty()) { QTest::qWait(150); QVERIFY(preferences->grabWindow().save(screenshot)); }
-        click(done); QTRY_VERIFY(!preferences->isVisible());
-        QVERIFY(window->isVisible()); QVERIFY(network->hosting());
+        preferences->close(); QTRY_VERIFY(!preferences->isVisible());
+        QVERIFY(window->isVisible());
         window->requestActivate();
         QTRY_VERIFY(window->isActive());
         QTest::keySequence(window, QKeySequence(QStringLiteral("Ctrl+,")));
@@ -2787,14 +2786,14 @@ private slots:
             preferences->requestActivate(); QTRY_VERIFY(preferences->isActive());
             QTest::keySequence(preferences, key);
             QTRY_VERIFY(!preferences->isVisible());
-            QVERIFY(window->isVisible()); QVERIFY(network->hosting());
+            QVERIFY(window->isVisible());
             QVERIFY(QMetaObject::invokeMethod(window, "openPreferences"));
             QTRY_VERIFY(preferences->isVisible());
         }
         QVERIFY(QMetaObject::invokeMethod(window, "openPreferences"));
         QCOMPARE(window->findChild<QQuickWindow *>("preferencesWindow"), preferences);
-        auto *devices = preferences->findChild<QQuickItem *>("preferencesDevices");
-        QVERIFY(devices); click(devices);
+        QVERIFY(!preferences->findChild<QQuickItem *>("preferencesDevices"));
+        QVERIFY(QMetaObject::invokeMethod(window, "openDevices"));
         QTRY_VERIFY(!preferences->isVisible());
         auto *panel = window->findChild<QObject *>("networkDevices");
         QVERIFY(panel); QTRY_VERIFY(panel->property("visible").toBool());

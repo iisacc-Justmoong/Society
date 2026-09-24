@@ -17,8 +17,7 @@ Item {
     property string baseModel: ""
     property string mode: "unified"
     property string compatibilityModel: ""
-    property string weightMode: "automatic"
-    property string sharedWeight: "0.5"
+    readonly property string weightMode: "per-model"
     property string outputName: ""
     property string outputDirectory: ""
     property string cacheDirectory: ""
@@ -28,6 +27,11 @@ Item {
     property bool advancedVisible: false
     property bool hasSubmitted: false
     property string inspectedRequest: ""
+    property int previewRevision: 0
+    property int runningPreviewRevision: -1
+    property bool previewDetailsVisible: false
+    readonly property var previewReport: runningPreviewRevision === previewRevision && !previewController.busy ? previewController.report : ({})
+    readonly property var preflight: previewReport.preflight || ({})
     readonly property bool wideLayout: width >= 1000
     readonly property real pageMargin: touchNavigation && width < 760 ? 16 : wideLayout ? 32 : 24
     readonly property bool editingEnabled: mergeController.supported && !mergeController.busy && !modelsBusy
@@ -36,12 +40,14 @@ Item {
     signal backRequested()
     readonly property int materialCount: materials.count
     readonly property string modelOutputDirectory: modelCatalog.models.length > 0 ? modelCatalog.outputDirectory(baseModel) : modelsDirectory
-    readonly property string outputPath: mergeController.outputPathForName(outputName, outputDirectory.trim() || modelOutputDirectory, mode)
+    readonly property bool packageOutput: mode === "unified" || baseModel.toLowerCase().endsWith(".iildmodel")
+    readonly property string outputPath: mergeController.outputPathForName(outputName, outputDirectory.trim() || modelOutputDirectory, mode, baseModel)
     readonly property bool inputModelsReady: {
         if (modelsBusy || modelCatalog.loading || modelCatalog.models.length === 0 || !modelCatalog.contains(baseModel, true))
             return false;
         for (let i = 0; i < materials.count; ++i) {
-            if (!modelCatalog.contains(materials.get(i).modelPath))
+            const material = materials.get(i);
+            if (!modelCatalog.contains(material.modelPath) || !validWeight(material.weight))
                 return false;
         }
         return materials.count > 0;
@@ -64,6 +70,54 @@ Item {
     onModelsBusyChanged: {
         if (!modelsBusy && modelCatalog)
             modelCatalog.refresh();
+    }
+    onBaseModelChanged: schedulePreview()
+    onModeChanged: schedulePreview()
+    onCacheDirectoryChanged: schedulePreview()
+    onMergeExecutableChanged: schedulePreview()
+    onPythonExecutableChanged: schedulePreview()
+    onCompatibilityModelChanged: schedulePreview()
+    onInputModelsReadyChanged: schedulePreview()
+
+    function schedulePreview() {
+        if (!previewController || !previewTimer)
+            return;
+        ++previewRevision;
+        if (previewController.busy)
+            previewController.cancel();
+        previewTimer.restart();
+    }
+    function compatibilityLabel(status) {
+        return status === "compatible" ? qsTr("Compatible")
+            : status === "conditional" ? qsTr("Conditional") : qsTr("Incompatible · excluded");
+    }
+    function validWeight(value) {
+        const text = String(value).trim();
+        if (text.length === 0)
+            return false;
+        const number = Number(text);
+        return Number.isFinite(number) && number >= 0;
+    }
+    function componentSummary(profile) {
+        if (!profile || !profile.components)
+            return "";
+        const groups = profile.components;
+        return qsTr("UNet %1 · DiT %2 · VAE %3 · Text encoder %4 · Other %5 tensors")
+            .arg(groups.unet.tensor_count).arg(groups.dit.tensor_count).arg(groups.vae.tensor_count)
+            .arg(groups.text_encoder.tensor_count).arg(groups.other.tensor_count);
+    }
+    function materialDescription(index, path) {
+        const entries = previewReport.resource_compatibility || [];
+        const entry = entries.find(item => item.source_index === index + 1);
+        if (!entry)
+            return modelCatalog.compatibilityDescription(baseModel, path);
+        let description = compatibilityLabel(entry.status) + " · " + entry.reason;
+        description += "\n" + componentSummary(entry.profile);
+        if (entry.kind === "lora") {
+            description += "\n" + qsTr("%1 matched LoRA targets").arg(entry.lora_target_count);
+            description += (entry.lora_targets || []).slice(0, 3).map(target => "\n" + target.tensor).join("");
+        }
+        return description;
     }
 
     function reconcileModels() {
@@ -102,8 +156,7 @@ Item {
             mode: mode,
             compatibilityModels: compatibilityModel ? [compatibilityModel] : [],
             materials: values,
-            weightMode: weightMode,
-            sharedWeight: sharedWeight,
+            weightMode: "per-model",
             output: outputPath,
             cacheDirectory: cacheDirectory,
             executable: mergeExecutable || mergeController.defaultExecutable,
@@ -164,6 +217,26 @@ Item {
             if (success && !validationOnly)
                 modelCatalog.refresh();
         }
+        onChanged: { if (busy && previewController.busy) previewController.cancel(); }
+    }
+    ModelMergeController {
+        id: previewController
+        objectName: "mergePreviewController"
+        onFinished: { if (root.runningPreviewRevision !== root.previewRevision) previewTimer.restart(); }
+    }
+    Timer {
+        id: previewTimer
+        interval: 650
+        onTriggered: {
+            if (!root.visible || !root.inputModelsReady || mergeController.busy)
+                return;
+            if (previewController.busy) {
+                restart();
+                return;
+            }
+            root.runningPreviewRevision = root.previewRevision;
+            previewController.inspectInputs(root.requestOptions());
+        }
     }
     MergeModelCatalog {
         id: modelCatalog
@@ -178,6 +251,12 @@ Item {
             modelPath: ""
             weight: "0.5"
         }
+    }
+    Connections {
+        target: materials
+        function onDataChanged() { root.schedulePreview(); }
+        function onRowsInserted() { root.schedulePreview(); }
+        function onRowsRemoved() { root.schedulePreview(); }
     }
 
     Rectangle {
@@ -331,6 +410,7 @@ Item {
                             catalog: modelCatalog
                             label: qsTr("Base model")
                             path: root.baseModel
+                            detailText: modelCatalog.ecosystemDescription(root.baseModel)
                             baseOnly: true
                             onEdited: function(value) { root.baseModel = value; }
                         }
@@ -352,24 +432,34 @@ Item {
                                     catalog: modelCatalog
                                     label: qsTr("Material %1").arg(material.index + 1)
                                     path: material.modelPath
+                                    detailText: root.materialDescription(material.index, material.modelPath)
                                     onEdited: function(value) { materials.setProperty(material.index, "modelPath", value); }
                                 }
                                 RowLayout {
-                                    visible: root.weightMode === "per-model" || materials.count > 1
                                     Layout.fillWidth: true
                                     spacing: LV.Theme.gap8
+                                    LV.Label {
+                                        text: qsTr("Weight")
+                                        style: caption
+                                        color: LV.Theme.descriptionColor
+                                    }
                                     LV.InputField {
                                         objectName: "mergeMaterialWeight" + material.index
-                                        visible: root.weightMode === "per-model"
                                         Layout.fillWidth: true
                                         Layout.minimumWidth: 0
                                         Layout.preferredHeight: root.touchNavigation ? 44 : 30
                                         text: material.weight
-                                        placeholderText: qsTr("Weight ≥ 0")
+                                        placeholderText: qsTr("Resource weight ≥ 0")
                                         Accessible.name: qsTr("Material %1 weight").arg(material.index + 1)
+                                        Accessible.description: qsTr("Enter a finite nonnegative real number. Zero keeps the resource selected but gives it no contribution.")
+                                        inputMethodHints: Qt.ImhFormattedNumbersOnly
+                                        validator: DoubleValidator {
+                                            bottom: 0
+                                            notation: DoubleValidator.ScientificNotation
+                                            locale: "C"
+                                        }
                                         onTextEdited: function(value) { materials.setProperty(material.index, "weight", value); }
                                     }
-                                    Item { visible: root.weightMode !== "per-model"; Layout.fillWidth: true }
                                     LV.LabelButton {
                                         objectName: "mergeRemoveMaterial" + material.index
                                         Layout.minimumHeight: root.touchNavigation ? 44 : 0
@@ -452,70 +542,19 @@ Item {
                         LV.Label {
                             Layout.fillWidth: true
                             text: root.mode === "unified"
-                                ? qsTr("Combine architectures in one package. Each LoRA uses a compatible checkpoint; independent models refine the image in order.")
-                                : qsTr("Weighted arithmetic requires matching network structures. Use Unified for different architectures.")
+                                ? qsTr("Unified packages independent models for sequential image refinement. It is not conversion into one network. Resources are checked against the selected base ecosystem.")
+                                : qsTr("Blend weights in the base tensor layout. Same-ecosystem shape differences are fitted experimentally; unmatched layers retain the base and incompatible resources are excluded.")
                             wrapMode: Text.WordWrap
                             sizeToContentHeight: true
                             style: caption
                             color: LV.Theme.descriptionColor
                         }
-                        LV.Label { text: qsTr("Weights"); style: caption; color: LV.Theme.descriptionColor }
-                        LV.LabelSegmentedControl {
-                            id: weightsControl
-                            objectName: "mergeWeightMode"
-                            Layout.preferredWidth: LV.Theme.scaleMetric(432)
-                            Layout.maximumWidth: parent.width
-                            Layout.minimumWidth: 0
-                            Layout.preferredHeight: root.touchNavigation ? 51 : 30
-                            forceBorderlessTone: false
-                            LV.LabelButton {
-                                objectName: "mergeAutomaticMode"
-                                width: (weightsControl.width - weightsControl.horizontalPadding * 2 - weightsControl.spacing * 2) / 3
-                                height: weightsControl.height - weightsControl.verticalPadding * 2
-                                text: qsTr("Automatic")
-                                Accessible.name: qsTr("Automatic weights")
-                                Accessible.selected: root.weightMode === "automatic"
-                                tone: root.weightMode === "automatic" ? LV.AbstractButton.Default : LV.AbstractButton.Borderless
-                                onClicked: root.weightMode = "automatic"
-                            }
-                            LV.LabelButton {
-                                objectName: "mergeSharedMode"
-                                width: (weightsControl.width - weightsControl.horizontalPadding * 2 - weightsControl.spacing * 2) / 3
-                                height: weightsControl.height - weightsControl.verticalPadding * 2
-                                text: qsTr("Shared weight")
-                                Accessible.name: text
-                                Accessible.selected: root.weightMode === "shared"
-                                tone: root.weightMode === "shared" ? LV.AbstractButton.Default : LV.AbstractButton.Borderless
-                                onClicked: root.weightMode = "shared"
-                            }
-                            LV.LabelButton {
-                                objectName: "mergePerModelMode"
-                                width: (weightsControl.width - weightsControl.horizontalPadding * 2 - weightsControl.spacing * 2) / 3
-                                height: weightsControl.height - weightsControl.verticalPadding * 2
-                                text: qsTr("Per-model")
-                                Accessible.name: qsTr("Per-model weights")
-                                Accessible.selected: root.weightMode === "per-model"
-                                tone: root.weightMode === "per-model" ? LV.AbstractButton.Default : LV.AbstractButton.Borderless
-                                onClicked: root.weightMode = "per-model"
-                            }
-                        }
-                        LV.InputField {
-                            objectName: "mergeSharedWeight"
-                            visible: root.weightMode === "shared"
-                            Layout.fillWidth: true
-                            Layout.minimumWidth: 0
-                            Layout.preferredHeight: root.touchNavigation ? 44 : 30
-                            text: root.sharedWeight
-                            placeholderText: qsTr("Weight ≥ 0")
-                            Accessible.name: qsTr("Shared weight for every additional model")
-                            onTextEdited: function(value) { root.sharedWeight = value; }
-                        }
                         MergeCopy {
-                            text: root.weightMode === "automatic"
-                                ? root.mode === "weighted-sum"
-                                    ? qsTr("Automatic balances checkpoints and applies the default LoRA strength.")
-                                    : qsTr("Automatic subtracts 0.5 per checkpoint and applies LoRAs at strength 1.")
-                                : qsTr("Use nonnegative weights. Sum checkpoint weights must total ≤ 1. LoRA strengths and difference weights may exceed 1.")
+                            text: root.mode === "unified"
+                                ? qsTr("Set every resource's refinement or LoRA strength on its card. Checkpoint strengths must be between 0 and 1; LoRA strengths may exceed 1.")
+                                : root.mode === "weighted-sum"
+                                    ? qsTr("Set every material's real-number weight on its card. Checkpoint totals above 1 are ratio-normalized; LoRA strengths keep their values. The remaining checkpoint share belongs to the base model.")
+                                    : qsTr("Set every material's real-number weight on its card. The base coefficient remains 1; checkpoint and LoRA contributions are subtracted at their entered weights.")
                         }
                     }
                     LV.LabelButton {
@@ -606,7 +645,7 @@ Item {
                             Accessible.name: qsTr("Output model name (required)")
                             onTextEdited: function(value) { root.outputName = value; }
                         }
-                        LV.Label { text: root.mode === "unified" ? qsTr("Saved as .iildmodel") : qsTr("Saved as .safetensors"); style: caption; color: LV.Theme.descriptionColor }
+                        LV.Label { text: root.packageOutput ? qsTr("Saved as .iildmodel") : qsTr("Saved as .safetensors"); style: caption; color: LV.Theme.descriptionColor }
                         LV.Label { text: qsTr("Save to"); style: body }
                         LV.ListItem {
                             objectName: "mergeOutputDirectoryField"
@@ -641,23 +680,61 @@ Item {
                             wrapMode: Text.WrapAnywhere
                             sizeToContentHeight: true
                         }
-                        MergeCopy { text: qsTr("A new file is created. Your source models stay in place.") }
+                        MergeCopy { text: root.packageOutput
+                            ? qsTr("A new model package is created. Equal disk size is normal when tensor layouts are preserved.")
+                            : qsTr("A new file is created. Equal disk size is normal when tensor layouts are preserved.") }
                     }
                     MergePanel {
                         objectName: "mergeReviewPanel"
                         title: qsTr("Input check")
                         LV.Label { text: qsTr("Input check"); style: header2 }
                         MergeCopy {
+                            objectName: "mergeBaseStructure"
+                            visible: text.length > 0
+                            text: root.componentSummary(root.previewReport.base_profile)
+                        }
+                        MergeCopy {
+                            objectName: "mergePreflightSummary"
+                            visible: root.inputModelsReady
+                            text: previewController.busy ? qsTr("Checking ecosystem, tensor structure and LoRA targets…")
+                                : root.preflight.status ? root.compatibilityLabel(root.preflight.status) + "\n"
+                                    + root.preflight.method_description + "\n"
+                                    + qsTr("Expected: %1 included · %2 excluded · %3 fitted tensors")
+                                        .arg(root.preflight.included_material_count).arg(root.preflight.excluded_material_count)
+                                        .arg(root.preflight.projected_tensor_count)
+                                    + "\n" + (root.preflight.risks || []).join("\n")
+                                : previewController.errorString || qsTr("Waiting for input inspection…")
+                        }
+                        LV.LabelButton {
+                            objectName: "mergePreviewDetailsToggle"
+                            visible: !!root.preflight.status
+                            text: root.previewDetailsVisible ? qsTr("Hide structure / LoRA report") : qsTr("Structure / LoRA report")
+                            tone: LV.AbstractButton.Borderless
+                            onClicked: root.previewDetailsVisible = !root.previewDetailsVisible
+                        }
+                        MergeCopy {
+                            visible: root.previewDetailsVisible && !!root.preflight.status
+                            text: JSON.stringify(root.previewReport, null, 2).slice(0, 16000)
+                            wrapMode: Text.WrapAnywhere
+                        }
+                        LV.LabelButton {
+                            visible: root.previewDetailsVisible && !!root.preflight.status
+                            text: qsTr("Copy full structure report")
+                            tone: LV.AbstractButton.Borderless
+                            onClicked: previewController.copyDetails()
+                        }
+                        MergeCopy {
                             objectName: "mergeStatus"
                             text: !mergeController.supported ? qsTr("Model merging is available on desktop.")
                                 : mergeController.busy || (root.hasSubmitted && root.requestCurrent) ? mergeController.status
-                                : qsTr("Not checked yet. Inspect model compatibility before merging.")
+                                : root.preflight.status ? qsTr("Structural preview is ready. Numeric repairs and saved-output verification run during the merge.")
+                                : qsTr("Optional inspection has not run. Merge includes only resources compatible with the selected base model and excludes the rest.")
                         }
                         LV.LabelButton {
                             objectName: "mergeValidate"
                             Layout.fillWidth: true
                             Layout.preferredHeight: root.touchNavigation ? 44 : 30
-                            text: qsTr("Check inputs")
+                            text: qsTr("Inspect inputs (optional)")
                             tone: LV.AbstractButton.Default
                             enabled: root.editingEnabled && root.inputModelsReady && root.outputPath.length > 0
                             onClicked: root.submit(true)

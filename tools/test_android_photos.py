@@ -21,7 +21,7 @@ def main():
     run("ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "color=c=blue:s=64x64:d=0.5", "-c:v", "libx264", "-pix_fmt", "yuv420p", BUILD / "assets/video.mp4")
     jar = SDK / "platforms/android-36/android.jar"
     run(JAVA / "javac", "--release", "8", "-classpath", jar, "-d", BUILD / "classes",
-        SOURCE / "src/platform/android/src/com/iisacc/society/SocietyPhotoLibrary.java", SOURCE / "tests/photos/android/PhotoInstrumentation.java")
+        Path(os.environ.get("IIPHOTOLIBRARY_ANDROID_SOURCE_DIR", str(SOURCE.parents[1] / "SDK/iiPhotoLibrary/build/install/share/iiPhotoLibrary/platform/android/src"))) / "com/iisacc/iiphotolibrary/PhotoLibrary.java", SOURCE / "tests/photos/android/PhotoInstrumentation.java")
     run(JAVA / "jar", "--create", "--file", BUILD / "classes.jar", "-C", BUILD / "classes", ".")
     run(JAVA / "java", "-cp", TOOLS / "lib/d8.jar", "com.android.tools.r8.D8", "--lib", jar, "--min-api", "28", "--output", BUILD / "dex", BUILD / "classes.jar")
     run(TOOLS / "aapt2", "link", "-I", jar, "--manifest", SOURCE / "tests/photos/android/AndroidManifest.xml", "-A", BUILD / "assets", "-o", BUILD / "unsigned.apk")
