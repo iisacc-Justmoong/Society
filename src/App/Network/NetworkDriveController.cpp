@@ -52,7 +52,14 @@ NetworkDriveController::NetworkDriveController(Mode deviceMode, DiscoveryService
     connect(&m_remote, &iiSocietySync::RemoteFiles::entriesChanged, this, &NetworkDriveController::entriesChanged);
     connect(&m_remote, &iiSocietySync::RemoteFiles::downloadFinished, this, &NetworkDriveController::downloadFinished);
     connect(&m_sync, &iiSocietySync::Controller::changed, this, [this] {
-        if (!m_sync.errorString().isEmpty() && m_sync.errorString() != "sync_store_busy") invalidateHostConnection();
+        // Content retries do not revoke an authenticated, ready host. Only
+        // authority/protocol mismatches invalidate this connection milestone;
+        // transport and account changes are invalidated by updateSynchronization.
+        const auto error = m_sync.errorString();
+        if (QStringList{"account_host_mismatch", "container_account_binding_mismatch",
+                "invalid_host_identity", "different_primary_host", "remote_container_or_manifest_changed",
+                "namespace_authority_protocol_required", "host_mirror_protocol_required"}.contains(error))
+            invalidateHostConnection();
         if (!m_sync.busy() && !m_photos->busy() && !m_sync.errorString().isEmpty()) {
             m_continuedSyncRequested = false; m_background.release(false);
             if (!hostModeAvailable() && (m_applicationState == Qt::ApplicationSuspended || m_applicationState == Qt::ApplicationHidden))
@@ -449,8 +456,7 @@ void NetworkDriveController::invalidateHostConnection() {
 bool NetworkDriveController::hostConnectionReady() const {
     return hostModeAvailable() || (m_runtimeEnabled && !m_suspended && signedIn() && connected()
         && containerReady() && !m_validatedHost.isEmpty() && m_syncHosts.contains(m_validatedHost)
-        && m_validatedHost == m_mirror.value("host").toString()
-        && (m_sync.errorString().isEmpty() || m_sync.errorString() == "sync_store_busy"));
+        && m_validatedHost == m_mirror.value("host").toString());
 }
 QString NetworkDriveController::synchronizationStatus() const {
     if (!signedIn()) return tr("Sign in to connect to your account's Society host.");

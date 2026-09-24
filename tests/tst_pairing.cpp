@@ -148,7 +148,7 @@ private slots:
         QTRY_VERIFY_WITH_TIMEOUT(operation.isLocked() || operation.tryLock(), 5000);
         phone.synchronizeNow();
         QTRY_COMPARE_WITH_TIMEOUT(phone.synchronizationStatus(), QString("Container sync is waiting to retry."), 10000);
-        QVERIFY(phone.hostConnectionReady()); // Local catalog contention is not lost authentication.
+        QVERIFY(phone.hostConnectionReady()); // A content synchronization error is not lost host authentication.
         operation.unlock();
         phone.disconnectSession(); QVERIFY(!phone.hostConnectionReady());
     }
