@@ -43,7 +43,7 @@ Society 데스크톱의 기본 화면은 [Figma 18:14](https://www.figma.com/des
 
 미리보기 URL에는 수정 시각·파일 크기 버전을 붙인다. 같은 경로의 이미지가 교체되어도 Qt의 이전 이미지 캐시를 재사용하지 않고 변경된 썸네일을 읽는다.
 
-Tools 탭 최상단으로 이동한 QuickGenerate는 [Dreamscapes Figma 15:218](https://www.figma.com/design/bn8O4AHKr1X9DWnhR1TgEy/Dreamscapes?node-id=15-218)에 맞춰 Prompt, Image, 종횡비, 생성 수량 선택과 Enter/Generate 제출을 제공한다. 수량의 기본값은 1이며 `1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 25, 30, 40, 50, 100, 200, 500, 1000` 중 선택한다. 기존 LVRS 버튼·메뉴·메뉴 항목을 재사용하고 긴 수량 목록은 Qt Quick ListView로 스크롤한다. 메뉴를 창 높이 안으로 제한하며 다시 열면 선택 항목을 표시한다. 선택 수량은 ToolsView → SocietyView → Main의 `generateRequested(prompt, mediaType, aspectRatio, count)` 신호에 전달되고 탭 전환 후에도 유지된다. 현재 Society에는 생성 공급자가 연결되지 않았으므로 제출 시 LVRS 안내창으로 그 상태를 알리고 입력을 보존한다. Guild·Organization의 서비스 연결도 이번 화면 구현 범위에 포함되지 않으며 안내를 표시한다.
+Tools 탭 최상단의 QuickGenerate는 [Dreamscapes/Home 79:3435](https://www.figma.com/design/bn8O4AHKr1X9DWnhR1TgEy/Dreamscapes?node-id=79-3435)를 먼저 갱신한 뒤 반영한 LVRS 컴포저이다. Image/Video 선택, 프롬프트, 오른쪽 아래 Generate로 구성하며 업로드·모델·화면비·생성 개수·More·Upgrade는 표시하지 않는다. 내부 기본값은 1:1, 1개이며 기존 `generateRequested(prompt, mediaType, aspectRatio, count)`를 ToolsView → SocietyView → Main으로 전달한다. 선택 유형과 초안은 탭 전환 후에도 보존한다. Society에는 생성 공급자가 연결되지 않았으므로 제출 시 LVRS 안내창으로 현재 상태를 알린다. 레이아웃과 검증 범위는 [MobileViews.md](MobileViews.md)를 참조한다. Guild·Organization의 서비스 연결은 기존 안내를 유지한다.
 
 캘린더는 Qt 비의존 C++23 SDK `iiCalendar`(ICU·SQLite)를 사용한다. 파일 조회와 캘린더 조회에는 Qt 6.8.3의 Concurrent 모듈을 연결한다. 동일한 Qt 배포·라이선스·유지보수 범위이며 앱 자체 도메인인 카드 데이터만 C++로 구성한다.
 

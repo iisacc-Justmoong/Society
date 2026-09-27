@@ -1,5 +1,7 @@
 # Environment desktop concept
 
+> 2026-09-24: 이 문서는 이전 4개 화면 시안 기록이다. 현행 6개 화면 구현 및 데이터·검증 범위는 [Environment.md](Environment.md)를 따른다.
+
 2026-09-18 · Society / Environment의 LVRS 기반 Figma 시안이다. 앱 소스 구현과 실제 기기·서버·설치 상태 변경은 이 작업에 포함하지 않는다.
 
 ## 네 화면

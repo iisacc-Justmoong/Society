@@ -125,6 +125,16 @@ elif action == "verify-base":
     torch.testing.assert_close(state["layer.weight"], base)
     assert state["steps"].item() == 42
     print("Verified common-layer projection preserves the executable base layout.")
+elif action == "verify-forced-checkpoint":
+    state = load_file(Path(sys.argv[3]))
+    torch.testing.assert_close(state["layer.weight"], (2 * base + additional) / 3)
+    assert state["steps"].item() == 42
+    print("Verified cross-family checkpoint inclusion and base-defined output.")
+elif action == "verify-forced-lora":
+    state = load_file(Path(sys.argv[3]))
+    torch.testing.assert_close(state["layer.weight"], (base + additional) / 2 + delta)
+    assert state["steps"].item() == 42
+    print("Verified synthetic LoRA target inclusion alongside checkpoint averaging.")
 elif action == "verify-filtered":
     state = load_file(Path(sys.argv[3]))
     torch.testing.assert_close(state["layer.weight"], (base + additional) / 2)

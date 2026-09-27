@@ -18,12 +18,7 @@ Item {
     property string importError: ""
     property string selectedPath: ""
     property var savedPositions: null
-    readonly property var sections: [
-        { key: "image", title: qsTr("Image models") },
-        { key: "video", title: qsTr("Video models") },
-        { key: "audio", title: qsTr("Audio models") },
-        { key: "language", title: qsTr("Language models") }
-    ]
+    readonly property var sections: catalog.categories
     signal importRequested()
     signal cancelImportRequested()
     signal fileRequested(string path)
@@ -55,13 +50,13 @@ Item {
                 text: qsTr("Import models…")
                 tone: LV.AbstractButton.Default
                 enabled: root.importEnabled
-                Accessible.name: qsTr("Import models for %1").arg(category.modelData.title)
+                Accessible.name: qsTr("Import and automatically categorize models")
                 onClicked: root.importRequested()
             }
         }
         Item {
             Layout.fillWidth: true
-            implicitHeight: 280
+            implicitHeight: category.rows.length > 0 ? 280 : 44
             ListView {
                 id: cards
                 objectName: "modelCards" + category.modelData.key
@@ -214,10 +209,39 @@ Item {
             modelsScroll.contentItem.contentY = 0
         }
     }
+    LV.HStack {
+        id: importBanner
+        objectName: "modelImportBanner"
+        anchors.top: parent.top
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.margins: root.contentInset
+        height: visible ? Math.max(44, importMessage.implicitHeight) : 0
+        visible: root.importing || root.importError.length > 0
+        spacing: 12
+        LV.Label {
+            id: importMessage
+            objectName: "modelImportProgress"
+            Layout.fillWidth: true
+            style: description
+            text: root.importing ? root.importStatus : root.importError
+            textFormat: Text.PlainText
+            wrapMode: Text.WordWrap
+            sizeToContentHeight: true
+            Accessible.role: Accessible.StaticText
+            Accessible.name: text
+        }
+        LV.LabelButton {
+            visible: root.importing
+            text: qsTr("Cancel")
+            onClicked: root.cancelImportRequested()
+        }
+    }
     Controls.ScrollView {
         id: modelsScroll
         objectName: "modelsScroll"
         anchors.fill: parent
+        anchors.topMargin: importBanner.visible ? importBanner.height + root.contentInset * 2 : 0
         contentWidth: availableWidth
         contentHeight: modelsContent.height
         clip: true
@@ -285,7 +309,7 @@ Item {
                         style: caption
                         activeFocusOnTab: true
                         Accessible.role: Accessible.Button
-                        Accessible.name: qsTr("Browse model folders, including uncategorized models")
+                        Accessible.name: qsTr("Browse model type folders")
                         Keys.onReturnPressed: root.browseFoldersRequested()
                         TapHandler { onTapped: root.browseFoldersRequested() }
                     }

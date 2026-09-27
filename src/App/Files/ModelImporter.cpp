@@ -290,6 +290,13 @@ bool ModelImporter::importSources(const QList<ModelImportSource> &sources)
                 }
                 if (cancelled->load())
                     return;
+                if (!content) {
+                    const auto validation = iiSocietyContainer::ModelClassifier::validateSafetensors(actualPath);
+                    if (!validation.isEmpty()) {
+                        result->errors.append(tr("%1: incomplete or invalid model (%2). Download the complete file and try again.").arg(name, validation));
+                        return;
+                    }
+                }
                 const auto canonical = content ? path : input.canonicalFilePath();
                 if (seen.contains(canonical))
                     return;
@@ -344,6 +351,8 @@ bool ModelImporter::importSources(const QList<ModelImportSource> &sources)
                     error = tr("The source changed while it was being copied. Try importing it again.");
                 if (error.isEmpty() && !copy.flush())
                     error = copy.errorString();
+                if (error.isEmpty())
+                    error = iiSocietyContainer::ModelClassifier::validateSafetensors(copy.fileName());
                 if (error.isEmpty() && !drive->isValid())
                     error = tr("The Society drive changed while the model was being copied.");
                 if (error.isEmpty()) {

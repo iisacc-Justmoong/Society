@@ -112,7 +112,7 @@ private slots:
         QCOMPARE(result["output"].toString(), request["output"].toString());
         QCOMPARE(result["cache_dir"].toString(), request["cacheDirectory"].toString());
         QCOMPARE(result["base_weight"].toDouble(), 1.0);
-        QCOMPARE(result["lora_policy"].toString(), QString("strict"));
+        QCOMPARE(result["lora_policy"].toString(), QString("synthetic"));
         QCOMPARE(result["inspection"].toString(), QString("structure-only"));
         QVERIFY(!QFileInfo::exists(request["output"].toString()));
         QVERIFY(!QFileInfo::exists(request["cacheDirectory"].toString()));
@@ -494,7 +494,7 @@ private slots:
         QVERIFY2(done.first().first().toBool(), qPrintable(controller.errorString()));
         const auto report = QJsonDocument::fromJson(controller.details().toUtf8()).object();
         const auto projection = report["common_layers"].toObject()["1"].toObject();
-        QCOMPARE(projection["policy"].toString(), QString("base-layout-normalize-project-flatten-v3"));
+        QCOMPARE(projection["policy"].toString(), QString("base-layout-force-fit-zero-fill-v1"));
         QCOMPARE(projection["transform_counts"].toObject()["flatten-resample"].toInt(), 1);
         QCOMPARE(projection["transform_counts"].toObject()["transpose"].toInt(), 1);
         QCOMPARE(projection["dequantized_tensors"].toInt(), 1);
@@ -586,7 +586,7 @@ private slots:
         QVERIFY(!controller.run(request)); // Repair must never bypass no-clobber publication.
     }
 
-    void rejectsDirectoryOutputsAndExcludesIncompatibleInputs()
+    void rejectsDirectoryOutputsAndFitsCrossFamilyInputs()
     {
         if (!m_hasRuntime) QSKIP("Install the SDK Torch/safetensors environment for real tensor checks.");
         auto request = options("merged-pipeline.safetensors");
@@ -608,22 +608,20 @@ private slots:
         QTRY_COMPARE_WITH_TIMEOUT(done.count(), 1, 20000);
         QVERIFY2(done.first().first().toBool(), qPrintable(controller.errorString()));
         auto report = QJsonDocument::fromJson(controller.details().toUtf8()).object();
-        QCOMPARE(report["checkpoint_policy"].toString(), QString("common-layer"));
-        QCOMPARE(report["included_material_count"].toInt(), 1);
-        QCOMPARE(report["excluded_material_count"].toInt(), 1);
-        QCOMPARE(report["excluded_sources"].toArray().first().toObject()["path"].toString(),
-                 m_fixture.filePath("wrong.safetensors"));
+        QCOMPARE(report["checkpoint_policy"].toString(), QString("base-layout"));
+        QCOMPARE(report["included_material_count"].toInt(), 2);
+        QCOMPARE(report["excluded_material_count"].toInt(), 0);
         QVERIFY(!QFileInfo::exists(request["output"].toString()));
         done.clear(); QVERIFY(controller.run(request, false));
         QTRY_COMPARE_WITH_TIMEOUT(done.count(), 1, 20000);
         QVERIFY2(done.first().first().toBool(), qPrintable(controller.errorString()));
         QVERIFY(QFileInfo(request["output"].toString()).isFile());
-        QVERIFY2(python({"verify-filtered", m_fixture.path(), request["output"].toString()}), qPrintable(m_pythonError));
+        QVERIFY2(python({"verify-forced-checkpoint", m_fixture.path(), request["output"].toString()}), qPrintable(m_pythonError));
         QCOMPARE(bytes(request["baseModel"].toString()), baseBefore);
         QCOMPARE(bytes(m_fixture.filePath("wrong.safetensors")), materialBefore);
     }
 
-    void unmatchedLoraTargetsAreExcludedWhileCompatibleMaterialMerges()
+    void unmatchedLoraTargetsAreFittedWhileOtherMaterialMerges()
     {
         if (!m_hasRuntime) QSKIP("Install the SDK Torch/safetensors environment for real tensor checks.");
         auto request = options("synthetic-lora.safetensors");
@@ -636,11 +634,10 @@ private slots:
         QTRY_COMPARE_WITH_TIMEOUT(done.count(), 1, 20000);
         QVERIFY2(done.first().first().toBool(), qPrintable(controller.errorString()));
         const auto report = QJsonDocument::fromJson(controller.details().toUtf8()).object();
-        QCOMPARE(report["lora_policy"].toString(), QString("strict"));
-        QCOMPARE(report["included_material_count"].toInt(), 1);
-        QCOMPARE(report["excluded_material_count"].toInt(), 1);
-        QVERIFY(report["excluded_sources"].toArray().first().toObject()["reason"].toString().contains("LoRA"));
-        QVERIFY2(python({"verify-filtered", m_fixture.path(), request["output"].toString()}),
+        QCOMPARE(report["lora_policy"].toString(), QString("synthetic"));
+        QCOMPARE(report["included_material_count"].toInt(), 2);
+        QCOMPARE(report["excluded_material_count"].toInt(), 0);
+        QVERIFY2(python({"verify-forced-lora", m_fixture.path(), request["output"].toString()}),
                  qPrintable(m_pythonError));
     }
 
@@ -869,18 +866,27 @@ private slots:
         QVERIFY(tool->property("outputName").toString().isEmpty());
         QTRY_VERIFY_WITH_TIMEOUT(!preview->report().isEmpty() && !preview->busy(), 60000);
         auto *summary = visualItem(tool, "mergePreflightSummary"); QVERIFY(summary);
-        QTRY_VERIFY(summary->property("text").toString().contains("Compatible"));
+        QTRY_VERIFY(summary->property("text").toString().contains("Conditional"));
         auto *structure = visualItem(tool, "mergeBaseStructure"); QVERIFY(structure);
         QVERIFY(structure->property("text").toString().contains("UNet"));
+        auto *method = visualItem(tool, "mergeMethodDescription"); QVERIFY(method);
+        QVERIFY(method->property("text").toString().contains("including different architectures"));
+        QVERIFY(!method->property("text").toString().contains("excluded"));
         QCOMPARE(preview->report().value("resource_compatibility").toList()[0].toMap().value("lora_target_count").toInt(), 1);
         QVERIFY(!QFileInfo::exists(preview->report().value("output").toString()));
         const auto revision = tool->property("previewRevision").toInt();
         QVERIFY(QMetaObject::invokeMethod(tool, "setMaterial", Q_ARG(QVariant, 0),
             Q_ARG(QVariant, m_fixture.filePath("wrong.safetensors")), Q_ARG(QVariant, "1")));
         QVERIFY(tool->property("previewRevision").toInt() > revision);
-        QTRY_VERIFY_WITH_TIMEOUT(summary->property("text").toString().contains("Incompatible"), 60000);
-        QVERIFY(summary->property("text").toString().contains("No effective"));
-        QCOMPARE(preview->report().value("excluded_material_count").toInt(), 1);
+        QVariant description;
+        QVERIFY(QMetaObject::invokeMethod(tool, "materialDescription", Q_RETURN_ARG(QVariant, description),
+            Q_ARG(QVariant, 0), Q_ARG(QVariant, m_fixture.filePath("wrong.safetensors"))));
+        QVERIFY(description.toString().contains("Base-layout fitting"));
+        QVERIFY(!description.toString().contains("excluded"));
+        QTRY_VERIFY_WITH_TIMEOUT(!preview->busy() && preview->report().value("resolved_sources").toStringList().contains(m_fixture.filePath("wrong.safetensors")), 60000);
+        QVERIFY(summary->property("text").toString().contains("0 excluded"));
+        QCOMPARE(preview->report().value("included_material_count").toInt(), 1);
+        QCOMPARE(preview->report().value("excluded_material_count").toInt(), 0);
         const auto screenshot = qEnvironmentVariable("SOCIETY_MERGE_SCREENSHOT");
         if (!screenshot.isEmpty()) { QTest::qWait(250); QVERIFY(window->grabWindow().save(screenshot)); }
         window->resize(360, 640);
@@ -1099,7 +1105,7 @@ private slots:
         QCOMPARE(status->property("text").toString(), controller->status());
         QVERIFY(tool->setProperty("mode", "weighted-sum"));
         QCOMPARE(status->property("text").toString(),
-                 QStringLiteral("Optional inspection has not run. Merge includes only resources compatible with the selected base model and excludes the rest."));
+                 QStringLiteral("Optional inspection has not run. Weighted merge fits readable materials to the base model, including different architectures, and fills missing coordinates. Image quality is not guaranteed."));
         QVERIFY(tool->setProperty("mode", "weighted-difference"));
         const auto result = QJsonDocument::fromJson(controller->details().toUtf8()).object();
         QCOMPARE(result["base_model"].toString(), base);

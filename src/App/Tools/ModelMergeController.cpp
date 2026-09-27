@@ -165,8 +165,8 @@ bool ModelMergeController::run(const QVariantMap &options, bool validateOnly)
     const auto materials = options.value("materials").toList();
     if (materials.isEmpty()) return fail(tr("Add at least one checkpoint or LoRA material."));
     QStringList arguments{"--base-model", base, "--mode", mode,
-                          "--checkpoint-policy", "common-layer",
-                          "--lora-policy", "strict"};
+                          "--checkpoint-policy", mode == "unified" ? "common-layer" : "base-layout",
+                          "--lora-policy", mode == "unified" ? "strict" : "synthetic"};
     for (qsizetype i = 0; i < materials.size(); ++i) {
         auto path = pathFromText(materials[i].toMap().value("path").toString());
         if (QFileInfo(path).isDir() && QFileInfo(path).suffix().compare("iildmodel", Qt::CaseInsensitive) == 0)
@@ -284,14 +284,14 @@ void ModelMergeController::finish(int exitCode, bool crashed)
         m_details = QString::fromUtf8(document.toJson(QJsonDocument::Indented));
         if (m_validationOnly) {
             const auto report = document.object();
-            m_status = tr("Inspection complete. %1 compatible material(s) will be merged; %2 incompatible material(s) will be excluded.")
+            m_status = tr("Inspection complete. %1 material(s) will be fitted to the base; %2 unusable material(s) will be excluded.")
                 .arg(report.value("included_material_count").toInt())
                 .arg(report.value("excluded_material_count").toInt());
         } else {
             m_completedOutput = m_requestedOutput;
             const auto report = document.object();
             const int changed = report.value("changed_tensor_count").toInt(report.value("merged_tensor_count").toInt());
-            m_status = tr("Changed %1 of %2 merged tensors from %3 models; excluded %4 incompatible material(s). Base weight: %5. Equal file size is expected when tensor layouts match.")
+            m_status = tr("Changed %1 of %2 merged tensors from %3 models; excluded %4 unusable material(s). Base weight: %5. Equal file size is expected when tensor layouts match.")
                 .arg(changed)
                 .arg(report.value("merged_tensor_count").toInt())
                 .arg(report.value("sources").toArray().size())

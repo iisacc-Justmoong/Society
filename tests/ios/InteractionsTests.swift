@@ -74,7 +74,7 @@ final class InteractionsTests: XCTestCase {
         let models = society.buttons["Models"].firstMatch
         XCTAssertTrue(models.waitForExistence(timeout: 5)); models.tap()
         let card = society.buttons.matching(NSPredicate(
-            format: "identifier CONTAINS '.modelCardimage' AND NOT (identifier ENDSWITH '.card_menu')")).firstMatch
+            format: "identifier CONTAINS '.modelCardCheckpoint' AND NOT (identifier ENDSWITH '.card_menu')")).firstMatch
         XCTAssertTrue(card.waitForExistence(timeout: 5))
         capture("Installed Models library")
     }
@@ -85,7 +85,7 @@ final class InteractionsTests: XCTestCase {
             NSPredicate(format: "label == %@", selectedModel)).firstMatch
         if !card.isHittable {
             let cards = society.descendants(matching: .any).matching(
-                NSPredicate(format: "identifier ENDSWITH '.modelCardsimage'")).firstMatch
+                NSPredicate(format: "identifier ENDSWITH '.modelCardsCheckpoint'")).firstMatch
             cards.swipeLeft()
         }
         XCTAssertTrue(card.isHittable); card.tap()
@@ -202,8 +202,7 @@ final class InteractionsTests: XCTestCase {
             let toolbarControls = compact ? toolbarIcons
                 : ["dashboardTab", "toolsTab", "storageTab", "browseTab", "environmentTab",
                    "dashboardSearch"] + toolbarIcons
-            for name in ["promptField", "mediaTypeButton", "aspectRatioButton",
-                         "generationCountButton", "generateButton"] + toolbarControls {
+            for name in ["promptField", "mediaTypeButton", "generateButton"] + toolbarControls {
                 let control = society.descendants(matching: .any).matching(
                     NSPredicate(format: "identifier ENDSWITH %@", "." + name)).firstMatch
                 XCTAssertTrue(control.waitForExistence(timeout: 10), name)

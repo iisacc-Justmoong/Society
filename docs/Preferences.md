@@ -3,7 +3,7 @@
 데스크톱 환경설정은 좌측 카테고리와 우측 상세 내용으로 구성한다. macOS 글로벌 메뉴 바의 앱 메뉴
 Preferences… 및 ⌘+,로 열며, 같은 창을 재사용한다. Escape·⌘W·창 닫기로 숨긴다.
 File·Edit·Window·Help는 확장을 위한 빈 메뉴 구조이다. 환경설정과 종료만 연결한다.
-계정 드라이브·연결 관련 기존 설정은 모바일 Environment에 유지한다.
+계정 드라이브·연결 관련 기존 설정은 모바일 Preferences 시트에 유지한다. Environment는 별도의 [기기·앱 관리 페이지](Environment.md)이다.
 
 데스크톱 상단의 **Preferences…** 또는 **⌘+,**(macOS), **Ctrl+,**(Windows/Linux)로 독립 LVRS 설정 창을 연다. 좁은 창에서는 설정 아이콘을 표시하며 Devices의 **Preferences…**도 같은 창을 연다. 창은 최초 요청 때 생성하고 이후에는 기존 창을 활성화한다. Escape, OS 창 닫기로 숨기며 메인 창을 닫으면 함께 닫는다.
 
@@ -13,7 +13,7 @@ File·Edit·Window·Help는 확장을 위한 빈 메뉴 구조이다. 환경설�
 
 Society의 기존 시작 정책은 유지한다. 로그인된 계정에 등록된 호스트 디스크가 있으면 재시작 시 해당 계정 디스크를 우선 복원하며, macOS의 기본 드라이브 복원은 마운트된 Society 디스크를 대상으로 한다. 이 화면은 계정에 등록된 호스트 디스크를 교체하는 기능이 아니다.
 
-모바일 Environment는 `PreferencesContent`를 LVRS 시트로 사용하여 계정의 컨테이너 드라이브 위치, 이동한 디스크 연결, 연결 상태와 **Devices…**를 제공한다. 호스트·클라이언트 역할 선택 항목은 표시하지 않는다.
+모바일 Preferences는 `PreferencesContent`를 LVRS 시트로 사용하여 계정의 컨테이너 드라이브 위치, 이동한 디스크 연결, 연결 상태와 **Devices…**를 제공한다. 호스트·클라이언트 역할 선택 항목은 표시하지 않는다.
 
 기기 역할은 플랫폼으로 고정된다.
 

@@ -99,3 +99,10 @@ Android 카메라는 [ZXing Android Embedded 4.3.0](https://github.com/journeyap
 - Android arm64 Release APK와 Gradle lint가 통과했다. APK의 SocietyActivity 진입점, CAMERA 권한 및 마이크 권한 부재를 확인했다.
 
 로그인 테스트와 실제 휴대폰 카메라로 모니터를 촬영하는 동작은 수행하지 않았다. 위 자동 QR 해독과 파일 전송 검사로 실물 카메라 검증을 대체하지 않는다. 세부 로그·스크린샷은 `build/local-pairing-*.log`, `build/local-pairing-desktop.png`, iPhone 설치 기록은 `build/local-pairing-ios-install.json`에 있다.
+
+## Environment entry points (2026-09-24)
+
+Environment → Devices → Add device opens the existing discovery/server modal.
+Pair with QR code opens the pairing sheet. Browse now navigates connected host
+files and never opens pairing from its main tab. Preferences and onboarding
+retain their existing device actions. See [Environment](Environment.md).

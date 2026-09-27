@@ -12,6 +12,13 @@
 #include <QTest>
 
 namespace {
+QByteArray validModel(const QByteArray &payload)
+{
+    const auto header = QJsonDocument(QJsonObject{{"tensor", QJsonObject{{"dtype", "U8"},
+        {"shape", QJsonArray{payload.size()}}, {"data_offsets", QJsonArray{0, payload.size()}}}}}).toJson(QJsonDocument::Compact);
+    QByteArray bytes(8, '\0'); qToLittleEndian(quint64(header.size()), bytes.data());
+    return bytes + header + payload;
+}
 void writeFile(const QString &path, const QByteArray &bytes)
 {
     QFile file(path);
@@ -41,7 +48,7 @@ private slots:
         QTemporaryDir target(SOCIETY_TEST_DIRECTORY "/model-drive-XXXXXX");
         QVERIFY(source.isValid() && target.isValid());
         QVERIFY(iiSocietyContainer::SocietyDrive::create(target.path()));
-        const QByteArray bytes = QByteArray("model\0data", 10).repeated(350000);
+        const QByteArray bytes = validModel(QByteArray("model\0data", 10).repeated(350000));
         const QStringList names = {"모델 # 100%.safetensor", "weights.v2.SAFETENSORS"};
         QList<QUrl> urls;
         for (const auto &name : names) {
@@ -74,7 +81,7 @@ private slots:
         QTemporaryDir target(SOCIETY_TEST_DIRECTORY "/model-drive-XXXXXX");
         QVERIFY(iiSocietyContainer::SocietyDrive::create(target.path()));
         const auto path = source.filePath("weights.safetensor");
-        writeFile(path, "new weights");
+        writeFile(path, validModel("new weights"));
         writeFile(target.filePath("Models/Other/weights.safetensor"), "existing weights");
         QVERIFY(QDir().mkdir(target.filePath("Models/Other/weights (1).safetensor")));
         ModelImporter importer;
@@ -84,7 +91,7 @@ private slots:
         QTRY_COMPARE(done.size(), 1);
         QVERIFY2(importer.errorString().isEmpty(), qPrintable(importer.errorString()));
         QCOMPARE(readFile(target.filePath("Models/Other/weights.safetensor")), QByteArray("existing weights"));
-        QCOMPARE(readFile(target.filePath("Models/Other/weights (2).safetensor")), QByteArray("new weights"));
+        QCOMPARE(readFile(target.filePath("Models/Other/weights (2).safetensor")), validModel("new weights"));
         QCOMPARE(entries(target.filePath("Models/Other")).size(), 3);
         QVERIFY(importer.importFiles({QUrl::fromLocalFile(target.filePath("Models/Other/weights (2).safetensor"))}));
         QTRY_COMPARE(done.size(), 2);
@@ -117,7 +124,7 @@ private slots:
         QTemporaryDir target(SOCIETY_TEST_DIRECTORY "/model-drive-XXXXXX");
         QVERIFY(iiSocietyContainer::SocietyDrive::create(target.path()));
         const auto path = source.filePath("shared.safetensors");
-        const auto bytes = QByteArray(4 * 1024 * 1024, 'x');
+        const auto bytes = validModel(QByteArray(4 * 1024 * 1024, 'x'));
         writeFile(path, bytes);
         ModelImporter first, second;
         first.setContainerPath(target.path());
@@ -138,6 +145,24 @@ private slots:
         QCOMPARE(entries(target.filePath("Models/Other")).size(), 2);
     }
 
+    void rejectsTruncatedModelsBeforeCopying()
+    {
+        QTemporaryDir source(SOCIETY_TEST_DIRECTORY "/truncated-source-XXXXXX");
+        QTemporaryDir target(SOCIETY_TEST_DIRECTORY "/truncated-drive-XXXXXX");
+        QVERIFY(iiSocietyContainer::SocietyDrive::create(target.path()));
+        const auto path = source.filePath("incomplete.safetensors");
+        const auto bytes = validModel(QByteArray(1024, 'x')).chopped(512);
+        writeFile(path, bytes);
+        ModelImporter importer;
+        importer.setContainerPath(target.path());
+        QSignalSpy done(&importer, &ModelImporter::finished);
+        QVERIFY(importer.importFiles({QUrl::fromLocalFile(path)}));
+        QTRY_COMPARE(done.size(), 1);
+        QVERIFY(importer.errorString().contains("Download the complete file"));
+        QVERIFY(done.first().at(1).toStringList().isEmpty());
+        QVERIFY(entries(target.filePath("Models/Other")).isEmpty());
+        QCOMPARE(readFile(path), bytes);
+    }
     void rejectsMissingSourcesAndRedirectedModels()
     {
         QTemporaryDir source(SOCIETY_TEST_DIRECTORY "/model-source-XXXXXX");

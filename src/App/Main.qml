@@ -252,7 +252,7 @@ LV.ApplicationWindow {
         id: mobileEnvironment
         objectName: "mobileEnvironment"
         parent: Controls.Overlay.overlay
-        title: qsTr("Environment")
+        title: qsTr("Preferences")
         presentation: LV.Sheet.Mobile
         detent: LV.Sheet.Large
         scrollContent: false
@@ -342,6 +342,8 @@ LV.ApplicationWindow {
             navigation: storageNavigation
             modelImporter: root.storageImporter
             files: dashboardFiles
+            network: networkDrive
+            account: session
             desktop: !root.mobileLayout
             toolbarLeadingInset: root.nativeTitleBarControlsRect.width > 0
                 ? root.nativeTitleBarControlsRect.x + root.nativeTitleBarControlsRect.width : 0
@@ -355,7 +357,11 @@ LV.ApplicationWindow {
                 if (tab === "Storage") root.showStorage("files")
                 else root.selectedTab = tab
             }
-            onDevicesRequested: root.openDevices()
+            onDevicesRequested: { root.selectedTab = "Environment"; societyView.showEnvironmentDevices() }
+            onAddDeviceRequested: root.openDevices()
+            onPairingRequested: pairingPanel.open()
+            onBrowseDeviceRequested: (id, name, peerId) => { root.selectedTab = "Browse"; networkDrive.browse(peerId) }
+            onNoticeRequested: (title, message) => root.showNotice(title, message)
             onPreferencesRequested: root.openPreferences()
             onAccountRequested: root.openAccount()
             onChooseContainerRequested: folderDialog.open()
@@ -370,7 +376,7 @@ LV.ApplicationWindow {
             }
             onGenerateRequested: function(prompt, mediaType, aspectRatio, count) {
                 root.generateRequested(prompt, mediaType, aspectRatio, count)
-                root.showNotice(qsTr("Generate"), qsTr("No generation provider is connected to Society yet. Your prompt, aspect ratio, and image count remain in this window."))
+                root.showNotice(qsTr("Generate"), qsTr("No generation provider is connected to Society yet. Your prompt and selected media type remain in this window."))
             }
         }
     ]

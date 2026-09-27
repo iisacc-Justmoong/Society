@@ -110,7 +110,8 @@ Item {
         const entries = previewReport.resource_compatibility || [];
         const entry = entries.find(item => item.source_index === index + 1);
         if (!entry)
-            return modelCatalog.compatibilityDescription(baseModel, path);
+            return mode === "unified" ? modelCatalog.compatibilityDescription(baseModel, path)
+                : modelCatalog.ecosystemDescription(path) + " · " + qsTr("Base-layout fitting · checking readable coordinates");
         let description = compatibilityLabel(entry.status) + " · " + entry.reason;
         description += "\n" + componentSummary(entry.profile);
         if (entry.kind === "lora") {
@@ -351,7 +352,7 @@ Item {
                     style: title
                 }
                 MergeCopy {
-                    text: qsTr("Create a new model from compatible checkpoints and LoRAs.")
+                    text: qsTr("Create a new model from checkpoints and LoRAs using the base model's layout.")
                     lineHeight: LV.Theme.textBodyLineHeight
                 }
             }
@@ -540,10 +541,11 @@ Item {
                             }
                         }
                         LV.Label {
+                            objectName: "mergeMethodDescription"
                             Layout.fillWidth: true
                             text: root.mode === "unified"
                                 ? qsTr("Unified packages independent models for sequential image refinement. It is not conversion into one network. Resources are checked against the selected base ecosystem.")
-                                : qsTr("Blend weights in the base tensor layout. Same-ecosystem shape differences are fitted experimentally; unmatched layers retain the base and incompatible resources are excluded.")
+                                : qsTr("Fit readable checkpoints and LoRAs to the base model's tensor layout, including different architectures. Missing coordinates are filled deterministically; runtime state follows the base.")
                             wrapMode: Text.WordWrap
                             sizeToContentHeight: true
                             style: caption
@@ -728,7 +730,7 @@ Item {
                             text: !mergeController.supported ? qsTr("Model merging is available on desktop.")
                                 : mergeController.busy || (root.hasSubmitted && root.requestCurrent) ? mergeController.status
                                 : root.preflight.status ? qsTr("Structural preview is ready. Numeric repairs and saved-output verification run during the merge.")
-                                : qsTr("Optional inspection has not run. Merge includes only resources compatible with the selected base model and excludes the rest.")
+                                : qsTr("Optional inspection has not run. Weighted merge fits readable materials to the base model, including different architectures, and fills missing coordinates. Image quality is not guaranteed.")
                         }
                         LV.LabelButton {
                             objectName: "mergeValidate"

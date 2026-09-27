@@ -128,8 +128,10 @@ if(NOT CMAKE_CROSSCOMPILING)
             COMPILE_DEFINITIONS "SOCIETY_MODEL_MERGE_EXECUTABLE=\"${SOCIETY_MODEL_MERGE_EXECUTABLE}\"")
     endif()
 endif()
+set(society_environment_sources src/App/Environment/EnvironmentAppsModel.cpp src/App/Environment/EnvironmentAppsModel.h)
 set(society_calendar_sources src/App/Dashboard/DashboardCalendar.cpp src/App/Dashboard/DashboardCalendar.h)
 qt_add_executable(Society
+    ${society_environment_sources}
     ${society_calendar_sources}
     ${society_model_merge_sources}
     src/main.cpp ${society_account_sources} ${society_pairing_sources} src/App/Files/DirectoryLocation.cpp src/App/Files/DirectoryLocation.h
@@ -162,14 +164,21 @@ qt_add_qml_module(Society
         src/App/Preferences/PreferencesWindow.qml src/App/Preferences/PreferencesContent.qml
         src/App/Tools/ModelMergeTool.qml src/App/Tools/MergePathField.qml src/App/Tools/MergeModelPicker.qml
         src/App/Tools/ToolsView.qml src/App/Tools/ToolCard.qml
+        src/App/Environment/EnvironmentView.qml src/App/Environment/EnvironmentApps.qml
+        src/App/Environment/EnvironmentCard.qml src/App/Environment/EnvironmentBadge.qml src/App/Environment/EnvironmentButton.qml
+        src/App/Environment/EnvironmentRow.qml src/App/Environment/EnvironmentSection.qml
+        src/App/Network/BrowseView.qml
     RESOURCES
+        src/App/Dashboard/Assets/media-chevron.svg
+        src/App/Environment/icons/home.svg src/App/Environment/icons/device.svg
+        src/App/Environment/icons/application.svg src/App/Environment/icons/folder.svg
         src/App/Dashboard/icons/home.svg src/App/Dashboard/icons/projects.svg
         src/App/Dashboard/icons/calendar.svg src/App/Dashboard/icons/activity.svg
         src/App/Dashboard/icons/people.svg src/App/Dashboard/icons/guild.svg
         src/App/Dashboard/icons/organization.svg
 )
 society_add_photo_qml(Society)
-target_include_directories(Society PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src/App/Models")
+target_include_directories(Society PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src/App/Models" "${CMAKE_CURRENT_SOURCE_DIR}/src/App/Environment")
 # Shared Qt resolves QML plugins at runtime; avoid recursively scanning build/
 # (including archived app bundles) on every desktop reconfiguration.
 get_target_property(society_qt_core_type Qt6::Core TYPE)
@@ -541,7 +550,7 @@ if(BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)
     add_test(NAME Society.Calendar COMMAND SocietyCalendarTests)
     set_tests_properties(Society.Calendar PROPERTIES TIMEOUT 60)
 
-    qt_add_executable(SocietyDriveTests tests/tst_drive.cpp ${society_calendar_sources} ${society_model_merge_sources}
+    qt_add_executable(SocietyDriveTests tests/tst_drive.cpp ${society_environment_sources} ${society_calendar_sources} ${society_model_merge_sources}
         ${society_pairing_sources}
         src/App/Models/StorageModels.cpp src/App/Models/StorageModels.h
         src/App/Dashboard/DashboardFiles.cpp src/App/Dashboard/DashboardFiles.h

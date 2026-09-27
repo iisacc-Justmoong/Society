@@ -8,6 +8,8 @@ import Society
 import "Dashboard"
 import "Tools"
 import "Drive"
+import "Environment"
+import "Network"
 
 LV.VStack {
     id: root
@@ -17,6 +19,13 @@ LV.VStack {
     required property ModelImporter modelImporter
     required property DashboardFiles files
     required property bool desktop
+    required property NetworkDriveController network
+    required property AccountController account
+    function showEnvironmentDevices() { environment.showDevices() }
+    signal addDeviceRequested()
+    signal pairingRequested()
+    signal browseDeviceRequested(string id, string name, string peerId)
+    signal noticeRequested(string title, string message)
     property bool hostModeAvailable: false
     property bool signedIn: false
     property string deviceStatus: ""
@@ -106,14 +115,16 @@ LV.VStack {
                     LV.LabelButton {
                         objectName: "browseTab"
                         text: qsTr("Browse")
-                        tone: LV.AbstractButton.Borderless
-                        onClicked: root.devicesRequested()
+                        tone: root.selectedTab === "Browse" ? LV.AbstractButton.Default : LV.AbstractButton.Borderless
+                        Accessible.selected: root.selectedTab === "Browse"
+                        onClicked: root.tabRequested("Browse")
                     }
                     LV.LabelButton {
                         objectName: "environmentTab"
                         text: qsTr("Environment")
-                        tone: LV.AbstractButton.Borderless
-                        onClicked: root.preferencesRequested()
+                        tone: root.selectedTab === "Environment" ? LV.AbstractButton.Default : LV.AbstractButton.Borderless
+                        Accessible.selected: root.selectedTab === "Environment"
+                        onClicked: root.tabRequested("Environment")
                     }
                 }
             }
@@ -247,6 +258,28 @@ LV.VStack {
                 root.generateRequested(prompt, mediaType, aspectRatio, count)
             }
         }
+        EnvironmentView {
+            id: environment
+            anchors.fill: parent
+            visible: root.selectedTab === "Environment"
+            navigation: root.navigation
+            drive: root.drive
+            network: root.network
+            account: root.account
+            onAddDeviceRequested: root.addDeviceRequested()
+            onPairingRequested: root.pairingRequested()
+            onPreferencesRequested: root.preferencesRequested()
+            onAccountRequested: root.accountRequested()
+            onSocietyRequested: root.tabRequested("Dashboard")
+            onBrowseDeviceRequested: (id, name, peerId) => root.browseDeviceRequested(id, name, peerId)
+            onNoticeRequested: (title, message) => root.noticeRequested(title, message)
+        }
+        BrowseView {
+            anchors.fill: parent
+            visible: root.selectedTab === "Browse"
+            network: root.network
+            onDevicesRequested: { root.tabRequested("Environment"); environment.showDevices() }
+        }
         StorageView {
             id: storage
             anchors.fill: parent
@@ -276,20 +309,18 @@ LV.VStack {
         // Main places SocietyView inside the system safe area already.
         bottomSafeInset: 0
         autoSelect: false
-        currentIndex: root.selectedTab === "Tools" ? 1 : root.selectedTab === "Storage" ? 2 : 0
+        currentIndex: ["Dashboard", "Tools", "Storage", "Browse", "Environment"].indexOf(root.selectedTab)
         model: [
             { key: "Dashboard", text: qsTr("Home"), accessibleName: qsTr("Dashboard"), iconName: "home", objectName: "mobileDashboardTab", labelObjectName: "mobileDashboardLabel" },
             { key: "Tools", text: qsTr("Tools"), iconName: "toolwindowbuild", objectName: "mobileToolsTab", labelObjectName: "mobileToolsLabel" },
             { key: "Storage", text: qsTr("Storage"), iconName: "nodesfolder", objectName: "mobileStorageTab", labelObjectName: "mobileStorageLabel" },
             { key: "Browse", text: qsTr("Browse"), iconName: "RemoteChanges", objectName: "mobileBrowseTab", labelObjectName: "mobileBrowseLabel" },
-            { key: "Environment", text: qsTr("Settings"), accessibleName: qsTr("Environment"), iconName: "generalsettings", objectName: "mobileEnvironmentTab", labelObjectName: "mobileEnvironmentLabel" }
+            { key: "Environment", text: root.width < 440 ? qsTr("Env.") : qsTr("Environment"), accessibleName: qsTr("Environment"), iconName: "generalsettings", objectName: "mobileEnvironmentTab", labelObjectName: "mobileEnvironmentLabel" }
         ]
         onActivated: function(index) {
             root.platformInputMethod.hide()
             const key = model[index].key
-            if (key === "Browse") root.devicesRequested()
-            else if (key === "Environment") root.preferencesRequested()
-            else root.tabRequested(key)
+            root.tabRequested(key)
         }
     }
 

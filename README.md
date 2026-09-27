@@ -25,7 +25,7 @@ Sign in 버튼에서 이메일·비밀번호만으로 바로 로그인한다. �
 로그인에는 릴레이 주소가 필요하지 않다. [인증 흐름·기기 식별·검증 범위](docs/Account.md)를 참고한다.
 
 데스크톱은 [Figma 대시보드](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=18-14)를 `LV.ApplicationWindow`의 `content` 슬롯에 `SocietyView`로 배치하며, LVRS 기본 창 프레임과 창 제어를 사용한다.
-상단 탭은 **Dashboard → Tools → Storage → Browse → Environment** 순서이다. **Tools**에서 iiLocalDiffusion 기반 [모델 합·차 병합 도구](docs/ModelMerge.md)를 사용하며, 컨테이너 `Models/`의 드롭다운·컨텍스트 메뉴에서 베이스·추가 체크포인트/LoRA를 선택한다. 가중치·출력·캐시·Python 환경과 설정 검증을 제공한다. **Storage**는 기존 Society 드라이브를 연다. 탭을 오가도 병합 설정, 현재 폴더와 프롬프트가 유지된다.
+상단 탭은 **Dashboard → Tools → Storage → Browse → Environment** 순서이다. **Tools**에서 iiLocalDiffusion 기반 [모델 합·차 병합 도구](docs/ModelMerge.md)를 사용하며, 컨테이너 `Models/`의 드롭다운·컨텍스트 메뉴에서 베이스·추가 체크포인트/LoRA를 선택한다. 가중치·출력·캐시·Python 환경과 설정 검증을 제공한다. **Storage**는 기존 Society 드라이브를 연다. **Browse**는 연결된 기기의 파일을 탐색한다. **Environment**는 [Overview·Devices·Apps 및 네 개 앱 컬렉션](docs/Environment.md)을 표시한다. 기기 페어링 모달은 Environment → Devices → Add device에서 연다. 탭을 오가도 병합 설정, 현재 폴더와 프롬프트가 유지된다.
 실제 최근 파일·생성 이력, 화면 구성과 동작 범위는 [Dashboard 문서](docs/Dashboard.md)에 정리했다.
 Storage 사이드바는 My storage·Other devices·Guild·Organization 네 그룹이며, 실제 기기 목록·계정별 탐색 객체·빈 상태와 스크롤 동작은 [Storage 탐색 문서](docs/StorageNavigation.md)에 정리했다.
 Storage → Photos는 [기기 사진 보관함과 양방향으로 연결](docs/Photos.md)하며 사진·비디오의 alias, 직접 저장한 프리뷰, 인증된 원본 전송을 제공한다.
