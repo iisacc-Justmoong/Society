@@ -21,7 +21,7 @@ Rectangle {
         required property string title
         required property var entries
         required property string emptyText
-        spacing: 8
+        spacing: 0
         Layout.fillWidth: true
         LV.Label {
             objectName: root.objectNamePrefix + "storageHeading" + group.key
@@ -42,6 +42,11 @@ Rectangle {
                 type: LV.ListItem.Navigation
                 label: modelData.name
                 iconName: modelData.icon
+                leadingComponent: group.key === "storage" && modelData.id === "files" ? filesIcon : null
+                iconSource: group.key === "storage" && modelData.id === "generation-history"
+                    ? Qt.resolvedUrl("icons/generation-history.svg")
+                    : group.key === "storage" && modelData.id === "published"
+                        ? Qt.resolvedUrl("icons/published.svg") : ""
                 detail: ""
                 description: ""
                 showDescription: false
@@ -73,6 +78,27 @@ Rectangle {
             text: group.emptyText
             textFormat: Text.PlainText
             verticalAlignment: Text.AlignVCenter
+        }
+    }
+
+    Component {
+        id: filesIcon
+        Item {
+            objectName: "storageFilesIconSlot"
+            implicitWidth: 18
+            implicitHeight: 18
+            Image {
+                objectName: "storageFilesIcon"
+                // Figma's Database artwork sits inside the 18 px leading slot.
+                x: 2.3125
+                y: 1.1875
+                width: 13.375
+                height: 15.6659
+                source: Qt.resolvedUrl("icons/files.svg")
+                sourceSize.width: Math.ceil(width * Screen.devicePixelRatio * LV.RenderQuality.effectiveSupersampleScaleValue)
+                sourceSize.height: Math.ceil(height * Screen.devicePixelRatio * LV.RenderQuality.effectiveSupersampleScaleValue)
+                smooth: true
+            }
         }
     }
 

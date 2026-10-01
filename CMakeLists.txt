@@ -14,6 +14,7 @@ endif()
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+include(cmake/SdkHeaders.cmake)
 
 if(CMAKE_CROSSCOMPILING)
     if(NOT DEFINED LVRS_DIR OR NOT EXISTS "${LVRS_DIR}/LVRSConfig.cmake")
@@ -169,6 +170,7 @@ qt_add_qml_module(Society
         src/App/Environment/EnvironmentRow.qml src/App/Environment/EnvironmentSection.qml
         src/App/Network/BrowseView.qml
     RESOURCES
+        src/App/Drive/icons/files.svg src/App/Drive/icons/generation-history.svg src/App/Drive/icons/published.svg
         src/App/Dashboard/Assets/media-chevron.svg
         src/App/Environment/icons/home.svg src/App/Environment/icons/device.svg
         src/App/Environment/icons/application.svg src/App/Environment/icons/folder.svg
@@ -416,6 +418,8 @@ if(BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)
     endif()
     add_test(NAME Society.IosBuildContract COMMAND "${Python3_EXECUTABLE}" -B
         "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_ios_build.py")
+    add_test(NAME Society.SdkHeaderDependencies COMMAND "${Python3_EXECUTABLE}" -B
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_sdk_header_dependencies.py")
     add_test(NAME Society.AppIcons COMMAND "${Python3_EXECUTABLE}" -B
         "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_app_icons.py")
     add_test(NAME Society.AndroidTlsBuild COMMAND "${Python3_EXECUTABLE}" -B
@@ -571,6 +575,17 @@ if(BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)
         SOCIETY_LVRS_QML_IMPORT_PATH="${LVRS_QML_IMPORT_PATH}"
         SOCIETY_TEST_DIRECTORY="${CMAKE_CURRENT_BINARY_DIR}")
     add_test(NAME Society.Drive COMMAND SocietyDriveTests)
+    add_test(NAME Society.MobileOfflineShell COMMAND SocietyDriveTests
+        mobileShellOpensWithoutAccountContainerOrHost)
+    set_tests_properties(Society.MobileOfflineShell PROPERTIES TIMEOUT 90
+        ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software;QML_DISABLE_DISK_CACHE=1")
+    add_test(NAME Society.QuickGenerate COMMAND SocietyDriveTests
+        quickGenerateUsesLvrsComposer mobileViewsShareDesktopContentAndKeepState
+        dashboardKeepsStorageAndPromptState)
+    set_tests_properties(Society.QuickGenerate PROPERTIES
+        ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software;QML_DISABLE_DISK_CACHE=1"
+        TIMEOUT 180)
+
     add_test(NAME Society.PhotosNavigation COMMAND SocietyDriveTests
         filesStartEmptyAndPhotosShowsImagesAndVideos mobileStorageKeepsSectionsActionsAndGalleryReachable)
     set_tests_properties(Society.PhotosNavigation PROPERTIES TIMEOUT 120

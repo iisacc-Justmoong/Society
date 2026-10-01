@@ -199,7 +199,7 @@ LV.HStack {
                                         filename: modelData.name
                                         description: modelData.description || ""
                                         metadata: modelData.dateText
-                                        previewSource: modelData.previewSource || ""
+                                        previewSource: modelData.thumbnailSource || modelData.previewSource || ""
                                         selectable: false
                                         showMenu: hovered || visualFocus
                                         onClicked: {

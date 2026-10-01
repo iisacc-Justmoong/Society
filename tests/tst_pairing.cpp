@@ -141,6 +141,7 @@ private slots:
         announce.start();
         QTRY_VERIFY_WITH_TIMEOUT(host.discovery()->authenticated() && phone.discovery()->authenticated(), 5000);
         QTRY_VERIFY_WITH_TIMEOUT(phone.connected(), 15000);
+        QTRY_VERIFY(!fixture.clientAccount->savedHostConnection().value("routes").toArray().isEmpty());
         QTRY_VERIFY_WITH_TIMEOUT(phone.hostConnectionReady(), 15000);
         QCOMPARE(iiSocietyContainer::SocietyDrive::open(mirror.path())->identifier(),
                  iiSocietyContainer::SocietyDrive::open(fixture.container.path())->identifier());
@@ -150,7 +151,27 @@ private slots:
         QTRY_COMPARE_WITH_TIMEOUT(phone.synchronizationStatus(), QString("Container sync is waiting to retry."), 10000);
         QVERIFY(phone.hostConnectionReady()); // A content synchronization error is not lost host authentication.
         operation.unlock();
-        phone.disconnectSession(); QVERIFY(!phone.hostConnectionReady());
+        QTRY_VERIFY(!fixture.clientAccount->savedHostConnection().value("routes").toArray().isEmpty());
+        announce.stop();
+        phone.setRuntimeEnabled(false); QVERIFY(!phone.hostConnectionReady());
+        host.pauseAutomaticPairing(false);
+        FakeDiscoveryService restartedDiscovery;
+        MobileNetworkDevice restarted(&restartedDiscovery, QHostAddress::LocalHost);
+        restarted.setContainerPath(mirror.path()); restarted.setAccountSession(fixture.clientAccount.get());
+        QTRY_VERIFY(restarted.workspaceReady());
+        QVERIFY(!restarted.connected()); // Cached workspace readiness is not fake connectivity.
+        QVERIFY(!restarted.hostConnectionReady());
+        QVERIFY(restarted.reconnecting());
+        restarted.synchronizeNow(); QTest::qWait(100);
+        QVERIFY(restarted.reconnecting()); // File sync busy pulses never toggle Retry.
+        host.resumeAutomaticPairing();
+        // No DNS-SD announcements: the encrypted saved route initiates recovery.
+        QTRY_VERIFY_WITH_TIMEOUT(restarted.connected(), 10000);
+        QTRY_VERIFY_WITH_TIMEOUT(restarted.hostConnectionReady(), 10000);
+        QVERIFY(!restarted.reconnecting());
+        restarted.disconnectSession(); QVERIFY(!restarted.hostConnectionReady());
+        QVERIFY(restarted.workspaceReady());
+        QVERIFY(!restarted.reconnecting());
     }
     void automaticQueuePairsSeveralDevicesAndSurvivesPanelClosing() {
         FakeDiscoveryService a, b, c;

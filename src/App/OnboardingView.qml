@@ -73,7 +73,7 @@ LV.VStack {
                 LV.Label {
                     Layout.fillWidth: true
                     text: root.client
-                        ? qsTr("Keep Society open on your desktop and sign in to the same iisacc account. Connect over the same Wi-Fi or LAN, or through your Society server. Your workspace opens after the host connection and container are verified.")
+                        ? qsTr("Sign in to the same iisacc account as your desktop. Society saves the verified host and reconnects automatically. After the first setup, your saved workspace opens while the connection resumes.")
                         : qsTr("Create a Society disk in a folder you choose, or select an existing disk to reconnect it. Keep its storage connected while using Society.")
                     style: body
                     color: LV.Theme.descriptionColor
@@ -115,9 +115,9 @@ LV.VStack {
                     Layout.fillWidth: true
                     Layout.minimumHeight: 44
                     text: !root.network.signedIn ? qsTr("Sign in to connect")
-                        : root.network.synchronizing ? qsTr("Verifying host container…") : qsTr("Retry host connection")
+                        : root.network.reconnecting ? qsTr("Connecting to host…") : qsTr("Retry host connection")
                     tone: LV.AbstractButton.Primary
-                    enabled: !root.working && !root.network.authBusy && !root.network.synchronizing
+                    enabled: !root.working && !root.network.authBusy && !root.network.reconnecting
                     onClicked: root.retryConnection()
                 }
                 LV.LabelButton {

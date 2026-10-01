@@ -30,6 +30,10 @@ NetworkDriveController::NetworkDriveController(Mode deviceMode, DiscoveryService
       m_automatic(&m_nearby, &m_local, [this] { return startLocalHost(true); },
           [this](const QString &link) { return joinLocalHost(link, true); }, [this] { stopTransport(); }),
       m_localBindAddress(bindAddress), m_mode(deviceMode) {
+    connect(this, &NetworkDriveController::stateChanged, this, &NetworkDriveController::connectionChanged);
+    connect(this, &NetworkDriveController::discoveryChanged, this, &NetworkDriveController::connectionChanged);
+    connect(this, &NetworkDriveController::synchronizationChanged, this, &NetworkDriveController::connectionChanged);
+    connect(this, &NetworkDriveController::authChanged, this, &NetworkDriveController::connectionChanged);
     m_local.setPairingAuthentication(
         [this](const QByteArray &context) { return pairingAuthenticated() ? SocietyPairingCredentials::sign(m_account->pairingCredentials(), context) : QJsonObject{}; },
         [this](const QByteArray &context, const QJsonObject &proof) { return pairingAuthenticated() && SocietyPairingCredentials::verify(m_account->pairingCredentials(), context, proof); });
@@ -77,6 +81,7 @@ NetworkDriveController::NetworkDriveController(Mode deviceMode, DiscoveryService
         // Uploading the phone's photo backlog must not keep onboarding open.
         if (!hostModeAvailable() && signedIn() && connected() && m_syncHosts.contains(peer)) {
             m_validatedHost = peer;
+            m_account->rememberHostConnection(peer, accountContainer(), m_nearby.connectionHints(peer));
             refreshContainerState();
             emit synchronizationChanged();
         }
@@ -85,6 +90,8 @@ NetworkDriveController::NetworkDriveController(Mode deviceMode, DiscoveryService
         // A completed round also refreshes the authenticated host milestone.
         if (!hostModeAvailable() && signedIn() && connected() && m_syncHosts.contains(peer))
             m_validatedHost = peer;
+        if (!m_validatedHost.isEmpty() && m_account)
+            m_account->rememberHostConnection(m_validatedHost, accountContainer(), m_nearby.connectionHints(m_validatedHost));
         m_photos->refresh();
         if (!hostModeAvailable()) refreshContainerState();
         QTimer::singleShot(0, this, &NetworkDriveController::finishBackgroundActivityIfIdle);
@@ -130,6 +137,8 @@ NetworkDriveController::NetworkDriveController(Mode deviceMode, DiscoveryService
                 if (row.value("id").toString() == id) { name = row.value("name").toString(); kind = row.value("kind").toString(); break; }
             }
             m_account->rememberPairedDevice(id, name, kind);
+            if (!m_local.hosting())
+                m_account->rememberHostConnection(id, accountContainer(), m_nearby.connectionHints(id));
         }
         if (m_automatic.enabled() && !m_local.hosting()) browse(id);
         updateDiscovery();
@@ -370,6 +379,10 @@ void NetworkDriveController::updateDiscovery() {
     m_nearby.setCredentials(credentials, hostModeAvailable() && primary == device.value("id").toString()
         && accountContainer() == ([this] { const auto drive = iiSocietyContainer::SocietyDrive::open(m_container); return drive ? drive->identifier() : QString(); })()
         && m_mirror.isEmpty() && !m_container.isEmpty() && m_automatic.enabled(), primary);
+    const auto saved = m_account->savedHostConnection();
+    if (!hostModeAvailable() && m_automatic.enabled() && !connected())
+        m_nearby.resumeHost(primary, saved.value("routes").toArray());
+    else m_nearby.resumeHost({}, {});
     updateSynchronization();
 }
 void NetworkDriveController::updateSynchronization() {
@@ -457,6 +470,12 @@ bool NetworkDriveController::hostConnectionReady() const {
     return hostModeAvailable() || (m_runtimeEnabled && !m_suspended && signedIn() && connected()
         && containerReady() && !m_validatedHost.isEmpty() && m_syncHosts.contains(m_validatedHost)
         && m_validatedHost == m_mirror.value("host").toString());
+}
+bool NetworkDriveController::reconnecting() const {
+    // Replication's per-file busy pulses are not connection attempts.
+    return !hostModeAvailable() && m_runtimeEnabled && !m_suspended && signedIn()
+        && automaticPairingEnabled() && !hostConnectionReady()
+        && (pairingAuthenticated() || !m_relayUrl.isEmpty());
 }
 QString NetworkDriveController::synchronizationStatus() const {
     if (!signedIn()) return tr("Sign in to connect to your account's Society host.");

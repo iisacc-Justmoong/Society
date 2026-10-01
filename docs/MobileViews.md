@@ -23,7 +23,7 @@ LVRS ApplicationWindow의 상하좌우 시스템 안전 영역 안에 콘텐츠�
 
 새 외부 의존성은 추가하지 않는다. LVRS Tabs 페이지를 구현한 `MobileTabBar`·`MobileTab`과 기존 입력·카드·시트·접근성 계약을 사용한다. Main이 시스템 안전 영역을 이미 적용하므로 탭바의 `bottomSafeInset`은 0으로 둔다. 선택·키보드 탐색·터치 영역과 플랫폼별 탭바 모양은 LVRS가 담당하고 Society는 목적지와 화면·패널 연결을 담당한다.
 
-Dashboard 본문의 크기는 Qt의 논리 px를 기준으로 한다. Tools 탭 최상단의 QuickGenerate는 Figma Dreamscapes/Home `79:3435`와 같은 LVRS 컴포저이다. 패널 높이는 126px, 바깥 여백은 10px이며 입력·유형 선택·Generate는 44px이다. 16px 반경과 LVRS 색상·Pretendard Medium 13px을 사용한다. 이미지 업로드·모델·화면비·생성 개수·More·Upgrade 없이 Image/Video 선택, 프롬프트와 Generate만 제공한다. Figma 화살표 SVG는 `Dashboard/Assets/media-chevron.svg`에 원본으로 포함한다. Retina 배율은 Qt가 처리한다.
+Dashboard 본문의 크기는 Qt 논리 px를 기준으로 한다. Tools 탭 QuickGenerate는 Figma Dreamscapes `203:6930`의 compact 배치로 복원하였다. 위쪽 전체 폭 Prompt 입력란과 8px 아래의 Image·화면비·수량 선택 및 오른쪽 Generate로 구성한다. LVRS 입력과 버튼 높이는 22px, 콘텐츠는 52px, 바깥 여백을 포함한 높이는 72px이다. 원본 18×18 SVG를 세 드롭다운에 사용하며 LVRS 재질·Pretendard Medium 13px을 유지한다. 기본 Image/1:1/1개와 기존 Image/Video 요청·초안 보존 계약은 유지한다. `quickGenerateUsesLvrsComposer`는 320·390·960px와 Figma 원본 콘텐츠 폭 1152px에서 compact 배치, 아이콘, 비율·수량 선택, 마우스·터치 제출을 검증한다.
 
 선택한 미디어 유형과 프롬프트는 Tools 이동·크기 변경 후에도 유지한다. Generate와 Enter는 기존 `generateRequested(prompt, mediaType, aspectRatio, count)`로 전달하며 신규 입력의 내부 기본값은 1:1, 1개이다. Society의 생성 공급자는 아직 연결되지 않았으므로 완료를 가장하지 않고 기존 안내를 표시한다. `quickGenerateUsesLvrsComposer`는 320·390·960px 배치와 터치 제출을, `dashboardKeepsStorageAndPromptState`는 Tools 통합과 Video 선택 보존을 검사한다.
 

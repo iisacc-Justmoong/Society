@@ -49,7 +49,7 @@ Item {
         if (!directoryModel || index < 0 || index >= directoryModel.count) return
         grid.currentIndex = index
         info.fileName = directoryModel.get(index, "fileName")
-        info.preview = directoryModel.get(index, "filePreviewUrl")
+        info.preview = directoryModel.get(index, "fileThumbnailUrl")
         info.fields = [
             { label: qsTr("Availability"), value: directoryModel.get(index, "fileResident") ? qsTr("On this device") : qsTr("Download when opened") },
             { label: qsTr("Size"), value: info.formatSize(directoryModel.get(index, "fileSize")) },
@@ -301,6 +301,7 @@ Item {
                     required property string filePath
                     required property url fileUrl
                     required property url filePreviewUrl
+                    required property url fileThumbnailUrl
                     required property bool fileResident
                     required property string fileSuffix
                     required property bool fileIsDir
@@ -326,7 +327,7 @@ Item {
                         // Old rows can outlive the Files → gallery filter change.
                         preview: root.imagesOnly && !entry.fileIsDir
                                  && ["png", "jpg", "jpeg", "webp"].includes(entry.fileSuffix.toLowerCase())
-                                 ? entry.filePreviewUrl : ""
+                                 ? entry.fileThumbnailUrl : ""
                         previewObjectName: "galleryThumbnail"
                         selected: grid.currentIndex === entry.index
                         onClicked: if (!fileMenu.visible) root.showInformation(entry.index)
@@ -385,7 +386,7 @@ Item {
                                     anchors.fill: parent
                                     source: !root.imagesOnly && !entry.fileIsDir
                                             && /^(png|jpe?g|webp|gif|bmp|svg)$/i.test(entry.fileSuffix)
-                                            ? entry.filePreviewUrl : ""
+                                            ? entry.fileThumbnailUrl : ""
                                     sourceSize: Qt.size(256, 256)
                                     asynchronous: true
                                     autoTransform: true

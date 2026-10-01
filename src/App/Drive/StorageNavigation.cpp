@@ -35,10 +35,10 @@ StorageNavigation::StorageNavigation(QObject *parent) : QObject(parent) {
     using iiSocietyContainer::StoreSection;
     struct Definition { StoreSection section; const char *label; const char *icon; };
     const QList<Definition> order{
-        {StoreSection::Files, QT_TR_NOOP("Files"), "nodesfolder"},
+        {StoreSection::Files, QT_TR_NOOP("Files"), "database"},
         {StoreSection::Photos, QT_TR_NOOP("Photos"), "fileTypesimage"},
         {StoreSection::AssetLibrary, QT_TR_NOOP("Asset Library"), "nodesfolder"},
-        {StoreSection::GenerationHistory, QT_TR_NOOP("Generation History"), "fileTypesimage"},
+        {StoreSection::GenerationHistory, QT_TR_NOOP("Generation History"), "profileCPU"},
         {StoreSection::Models, QT_TR_NOOP("Models"), "warehouse"},
         {StoreSection::ThinkingSpace, QT_TR_NOOP("Thinking Space"), "fileTypestext"},
         {StoreSection::Forked, QT_TR_NOOP("Forked"), "RemoteChanges"},

@@ -1,5 +1,26 @@
 # Society iOS / iPadOS
 
+## 호스트와 독립적인 시작
+
+모바일 Dashboard·Storage·Tools 및 계정/기기 화면은 계정 복원, 로컬 컨테이너 준비,
+호스트 연결, 최초 동기화 완료 여부와 관계없이 열린다. `containerReady`는 검증된
+미러의 파일 접근 조건이고 `hostConnectionReady`는 현재 인증된 호스트 연결 조건이다.
+둘 다 앱 화면을 가리는 조건이 아니다. 저장되지 않은 원격 파일과 호스트 생성 작업은
+연결이 필요하며, 아직 검증되지 않은 미러의 파일 접근 제한은 유지한다.
+
+호스트 연결은 SDK의 타이머/이벤트 기반 자동 페어링 및 비동기 네트워크 경로를 사용하고,
+컨테이너 검사는 기존 동기화 워커에서 수행한다. 앱 화면은 이 작업의 완료를 기다리지
+않으며, 연결 실패와 재시도 중에도 유지된다. 인증 상태 변경과 수동 QR 연결의 순서는 유지한다.
+
+2026-09-29 iPhone 시작 크래시는 `NearbyDevices`의 앱 객체 파일(256바이트)과
+SDK 라이브러리(264바이트)의 레이아웃 불일치로 인접 객체가 덮어써진 사례이다.
+Xcode의 `-MMD`에서 누락되던 자체 SDK 헤더를 `cmake/SdkHeaders.cmake`에서
+일반 헤더로 추적한다. SDK 설치 후 앱을 증분 빌드해도 해당 소비자가 재컴파일되어야 한다.
+`tests/test_sdk_header_dependencies.py`는 설치 헤더의 크기 변경 후 실제 재빌드를 검증한다.
+`mobileShellOpensWithoutAccountContainerOrHost`는 미연결 화면 탐색을 검증한다.
+기기 probe의 `offline-inspect`는 저장된 계정·페어링 설정을 바꾸지 않고 해당 프로세스의
+전송만 비활성화하여 화면 유지와 탭 전환을 기록한다. 이후 일반 실행은 기존 설정을 사용한다.
+
 현재 Society에 연결된 저장소·탐색·모델 가져오기·Helper 관측·데이터 수신과 iisacc 계정 로그인을 iOS 16 이상에서 사용하는 구현이다. Qt 6.8.3과 LVRS UI, Apple의 Foundation·UIKit·QuickLook·FileProvider, Qt SQL의 SQLite 드라이버를 사용한다. QR 카메라는 Apple AVFoundation을 사용하며 QR 생성에는 MIT 라이선스의 Nayuki 소스를 고정 버전으로 포함한다. 유료 서비스는 추가하지 않는다. 계정 UI·SDK 구현과 운영 API 배포 상태는 [Account.md](Account.md)에 구분해 기록한다.
 
 공통 화면은 LVRS가 제공하는 기기의 상하좌우 안전 영역을 적용하여 iPhone의 상태 표시줄·노치·홈 표시 영역에 제목이나 하단 버튼이 겹치지 않게 한다. 별도 모바일 QML 화면은 두지 않는다. Dashboard가 기본 화면이며 공통 Tools·Storage와 검색을 제공한다. 760 px 미만에서는 5개 탭을 하단으로 옮기고 사이드바와 Environment는 시트로 연다. [반응형 화면 기준](MobileViews.md)을 따른다.

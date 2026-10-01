@@ -44,7 +44,9 @@ LV.ApplicationWindow {
     }
     readonly property AccountController accountSession: session
     readonly property DriveController storageDrive: drive
-    readonly property bool onboardingRequired: !drive.hasDrive || !networkDrive.hostConnectionReady
+    // The mobile shell is available while local storage and the host recover.
+    // Storage readiness continues to guard operations on the mirrored files.
+    readonly property bool onboardingRequired: !mobileLayout && (!drive.hasDrive || !networkDrive.workspaceReady)
     readonly property ModelImporter storageImporter: modelImporter
     property bool mobileLayout: isMobilePlatform
     property string selectedTab: "Dashboard"
@@ -350,7 +352,8 @@ LV.ApplicationWindow {
             hostModeAvailable: networkDrive.hostModeAvailable
             signedIn: session.signedIn
             selectedTab: root.selectedTab
-            deviceStatus: networkDrive.connected ? qsTr("Online") : drive.hasDrive ? qsTr("Local") : qsTr("Unavailable")
+            deviceStatus: networkDrive.connected ? qsTr("Online") : networkDrive.reconnecting ? qsTr("Reconnecting")
+                : drive.hasDrive ? qsTr("Local") : qsTr("Unavailable")
             synchronizationStatus: networkDrive.synchronizationStatus
             photos: networkDrive.photos
             onTabRequested: function(tab) {

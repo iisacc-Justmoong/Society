@@ -15,16 +15,29 @@
 #include <QStandardPaths>
 #include <QTimer>
 #include <QRegularExpression>
+#include <QElapsedTimer>
 
 void societyGroupStateRuntimeProbe(QObject *root) {
     const auto stage = qEnvironmentVariable("SOCIETY_GROUP_STATE_PROBE_STAGE");
-    if (stage == "mirror-inspect" || stage == "mirror-write" || stage == "mirror-remove") {
-        auto *timer = new QTimer(root); timer->setInterval(3000);
-        QObject::connect(timer, &QTimer::timeout, root, [root, timer, stage, runs = 0, operated = false]() mutable {
+    if (stage == "offline-inspect") {
+        // Process-local fault injection; saved routes, credentials and pairing
+        // preferences survive unchanged for the following normal launch.
+        if (auto *network = root->findChild<NetworkDriveController *>("networkDriveController"))
+            network->setRuntimeEnabled(false);
+    }
+    if (stage == "mirror-inspect" || stage == "mirror-write" || stage == "mirror-remove" || stage == "offline-inspect") {
+        auto *timer = new QTimer(root); timer->setInterval(250);
+        QElapsedTimer elapsed; elapsed.start();
+        QObject::connect(timer, &QTimer::timeout, root, [root, timer, stage, elapsed, runs = 0, operated = false,
+                firstWorkspaceMs = qint64(-1), firstConnectionMs = qint64(-1), firstHostReadyMs = qint64(-1)]() mutable {
             auto *drive = root->findChild<DriveController *>("driveController");
             auto *network = root->findChild<NetworkDriveController *>("networkDriveController");
             auto *account = root->findChild<AccountController *>("societyAccount");
             if (!drive || !network || !account) { timer->stop(); return; }
+            if (stage == "offline-inspect") {
+                const QStringList tabs{"Dashboard", "Storage", "Tools"};
+                root->setProperty("selectedTab", tabs[runs % tabs.size()]);
+            }
             if (runs == 0 && qEnvironmentVariableIntValue("SOCIETY_MIRROR_PROBE_RESUME") == 1)
                 network->resumeAutomaticPairing();
             int verified = 0;
@@ -48,11 +61,22 @@ void societyGroupStateRuntimeProbe(QObject *root) {
             auto output = qEnvironmentVariable("SOCIETY_GROUP_STATE_PROBE_REPORT");
             if (!QDir::isAbsolutePath(output)) output = QDir(QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation)).filePath("mirror-probe.json");
             QSaveFile report(output);
+            if (network->workspaceReady() && firstWorkspaceMs < 0) firstWorkspaceMs = elapsed.elapsed();
+            if (network->connected() && firstConnectionMs < 0) firstConnectionMs = elapsed.elapsed();
+            if (network->hostConnectionReady() && firstHostReadyMs < 0) firstHostReadyMs = elapsed.elapsed();
             const QJsonObject metadata{{"stage", stage}, {"metadataOnly", true}, {"sample", ++runs}, {"timestampMs", QDateTime::currentMSecsSinceEpoch()},
+                {"runId", qEnvironmentVariable("SOCIETY_RECONNECT_PROBE_ID")}, {"processId", QCoreApplication::applicationPid()},
+                {"elapsedSinceRootMs", elapsed.elapsed()}, {"firstWorkspaceMs", firstWorkspaceMs}, {"firstConnectionMs", firstConnectionMs},
+                {"firstHostReadyMs", firstHostReadyMs},
+                {"workspaceReady", network->workspaceReady()}, {"reconnecting", network->reconnecting()},
+                {"savedHostRouteCount", account->savedHostConnection().value("routes").toArray().size()},
                 {"signedIn", account->signedIn()}, {"container", drive->identifier()}, {"root", drive->rootPath()},
                 {"ready", drive->contentsAvailable()}, {"connected", network->connected()}, {"hosting", network->hosting()},
                 {"hostConnectionReady", network->hostConnectionReady()}, {"containerReady", network->containerReady()},
                 {"onboardingRequired", root->property("onboardingRequired").toBool()},
+                {"selectedTab", root->property("selectedTab").toString()},
+                {"shellVisible", root->findChild<QObject *>("societyContent")
+                    && root->findChild<QObject *>("societyContent")->property("visible").toBool()},
                 {"runtimeEnabled", network->runtimeEnabled()}, {"hasDrive", drive->hasDrive()},
                 {"registeredHost", account->manager()->account()->societyContainerDrive().value("hostDeviceId").toString()},
                 {"registeredContainer", account->manager()->account()->societyContainerDrive().value("containerId").toString()},
@@ -69,6 +93,7 @@ void societyGroupStateRuntimeProbe(QObject *root) {
                 {"probePresent", !bytes.isEmpty()}, {"probeMatches", validName && bytes == expected},
                 {"probeHash", QString::fromLatin1(QCryptographicHash::hash(bytes, QCryptographicHash::Sha256).toHex())}};
             if (report.open(QIODevice::WriteOnly)) { report.write(QJsonDocument(metadata).toJson()); report.commit(); }
+            if (elapsed.elapsed() > 10000) timer->setInterval(3000);
             if (runs >= 2000) timer->stop();
         });
         timer->start(); return;

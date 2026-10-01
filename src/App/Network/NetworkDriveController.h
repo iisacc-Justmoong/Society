@@ -50,6 +50,8 @@ class NetworkDriveController : public QObject {
     Q_PROPERTY(QVariantMap namespaceState READ namespaceState NOTIFY synchronizationChanged)
     Q_PROPERTY(bool containerReady READ containerReady NOTIFY synchronizationChanged)
     Q_PROPERTY(bool hostConnectionReady READ hostConnectionReady NOTIFY synchronizationChanged)
+    Q_PROPERTY(bool workspaceReady READ workspaceReady NOTIFY connectionChanged)
+    Q_PROPERTY(bool reconnecting READ reconnecting NOTIFY connectionChanged)
     Q_PROPERTY(QObject *photos READ photos CONSTANT)
 public:
     enum Mode { ClientMode, HostMode };
@@ -111,6 +113,8 @@ public:
     QString synchronizationStatus() const;
     bool containerReady() const;
     bool hostConnectionReady() const;
+    bool workspaceReady() const { return hostModeAvailable() || containerReady(); }
+    bool reconnecting() const;
     QObject *photos() const { return m_photos; }
     Q_INVOKABLE void synchronizeNow();
     // Native integrations may supply an authenticated session. Mode/platform
@@ -122,6 +126,7 @@ public:
     Q_INVOKABLE void browse(const QString &host, const QString &path = {}, const QString &cursor = {});
     Q_INVOKABLE void download(const QString &path, const QUrl &destination);
 signals:
+    void connectionChanged();
     void configurationChanged();
     void authChanged();
     void stateChanged();

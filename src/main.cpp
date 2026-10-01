@@ -2,6 +2,7 @@
 #include "backend/runtime/appentry.h"
 #include <iiSocietyHelper.h>
 #include <iiSocietyContainer/SocietyApplication.h>
+#include <iiSocietyContainer/PreviewCache.h>
 #include <QQuickWindow>
 #include <QGuiApplication>
 #include <QIcon>
@@ -61,6 +62,7 @@ int main(int argc, char *argv[])
     launchSpec.qmlImportPaths.append(QString::fromUtf8(SOCIETY_LVRS_QML_IMPORT_PATH));
     launchSpec.configureEngine = [](QQmlApplicationEngine &engine) {
         configureApplicationLifetime(engine);
+        engine.addImageProvider(QStringLiteral("society-preview"), new iiSocietyContainer::PreviewProvider);
 #ifdef Q_OS_MACOS
         const auto bundledQml = QDir(QCoreApplication::applicationDirPath()).filePath("../Resources/qml");
         if (QDir(bundledQml).exists())

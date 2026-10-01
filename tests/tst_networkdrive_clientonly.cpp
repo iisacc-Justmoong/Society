@@ -61,7 +61,8 @@ private slots:
         network.setContainerPath(first.path());
         QVERIFY2(!network.containerReady(), "Mobile container opening must return before reading its sync metadata");
         QTRY_VERIFY(network.containerReady());
-        QVERIFY2(!network.hostConnectionReady(), "An offline complete mirror cannot bypass host validation at launch");
+        QVERIFY2(network.workspaceReady(), "A previously verified cached workspace opens before its host reconnects");
+        QVERIFY2(!network.hostConnectionReady(), "Cached workspace readiness is not a live authenticated host connection");
         const auto manifest = first.filePath(".society-drive.json");
         QVERIFY(QFile::rename(manifest, manifest + ".held"));
         // A QML getter must never re-open the filesystem. A lifecycle refresh
@@ -69,6 +70,7 @@ private slots:
         QVERIFY(network.containerReady());
         network.setApplicationState(Qt::ApplicationActive);
         QTRY_VERIFY(!network.containerReady());
+        QVERIFY(!network.workspaceReady());
         QVERIFY(QFile::rename(manifest + ".held", manifest));
         network.setContainerPath(first.path() + "/missing");
         network.setContainerPath(first.path());
