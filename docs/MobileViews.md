@@ -7,11 +7,11 @@
 | 주요 탐색 | LVRS MobileTabBar: Home·Tools·Storage·Browse·Environment 순서. iOS 70 px / Android 64 px + 외부 안전 영역 | 기존 상단 세그먼트 |
 | 검색·계정 | 상단 52 px 바 안의 22×22 px 아이콘 버튼, 검색 입력 높이 22 px | 상단 세그먼트·검색·계정 컨트롤 높이 22 px |
 | 사이드바 | 상단 탐색 버튼으로 Workspace 또는 Storage 시트 열기 | 기존 사이드바 표시 |
-| Dashboard | 16 px 본문 여백, 22 px 제목 행, 140×160 px 파일 카드 | 24 px 본문 여백과 같은 컨트롤·카드 크기 |
-| Tools | 모델 병합 카드 → 작업 화면. 한 열 카드, All tools·가장자리 뒤로 가기 | 모델 병합 카드 하나, 검색·작업 화면 |
-| Storage | Files로 바로 진입하고 탐색 시트로 영역 선택. 가장자리 뒤로 이동 지원. Up·breadcrumb 표시줄 없음 | Files로 바로 진입하고 사이드바로 영역 선택. Up·breadcrumb 표시줄 없음 |
+|대시보드| 16 px 본문 여백, 22 px 제목 행, 140×160 px 파일 카드 | 24 px 본문 여백과 같은 컨트롤·카드 크기 |
+|도구| 모델 병합 카드 → 작업 화면. 한 열 카드, All tools·가장자리 뒤로 가기 | 모델 병합 카드 하나, 검색·작업 화면 |
+|Storage| Files로 바로 진입하고 탐색 시트로 영역 선택. 가장자리 뒤로 이동 지원. Up·breadcrumb 표시줄 없음 | Files로 바로 진입하고 사이드바로 영역 선택. Up·breadcrumb 표시줄 없음 |
 | Storage 작업 | 앱 상단 바의 Storage actions 버튼에서 작업 시트 열기 | 넓은 모바일도 앱 상단 바, 데스크톱은 기존 가져오기·OS 연결 영역 |
-| Environment | Overview·Devices·Apps와 네 개 앱 컬렉션 탭 | 같은 페이지와 좌측 탐색·우측 계정 패널 |
+|환경| Overview·Devices·Apps와 네 개 앱 컬렉션 탭 | 같은 페이지와 좌측 탐색·우측 계정 패널 |
 
 하단바는 LVRS의 `MobileTabBar`를 사용한다. iOS에서는 떠 있는 캡슐, Android에서는 Material 3의 활성 표시와 아이콘·레이블 배치를 적용한다. QML 기반 플랫폼 형태이며 UIKit/Android Views 자체를 삽입하지 않는다. `autoSelect: false`와 `selectedTab`에서 계산한 `currentIndex`로 선택 바인딩을 유지한다. Browse와 Environment는 독립된 페이지를 선택한다. 환경설정은 Preferences 메뉴 또는 Hosting settings를 통해 연다.
 

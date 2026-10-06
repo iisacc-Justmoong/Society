@@ -13,12 +13,10 @@ Item {
     property bool touchNavigation: false
     signal devicesRequested()
     signal doneRequested()
-    FileDialog {
+    FolderDialog {
         id: movedDisk
-        title: qsTr("Locate your Society disk image")
-        fileMode: FileDialog.OpenFile
-        nameFilters: [qsTr("Society disk images (*.sparsebundle)")]
-        onAccepted: root.drive.useMovedContainer(selectedFile)
+        title: qsTr("Locate your Society folder")
+        onAccepted: root.drive.useMovedContainer(selectedFolder)
     }
 
     ColumnLayout {
@@ -79,7 +77,7 @@ Item {
                     }
                     LV.LabelButton {
                         objectName: "locateMovedAccountDrive"
-                        text: qsTr("Locate moved disk…")
+                        text: qsTr("Locate moved folder…")
                         enabled: root.drive && !root.drive.busy && root.drive.accountManager
                             && root.drive.accountManager.authenticated
                         onClicked: movedDisk.open()
@@ -87,7 +85,7 @@ Item {
                     LV.Label {
                         Layout.fillWidth: true
                         style: caption
-                        text: qsTr("After moving your disk image, select it on this host. Society verifies the drive and updates the location for every device signed in to your account.")
+                        text: qsTr("After moving your Society folder, select it on this host. Society verifies the drive and updates the location for every device signed in to your account.")
                         wrapMode: Text.Wrap
                         sizeToContentHeight: true
                     }

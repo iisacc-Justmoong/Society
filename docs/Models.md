@@ -72,13 +72,4 @@ Storage Models의 최초 조회만 로딩 문구를 표시한다. 이후 컨테�
 
 VAE 등 가중치 유형 폴더에서는 지원하는 가중치 확장자의 파일과 모델 패키지만 카드로 표시한다. README·LICENSE·NOTICE·독립 설정 JSON은 모델 카드에서 제외하며 원본은 삭제하거나 이동하지 않는다. Wildcards의 텍스트, Workflows·Poses의 JSON/이미지, Other의 미분류 파일은 각 용도에 맞게 유지한다. 동일 기준을 SDK의 로컬 조회와 다운로드 전 원격 카탈로그 조회에 적용한다.
 
-During model import, a persistent status and Cancel control remain above the model
-scroll area. Large checkpoint copies therefore expose their progress at every
-category scroll position. Krea2 classification is supplied by iiSocietyContainer;
-previously imported Krea2 weights in Other are reorganized on container opening.
-Local safetensors sources are structurally validated before copying; provider copies
-are validated before publication. Truncated downloads report an explicit retry-after-
-download error and never become model rows. Tests use real safetensors framing.
-On the authoritative host, newly imported category files are visible before sync
-hashing finishes; sync metadata and package browsing remain independent of import
-completion. Replica browsing still uses the host's catalog.
+모델 가져오기 동안 영구 상태 및 취소 컨트롤 은 모델 스크롤 영역 위에 유지됩니다. 대형 체크포인트 복사 는 따라서 모든 카테고리 스크롤 위치에서 진행 상황을 노출합니다. Krea2 분류는 iiSocietyContainer 에서 제공되며 이전에 가져온 Krea2 가중치는 Other 에서 컨테이너 열 때 재구성됩니다. 로컬 safetensors 소스는 복사 전에 구조적으로 유효성 검사를 거치고, 공급자 복사는 게시 전에 유효성 검사를 거칩니다. 단축 다운로드 는 명시적인 재시도 후 다운로드 오류를 보고하며, 결코 모델 행이 되지 않습니다. 테스트 는 실제 safetensors 프레임을 사용합니다. 공식 호스트 에서 새로 가져온 카테고리 파일 은 동기화 해싱이 완료되기 전에 표시됩니다; 동기화 메타데이터 및 패키지 탐색 은 가져오기 완료와 독립적으로 유지됩니다. 리플라 탐색 은 여전히 호스트의 카탈로그를 사용합니다.

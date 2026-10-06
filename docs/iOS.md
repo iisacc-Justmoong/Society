@@ -139,11 +139,13 @@ iOS 16.2 이상에서 `SocietyLiveActivity.appex`는 ActivityKit/WidgetKit으로
 
 현재 화면은 `LVRS.MobileTabBar`를 사용하므로 iOS 정적 LVRS도 같은 소스로 빌드·설치해야 한다. 호스트용 LVRS만 갱신하면 iOS 앱이 `MobileTabBar is not a type`으로 시작하지 못할 수 있다. 번들 검사는 포함된 LVRS의 MobileTabBar 코드도 확인한다.
 
-### Pairing diagnostics
+<a id="pairing-diagnostics"></a>
 
-The opt-in `SOCIETY_GROUP_STATE_RUNTIME_PROBE` mirror inspection reports current host/container readiness, runtime ownership, registered device/container identities, and pairing grant validity without exporting credentials or signing keys. Use a fresh report filename and its timestamp when inspecting an installed app; an old report does not prove its current state.
+### 페어링 진단
 
-Opening an existing desktop disk while signed in now registers the initial host automatically if the account has no host. A different registered host is never replaced automatically. Optional QR pairing only pauses discovery while its panel is open; closing it resumes the previous automatic setting and never saves a permanent pause. Explicit Disconnect continues to persist its pause.
+선택적 `SOCIETY_GROUP_STATE_RUNTIME_PROBE` 미러 검사 보고서는 현재 호스트/컨테이너 준비 상태, 런타임 소유권, 등록된 장치/컨테이너 신원, 및 짝짓기 권한 유효성을 내보내지 않거나 서명 키를 사용하지 않고 보고합니다. 설치된 앱을 검사할 때는 새 보고서 파일 이름과 타임스탬프를 사용하세요; 오래된 보고서는 현재 상태를 증명하지 않습니다.
+
+현재 로그인한 상태에서 기존 데스크톱 디스크를 여는 것은 계정에 호스트가 없는 경우 초기 호스트를 자동으로 등록합니다. 다른 등록된 호스트는 절대 자동으로 대체되지 않습니다. 선택적 QR 페어링은 패널이 열려 있는 동안만 발견을 일시 중지하며, 닫으면 이전 자동 설정을 재개하고 영구적인 일시 중지를 저장하지 않습니다. 명시적 연결 해제 (Explicit Disconnect) 는 일시 중지를 계속 유지합니다.
 
 초기 온보딩은 인증된 호스트 목록과 모델 인덱스를 준비한 뒤 해제한다. 사진 식별 파일 및 미리보기는 iiSocietySync의 후속 16개 단위 전송으로 채우므로 대규모 사진 보관함이 첫 연결을 막지 않는다. 읽기 전용 `mirror-inspect` 진단에는 실제 루트 화면의 `onboardingRequired`도 포함된다.
 

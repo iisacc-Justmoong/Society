@@ -6,6 +6,7 @@
 #include "App/Dashboard/DashboardFiles.h"
 #include "App/Dashboard/DashboardCalendar.h"
 #include "App/Tools/ModelMergeController.h"
+#include "App/Tools/ModelPackagingController.h"
 #include "App/Tools/MergeModelCatalog.h"
 #include "App/Models/StorageModels.h"
 #include "App/Files/DirectoryLocation.h"
@@ -106,6 +107,7 @@ private slots:
         qmlRegisterType<DashboardCalendar>("Society", 1, 0, "DashboardCalendar");
         qmlRegisterType<DashboardFiles>("Society", 1, 0, "DashboardFiles");
         qmlRegisterType<ModelMergeController>("Society", 1, 0, "ModelMergeController");
+        qmlRegisterType<ModelPackagingController>("Society", 1, 0, "ModelPackagingController");
         qmlRegisterType<MergeModelCatalog>("Society", 1, 0, "MergeModelCatalog");
         qmlRegisterType<StorageModels>("Society", 1, 0, "StorageModels");
         qmlRegisterType<ModelImporter>("Society", 1, 0, "ModelImporter");
@@ -116,22 +118,36 @@ private slots:
         qmlRegisterType<QrScanner>("Society", 1, 0, "QrScanner");
     }
 
+    void accountOwnsMovedDiskAndRemoteDevicesKeepTheirLocalMounts_data()
+    {
+        QTest::addColumn<bool>("legacyDisk");
+        QTest::newRow("legacy-image") << true;
+        QTest::newRow("ordinary-directory") << false;
+    }
+
     void accountOwnsMovedDiskAndRemoteDevicesKeepTheirLocalMounts()
     {
 #ifndef Q_OS_MACOS
         QSKIP("Native disk image relocation is available on macOS.");
 #else
+        QFETCH(bool, legacyDisk);
         QNetworkProxy::setApplicationProxy(QNetworkProxy::NoProxy);
         QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/account-drive-XXXXXX");
         QVERIFY(fixture.isValid());
         const auto previousSettings = qgetenv("SOCIETY_STORAGE_SETTINGS_PATH");
         const auto reset = qScopeGuard([&] { qputenv("SOCIETY_STORAGE_SETTINGS_PATH", previousSettings); });
         qputenv("SOCIETY_STORAGE_SETTINGS_PATH", fixture.filePath("settings.json").toUtf8());
-        const auto volume = iiSocietyContainer::DiskImage::create(fixture.path().toStdString(), 512ULL * 1024 * 1024);
-        QVERIFY(volume);
-        QString image = QString::fromStdString(volume->imagePath.string());
-        const auto eject = qScopeGuard([&] { iiSocietyContainer::DiskImage::detach(image.toStdString()); });
-        const auto disk = iiSocietyContainer::SocietyDrive::create(QString::fromStdString(volume->mountPath.string())); QVERIFY(disk);
+        std::optional<iiSocietyContainer::DiskVolume> volume;
+        if (legacyDisk) {
+            const auto result = iiSocietyContainer::DiskImage::create(fixture.path().toStdString(), 512ULL * 1024 * 1024);
+            QVERIFY(result); volume = *result;
+        }
+        const auto disk = legacyDisk
+            ? iiSocietyContainer::SocietyDrive::create(QString::fromStdString(volume->mountPath.string()))
+            : iiSocietyContainer::SocietyDrive::createAt(fixture.path());
+        QVERIFY(disk);
+        QString image = legacyDisk ? QString::fromStdString(volume->imagePath.string()) : disk->rootPath();
+        const auto eject = qScopeGuard([&] { if (legacyDisk) iiSocietyContainer::DiskImage::detach(image.toStdString()); });
         AccountServer authority; QVERIFY(authority.server.listen(QHostAddress::LocalHost));
         iisacc::accounts::AccountManager host(authority.url()), peer(authority.url());
         auto device = host.deviceInfo(); device["appId"] = "com.iisacc.society"; device["id"] = QString(64, 'a');
@@ -144,7 +160,11 @@ private slots:
         QVERIFY(iiSocietyContainer::SocietyDrive::create(replica)); QVERIFY(remote.openContainer(replica));
         // Opening the existing host disk while signed in must register it automatically.
         QTRY_COMPARE(host.account()->societyContainerDrive().value("imagePath").toString(), image);
-        QVERIFY(iiSocietyContainer::DiskImage::detach(image.toStdString()));
+        if (legacyDisk) QVERIFY(iiSocietyContainer::DiskImage::detach(image.toStdString()));
+        else {
+            const auto offline = fixture.filePath("offline-folder");
+            QVERIFY(QDir().rename(image, offline)); image = offline;
+        }
         QVERIFY(!local.reloadFromDisk()); QVERIFY(!local.hasDrive());
         QQmlEngine onboardingEngine;
         onboardingEngine.addImageProvider(QStringLiteral("society-preview"), new iiSocietyContainer::PreviewProvider);
@@ -154,7 +174,7 @@ private slots:
         QVERIFY2(onboarding, qPrintable(onboardingComponent.errorString()));
         auto* locate = onboarding->findChild<QQuickItem*>("onboardingChooseDisk");
         QVERIFY(locate); QVERIFY(locate->isVisible());
-        const auto moved = fixture.filePath("Moved.sparsebundle"); QVERIFY(QDir().rename(image, moved)); image = moved;
+        const auto moved = fixture.filePath(legacyDisk ? "Moved.societycontainer" : "MovedSociety"); QVERIFY(QDir().rename(image, moved)); image = moved;
         QVERIFY(local.openContainerImage(QUrl::fromLocalFile(moved)));
         QTRY_VERIFY_WITH_TIMEOUT(!local.busy(), 60000);
         QVERIFY2(local.hasDrive(), qPrintable(local.errorString())); QCOMPARE(local.identifier(), disk->identifier());
@@ -273,6 +293,8 @@ private slots:
         QVERIFY(!error->isVisible()); QVERIFY(proceed->isEnabled()); QVERIFY(choose->isEnabled());
         QVERIFY(!QFileInfo::exists(settingsPath));
         QVERIFY(!window->findChild<QObject *>("onboardingContainerPath"));
+        auto *diskDialog = window->findChild<QObject *>("onboardingDiskDialog"); QVERIFY(diskDialog);
+        QVERIFY(diskDialog->metaObject()->indexOfProperty("selectedFolder") >= 0);
 
         auto *scroll = window->findChild<QQuickItem *>("onboardingViewport"); QVERIFY(scroll);
         QTRY_VERIFY(proceed->width() > 0 && proceed->height() >= 44);
@@ -298,24 +320,18 @@ private slots:
         QVERIFY(!proceed->isEnabled());
         QTRY_VERIFY_WITH_TIMEOUT(!drive->busy(), 120000);
         QVERIFY2(drive->hasDrive(), qPrintable(drive->errorString()));
-        const auto image = QDir(container).filePath("Society.sparsebundle").toStdString();
-        const auto eject = qScopeGuard([&] { iiSocietyContainer::DiskImage::detach(image); });
         QVERIFY(!window->property("onboardingRequired").toBool());
         QVERIFY(!onboarding->isVisible()); QVERIFY(content->isVisible());
-        QVERIFY(drive->rootPath() != container);
-        QCOMPARE(QStorageInfo(drive->rootPath()).fileSystemType(), QByteArray("apfs"));
-        QVERIFY(QStorageInfo(drive->rootPath()).device() != QStorageInfo(container).device());
-        const auto publicRoot = iiSocietyContainer::DiskImage::filesRoot(drive->rootPath().toStdString()); QVERIFY(publicRoot);
-        QCOMPARE(drive->systemPath(), QString::fromStdString(publicRoot->string()));
-        QCOMPARE(QStorageInfo(drive->systemPath()).rootPath(), drive->systemPath());
-        QVERIFY(!QFileInfo::exists(drive->systemPath() + "/Models"));
-        QVERIFY(!QFileInfo::exists(drive->systemPath() + "/Files"));
-        QVERIFY(drive->navigate(drive->systemPath()));
+        QCOMPARE(drive->rootPath(), container + "/Society");
+        QCOMPARE(QStorageInfo(drive->rootPath()).device(), QStorageInfo(container).device());
+        QCOMPARE(drive->systemPath(), drive->rootPath());
+        for (const auto section : iiSocietyContainer::allStoreSections())
+            QVERIFY(QFileInfo::exists(drive->rootPath() + '/' + iiSocietyContainer::storeSectionName(section)));
+        QVERIFY(!QFileInfo::exists(container + "/Society.societycontainer"));
+        QVERIFY(!QFileInfo::exists(drive->rootPath() + "/bands"));
+        QVERIFY(drive->navigate(drive->rootPath() + "/Files"));
         QCOMPARE(drive->currentSection(), QString("Files"));
-        QCOMPARE(drive->breadcrumbs().last().toMap().value("path").toString(), drive->systemPath());
         drive->goUp(); QVERIFY(drive->atRoot());
-        QVERIFY(!QFileInfo::exists(container + "/Files"));
-        QVERIFY(QFileInfo::exists(container + "/Society.sparsebundle"));
         const auto shared = iiSocietyContainer::SharedStorage::open(); QVERIFY(shared);
         QCOMPARE(shared->drive().identifier(), drive->identifier());
 
@@ -442,24 +458,29 @@ private slots:
         QCOMPARE(drive->identifier(), original->identifier());
     }
 
-    void ordinaryFoldersDoNotBecomeSystemDisks()
+    void ordinaryFoldersReconnectThroughSavedSettings()
     {
-#ifndef Q_OS_MACOS
-        QSKIP("Native disk-image onboarding is currently available on macOS.");
-#endif
-        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/legacy-folder-XXXXXX");
+        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/directory-storage-XXXXXX");
         const auto previous = qgetenv("SOCIETY_STORAGE_SETTINGS_PATH");
         const auto restore = qScopeGuard([&] { qputenv("SOCIETY_STORAGE_SETTINGS_PATH", previous); });
         qputenv("SOCIETY_STORAGE_SETTINGS_PATH", fixture.filePath("settings.json").toUtf8());
         DriveController drive;
         QVERIFY(!drive.openContainer(fixture.path()));
         QVERIFY(!QFileInfo::exists(fixture.filePath("Files")));
-        QVERIFY(iiSocietyContainer::SocietyDrive::create(fixture.path()));
-        QVERIFY(iiSocietyContainer::SharedStorage::setDefaultContainer(fixture.path()));
+        const auto original = iiSocietyContainer::SocietyDrive::createAt(fixture.path()); QVERIFY(original);
+        QVERIFY(iiSocietyContainer::SharedStorage::setDefaultContainer(original->rootPath()));
         drive.openDefaultContainer();
         QTRY_VERIFY_WITH_TIMEOUT(!drive.busy(), 60000);
-        QVERIFY(!drive.hasDrive()); QVERIFY(!drive.errorString().isEmpty());
-        QVERIFY(QFileInfo::exists(fixture.filePath("Files")));
+        QVERIFY2(drive.hasDrive(), qPrintable(drive.errorString()));
+        QCOMPARE(drive.identifier(), original->identifier());
+        QCOMPARE(drive.systemPath(), original->rootPath());
+        drive.connectToSystem(); QVERIFY(!drive.busy());
+        QCOMPARE(drive.systemPath(), original->rootPath());
+        QFile settings(fixture.filePath("settings.json")); QVERIFY(settings.open(QIODevice::ReadOnly));
+        const auto configuration = QJsonDocument::fromJson(settings.readAll()).object();
+        QCOMPARE(configuration.value("schemaVersion").toInt(), 1);
+        QVERIFY(!configuration.contains("imagePath"));
+        QVERIFY(!QFileInfo::exists(fixture.filePath("Society.societycontainer")));
     }
 
     void noticeKeepsFigmaGeometryAndMaterial_data()
@@ -2774,8 +2795,18 @@ private slots:
         auto *merge = window->findChild<QQuickItem *>("modelMergeTool"); QVERIFY(merge);
         QVERIFY(!merge->isVisible());
         const auto catalog = tools->property("tools").value<QJSValue>().toVariant().toList();
-        QCOMPARE(catalog.size(), 1);
+        QCOMPARE(catalog.size(), 2);
         QCOMPARE(catalog.first().toMap().value("key").toString(), QString("model-merge"));
+        QCOMPARE(catalog.last().toMap().value("key").toString(), QString("model-packaging"));
+        auto *packagingCard = visualItem(tools, "toolCard-model-packaging"); QVERIFY(packagingCard);
+        click(packagingCard);
+        auto *packaging = window->findChild<QQuickItem *>("modelPackagingTool"); QVERIFY(packaging);
+        QTRY_VERIFY(packaging->isVisible());
+        QVERIFY(packaging->setProperty("outputName", "retained-package-name"));
+        QVERIFY(QMetaObject::invokeMethod(tools, "goBack"));
+        click(packagingCard); QTRY_VERIFY(packaging->isVisible());
+        QCOMPARE(packaging->property("outputName").toString(), QString("retained-package-name"));
+        QVERIFY(QMetaObject::invokeMethod(tools, "goBack"));
         auto *mergeCard = visualItem(tools, "toolCard-model-merge"); QVERIFY(mergeCard);
         click(mergeCard);
         QTRY_VERIFY(merge->isVisible());

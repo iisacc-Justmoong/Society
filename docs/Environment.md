@@ -1,70 +1,42 @@
-# Environment
+<a id="environment"></a>
 
-Environment is a persistent main page, separate from application Preferences.
-It implements the six Society Figma frames in file `vzGhdYpJ2GeyNfwXADJeAu`:
+# 환경
 
-| Frame | Page |
+환경은 애플리케이션 기본 설정과 별개인 지속적인 기본 페이지입니다. `vzGhdYpJ2GeyNfwXADJeAu` 파일에 6개의 Society Figma 프레임을 구현합니다.
+
+|프레임|페이지|
 | --- | --- |
-| 252:954 | Overview, hosting and synchronization |
-| 252:1324 | Devices, grouped by Desktop / Tablet / Smartphone |
-| 252:2676 | Apps / My apps |
-| 263:5417 | Apps / All apps |
-| 270:5384 | Apps / Other devices |
-| 270:5472 | Apps / Web apps |
+| 252:954 |개요, 호스팅 및 동기화|
+| 252:1324 |데스크톱/태블릿/스마트폰으로 그룹화된 장치|
+| 252:2676 |앱 / 내 앱|
+| 263:5417 |앱 / 모든 앱|
+| 270:5384 |앱 / 기타 장치|
+| 270:5472 |앱/웹 앱|
 
-The original 220px navigation, 320px account panel, 24px content inset, 64px
-letter badges and 286px cards are implemented using the installed LVRS library.
-Cards reflow to two or one column. Below 1200px the account panel is available
-through the toolbar Account button; below 760px section navigation becomes an
-inline tab bar. The mobile bottom label is shortened to Env. below 440px while
-its accessibility name remains Environment. Apps collection tabs scroll horizontally when necessary.
-The Figma SVGs for the Environment navigation are included locally. The profile
-avatar is account data, not the example avatar shown in the design.
+원본  220px 탐색,  320px 계정 패널,  24px 콘텐츠 인셋,  64px 문자 배지 및  286px 카드들은 설치된  LVRS 라이브러리를 사용하여 구현됩니다. 카드들은  2 로 또는 한 열로 다시 흐름을 조정합니다. 1200px 아래에는 툴바 계정 버튼을 통해 계정 패널이 사용 가능하며,  760px 아래에는 섹션 탐색이 인라인 탭 바로 바뀝니다. 모바일 하단 레이블은 Env 로 줄어듭니다. 440px 아래에는 접근성 이름이 환경으로 유지됩니다. 앱 컬렉션 탭은 필요에 따라 가로로 스크롤합니다. 환경 탐색을 위한  Figma SVG 들은 로컬에 포함됩니다. 프로필 아바타는 계정 데이터이며, 디자인에 표시된 예시 아바타가 아닙니다.
 
-## Navigation and actions
+<a id="navigation-and-actions"></a>
 
-- Desktop and mobile Environment select the page; neither opens Preferences.
-- Preferences remain available through the application menu, Command-comma,
-  and hosting settings. The mobile preference sheet is titled Preferences.
-- Browse is a main page for connected host files (folder navigation, download,
-  pagination). Its tab no longer opens the device pairing sheet.
-- Devices / Add device opens the existing NetworkDevices modal. Its QR action
-  opens PairingPanel. Incoming pairing invitations and onboarding retain their
-  existing entry points and authentication checks.
-- Device details select and scroll to the detail section. Browse opens the selected host in
-  Browse. Sync, automatic connection, refresh and disconnect use the existing
-  NetworkDriveController, with unavailable actions disabled.
-- App search filters the current collection; collection counts represent the
-  full collection. Updates filters only actual update flags. Details opens the
-  installation/license sheet. Local installed apps can be opened.
-- Web apps allows HTTPS shortcuts to be added and deduplicated by URL, stored in
-  the application's EnvironmentWebApps settings. They open in the system browser.
+## 탐색 및 작업
 
-## Data boundaries
+- 데스크톱 및 모바일 환경에서 페이지를 선택하세요. 둘 다 기본 설정을 열지 않습니다.
+- 환경설정은 애플리케이션 메뉴, Command-comma 및 호스팅 설정을 통해 계속 사용할 수 있습니다. 모바일 환경설정 시트의 제목은 “Preferences”입니다.
+- Browse는 연결된 호스트 파일(폴더 탐색, 다운로드, 페이지 매기)의 메인 페이지입니다. 그 탭이 더 이상 장치 페어링 시트를 열지 않습니다.
+- 장치 / 장치를 추가하면 기존 NetworkDevices 모달이 열립니다. 그것의 QR 동작이 PairingPanel를 엽니다. 수신된 페어링 초대와 온보딩은 기존 진입점 및 인증 검사를 유지합니다.
+- 디바이스 세부 정보를 선택하고 세부 정보 섹션으로 스크롤하십시오. Browse는 선택한 호스트를 Browse에서 엽니다. 기존 NetworkDriveController를 사용하여 동기화, 자동 연결, 새로 고침 및 연결을 끊고, 사용할 수 없는 작업을 비활성화합니다.
+- 앱 검색은 현재 컬렉션을 필터링하고, 컬렉션 수는 전체 컬렉션을 나타냅니다. 업데이트는 실제 업데이트 플래그만 필터링합니다. 세부 정보는 설치/라이선스 시트를 엽니다. 로컬에 설치된 앱을 열 수 있습니다.
+- 웹 앱은 HTTPS 바로가기를 URL에 의해 추가 및 중복 제거하도록 허용하며, 이는 애플리케이션의 EnvironmentWebApps 설정에 저장됩니다. 시스템 브라우저에서 열립니다.
 
-Device rows come from the existing account-scoped StorageNavigation snapshot,
-plus the current device. Account identity and avatar come from AccountController.
-Demo device counts, storage sizes, license grants and social counts are never
-asserted as real data. Missing social counts use an em dash.
+<a id="data-boundaries"></a>
 
-EnvironmentAppsModel identifies Society itself and installed Dreamscapes/Vincent
-bundles on macOS. Generic product names (Notes, Motion, Studio, etc.) are not
-matched to unrelated applications with the same name. The nine Figma catalogue
-entries retain their descriptions and visual identities. Install is disabled
-without a verified release provider; licenses are explicitly unverified. Other
-platforms currently identify only Society. Remote app inventory is a separate
-account-scoped input; a connected device alone never implies that it has any
-particular app installed. The account web app uses the configured account service.
-Additional web apps are user-provided URLs rather than invented service endpoints.
+## 데이터 경계
 
-## Verification
+장치 행은 기존 계정 범위 StorageNavigation 스냅샷과 현재 장치에서 나옵니다. 계정 ID와 아바타는 AccountController에서 나옵니다. 데모 장치 수, 저장소 크기, 라이센스 부여 및 소셜 수는 실제 데이터로 주장되지 않습니다. 누락된 소셜 개수는 엠 대시를 사용합니다.
 
-`SocietyDriveTests environmentPagesPairingAndResponsiveLayout` checks page
-routing, device addition, Browse isolation, collection switching, search,
-HTTPS validation and desktop/mobile layouts at 1440, 1024, 760, 390 and 320px.
-`environmentCatalogueDoesNotInventInstallationsOrLicenses` checks real catalogue
-state and launch rejection for unknown apps. The existing desktop dashboard,
-mobile navigation, Preferences and pairing regressions remain part of validation.
-Set `SOCIETY_ENVIRONMENT_CAPTURE_DIR` to a path beneath `build/` to capture the
-real Overview plus all six populated design fixtures. Fixture screenshots are
-visual verification, not evidence of live app licenses or remote inventories.
+EnvironmentAppsModel 는  Society 자체와 설치된  Dreamscapes / Vincent 번들을  macOS 에서 식별합니다. 일반 제품 이름 (노트, 모션, 스튜디오 등) 은 동일한 이름의 관련 없는 애플리케이션과 매칭되지 않습니다. 9   Figma 카탈로그 항목들은 설명과 시각적 정체성을 유지합니다. 인증된 릴리스 제공자가 없는 경우 설치가 비활성화되며 라이선스는 명시적으로 미검증입니다. 다른 플랫폼은 현재 Society 만 식별합니다. 원격 앱 재고는 별도의 계정 범용 입력이며 연결된 장치 만으로는 특정 앱이 설치되어 있다는 것을 함의하지 않습니다. 계정 웹 앱은 구성된 계정 서비스를 사용합니다. 추가 웹 앱은 발명된 서비스 엔드포인트가 아닌 사용자 제공 URL 입니다.
+
+<a id="verification"></a>
+
+## 검증
+
+`SocietyDriveTests environmentPagesPairingAndResponsiveLayout` 는 1440, 1024, 760, 390 및 320px에서 페이지 라우팅, 장치 추가, 브라우징 격리, 컬렉션 전환, 검색, HTTPS 검증 및 데스크톱/모바일 레이아웃을 확인합니다. `environmentCatalogueDoesNotInventInstallationsOrLicenses` 는 알 수 없는 앱에 대한 실제 카탈로그 상태와 출시 거부를 확인합니다. 기존 데스크톱 대시보드, 모바일 내비게이션, 선호도 및 페어링 회귀 사항은 여전히 검증의 일부입니다. `SOCIETY_ENVIRONMENT_CAPTURE_DIR` 를 `build/` 하위의 경로로 설정하여 실제 개요 및 모든 6 채워진 디자인 픽스처 를 포착합니다. 픽스처 스크린샷은 시각적 확인이며 라이브 앱 라이선스 또는 원격 재고의 증거가 아닙니다.

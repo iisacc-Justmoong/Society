@@ -118,6 +118,14 @@ if(TARGET SocietyDaemon)
 endif()
 set(society_model_merge_sources src/App/Tools/ModelMergeController.cpp src/App/Tools/ModelMergeController.h
     src/App/Tools/MergeModelCatalog.cpp src/App/Tools/MergeModelCatalog.h)
+set(society_model_packaging_sources src/App/Tools/ModelPackagingController.cpp src/App/Tools/ModelPackagingController.h)
+add_library(SocietyModelPackaging INTERFACE)
+if(TARGET iiLocalDiffusion::ModelPackaging)
+    target_link_libraries(SocietyModelPackaging INTERFACE iiLocalDiffusion::ModelPackaging)
+    target_compile_definitions(SocietyModelPackaging INTERFACE SOCIETY_HAS_MODEL_PACKAGING)
+elseif(APPLE AND NOT IOS)
+    message(FATAL_ERROR "Install the iiLocalDiffusion ModelPackaging SDK component before building Society")
+endif()
 if(NOT CMAKE_CROSSCOMPILING)
     if(iiLocalDiffusion_DIR)
         get_filename_component(society_merge_sdk_prefix "${iiLocalDiffusion_DIR}/../../.." ABSOLUTE)
@@ -135,6 +143,7 @@ qt_add_executable(Society
     ${society_environment_sources}
     ${society_calendar_sources}
     ${society_model_merge_sources}
+    ${society_model_packaging_sources}
     src/main.cpp ${society_account_sources} ${society_pairing_sources} src/App/Files/DirectoryLocation.cpp src/App/Files/DirectoryLocation.h
         src/App/Dashboard/DashboardFiles.cpp src/App/Dashboard/DashboardFiles.h
         src/App/Models/StorageModels.cpp src/App/Models/StorageModels.h
@@ -165,6 +174,7 @@ qt_add_qml_module(Society
         src/App/Preferences/PreferencesWindow.qml src/App/Preferences/PreferencesContent.qml
         src/App/Tools/ModelMergeTool.qml src/App/Tools/MergePathField.qml src/App/Tools/MergeModelPicker.qml
         src/App/Tools/ToolsView.qml src/App/Tools/ToolCard.qml
+        src/App/Tools/ModelPackagingTool.qml
         src/App/Environment/EnvironmentView.qml src/App/Environment/EnvironmentApps.qml
         src/App/Environment/EnvironmentCard.qml src/App/Environment/EnvironmentBadge.qml src/App/Environment/EnvironmentButton.qml
         src/App/Environment/EnvironmentRow.qml src/App/Environment/EnvironmentSection.qml
@@ -190,6 +200,7 @@ endif()
 target_link_libraries(Society PRIVATE Qt6::Quick Qt6::QuickControls2 iiAcountManager::Quick)
 lvrs_configure_qml_app(Society NO_PLATFORM_RUNTIME_TARGETS)
 target_link_libraries(Society PRIVATE ${society_sdk_targets} iiPhotoLibrary::iiPhotoLibrary SocietyServices SocietyDiscovery SocietyGroupState Qt6::Concurrent)
+target_link_libraries(Society PRIVATE SocietyModelPackaging)
 qt_add_resources(Society icu_license PREFIX "/licenses/icu"
     BASE "${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/icu" FILES ThirdParty/icu/LICENSE.txt)
 qt_add_resources(Society qrcodegen_license PREFIX "/licenses/qrcodegen"
@@ -410,6 +421,8 @@ if(BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)
         "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_photolibrary_integration.py")
     set_tests_properties(Society.PhotoLibraryPackaging PROPERTIES TIMEOUT 30)
     if(APPLE AND NOT IOS)
+        add_test(NAME Society.ContainerFormat COMMAND "${Python3_EXECUTABLE}" -B
+            "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_container_format.py")
         add_test(NAME Society.MacRuntimeDeployment COMMAND "${Python3_EXECUTABLE}" -B
             "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_macos_runtime.py")
         add_test(NAME Society.MacRuntimeLaunch COMMAND "${Python3_EXECUTABLE}" -B
@@ -547,6 +560,20 @@ if(BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)
         ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software;QML_DISABLE_DISK_CACHE=1"
         TIMEOUT 180)
 
+    if(TARGET iiLocalDiffusion::ModelPackaging)
+        qt_add_executable(SocietyModelPackagingTests tests/tst_modelpackaging.cpp ${society_model_packaging_sources})
+        target_include_directories(SocietyModelPackagingTests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
+        target_link_libraries(SocietyModelPackagingTests PRIVATE SocietyModelPackaging Qt6::Test Qt6::Quick Qt6::QuickControls2 Qt6::Concurrent)
+        lvrs_configure_qml_app(SocietyModelPackagingTests NO_PLATFORM_RUNTIME_TARGETS)
+        target_compile_definitions(SocietyModelPackagingTests PRIVATE
+            SOCIETY_TEST_DIRECTORY="${CMAKE_CURRENT_BINARY_DIR}"
+            SOCIETY_PACKAGING_QML_FILE="${CMAKE_CURRENT_SOURCE_DIR}/tests/ModelPackagingHarness.qml"
+            SOCIETY_LVRS_QML_IMPORT_PATH="${LVRS_QML_IMPORT_PATH}")
+        add_test(NAME Society.ModelPackaging COMMAND SocietyModelPackagingTests)
+        set_tests_properties(Society.ModelPackaging PROPERTIES TIMEOUT 120
+            ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software;QML_DISABLE_DISK_CACHE=1")
+    endif()
+
     qt_add_executable(SocietyCalendarTests tests/tst_calendar.cpp ${society_calendar_sources})
     target_include_directories(SocietyCalendarTests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
     target_link_libraries(SocietyCalendarTests PRIVATE Qt6::Test Qt6::Qml Qt6::Concurrent iiCalendar::iiCalendar iiSocietyContainer::iiSocietyContainer)
@@ -554,7 +581,7 @@ if(BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)
     add_test(NAME Society.Calendar COMMAND SocietyCalendarTests)
     set_tests_properties(Society.Calendar PROPERTIES TIMEOUT 60)
 
-    qt_add_executable(SocietyDriveTests tests/tst_drive.cpp ${society_environment_sources} ${society_calendar_sources} ${society_model_merge_sources}
+    qt_add_executable(SocietyDriveTests tests/tst_drive.cpp ${society_environment_sources} ${society_calendar_sources} ${society_model_merge_sources} ${society_model_packaging_sources}
         ${society_pairing_sources}
         src/App/Models/StorageModels.cpp src/App/Models/StorageModels.h
         src/App/Dashboard/DashboardFiles.cpp src/App/Dashboard/DashboardFiles.h
@@ -569,6 +596,7 @@ if(BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)
         Qt6::Concurrent
         iiServerHost::iiServerHost iiAcountManager::iiAcountManager iiSocietyContainer::iiSocietyContainer)
     lvrs_configure_qml_app(SocietyDriveTests NO_PLATFORM_RUNTIME_TARGETS)
+    target_link_libraries(SocietyDriveTests PRIVATE SocietyModelPackaging)
     target_compile_definitions(SocietyDriveTests PRIVATE
         SOCIETY_ACCOUNT_FIXTURE="${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/account.json"
         SOCIETY_QML_FILE="${CMAKE_CURRENT_SOURCE_DIR}/src/App/Main.qml"

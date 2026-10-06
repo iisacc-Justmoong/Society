@@ -1,0 +1,21 @@
+<key>UTExportedTypeDeclarations</key>
+<array>
+    <dict>
+        <key>UTTypeIdentifier</key><string>com.iisacc.society.container</string>
+        <key>UTTypeDescription</key><string>Society Container</string>
+        <key>UTTypeConformsTo</key><array><string>com.apple.package</string></array>
+        <key>UTTypeTagSpecification</key>
+        <dict><key>public.filename-extension</key><array><string>societycontainer</string></array></dict>
+    </dict>
+</array>
+<key>CFBundleDocumentTypes</key>
+<array>
+    <dict>
+        <key>CFBundleTypeName</key><string>Society Container</string>
+        <key>CFBundleTypeRole</key><string>None</string>
+        <key>CFBundleTypeIconFile</key><string>Society.icns</string>
+        <key>CFBundleTypeExtensions</key><array><string>societycontainer</string></array>
+        <key>LSItemContentTypes</key><array><string>com.iisacc.society.container</string></array>
+        <key>LSTypeIsPackage</key><true/>
+    </dict>
+</array>

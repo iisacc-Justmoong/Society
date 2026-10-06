@@ -254,6 +254,11 @@ LV.VStack {
             touchNavigation: !root.desktop
             modelsDirectory: root.drive.contentsAvailable ? root.drive.rootPath + "/Models" : ""
             modelsBusy: root.modelImporter.busy
+            onPackageCreated: function(path) {
+                root.files.refresh()
+                if (root.drive.contentsAvailable && path.startsWith(root.drive.rootPath + "/Models/"))
+                    root.modelImporter.organizeModels()
+            }
             onGenerateRequested: function(prompt, mediaType, aspectRatio, count) {
                 root.generateRequested(prompt, mediaType, aspectRatio, count)
             }

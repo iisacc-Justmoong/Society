@@ -4,11 +4,13 @@
 
 수동 초대를 받은 경우에는 기존 수락 화면을 유지한다. QR은 연결 주소를 전달하는 수단이며, 동일 계정 인증과 계정에 등록된 호스트·컨테이너 검증을 우회하지 않는다. 데스크톱은 호스트, 모바일은 클라이언트 역할을 유지한다.
 
-# Account host requirement (2026-09-21)
+<a id="account-host-requirement-2026-09-21"></a>
 
-Every Society LAN/QR connection requires a signed-in account and current server-issued pairing credentials on both endpoints. The QR supplies transport coordinates, not authorization. Both endpoints prove account membership before Files access. Clients connect only to `societyContainerDrive.hostDeviceId`, and replication checks `containerId` before adopting or uploading data. Missing registration, a different account, expired credentials or another host stops synchronization.
+# 계정 호스트 요구 사항(2026-09-21)
 
-An account-authorized host/container change invalidates mobile readiness immediately. The previous mirror and offline edits are retained under `.society-sync/detached/`; the registered host supplies the replacement namespace. They are never uploaded to the replacement host. The UI becomes ready after that host completes an authenticated round.
+각 Society LAN / QR 연결은 양쪽 엔드포인트에서 로그인된 계정과 현재 서버 발급 페어링 자격 증명을 필요로 합니다. QR 는 인증이 아닌 전송 좌표를 제공합니다. 파일 접근 전 양쪽 엔드포인트가 계정 소속을 증명합니다. 클라이언트는 `societyContainerDrive.hostDeviceId` 에만 연결하며, 데이터 채택 또는 업로드 전에 `containerId` 를 확인합니다. 등록 누락, 다른 계정, 만료된 자격 증명 또는 다른 호스트는 동기화를 중단시킵니다.
+
+계정 인증된 호스트/컨테이너 변경은 모바일 준비 상태를 즉시 무효화합니다. 이전 미러와 오프라인 편집은 `.society-sync/detached/` 하에 유지되며, 등록된 호스트가 대체 네임스페이스를 제공합니다. 그들은 대체 호스트로 절대 업로드되지 않습니다. 해당 호스트가 인증된 라운드를 완료한 후 UI 가 준비됩니다.
 
 # 로컬 네트워크 기기 탐색·페어링
 
@@ -58,7 +60,7 @@ iPhone 스캐너는 AVFoundation의 QR 메타데이터 인식과 실제 카메�
 4. 모바일이 QR의 주소로 직접 연결하고 인증서를 확인한다. 데스크탑의 Files 목록을 읽고 확인 응답까지 끝나면 양쪽에 완료를 표시한다.
 5. 모바일의 **Open host Files**로 목록을 탐색하거나 내려받는다. 데스크탑의 **Done**은 QR 창만 닫고 연결은 유지한다.
 
-LAN pairing requires both devices to sign in to the same account. Server-issued pairing keys authenticate both peer identities, the TLS certificate, the one-use offer and its nonce before Files access. The account registered host and container are mandatory. Legacy unauthenticated QR connections are rejected.
+LAN 페어링은 두 장치가 동일한 계정에 로그인해야 합니다. 서버 발급 페어링 키는 파일 접근 전 두 피어 신원, TLS 인증서, 일회성 제안 및 그 난수를 인증합니다. 계정 등록된 호스트와 컨테이너는 필수입니다. 구식 인증되지 않은 QR 연결은 거부됩니다.
 
 QR 수명은 60초이고 한 번만 소비한다. 재발급·창 닫기·취소·호스트 종료로 미완료 요청을 무효화한다. Files 확인 단계는 최대 15초이다. 다른 기기가 코드를 재사용하거나 인증서가 다르면 완료하지 않는다. 이미 완료된 연결은 QR 만료나 Done으로 끊지 않는다. **Disconnect**, 컨테이너 변경, 앱 종료 또는 모바일 백그라운드 전환은 연결을 닫는다. 연결이 끊기거나 앱이 재시작되면 새 QR로 다시 페어링한다. 장기 접근 토큰이나 QR은 디스크에 저장하지 않는다.
 
@@ -86,7 +88,7 @@ Qt 6.8.3 Core/Network/WebSockets를 재사용한다. 데스크탑 인증서 생�
 
 Android 카메라는 [ZXing Android Embedded 4.3.0](https://github.com/journeyapps/zxing-android-embedded)의 공개 안정 버전을 고정한다. Apache 2.0이며 카메라·프레임 수명 관리는 해당 라이브러리에 맡긴다. AndroidX 및 ZXing decoder 전이 의존성이 있고 서버나 별도 설치 앱은 필요하지 않다. 배포 간격이 긴 라이브러리이므로 target SDK를 변경할 때 실제 카메라 회귀 검증이 필요하다. QR만 해독하며 이미지 저장·업로드·마이크 접근·소리를 사용하지 않는다.
 
-`iiServerHost.lan` verifies real TLS, mutual account proofs, rejection before Files access, replay, expiry and certificate mismatches. Society QR fixtures now authenticate against a local account server and register the expected host. Society.Account verifies manual and automatic synchronization, unregistered account rejection and revocation after account-host changes. Physical camera/device verification must be reported separately.
+`iiServerHost.lan` 는 실제 TLS, 상호 계정 증명, 파일 접근 전 거부, 재방송, 만료 및 인증서 불일치를 확인합니다. Society QR 픽스처 는 이제 로컬 계정 서버에 대해 인증하고 예상 호스트를 등록합니다. Society 입니다. 계정이 수동 및 자동 동기화, 등록되지 않은 계정 거부 및 계정-호스트 변경 후 회수를 확인합니다. 물리적 카메라/장치 인증은 별도로 보고되어야 합니다.
 
 ## 2026-09-09 검증 기록
 
@@ -100,9 +102,8 @@ Android 카메라는 [ZXing Android Embedded 4.3.0](https://github.com/journeyap
 
 로그인 테스트와 실제 휴대폰 카메라로 모니터를 촬영하는 동작은 수행하지 않았다. 위 자동 QR 해독과 파일 전송 검사로 실물 카메라 검증을 대체하지 않는다. 세부 로그·스크린샷은 `build/local-pairing-*.log`, `build/local-pairing-desktop.png`, iPhone 설치 기록은 `build/local-pairing-ios-install.json`에 있다.
 
-## Environment entry points (2026-09-24)
+<a id="environment-entry-points-2026-09-24"></a>
 
-Environment → Devices → Add device opens the existing discovery/server modal.
-Pair with QR code opens the pairing sheet. Browse now navigates connected host
-files and never opens pairing from its main tab. Preferences and onboarding
-retain their existing device actions. See [Environment](Environment.md).
+## 환경 진입점(2026-09-24)
+
+환경 → 장치 → 장치를 추가하면 기존 발견/서버 모달이 열립니다. QR 코드로 짝을 맞추면 짝짓기 시트가 열립니다. 지금 탐색은 연결된 호스트 파일을 탐색하며 메인 탭에서 짝짓기를 열지 않습니다. 선호 사항과 온보딩은 기존 장치 동작을 유지합니다. [환경](Environment.md)을 참조하세요.

@@ -1,138 +1,88 @@
 # Society
 
-`Files/`에는 기본 파일이나 폴더를 제공하지 않는다. `Documents`, `Audios`, `3D objects`도 일반 사용자 폴더이며 자동 생성·복구·이름 예약을 적용하지 않는다. 기존 빈 기본 폴더의 일회성 정리와 사용자 내용 보존은 [Files 관리 문서](docs/Files.md)를 따른다.
+`Files/`  does not provide default files or folders. `Documents` , `Audios` , `3D objects`  are also standard user folders and do not apply automatic creation, recovery, or name reservation. One-time cleanup of existing empty default folders and preservation of user content follow [Files management documentation](docs/Files.md).
 
-앱 아이콘은 `resources/Appicon/Artboard 1.png`에서 플랫폼별로 생성한다. macOS·iOS·Android·Windows·Linux·WebAssembly 패키징과 Qt 런타임에 연결하며, 재생성·규격·검증 방법은 [앱 아이콘 문서](resources/Appicon/README.md)에 있다.
+App icons are generated per platform in `resources/Appicon/Artboard 1.png` . macOS · iOS · Android · Windows · Linux · WebAssembly  packaging and Qt  runtime are connected, and regeneration, specification, and verification methods are in [app icons documentation](resources/Appicon/README.md).
 
-Society의 메인 창과 Preferences는 `LV.ApplicationWindow`와 `LV.Theme.accentGreen` (`#57965C`) Primary를 사용한다. 창 전체를 그레디언트 없이 거의 블랙에 가까운 `#0B0B0B`로 채우며 fill 불투명도는 50%이다. 창 배경은 Primary와 분리하고 버튼과 선택 상태에는 앱 악센트 색상을 유지한다. 64px 머티리얼 블러와 macOS 네이티브 배경 블러를 유지하고 글자와 버튼의 불투명도는 낮추지 않는다. 대시보드 목록의 바탕은 투명하게 두어 창 머티리얼을 드러낸다. `Society.Drive`가 두 창의 색상·불투명도·그레디언트 제거와 기존 창 동작을 검증한다.
+Society's main window and Preferences use `LV.ApplicationWindow`  and `LV.Theme.accentGreen`  ( `#57965C` ) Primary. The entire window is filled with `#0B0B0B`  nearly black without gradient, and fill opacity is 50%. The window background is separated from Primary, and opacity for buttons and selected states is maintained at the app accent color. 64px  material blur and macOS  native background blur are maintained, and opacity for text and buttons is not reduced. The background of the dashboard list is kept transparent to reveal the window material. `Society.Drive`  verifies color, opacity, and gradient removal for both windows and existing window behavior.
 
-최신 LVRS 패키지를 사용해야 한다. 현재 Workspace 실행본은 `SDK/LVRS/build/material-runtime`에 설치한 프레임워크를 두 앱이 공유하며, Society의 `build/`는 해당 `lib/cmake/LVRS`를 `LVRS_DIR`로 지정해 구성한다.
+The latest LVRS  package must be used. The current Workspace build shares the framework installed in `SDK/LVRS/build/material-runtime`  between two apps, and Society's `build/`  is configured by specifying `lib/cmake/LVRS`  as `LVRS_DIR`  .
 
-Android는 현재 LVRS 소스를 `SDK/LVRS/build/society-android`에서 같은 Qt/NDK로 빌드하여 `build/android/installed/LVRS`에 설치한 패키지를 사용한다. 데스크톱 패키지만 갱신하면 모바일에는 새 창 속성이 반영되지 않는다. 패키지 변경 뒤 APK를 다시 빌드하고 실제 QML 루트 로딩까지 확인한다.
+Android currently uses a package built from the same LVRS source at `SDK/LVRS/build/society-android` using the same Qt/NDK and installed at `build/android/installed/LVRS`. Updating only the desktop package does not reflect new window properties on mobile. After changing the package, rebuild the APK and verify up to the actual QML root loading.
 
-로그인 복원 정보와 페어링 인증·기기 이력·자동 연결 설정은 모바일을 포함해 [그룹 컨테이너](docs/GroupState.md)에 암호화하여 저장한다.
+Login recovery information and pairing authentication, device history, and auto-connect settings are encrypted and stored in the [group container](docs/GroupState.md), including mobile.
 
-iiAccountManager SDK가 소유하는 로그인·회원가입 화면을 데스크톱·iPhone·Android에서 호출한다.
-공통 계정 화면에서 iisacc.com 이메일과 비밀번호로 바로 로그인한다. 앱 소유 보안 저장소에 세션을 보관하여 다음 실행부터 자동으로 복원하고 전체 계정 객체를 갱신한다. 비밀번호를 저장하지 않으며 로그아웃·서버 만료·철회 시 복원을 해제한다. [계정 연결 계약](docs/Account.md)을 참고한다.
+The login and sign-up screens owned by the iiAccountManager SDK are called from desktop, iPhone, and Android. From the common account screen, log in directly with the iisacc.com email and password. Sessions are kept in the app owner's secure storage to automatically recover from the next execution and update the entire account object. Passwords are not stored, and recovery is disabled upon logout, server expiration, or revocation. Refer to the [account connection contract](docs/Account.md).
 
-같은 iisacc 계정의 Society 기기를 BLE와 LAN에서 탐색하고, 계정 서버가 발급한 증명을 검증하여 자동 대기열에 넣고 연결한다. 한 데스크톱 호스트에 다른 데스크톱·휴대폰·태블릿이 순서대로 연결하며 실패한 기기는 자동 재시도한다. BLE는 작은 연결 정보를 교환하고 파일은 Wi-Fi/LAN의 TCP/TLS로 전송한다. Apple Bonjour와 Android NSD 발견도 유지한다. [자체 호스트 웹서버·NAS](docs/SelfHosting.md)를 설정하면 같은 계정의 기기를 인터넷에서도 연결하며 전체 컨테이너를 동기화한다. [자동 연결 계약](docs/AutomaticPairing.md)과 [수동 초대·QR 절차](docs/Pairing.md)를 참고한다.
+Search for iisacc devices of the same Society account via BLE and LAN, verify the certificate issued by the account server, and add to the automatic queue and connect. Other desktops, mobile phones, and tablets connect to one desktop host in sequence, and failed devices are automatically retried. BLE exchanges small connection information, and files are transmitted via Wi-Fi/LAN TCP /TLS. Apple Bonjour and Android NSD discovery are also maintained. If [self-hosted web server and NAS](docs/SelfHosting.md)are set up, devices of the same account can be connected over the internet, and the entire container is synchronized. Refer to [automatic connection contract](docs/AutomaticPairing.md)and [manual invitation QR procedure](docs/Pairing.md).
 
-## iisacc 계정
+<a id="iisacc-계정"></a>
 
-모든 Society 플랫폼에 공통 LVRS 계정 화면을 제공한다. 데스크톱 상단 계정 아이콘 또는 모바일의
-Sign in 버튼에서 이메일·비밀번호만으로 바로 로그인한다. 계정 패널·Devices·iiSocietyHelper는
-같은 iiAccountManager 객체를 공유한다. PC 2대·태블릿 2대·휴대폰 2대의 독립 한도를 사용하며,
-로그인에는 릴레이 주소가 필요하지 않다. [인증 흐름·기기 식별·검증 범위](docs/Account.md)를 참고한다.
+## iisacc account
 
-데스크톱은 [Figma 대시보드](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=18-14)를 `LV.ApplicationWindow`의 `content` 슬롯에 `SocietyView`로 배치하며, LVRS 기본 창 프레임과 창 제어를 사용한다.
-상단 탭은 **Dashboard → Tools → Storage → Browse → Environment** 순서이다. **Tools**에서 iiLocalDiffusion 기반 [모델 합·차 병합 도구](docs/ModelMerge.md)를 사용하며, 컨테이너 `Models/`의 드롭다운·컨텍스트 메뉴에서 베이스·추가 체크포인트/LoRA를 선택한다. 가중치·출력·캐시·Python 환경과 설정 검증을 제공한다. **Storage**는 기존 Society 드라이브를 연다. **Browse**는 연결된 기기의 파일을 탐색한다. **Environment**는 [Overview·Devices·Apps 및 네 개 앱 컬렉션](docs/Environment.md)을 표시한다. 기기 페어링 모달은 Environment → Devices → Add device에서 연다. 탭을 오가도 병합 설정, 현재 폴더와 프롬프트가 유지된다.
-실제 최근 파일·생성 이력, 화면 구성과 동작 범위는 [Dashboard 문서](docs/Dashboard.md)에 정리했다.
-Storage 사이드바는 My storage·Other devices·Guild·Organization 네 그룹이며, 실제 기기 목록·계정별 탐색 객체·빈 상태와 스크롤 동작은 [Storage 탐색 문서](docs/StorageNavigation.md)에 정리했다.
-Storage → Photos는 [기기 사진 보관함과 양방향으로 연결](docs/Photos.md)하며 사진·비디오의 alias, 직접 저장한 프리뷰, 인증된 원본 전송을 제공한다.
+A common LVRS account screen is provided for all Society platforms. Log in directly with just email and password from the desktop top account icon or the mobile Sign in button. The account panel, Devices, and iiSocietyHelper share the same iiAccountManager object. Independent limits of PC 2 desktops, 2 tablets, and 2 mobiles are used, and no relay address is required for login. Refer to the [authentication flow, device identification, and verification scope](docs/Account.md).
 
-앱 제목·드라이브 홈·경로 표시와 OS의 드라이브 표시 이름은 `Society`이다. iiSocietyContainer 0.9.1은 이전 이름의 기존 드라이브도 UUID와 파일을 유지하며 읽는다. macOS에서 기존 원본을 다시 등록하면 동일한 File Provider 도메인의 표시 이름을 갱신한다. `Society.Drive`가 앱 제목, 홈과 경로 표시를 검증한다.
+On desktop, the [Figma dashboard](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=18-14)is placed as `SocietyView` in the `content` slot of `LV.ApplicationWindow`, using the default LVRS window frame and controls. The top tabs are ordered **Dashboard → Tools → Storage → Browse → Environment**. **Tools**provides the [model addition/subtraction merge tool](docs/ModelMerge.md)based on iiLocalDiffusion; base and additional checkpoints/LoRA are selected from the dropdown and context menu in the container's `Models/`. It provides weights, output, cache, the Python environment, and configuration validation. **Storage**opens the existing Society drive. **Browse**browses files on connected devices. **Environment**displays [Overview, Devices, Apps, and four app collections](docs/Environment.md). The device-pairing modal opens through Environment → Devices → Add device. Merge settings, the current folder, and prompts persist when switching tabs. Actual recent files and generation history, screen composition, and the scope of behavior are documented in the [Dashboard documentation](docs/Dashboard.md). The Storage sidebar has four groups: My storage, Other devices, Guild, and Organization. Actual device lists, per-account browsing objects, empty states, and scrolling behavior are documented in the [Storage navigation documentation](docs/StorageNavigation.md). Storage → Photos [connects bidirectionally to the device photo library](docs/Photos.md)and provides photo and video aliases, directly saved previews, and authenticated original transfers.
 
-컨테이너 원본으로 Finder의 `~/Library/CloudStorage/` 복제본이나 기존 Society 컨테이너 내부를 선택하면 오류를 표시하고 기존 원본과 공통 저장 설정을 유지한다. 이 검증은 iiSocietyContainer의 생성·열기 경계에 적용되어 Helper 소비 앱에도 전달된다. `Society.Drive`의 `rejectsPublicFilesAsANewContainer`가 `Files/`를 잘못 선택해도 새 영역이나 매니페스트가 만들어지지 않는지 검증한다.
+App title, drive home, and path display, and the OS drive display name are `Society`. iiSocietyContainer 0.9.1 reads existing drives with previous names while maintaining UUID and files. Re-registering the original at macOS updates the display name of the same File Provider domain. `Society.Drive` validates app title, home, and path display.
 
-iiSocietyHelper 0.4.0의 `societyHelper.fileSystem`은 Society 원본의 9개 영역을 일반 파일 시스템 경로로 제공한다. SDK가 iiSocietyContainer 0.8.0을 재사용하므로 iOS 빌드 도구는 Container 설치 후 Helper를 구성하고 동일 ABI의 Container 패키지를 명시한다. `Society.IosBuildContract`는 이 순서와 패키지 경로를 검증한다. 파일 접근 자체와 iOS 서명·실기기 권한 검증은 구분한다.
+If Finder's `~/Library/CloudStorage/` replica or the interior of existing Society container is selected as the container original, an error is displayed and the original and common storage settings are maintained. This validation is applied to the creation/opening boundary of iiSocietyContainer and is also passed to Helper consumer apps. `Society.Drive`'s `rejectsPublicFilesAsANewContainer` validates that no new area or manifest is created even if `Files/` is incorrectly selected.
 
-[SocietyDaemon](docs/SocietyDaemon.md)은 본체 창과 독립적으로 Helper의 데이터를 수신·보관하는 서비스이다. 본체의 `societyInbox` 객체가 재실행 후 누적 데이터와 새 데이터를 전달받는다. macOS 로그인 서비스 등록, 저장 보장과 플랫폼 범위는 별도 문서를 따른다.
+iiSocietyHelper   0.4.0's `societyHelper.fileSystem` provides Society original's 9 areas as general file system paths. SDK iiSocietyContainer   0.8.0 is reused so iOS build tools configure Helper after Container installation and specify Container packages of the same ABI. `Society.IosBuildContract` validates this sequence and package path. File access itself and iOS signature and runtime permission verification are separated.
 
-앱 시작 시 iiSocietyHelper 0.3.1의 `Helper`를 `com.iisacc.society`로 가동한다. 같은 기기의 다른 Helper와 양방향으로 실행 인스턴스를 관측하고, 전경·배경 상태를 공유하며 앱 종료 때 자기 등록을 해제한다. QML에는 `societyHelper.observedApplications`와 관측 이벤트를 제공한다. 이 상태는 Society 드라이브 콘텐츠와 분리된 기기 로컬 위치에 기록한다. `SocietyRuntime`이 시작 실패를 재시도하고 iOS 중단 때 연결을 정리한 뒤 복귀 시 Helper·수신기·수신함을 함께 복구한다. 상세 기능과 검증 범위는 [iOS 구현 문서](docs/iOS.md)를 따른다.
+[SocietyDaemon](docs/SocietyDaemon.md)is a service that receives and holds Helper's data independently of the host window. The host's `societyInbox` object receives cumulative data and new data after re-execution. macOS login service registration, storage guarantee, and platform scope follow separate documentation.
 
-`Society.Dependencies`는 실제 앱 실행 파일과 테스트 Helper의 양방향 발견을 검증한다. `SOCIETY_HELPER_DIRECTORY`와 저장소 설정을 테스트별 `build/` 경로로 격리한다. SDK 0.3.1 설치 경로는 `iiSocietyHelper_DIR`로 지정한다. 현재 Workspace 검증본은 `SDK/iiSocietyHelper/build/install/lib/cmake/iiSocietyHelper`이다.
+When the app starts, iiSocietyHelper   0.3.1's `Helper` is run as `com.iisacc.society`. It observes execution instances bidirectionally with other Helpers on the same device, shares foreground and background states, and unregisters itself when the app ends. QML provides `societyHelper.observedApplications` and observation events. This state is recorded on the device's local location, separated from Society drive content. `SocietyRuntime` retries start failure and, when iOS stops, cleans up the connection and restores Helper, receiver, and inbox together. Detailed features and validation scope follow [iOS implementation document](docs/iOS.md).
 
-Society는 iisacc 앱들의 공통 원본 스토리지이다. 컨테이너를 열 때 iiSocietyContainer 0.7.0의 `SharedStorage::setDefaultContainer()`로 경로와 UUID를 등록한다. 다음 실행은 등록된 컨테이너를 다시 열며, Dreamscapes 등의 소비 앱은 `SharedStorage::open()`으로 같은 `Models/`·`Asset Library/`·`Generation History/`에 접근한다. Society에 드롭한 모델을 앱별로 복제할 필요가 없다. 다른 기기에서는 Society끼리 모델을 동기화하고, 각 Dreamscapes는 자기 기기의 Society 컨테이너를 읽어 이미지를 생성한다. Society는 원격 생성 요청을 받아 Dreamscapes를 실행하지 않는다. macOS의 새 디스크는 APFS 볼륨 안의 9개 영역을 공통 원본으로 사용한다. 모바일 File Provider는 `Files/`를 공개 루트로 제공한다. iOS에서는 동일 App Group이 공통 원본이고 다른 앱이 File Provider를 중복 등록하지 않는다. 이 로컬 공유 계약은 Helper·Container가 담당하고, 다른 기기의 Society와의 계정별 동기화는 별도의 iiSocietySync가 담당한다.
+`Society.Dependencies` validates bidirectional discovery between the actual app executable and the test Helper. `SOCIETY_HELPER_DIRECTORY` and repository settings are isolated by test-specific `build/` paths. SDK   0.3.1 installation paths are specified as `iiSocietyHelper_DIR`. The current Workspace validation is `SDK/iiSocietyHelper/build/install/lib/cmake/iiSocietyHelper`.
 
-`Society.Drive` 테스트는 컨테이너 선택 후 공통 저장소의 UUID가 일치하고 새 컨트롤러가 같은 드라이브를 다시 여는지 검사한다. 설정 파일은 테스트별 `build/` 임시 경로로 분리한다.
+Society is the common original storage for iisacc apps. Opening a container registers its path and UUID through `SharedStorage::setDefaultContainer()` in iiSocietyContainer 0.7.0. The next launch reopens the registered container; consumer apps such as Dreamscapes use `SharedStorage::open()` to access the same `Models/`, `Asset Library/`, and `Generation History/`. Models dropped into Society need not be duplicated for each app. Across devices, Society instances synchronize models, and each Dreamscapes reads its own device's Society container to generate images. Society does not receive remote generation requests and launch Dreamscapes. Desktop Society creates an ordinary Society directory with nine direct section folders matching Storage. It saves that root and UUID without a disk image; Open in Finder opens the full directory tree. Existing images remain available for recovery and migration. Mobile File Provider exposes `Files/` as the public root. On iOS, the same App Group is the common original storage, and other apps do not register duplicate File Providers. Helper and Container handle this local-sharing contract; a separate iiSocietySync handles per-account synchronization with Society on other devices.
 
-Qt Quick와 LVRS를 사용하는 Society 드라이브 탐색 앱이다. 디스크 저장 위치를
-받아 별도 APFS 디스크를 만들고 그 안의 9개 영역을 분리해 보여준다.
-기본 창 크기는 1120 × 720,
-최소 크기는 360 × 320이다.
+The `Society.Drive` test checks whether the UUID of the common repository matches after container selection and whether the new controller reopens the same drive. Configuration files are separated by `build/` temporary paths per test.
 
-## 컨테이너 탐색
+It is a Society drive navigation app using Qt Quick and LVRS. It receives the disk storage location, creates a separate APFS disk, and displays 9 areas within it. The default window size is 1120 × 720, and the minimum size is 360 × 320.
 
-컨테이너 설정이 없거나 저장된 경로를 열 수 없으면 LVRS 온보딩 화면에서 컨테이너의 역할과
-새 디스크 생성과 기존 디스크 지정을 위한 파일 다이얼로그를 제공한다. 검증에 성공하면 위치를 기억하고 대시보드로 진입한다.
-모바일에서는 계정으로 확인된 호스트와 현재 연결에서 동기화까지 완료해야 진입하며, 연결이 불가하면 로그인·주변 호스트·서버 설정을 제공한다.
-외장 저장소를 다시 연결한 뒤 저장된 위치를 재시도할 수도 있다. [온보딩 동작과 검증](docs/Onboarding.md)을 참고한다.
+<a id="컨테이너-탐색"></a>
 
-`Create a new disk…`에서 디스크 이미지를 보관할 폴더를 선택한다. macOS에서는 해당 위치에
-`Society.sparsebundle`을 생성하고 마운트한 실제 APFS 디스크에 컨테이너를 구성한다.
-선택한 폴더의 기존 파일은 유지된다. 이미 만든 Society 이미지는 같은 UUID와 데이터로 복원한다.
-`--container <절대 경로>`는 이미 구성된 논리 컨테이너를 명시적으로 여는 호환 경로이다.
+## Container navigation
 
-시작 화면에는 Asset Library, Deleted, Files, Forked, Generation History, Photos,
-Models, Published, Thinking Space가 표시된다. 영역을 클릭하면 파일 그리드로
-이동한다. 넓은 창에는 영역 사이드바도 표시한다. 폴더 더블클릭·Enter, `Up`,
-경로 버튼, 드라이브 루트 버튼으로 이동하고, 파일은 기본 연결 앱으로 연다.
-컨테이너 밖이나 미분류 루트 폴더로의 탐색은 거부한다.
+If the container settings are missing or the saved path cannot be opened, LVRS provides a role for the container and a file dialog for creating a new disk and assigning an existing disk in the onboarding screen. If verification succeeds, it remembers the location and enters the dashboard. On mobile, it must complete synchronization with the host verified by the account and the current connection before entering, and if the connection is unavailable, it provides login, nearby hosts, and server settings. It can also reattempt the saved location after reconnecting the external storage. [Onboarding behavior and verification](docs/Onboarding.md)are referenced.
 
-Generation History는 모든 앱의 완성된 생성 이미지를 한 목록으로 보여준다.
-앱별·작업별 폴더를 만들지 않고 이미지 파일을 영역 바로 아래에 자동 저장한다.
-이 화면은 PNG·JPEG·WebP만 표시하며 하위 폴더 탐색을 허용하지 않는다.
-생성 이미지는 Asset이 아니므로 생성만으로 Asset Library에 추가하지 않는다.
-큐와 실행 상태는 각 앱의 메모리로 관리하며 Society에 저장하지 않는다.
-생성기가 파일 경로를 요구하는 작업 자료와 캐시도 Society 밖의 앱 전용 임시 위치에서 사용한 뒤 정리한다.
-Society에 영구 저장하는 생성 데이터는 완성된 이미지 파일뿐이다.
-`Society.Drive`는 데스크톱과 휴대폰 폭에서 이미지 필터와 하위 폴더 탐색 거부를 검증한다.
-경로와 필터가 바뀌면 FolderListModel을 함께 재생성하여 이전 영역의 비동기 목록이 남지 않게 한다.
-`Society.Gui`는 이미지 목록과 일반 폴더 목록 사이의 반복 전환도 검사한다.
-그 외 영역에는 별도 휴지통·게시·보관 정책을 부여하지 않는다.
+In `Create a new disk…`, select the folder to store disk images. In macOS, create and mount the actual `Society.societycontainer` at that location and configure the container on the APFS disk. Existing files in the selected folder are preserved. Images already created Society are restored with the same UUID and data. `--container <absolute path>` is a compatible path that explicitly opens an already configured logical container.
 
-macOS의 새 온보딩은 디스크 생성과 마운트를 완료한 뒤에 대시보드를 연다.
-`Open in Finder`로 별도 Society 볼륨을 열며 디스크 유틸리티에서도 APFS 디스크로 확인할 수 있다.
-일반 폴더를 드라이브로 간주하거나 File Provider 복제본을 새로 등록하지 않는다.
-원본 이미지 경로를 저장하므로 추출 후 재시작하거나 마운트 이름이 바뀌어도 같은 컨테이너를 복원한다.
-기존 폴더 저장 설정은 새 디스크 설정을 안내하며 데이터를 자동 이동하지 않는다.
-모바일의 관리형 저장소, 기존 File Provider·Dokan·FUSE 어댑터는 별도로 유지한다.
-Windows·Linux 이미지 생성 백엔드는 아직 없으며 새 생성 요청에는 명시적인 오류를 표시한다.
-인증된 Society 간 컨테이너 동기화는 iiSocietySync가 처리한다.
+The start screen displays Asset Library, Deleted, Files, Forked, Generation History, Photos, Models, Published, Thinking Space. Clicking an area moves to the file grid. A wide window also displays the area sidebar. Navigate using folder double-click, Enter, `Up`, path button, and drive root button, and open files with the default connection app. Navigation outside the container or to an unclassified root folder is denied.
 
-## 모델 파일 드래그 앤 드롭
+Generation History displays all completed generated images from all apps as a single list. Image files are automatically saved directly below the area without creating app-specific or task-specific folders. This screen displays only PNG · JPEG · WebP and does not allow subfolder navigation. Since generated images are not Assets, they are not added to the Asset Library merely by generation. Queue and execution status are managed in each app's memory and are not saved to Society. Generated data that requires file paths, such as task materials and cache used outside Society, is cleaned up after use. Generated data permanently saved to Society is only the completed image file. In `Society.Drive`, image filtering and denial of subfolder navigation are verified for both desktop and mobile widths. If the path and filter change, FolderListModel is regenerated together to ensure no asynchronous list from the previous area remains. `Society.Gui` also checks for recursive switching between the image list and the regular folder list. No separate trash, publish, or archive policies are assigned to other areas.
 
-컨테이너를 연 뒤 Society 창 안에 `.safetensor` 또는 `.safetensors` 파일을 드롭하면
-현재 탐색 영역과 관계없이 원본 컨테이너의 `Models/<유형>/`으로 복사한다. 확장자는 대소문자를
-구분하지 않는다. 드래그 중 목적지를 표시하고, 완료 후 `Models` 화면으로 이동한다.
-`Files/Models/`나 Finder·파일 앱의 공개 드라이브에는 모델을 추가하지 않는다.
+The new macOS onboarding completes disk creation and mounting before opening the dashboard. It opens a separate `Open in Finder` Society volume, which can also be verified as a APFS disk in Disk Utility. It does not treat regular folders as drives or register new File Provider copies. Since it saves the original image path, it restores the same container after extraction and restart, even if the mount name changes. Existing folder save settings guide the new disk settings without automatically moving data. Managed storage on mobile, existing File Provider, Dokan, and FUSE adapters are kept separately. The Windows · Linux image generation backend does not exist yet, and new generation requests show an explicit error. Container synchronization within authenticated Society is handled by iiSocietySync.
 
-- 원본 파일을 보존한다. `weights.safetensor`가 이미 있으면 `weights (1).safetensor`처럼
-  사용하지 않는 이름을 선택하며, 기존 파일·폴더·링크를 덮어쓰지 않는다.
-- 여러 모델을 한 번에 가져올 수 있다. 같은 드롭에 반복된 경로는 한 번만 처리하고,
-  이미 해당 컨테이너의 `Models/` 아래에 있는 파일은 다시 복사하지 않는다.
-- 다른 확장자나 웹 URL이 섞인 드롭은 전체를 거부한다. 실제 읽기·쓰기 오류가 발생하면
-  실패한 파일을 표시하며 이미 완료한 모델은 유지한다. 폴더와 심볼릭 링크는 가져오지 않는다.
-- 큰 파일은 작업 스레드에서 1 MiB 버퍼로 복사한다. 준비 상태·파일별 진행률을 반영한
-  전체 진행률·결과·오류를 창 하단에 표시한다. `Cancel`은 남은 작업을 중단하고 미완료
-  임시 파일을 정리한다. 복사 중에도 영역을 탐색할 수 있으며 컨테이너 선택 버튼은 잠근다.
-- 임시 파일은 비공개 `Models/`에 만들고 완전히 기록한 뒤 원자적으로 이름을 바꾼다.
-  복사 전후에 드라이브 ID와 영역 경계를 검사한다. 잘못된 컨테이너나 `Models`를
-  `Files`로 연결한 심볼릭 링크에는 기록하지 않는다.
+<a id="모델-파일-드래그-앤-드롭"></a>
 
-외부 가져오기는 위 두 확장자를 대상으로 한다. iiSocietyContainer 0.11.0의 `ModelStore`가
-헤더·설정·메타데이터를 판정해 23개 유형으로 정리하며, 불명확한 모델은 `Other/`에 보관한다.
-컨테이너를 열 때 기존 모델도 자동 분류한다. 모델을 실행하거나 전체 텐서 무결성·추론 호환성을
-판정하지 않는다. [Models 관리 문서](docs/Models.md)에 유형 목록과 정리·참조 보존 계약을 설명한다.
+## Drag and drop model file
 
-데스크톱 입력은 기존 Qt Quick의
-[DropArea](https://doc.qt.io/qt-6.8/qml-qtquick-droparea.html)와
-[복사 드롭 액션](https://doc.qt.io/qt-6.8/qml-qtquick-dragevent.html)을 사용한다.
-iOS/iPadOS는 Qt 창의 네이티브 뷰에
-[UIDropInteraction](https://developer.apple.com/documentation/uikit/uidropinteraction)을 붙이고
-파일 앱의 `NSItemProvider`를 받는다. 제공자의 파일 접근은
-[loadInPlaceFileRepresentation](https://developer.apple.com/documentation/foundation/nsitemprovider/loadinplacefilerepresentation(fortypeidentifier:completionhandler:))과
-`NSFileCoordinator`로 유지하며, 그 접근 범위 안에서 같은 모델 복사 로직을 실행한다.
-별도 임시 복사본을 앱에 중복 생성하지 않는다. 취소 후 늦게 도착하는 제공자 콜백은 무시한다.
-외부 패키지는 추가하지 않고 기존 Qt 라이선스와 Apple 기본 SDK API를 사용한다.
+After opening the container, dropping Society or `.safetensor` or `.safetensors` files into the window copies them to the `Models/<type>/` of the original container, regardless of the current browsing area. Extensions are case-insensitive. It shows the destination during drag and moves to the `Models` screen upon completion. It does not add models to `Files/Models/` or public drives in Finder or the Files app.
 
-## 파일 그리드
+- Preserves the original file. If `weights.safetensor` already exists, it chooses an unused name like `weights (1).safetensor`, and does not overwrite existing files, folders, or links.
+- Can import multiple models at once. Repeated paths in the same drop are processed only once, and files already under the `Models/` of that container are not copied again.
+- Drops mixed with other extensions or web URLs are rejected entirely. If actual read/write errors occur, failed files are displayed, and completed models are held.
+- Large files are copied to the 1 MiB buffer in the worker thread. Overall progress, results, and errors reflecting the ready state and per-file progress are displayed at the bottom of the window. `Cancel` stops remaining tasks and cleans up incomplete temporary files. The area can be navigated even during copying, and the container selection button is locked.
+- Temporary files are created in private `Models/`, written completely, and then renamed atomically. The drive ID and section boundaries are checked before and after copying. No writes are made to invalid containers or symbolic links that connect `Models` to `Files`.
 
-Storage의 사이드바는 Figma의 228 px 탐색 목록이며, Models의 기본 화면은 Image·Video·Audio·Language 모델을 각각 가로 스크롤 카드로 표시한다. iiSocietyContainer 0.11.1의 제한된 메타데이터 조회를 사용한다. 기존 세부 폴더는 화면 하단 경로와 카드 메뉴에서 탐색한다. 치수·분류·갱신 및 검증 계약은 [모델 문서](docs/Models.md)를 참고한다.
+External import targets the above two extensions. iiSocietyContainer 0.11.0's `ModelStore` determines headers, settings, and metadata, organizing them into 23 types, and stores unclear models in `Other/`. When opening a container, existing models are also automatically classified. It does not execute models or check full tensor integrity and inference compatibility. [Models management document](docs/Models.md)explains the type list and organization, preservation, and reference contracts.
 
-`src/App/FileGridView.qml`은 필수 `string path` 인자로 로컬 폴더의 절대 경로를 받는다.
-컨테이너를 선택하지 않았거나 드라이브 루트에 있을 때는 빈 경로를 전달하고
-파일 목록을 숨긴다. 영역을 열면 해당 실제 디렉터리를 전달한다. 독립 컴포넌트로도 사용할 수 있다.
+Desktop input uses the existing Qt Quick
+[DropArea](https://doc.qt.io/qt-6.8/qml-qtquick-droparea.html)and
+[copy drop action](https://doc.qt.io/qt-6.8/qml-qtquick-dragevent.html). iOS / iPadOS is in the native view of the Qt window
+[UIDropInteraction](https://developer.apple.com/documentation/uikit/uidropinteraction)and receives the `NSItemProvider` of the file app. Provider file access is
+Maintained as [loadInPlaceFileRepresentation](https://developer.apple.com/documentation/foundation/nsitemprovider/loadinplacefilerepresentation(fortypeidentifier:completionhandler:)) and `NSFileCoordinator`, and executes the same model copy logic within that access scope. It does not redundantly create separate temporary copies in the app. It ignores provider callbacks that arrive late after cancellation. It does not add external packages and uses existing Qt licenses and Apple default SDK API.
+
+<a id="파일-그리드"></a>
+
+## File grid
+
+Storage's sidebar is the 228 px navigation list from Figma. The default Models screen displays Image, Video, Audio, and Language models in separate horizontally scrolling card lists. It uses the bounded metadata queries in iiSocietyContainer 0.11.1. Existing subfolders are explored through the path at the bottom of the screen and card menus. Refer to the [model document](docs/Models.md)for dimension, classification, update, and verification contracts.
+
+`src/App/FileGridView.qml` receives the absolute path of the local folder as a required `string path` argument. If no container is selected or it is at the drive root, it passes an empty path and hides the file list. When opening an area, it passes the corresponding actual directory. It can also be used as an independent component.
 
 ```qml
 FileGridView {
@@ -141,211 +91,175 @@ FileGridView {
 }
 ```
 
-빈 문자열은 미지정 상태이며 파일 목록 모델을 생성하거나 현재 작업 폴더를
-열지 않는다. 독립 컴포넌트에서는 `No folder selected`와 0개 항목을 표시한다.
-다른 폴더를 표시하려면 `path`에 해당 절대 경로를 전달한다. URL, 상대 경로,
-`~` 확장은 받지 않는다. 공백·한글·`#`·`%`가 포함된 경로는 `QUrl::fromLocalFile()`로
-변환한다. 존재하지 않는 폴더, 파일 경로, 읽을 수 없는 폴더는 오류 상태로 표시한다.
+An empty string is unspecified and does not create a file list model or open the current working folder. In an independent component, it displays `No folder selected` and 0 items. To display other folders, it passes the corresponding absolute path to `path`. It does not receive URL, relative paths, or `~` extensions. Paths containing spaces, Hangul, `#`, and `%` are converted to `QUrl::fromLocalFile()`. Non-existent folders, file paths, and unreadable folders are displayed as error states.
 
-- 기본값은 폴더 우선, 대소문자를 구분하지 않는 이름순 정렬이며 숨김 항목과 `.`/`..`는 제외한다.
-- `chronological: true`는 폴더 우선을 유지하면서 수정 시각이 오래된 파일부터 최신 파일까지
-  배치한다. Storage의 Files 영역과 그 하위 폴더에서 사용하며, 비동기 목록 조회와 레이아웃이
-  완료되면 최신 파일이 있는 최하단에서 시작한다. 정렬 기준은 파일의 수정 시각이다.
-- PNG/JPEG/WebP/GIF/BMP/SVG는 Qt 이미지 로더로 비동기 미리보기를 표시한다.
-  그 외 파일과 로드에 실패한 이미지는 LVRS 파일 아이콘, 폴더는 LVRS 폴더 아이콘을 사용한다.
-  영상·PDF·문서의 내용 미리보기는 아직 제공하지 않는다.
-- 클릭으로 단일 선택, 방향키로 이동, Escape로 선택 해제를 지원한다.
-  더블클릭 또는 Enter는 `activated(string path, bool isDirectory)` 신호를 내보낸다.
-  앱은 이 신호를 DriveController의 경계 검증과 폴더 탐색·파일 열기에 연결한다.
-- `count`와 `selectedPath`는 읽기 전용이다. `path` 변경 시 선택을 해제하고 정렬 방식에 맞는
-  초기 스크롤 위치를 적용한다. 자동 갱신에서는 선택한 파일의 경로와 스크롤 위치를 복원하며,
-  시간순 목록의 최하단에 있으면 새로 추가된 최신 파일을 따라간다. 파일 개수 변화 없이
-  수정 시각만 바뀌어 재정렬되는 경우에도 같은 파일의 선택을 유지한다.
-- `heading`은 표시 제목이며 기본값은 `Files`, 앱에서는 현재 영역 이름을 전달한다.
-- 긴 파일명은 최대 두 줄, 그리드는 세로 스크롤과 창 크기에 따른 열 재배치를 사용한다.
+- The default is folder-first, case-insensitive name sorting, and excludes hidden items and `.` / `..`.
+- `chronological: true` maintains folder priority while arranging files from the oldest modification time to the newest. It is used in the Files area of Storage and its subfolders, and starts from the bottom where the newest file is located once asynchronous list retrieval and layout are complete. The sort criterion is the file's modification time.
+- PNG / JPEG / WebP / GIF / BMP /SVG are displayed as Qt image loaders with asynchronous previews. Other files and images that failed to load use the LVRS file icon, and folders use the LVRS folder icon. Content previews for videos, PDF, and documents are not yet provided.
+- Supports single selection by click, movement by arrow keys, and selection cancellation by Escape. Double-click or Enter emits a `activated(string path, bool isDirectory)` signal. The app connects this signal to DriveController boundary validation and folder navigation/file opening.
+- `count` and `selectedPath` are read-only. On `path` change, selection is cleared and the initial scroll position matching the sort method is applied. In auto-refresh, the path and scroll position of the selected file are restored, and if it is at the bottom of the time-sorted list, it follows the newly added newest file. Even if the file count does not change but only the modification time changes causing re-sorting, the selection of the same file is maintained.
+- `heading` is the display title, with the default value being `Files`, and the app passes the current area name.
+- Long file names are limited to a maximum of two lines, and the grid uses vertical scrolling and column re-arrangement based on window size.
 
-## 의존성
+<a id="의존성"></a>
 
-- CMake 3.31 이상, Ninja, C++23 컴파일러
-- Qt 6.8.3: Quick, QuickControls2, Qt.labs.folderlistmodel, 테스트용 Test 모듈
-- 설치된 LVRS CMake 패키지와 QML 모듈
-- iiSocietyHelper 0.7.1, iiSocietySync 0.7.0, iiServerHost 0.6.0 이상
-- iiSocietyContainer 0.14.0의 `DiskImage` API; macOS의 APFS 디스크 이미지 도구
+## dependencies
 
-기존 Qt/LVRS의 창, 글꼴, 테마, 앱 부트스트랩을 재사용한다.
-파일 열거·정렬·폴더 변경 감지는 Qt에 포함된
-[FolderListModel](https://doc.qt.io/qt-6.8/qml-qt-labs-folderlistmodel-folderlistmodel.html)을
-사용한다. 이미 설치된 Qt Quick 모듈이므로 추가 라이브러리나 서비스는 도입하지 않는다.
-Qt가 제공하는 구현과 기존 Qt 라이선스 범위를 재사용하며,
-[Qt Quick의 라이선스 안내](https://doc.qt.io/qt-6.8/qtquick-index.html#licenses-and-attributions)를 따른다.
-`Qt.labs` API는 향후 호환성이 보장되지 않으므로 현재 Qt 6.8.3 고정을 유지하고,
-버전 변경 시 그리드 통합 테스트로 확인한다. `DirectoryLocation`은 경로 검증만 담당한다.
-드라이브 ID·영역 배치·경로 판정은 iiSocietyContainer에 위임한다.
-앱은 기존 Qt의 QProcess, QDesktopServices, FolderDialog를 사용하므로 추가 의존성은 도입하지 않는다.
-현재 macOS 프리셋은 Qt `/Volumes/Storage/Qt/6.8.3/macos`와
-LVRS `~/.local/SDK/LVRS` 설치본을 사용한다.
-실행 시 LVRS 패키지가 제공하는 라이브러리 경로와 명시적인 QML import 경로를 사용하므로
-별도의 `DYLD_LIBRARY_PATH` 또는 `QML2_IMPORT_PATH` 설정은 필요하지 않다.
+- CMake  3.31 or more, Ninja, C++23 compiler
+- Qt 6.8.3: Quick, QuickControls2, Qt .labs.folderlistmodel, test Test module
+- Installed LVRS CMake package and QML module
+- iiSocietyHelper 0.7.1, iiSocietySync 0.7.0, iiServerHost 0.6.0 or above
+- iiSocietyContainer 0.14.0's `DiskImage` API; macOS's APFS disk image tool
 
-macOS의 `Society` 빌드는 GUI와 내장 데몬의 Qt·LVRS·SDK·네이티브 라이브러리를 각각
-앱 번들에 복사하고 상대 경로로 연결한 뒤 서명한다. `build/bin/Society.app`를 Finder에서
-직접 실행할 수 있어야 하며, 빌드 후 검사는 개발용 라이브러리 환경 변수를 제거하고
-본체·데몬을 실제 실행한다. `Society.MacRuntimeLaunch`는 컨테이너 미설정 상태의 QML 창 로딩도
-검증한다. 별도 위치에 설치된 OpenSSL 등의 런타임은 `SOCIETY_MAC_RUNTIME_SEARCH_PATHS`에
-디렉터리 목록을 지정할 수 있다. 누락된 라이브러리는 빌드 오류로 처리한다.
+Reuses existing Qt /LVRS's window, font, theme, app bootstrap. File listing, sorting, folder change detection is included in Qt
+Uses [FolderListModel](https://doc.qt.io/qt-6.8/qml-qt-labs-folderlistmodel-folderlistmodel.html). Since the Qt Quick module is already installed, no additional libraries or services are introduced. Reuses the implementation provided by Qt and the existing Qt license scope,
+Follow [Qt Quick's license notice](https://doc.qt.io/qt-6.8/qtquick-index.html#licenses-and-attributions). The `Qt.labs` API does not guarantee future compatibility, so the current Qt 6.8.3 fix is maintained, and grid integration tests are performed upon version changes. `DirectoryLocation` is responsible only for path verification. Drive ID, area placement, and path determination are delegated to iiSocietyContainer. The app uses existing Qt's QProcess, QDesktopServices, FolderDialog, so no additional dependencies are introduced. The current macOS preset uses Qt `/Volumes/Storage/Qt/6.8.3/macos` and LVRS `~/.local/SDK/LVRS` installers. At execution, the library path provided by the LVRS package and the explicit QML import path are used, so separate `DYLD_LIBRARY_PATH` or `QML2_IMPORT_PATH` configuration is not required.
 
-데스크톱에서는 다음 13개 SDK를 `find_package(... CONFIG REQUIRED)`로 찾고 해당 SDK의
-`패키지명::패키지명` CMake 타깃을 `Society`에 직접 링크한다.
-기본 검색 경로는 `~/.local/SDK/<패키지명>`이며 하나라도 누락되면 구성이 실패한다.
+macOS's `Society` build copies Qt · LVRS · SDK ·native library of GUI and embedded daemon to the app bundle respectively, links them via relative paths, and signs them. `build/bin/Society.app` must be runnable directly from Finder, and post-build checks remove development library environment variables and run the main body and daemon in actual execution. `Society.MacRuntimeLaunch` also validates QML window loading in the container unset state. Runtime such as OpenSSL installed in a separate location can specify a directory list to `SOCIETY_MAC_RUNTIME_SEARCH_PATHS`. Missing libraries are treated as build errors
 
-| 필수 SDK | 소비자 테스트에서 확인하는 공개 API |
+On desktop, the following 13 SDKs are found via `find_package(... CONFIG REQUIRED)`, and the `PackageName::PackageName` CMake target of the corresponding SDK is linked directly to `Society`. The default search path is `~/.local/SDK/<package name>`, and if even one is missing, configuration fails
+
+|Required SDK|Public API checked in consumer tests|
 | --- | --- |
 | iiFileProvider | `helloWorld()` |
-| iiGeneralDocument | 문서 생성과 메타데이터 접근 |
-| iiLicenseManager | `LicenseClient` 메타 객체와 상태 열거형 |
-| iiLocalDiffusion | 연산 장치 이름 조회 |
+| iiGeneralDocument |Document generation and metadata access|
+| iiLicenseManager |`LicenseClient` Meta object and status enum|
+| iiLocalDiffusion |Query operation device name|
 | iiLocalLLM | `helloWorld()` |
-| iiServerHost | LAN TLS·계정 기반 자체 서버 연결·원격 WebSocket 요청/응답 |
-| iiSharedCanvas | 벡터 에셋 ID와 종류 조회 |
-| iiSocietyContainer | `helloWorld()`, `SocietyDrive` 생성·영역·영속 ID |
-| iiSocietyHelper | `Helper` 실제 앱 상호 관측과 기존 `helloWorld()` 호환성 |
-| iiSocietySync | `Controller`, `RemoteFiles`, 실제 양방향 컨테이너 전송 |
-| iiUpdateManager | `UpdateManager` 메타 객체와 상태 열거형 |
+| iiServerHost |LAN   TLS ·Account-based self-server connection·Remote  WebSocket  request/response|
+| iiSharedCanvas |Query vector asset ID and type|
+| iiSocietyContainer |`helloWorld()` ,  `SocietyDrive`  create·area·persistence  ID|
+| iiSocietyHelper |`Helper`  Actual app cross-observation and existing  `helloWorld()`  compatibility|
+| iiSocietySync |`Controller` ,  `RemoteFiles` , actual bidirectional container transfer|
+| iiUpdateManager |`UpdateManager` Meta object and status enum|
 | iiVoiceOver | `helloWorld()` |
 | iiWhatsNew | `helloWorld()` |
 
-요청의 `iiLisenceManager`는 실제 설치된 이름인 `iiLicenseManager`로 연결한다.
-일부 SDK가 Qt 6.8.3을 정확히 요구하므로 Society도 같은 Qt 버전을 사용한다.
-`iiXml`, `iiHtmlBlock`, `iiPaintEngine` 등 간접 의존성은 각 SDK 패키지가 선언한다.
+The `iiLisenceManager`  of the request is connected to the actual installed name `iiLicenseManager` . Some SDKs require Qt 6.8.3  exactly, so Society also uses the same Qt  version.  `iiXml` , `iiHtmlBlock` , `iiPaintEngine`  and other indirect dependencies are declared by each SDK  package.
 
-파일 그리드는 Qt의 로컬 파일 목록과 이미지 로더를 사용한다.
-계정으로 검증된 Society 연결에는 iiSocietySync 0.7.0의 호스트 권한 기반 Namespace 복제를 실행한다. 호스트가 리비전·변경 저널을 확정하고 클라이언트는 변경을 제출한 뒤 확정 결과를 받는다. Mac Storage·NAS·S3 공급자는 이 권한 아래에 있으며 Mac의 로컬 기록은 오프라인에도 유지한다. 책임 분리·충돌·복구 계약은 [동기화 문서](docs/Synchronization.md)를 따른다.
-iiSocietyContainer의 새 드라이브 API는 앱과 `Society.Drive` 테스트에서 사용한다.
+File grid uses Qt's local file list and image loader. For  Society  connections verified by account, it executes  iiSocietySync   0.7.0  host permission-based Namespace replication. Host finalizes revision·change journal and client submits changes then receives finalization result. Mac Storage· NAS · S3  providers fall under this permission and Mac's local record is maintained even offline. Responsibility separation·conflict·recovery contract follows  [sync document](docs/Synchronization.md).  iiSocietyContainer 's new drive API is used in app and  `Society.Drive`  tests.
 
-## 빌드 및 실행
+<a id="빌드-및-실행"></a>
 
-프로젝트 디렉터리에서 실행한다. 모든 빌드 산출물은 `build/`에 생성한다.
+## Build and run
+
+Run from project directory. All build outputs are created in  `build/` .
 
 ```sh
 cmake --preset debug
 cmake --build --preset debug --parallel 2
 ctest --preset debug
 open build/bin/Society.app
-# 준비된 원본 경로를 지정하여 직접 실행할 수도 있다.
+# You can also run it directly by specifying the prepared source path.
 build/bin/Society.app/Contents/MacOS/Society --container "/absolute/path/to/container"
 ```
 
-작업 공간 안에 설치한 SDK를 사용하려면 다음처럼 패키지 경로를 지정한다.
+To use the installed SDK in the workspace, specify the package path as follows.
 
 ```sh
 cmake --preset debug \
   -DiiSocietyContainer_DIR=/Volumes/Storage/Workspace/SDK/iiSocietyContainer/build/install/lib/cmake/iiSocietyContainer
 ```
 
-iiSocietyContainer의 macOS 빌드는 Swift Command Line Tools와 Python 3이 필요하다.
-네이티브 어댑터의 서명·설치·연결 해제는 해당 SDK의 `platform/macos/README.md`를 따른다.
+iiSocietyContainer's macOS build requires Swift Command Line Tools and Python 3. Native adapter signature, installation, and connection removal follow the `platform/macos/README.md` of the SDK.
 
-CLion에서도 CMake 빌드 디렉터리를 `build/`로 지정했다. 실행 대상은 `Society`이다.
-다른 설치 경로에서는 `cmake --preset debug -DQt6_DIR="<Qt>/lib/cmake/Qt6" -DLVRS_DIR="<LVRS>"`로
-프리셋 값을 덮어쓸 수 있다.
+CLion also specifies the CMake build directory as `build/`. The execution target is `Society`. In other installation paths, preset values can be overridden with `cmake --preset debug -DQt6_DIR="<Qt>/lib/cmake/Qt6" -DLVRS_DIR="<LVRS>"`.
 
-## 구조와 검증
+<a id="구조와-검증"></a>
 
-- `src/main.cpp`: LVRS 런타임 초기화와 `Society.Main` QML 로드
-- `src/App/Main.qml`: LVRS 창, 폴더 선택, 9개 영역, 사이드바, 경로 탐색, Finder 연결 UI
-- `src/App/FileGridView.qml`: 파일 목록·미리보기·선택·빈 상태 UI
-- `src/App/Files/DirectoryLocation.h/.cpp`: 로컬 절대 경로 검증과 파일 URL 변환
-- `src/App/Files/ModelImporter.h/.cpp`: 모델 분류, 비동기 복사, 중복 이름 처리와 진행 상태
-- `src/App/Files/ModelImportSource.h`: 로컬 파일과 Apple 제공자가 복사 중 읽기 접근을 유지하는 계약
-- `src/App/Files/AppleModelSource.h/.mm`: 보안 범위와 파일 조정을 유지하는 Apple 파일 제공자 입력
-- `src/App/Files/IosModelDrop.h/.mm`: iOS 창 전체의 네이티브 드롭과 목적지 피드백
-- `src/App/Drive/DriveController.h/.cpp`: SDK 드라이브 로드, 영역 경계 내 탐색, 네이티브 연결 상태
-- `src/App/AI/`: Civitai·Hugging Face·Ollama 연동 클래스의 빈 초기 골격
-- `tests/tst_filegrid.cpp`: 빈 경로, 잘못된 경로, 실제 임시 파일의 정렬·이미지 미리보기,
-  클릭·더블클릭·키보드 이동과 스크롤, 세 가지 창 크기, 경로 변경, QML 경고 검사
-- `tests/FileGridHarness.qml`: 드라이브 화면과 독립적으로 파일 그리드를 검증하는 LVRS 창
-- `tests/tst_drive.cpp`: 영속 ID, 전체 9개 영역의 앱 내부 파일 탐색 유지, 경계 이탈 거부, 충돌 시 기존 컨테이너 보존,
-  실제 드라이브 화면의 영역 클릭·폴더 이동·상위 이동·작은 창 레이아웃·QML 경고 검사,
-  창의 URL 드롭·복사 액션·영역 자동 배치·모델 목록 갱신 검사
-- `tests/tst_modelimporter.cpp`: 두 모델 확장자, 원본 보존, 이름 충돌, 중복 입력,
-  동시 가져오기의 덮어쓰기 방지, 잘못된 입력, 영역 리다이렉트 거부, 취소와 임시 파일 정리
-- `tests/tst_applemodelsource.mm`: 실제 Foundation 파일 제공자를 통한 복사와 지연 콜백 취소 검사
-- `Society.IosDropSyntax`: 호스트 SDK에 UIKit 헤더가 있으면 Mac Catalyst 대상으로
-  iOS 드롭 델리게이트의 API·타입을 컴파일 검사한다. iOS 앱 링크·실행 검사는 아니다.
-- `tests/tst_dependencies.cpp`: 실제 앱의 링크 설정을 공유하여 13개 SDK의 헤더·심볼·실행 시 로드를 검사
+## Structure and Validation
 
-AI 클래스의 소스와 헤더는 `SocietyDependencyTests`에 등록되어 빌드에 포함된다.
-현재 클래스에는 API나 실행 동작이 없고 앱과 연결되어 있지 않으므로 별도의 기능
-단언은 추가하지 않는다. 기존 의존성·GUI 테스트와 전체 빌드로 이번 골격 추가를 검증한다.
+- `src/main.cpp`: LVRS runtime initialization and `Society.Main` QML load
+- `src/App/Main.qml`: LVRS window, folder selection, 9 area, sidebar, path navigation, Finder connection UI
+- `src/App/FileGridView.qml`: file list, preview, selection, empty state UI
+- `src/App/Files/DirectoryLocation.h/.cpp`: local absolute path validation and file URL conversion
+- `src/App/Files/ModelImporter.h/.cpp`: model classification, asynchronous copy, duplicate name handling, and progress status
+- `src/App/Files/ModelImportSource.h`: contract for local files and Apple provider to maintain read access during copy
+- `src/App/Files/AppleModelSource.h/.mm`: Apple file provider input maintaining security scope and file adjustment
+- `src/App/Files/IosModelDrop.h/.mm`: iOS native drop across entire window and destination feedback
+- `src/App/Drive/DriveController.h/.cpp`: SDK drive load, navigation within area boundaries, native connection status
+- `src/App/AI/`: Empty initial skeleton of the Civitai·Hugging Face·Ollama integration class
+- `tests/tst_filegrid.cpp`: empty path, invalid path, sorting and image preview of actual temporary files, click, double-click, keyboard navigation and scroll, three kinds window size, path change, QML warning check
+- `tests/FileGridHarness.qml`: LVRS window that validates the file grid independently of the drive screen
+- `tests/tst_drive.cpp`: Checks persistent ID, retention of in-app file browsing for all 9 sections, rejection of boundary escapes, preservation of an existing container on conflicts, and section clicks, folder navigation, parent navigation, small-window layouts, and QML warnings in the actual drive screen. Also checks the window's URL drop, copy action, automatic section placement, and model-list updates.
+- `tests/tst_modelimporter.cpp` : two model extensions, preserve original, name conflict, duplicate input, prevent overwrite during simultaneous import, invalid input, reject region redirect, cancel and temporary file cleanup
+- `tests/tst_applemodelsource.mm`: Copy and delayed callback cancellation check through actual Foundation file providers
+- `Society.IosDropSyntax` : If the host SDK has a UIKit header, compile-check the iOS drop delegate's API ·type at iOS target. It is not app link or execution check.
+- `tests/tst_dependencies.cpp`: Share actual app link settings to check headers·symbols·load at runtime for 13 SDKs
 
-`ctest --preset debug`는 화면 없는 소프트웨어 렌더링 환경에서 GUI 동작을 검사한다.
-파일 그리드 테스트의 임시 폴더는 `build/` 아래에 만들고 실행 후 제거한다.
-`Society.Dependencies` 테스트는 13개 SDK의 공개 심볼을 호출한다. 추론 모델 다운로드,
-네트워크 요청, 라이선스 활성화, 업데이트 설치는 수행하지 않는다.
-`cmake --build build --target Society_qmllint`로 QML 정적 검사도 실행할 수 있다.
-로컬 실행용 앱은 설치된 Qt/LVRS를 사용한다. 다른 컴퓨터에 배포하려면 별도 패키징이 필요하다.
+AI class source and header are registered in `SocietyDependencyTests` and included in the build. Since the current class has no API or execution behavior and is not connected to the app, no separate feature assertions are added. Existing dependencies, GUI tests, and the full build are used to verify this skeleton addition.
+
+`ctest --preset debug` checks GUI behavior in a software rendering environment without a screen. The temporary folder for the file grid test is created under `build/` and removed after execution. `Society.Dependencies` test calls 13 public SDK symbols. Inference model download, network requests, license activation, and update installation are not performed. `cmake --build build --target Society_qmllint` QML static analysis can also be run. The local app for execution uses installed Qt /LVRS. Separate packaging is required for deployment to other computers.
 
 ## iOS / iPadOS
 
-iOS 16 이상에서는 앱을 열 때 공유 App Group의 Society를 자동으로 열고 파일 앱에 등록한다. 앱의 홈에는 9개 영역을 모두 유지한다. 파일 앱에서 Society를 열면 `Files/`의 내용이 바로 보이며 나머지 8개 영역은 노출하지 않는다. iOS의 `Open in Files`는 이 공개 루트에서 시작하는 시스템 문서 탐색기를 연다.
+iOS 16 and above automatically open the Society of the shared App Group when the app is opened and register it with the Files app. The app's home maintains all 9 areas. Opening Society from the Files app immediately shows the content of `Files/` and does not expose the remaining 8 areas. iOS `Open in Files` opens a system document navigator starting from this public root.
 
-`ios-device`, `ios-simulator` CMake preset과 내장 `SocietyFileProvider.appex`를 사용한다. 전체 Xcode 16 이상, Qt 6.8.3 iOS, LVRS·iiSocietyContainer·iiSocietyHelper·iiSocietySync와 그 의존성의 해당 iOS 대상 패키지가 필요하다. `python3 -B tools/build_ios.py --platform ios-simulator`가 SDK 빌드·설치부터 앱과 확장 빌드까지 수행한다. 기기 패키지는 Workspace의 `build/ios-device/install`, 시뮬레이터 패키지는 `build/ios-simulator/install`을 사용한다. iOS 구성에서는 누락된 패키지를 데스크톱 설치로 대체하지 않는다.
+`ios-device`, `ios-simulator` CMake preset, and built-in `SocietyFileProvider.appex` are used. Full Xcode 16 and above, Qt 6.8.3 iOS, LVRS · iiSocietyContainer · iiSocietyHelper · iiSocietySync and their corresponding iOS target package of dependencies are required. `python3 -B tools/build_ios.py --platform ios-simulator` performs SDK build and installation through to app and extension build. Device package uses `build/ios-device/install`, simulator package uses `build/ios-simulator/install`. iOS configuration does not replace missing packages with desktop installation.
 
 ```sh
 cmake --preset ios-device -DSOCIETY_IOS_TEAM=<development-team-id>
 cmake --build --preset ios-device
 ```
 
-앱과 확장의 기본 App Group은 `group.com.iisacc.society`이며 `SOCIETY_IOS_APP_GROUP`으로 설정한다. 앱 ID와 확장 ID는 각각 `com.iisacc.society`, `com.iisacc.society.fileprovider`이다. 두 서명 프로필에 같은 App Group 접근 권한이 필요하다. 원본은 그룹의 `Library/Application Support/Society`에 보관하며 앱 Documents 전체 공유를 켜지 않는다. 상세 저장 계약과 SDK 빌드 절차는 [iiSocietyContainer iOS 문서](../../SDK/iiSocietyContainer/platform/ios/README.md)를 따른다.
+The default App Group for app and extension is `group.com.iisacc.society` and is set to `SOCIETY_IOS_APP_GROUP`. App ID and extension ID are `com.iisacc.society` and `com.iisacc.society.fileprovider` respectively. Same App Group access permission is required for both signing profiles. The original is stored in the group's `Library/Application Support/Society` and app Documents full sharing is not enabled. Detailed storage contract and SDK build procedure follow [iiSocietyContainer iOS document](../../SDK/iiSocietyContainer/platform/ios/README.md).
 
-호스트 GUI 테스트는 휴대폰 세로·가로 크기에서도 9개 영역 탐색과 시스템별 연결 문구를 검증한다. 이 테스트와 공통 File Provider 저장소 테스트는 실제 iOS 빌드·기기 실행 결과와 구분한다.
-모델 가져오기도 같은 구분을 따른다. macOS에서 Foundation 제공자·파일 조정 경로를
-`Import models…`는 iOS 파일 선택기를 열며 `.safetensor`·`.safetensors`를 원본 접근 범위 안에서 Models로 복사한다. 파일·폴더는 한 번 탭하여 열고, 지원되는 문서·이미지는 QuickLook으로 표시한다. 복사에는 유한한 백그라운드 실행 시간을 요청하며 만료 시 취소한다. 상세 동작과 현재 iOS SDK 미설치로 남아 있는 실제 빌드·기기 검증은 [iOS 구현 문서](docs/iOS.md)에 기록한다.
+Host GUI test verifies navigation of 9 areas and system-specific connection messages on phone portrait and landscape sizes. This test and the common File Provider storage test distinguish actual iOS build and device execution results. Model import also follows the same distinction. macOS opens the Foundation provider and file adjustment path `Import models…` to open the iOS file picker, which copies `.safetensor` and `.safetensors` to Models within the original access scope. Files and folders are opened by tapping one time, and supported documents and images are displayed as QuickLook. Copying requests a finite background execution time and cancels upon expiration. Detailed behavior and current iOS SDK actual build and device verification remaining uninstalled are recorded in [iOS implementation document](docs/iOS.md).
 
-## Windows · Linux · Android 드라이브
+<a id="windows--linux--android-드라이브"></a>
 
-Society는 iiSocietyContainer 0.9와 iiSocietyHelper 0.5를 사용한다. Windows에서는 Dokan 2 기반 드라이브 문자, Linux에서는 libfuse 3 마운트, Android에서는 시스템 문서 제공자를 연결한다. 시스템에서 드라이브를 열면 Files 내용이 바로 보이고 앱 내부에는 기존 9개 영역이 유지된다. Windows/Linux 어댑터는 별도 사용자 세션 프로세스여서 Society 창을 닫아도 드라이브가 유지되고 로그인 때 저장된 등록을 복원한다. Windows에는 서명된 Dokan 2 드라이버와 DLL, Linux에는 fuse3와 /dev/fuse 접근이 필요하다.
+## Windows · Linux · Android drive
 
-Android는 앱 전용 저장소를 자동으로 준비한다. 다른 iisacc 앱에는 동일 서명을 확인한 내부 ContentProvider를 제공한다. 외부 파일 선택기의 content URI를 직접 읽어 .safetensor/.safetensors를 Models에 가져온다. LVRS는 Android 시스템 막대·화면 잘림의 실제 WindowInsets를 적용하여 하단 Open in Files 버튼을 탐색 막대 밖에 배치한다.
+Society uses iiSocietyContainer 0.9 and iiSocietyHelper 0.5. Windows uses Dokan 2 based drive letters, Linux uses libfuse 3 mount, and Android connects to the system document provider. Opening a drive on the system immediately shows Files content, and the app maintains existing 9 areas internally. Windows / Linux adapter is a separate user session process, so closing the Society window maintains the drive and restores saved registration at login. Windows requires a signed Dokan 2 driver and DLL, Linux requires fuse3 and /dev/fuse access.
+
+Android automatically prepares app-specific storage. Other iisacc apps provide internal ContentProvider with the same signature. It directly reads the content URI of the external file picker to import .safetensor/.safetensors to Models. LVRS applies actual WindowInsets of Android system bars and screen cropping to place the bottom Open in Files button outside the navigation bar.
 
 ```sh
 python3 tools/build_android.py --qt <Qt-6.8.3-Android-ABI> --qt-host <Qt-6.8.3-host> \
   --sdk <Android-SDK> --ndk <NDK-r27c> --lvrs <same-ABI-LVRS-prefix> --package
 ```
 
-빌드 순서는 Container 설치 → Helper 설치 → Society APK이다. 출력과 SDK 설치는 `build/android/` 아래에 둔다. Android와 Windows/Linux는 현재 앱이 실제로 호출하는 Container·Helper만 의존하며 macOS의 기존 전체 SDK 호환성 검사는 유지한다. 디바이스별 서명 APK 배포는 별도 단계이다.
+Build order is Container installation → Helper installation → Society APK. Output and SDK installation are placed under `build/android/`. Android and Windows /Linux depend only on the Container and Helper actually invoked by the current app, maintaining existing full SDK compatibility check of macOS. Device-specific signature APK deployment is a separate step.
 
-회귀 검사는 SDK의 `files_view`, `mount_service`, `tests/native_mount.py`, `tests/android/run_device.py` 및 Helper의 `tests/android/`에 있다. 실제 플랫폼 실행 결과는 빌드 로그와 함께 기록하며 교차 컴파일과 실제 OS 드라이브 검증을 구분한다.
-## iOS Files 실행 회귀 검사
+Regression tests are in SDK's `files_view`, `mount_service`, `tests/native_mount.py`, `tests/android/run_device.py`, and Helper's `tests/android/`. Actual platform execution results are recorded with build logs, distinguishing cross-compilation and actual OS drive verification.
+<a id="ios-files-실행-회귀-검사"></a>
 
-실제 iOS 시스템 드라이브 검사는 정상 iOS 빌드 뒤 `cmake -S . -B build/ios-device -DSOCIETY_IOS_FILES_INTEGRATION_TEST=ON`으로 활성화하고 Society를 다시 빌드·설치·실행한다. 이 옵션은 기본적으로 꺼져 있다. `tests/IosFilesIntegration.swift`는 App Group 원본과 시스템의 공개 루트 열거를 비교하고, 새 UUID가 붙은 테스트 폴더 안에서 생성·읽기·편집·이름 변경·삭제와 원본 반영을 확인한다. 기존 사용자 파일을 삭제하거나 도메인을 초기화하지 않는다.
+## iOS Files execution regression test
 
-결과는 앱의 `Documents/ios-files-integration.json`과 `SOCIETY_FILES_INTEGRATION` 콘솔 로그에 남는다. 성공하면 기존 `Open in Files` 기능으로 공개 루트를 연다. `devicectl device copy from`의 `appDataContainer` 도메인으로 결과를 가져올 수 있다. 확인 뒤 옵션을 OFF로 바꾸고 다시 빌드·설치한다. 이 검사는 연결된 기기에서 실제 File Provider를 호출하며 호스트의 plist·Swift 구문 검사와 별개이다. 실패한 단계에 테스트 폴더가 남으면 해당 UUID 폴더만 확인한다. 서명 번들 검사 `tests/verify_ios_bundle.py`는 이 진단 함수가 포함된 빌드를 배포용 검사에서 거부한다. Release LTO가 리소스 초기화 함수를 인라인한 경우에는 남아 있는 해당 qrc 번역 단위의 정적 생성자를 확인해 LVRS·QR 라이선스 리소스의 링크를 검증한다.
+The actual iOS  system drive check is activated as normal iOS  build followed by `cmake -S . -B build/ios-device -DSOCIETY_IOS_FILES_INTEGRATION_TEST=ON` , and Society is rebuilt, installed, and executed again. This option is off by default.  `tests/IosFilesIntegration.swift`  compares the App Group source with the system's public root enumeration, and checks creation, reading, editing, renaming, deletion, and source reflection within a test folder with a new UUID attached. Existing user files are not deleted or the domain is not initialized.
 
-기기 연결이 끊겨 빈 테스트 폴더가 남았다면, 다음 검사 실행에 `SOCIETY_FILES_TEST_CLEANUP` 환경 변수로 그 정확한 `Society Files Test <UUID>` 이름을 전달할 수 있다. 이 처리는 해당 이름의 빈 일반 폴더만 삭제하며 다른 파일을 검색해 정리하지 않는다.
+The results are kept in the app's `Documents/ios-files-integration.json` and `SOCIETY_FILES_INTEGRATION` console logs. If successful, the public root is opened with the existing `Open in Files` feature. Results can be retrieved via the `devicectl device copy from` `appDataContainer` domain. After confirmation, change the option to OFF and rebuild and install again. This check calls the actual File Provider on the connected device and is separate from the host's plist and Swift syntax check. If a test folder remains on a failed step, only that UUID folder is checked. The signature bundle check `tests/verify_ios_bundle.py` rejects builds containing this diagnostic function. If Release LTO inlines the resource initialization function, it verifies the static generators of the remaining qrc translation units and checks the links to LVRS · QR license resources.
 
-## 같은 계정의 로컬·원격 기기 파일
+If the device connection is broken and an empty test folder remains, the exact `Society Files Test <UUID>` name can be passed as the `SOCIETY_FILES_TEST_CLEANUP` environment variable in the next check execution. This processing deletes only empty regular folders with that name and does not search and clean other files.
 
-상단 Devices에서 같은 계정의 주변 기기를 선택하거나 데스크탑의 QR을 모바일로 스캔하여 같은 Wi-Fi/LAN의 `Files/`를 탐색하고 다운로드한다. QR은 계정 로그인과 독립적이다. 데스크톱은 호스트, iOS/Android는 클라이언트로 고정되며 [Preferences 창](docs/Preferences.md)에 역할 선택 항목이 없다. 기기 선택·QR 생성 또는 서버 연결 시 플랫폼 역할에 따라 연결한다. 직접 LAN 연결과 별도로 Devices의 **Your Society server**에서 계정 기반 자체 서버를 설정할 수 있다. 서버 연결은 로컬 TLS 경로를 먼저 시도하고 WebSocket 중계로 전환한다. 공개 범위·모바일 제한 및 검증 방법은 [NetworkDrive.md](docs/NetworkDrive.md)를 따른다.
+<a id="같은-계정의-로컬원격-기기-파일"></a>
 
-iPhone QR 스캔은 AVFoundation 메타데이터와 실제 카메라 프레임의 Vision 해독을 함께 사용한다. 스캔 프레임·인식 상태·거리/반사광 안내를 표시하고 연속 자동 초점을 설정한다. 데스크톱 QR은 최대 432 폭으로 표시한다. 사진 회귀 검증과 프레임 처리·취소 계약은 [Pairing.md](docs/Pairing.md)에 기록한다.
+## Local and remote device files of the same account
 
-호스트와 모든 클라이언트는 동일한 논리 컨테이너 UUID를 사용한다. 첫 페어링은 호스트 전체 드라이브를 미러링한 후 양방향 변경을 시작하며 이전 클라이언트 내용은 비공개 복구 영역에 남긴다. 초기 미러·오프라인 편집·native 등록의 계약은 [동기화 문서](docs/Synchronization.md)를 따른다.
+Select the same account's peripheral device from the top Devices or scan the desktop's QR with a mobile to browse and download the same Wi-Fi/LAN `Files/`. The QR is independent of account login. The desktop is fixed as the host, iOS /Android as the client, and there is no role selection in the [Preferences window](docs/Preferences.md). Connection is made based on the platform role during device selection, QR creation, or server connection. A self-hosted account-based server can be set up separately from direct LAN connection at Devices' **Your Society server**. Server connection first attempts the local TLS path and switches to WebSocket relay. The public scope, mobile restrictions, and verification methods follow [NetworkDrive .md](docs/NetworkDrive.md).
 
-### iOS Live Activity 동기화
+The iPhone QR scan uses AVFoundation metadata and Vision decoding of the actual camera frame together. It displays scan frames, recognition status, and distance/reflection guidance and sets continuous autofocus. The desktop QR is displayed with a maximum width of 432. Photo regression verification and frame processing/cancellation contracts are recorded in [Pairing.md](docs/Pairing.md).
 
-iOS 26 이상에서 Devices → **Sync now**로 시작한 동기화는 시스템 Live Activity와 연결된다. CPU·네트워크 실행 허가를 받은 동안 백그라운드 전송을 이어가며 완료·실패·취소 시 해제한다. 자동 탐색은 이 작업을 반복 생성하지 않는다. 구버전·요청 거절 시 유한 실행 후 복귀 재개를 유지한다. [동작과 검증 계약](docs/iOS.md#live-activity를-통한-동기화-지속)을 참조한다.
+The host and all clients use the same logical container UUID. The first pairing mirrors the entire host drive and then starts bidirectional changes, leaving previous client content in the private recovery area. The contract for initial mirror, offline editing, and native registration follows the [synchronization document](docs/Synchronization.md).
 
-## 로컬 MCP 제어
+<a id="ios-live-activity-동기화"></a>
 
-데스크톱 POSIX 빌드는 iiLocalLLM 0.36 계열로 실행 중인 Society의 컨트롤러를 인증된 로컬 MCP 도구로 제공한다. SDK의 같은 minor 버전 호환성 정책에 따라 0.36.0 이상 패치 버전을 사용하며 `Society.Mcp` 통합 검사로 설치본과의 연결을 검증한다. 자동 발견, 입력·권한·취소 계약과 실제 앱 실행 테스트는 [Mcp.md](docs/Mcp.md)에 기록한다. `IILOCALLLM_DISABLE_APP_MCP=1`로 비활성화할 수 있다.
+### iOS Live Activity synchronization
+
+iOS   26  or higher, synchronization started via Devices → **Sync now**is connected to the system Live Activity.  CPU  While network execution permission is granted, background transfer continues and is released upon completion, failure, or cancellation. Automatic discovery does not repeatedly generate this task. Upon old version or request rejection, finite execution is maintained and return resume is held.  [behavior and verification contract](docs/iOS.md#live-activity를-통한-동기화-지속)are referenced.
+
+<a id="로컬-mcp-제어"></a>
+
+## Local MCP control
+
+The desktop POSIX build provides Society's controller running on the iiLocalLLM 0.36 family as an authenticated local MCP tool. Following the SDK's same minor version compatibility policy, use 0.36.0 or higher patch versions, and verify connection with the installer via `Society.Mcp` integration tests. Automatic discovery, input/permission/cancellation contracts, and actual app execution tests are recorded in [Mcp.md](docs/Mcp.md). It can be disabled via `IILOCALLLM_DISABLE_APP_MCP=1`.
 
 
-모바일 진입 시 iiSocietySync의 컨테이너 상태 조회와 파일 처리는 작업 스레드에서 수행한다. 화면은 캐시된 상태만 읽고, 조회·다운로드·동기화 결과를 비동기로 받는다. 모바일 종료는 작업 정리를 기다리지 않으며 데스크톱 실행권 인계의 대기는 유지한다. iiSocietySync 0.5.0 및 [비동기 실행 계약](docs/Synchronization.md#모바일-시작과-화면-응답성)을 따른다.
+When entering mobile, the container status lookup of iiSocietySync and file processing are performed in the work thread. The screen reads only cached states and receives the lookup, download, and synchronization results asynchronously. Mobile exit does not wait for work cleanup and maintains the desktop execution right handover wait. iiSocietySync 0.5.0 and [asynchronous execution contract](docs/Synchronization.md#모바일-시작과-화면-응답성)are followed.
 
-Photos는 Files와 같은 계층의 `Society/Photos/`에 저장된다. Photos와 Generation History는 2 px 간격의 정사각형 갤러리이며, 가로 드래그·핀치로 확대·축소하고 클릭·터치하면 파일 정보를 연다. [갤러리 동작과 검증](docs/Gallery.md)을 참고한다.
+Photos are stored in the `Society/Photos/` hierarchy, similar to Files. Photos and Generation History are a square gallery with 2 px spacing, and zoom in/out by horizontal drag and pinch, and clicking or touching opens file information. [gallery operation and verification](docs/Gallery.md)are referenced.
 
-모바일 화면은 데스크톱의 Dashboard·Tools·Storage를 공유한다. 기본 Dashboard, 하단 5개 탭, 접이식 탐색·설정·Storage 작업 시트와 검색의 반응형 기준은 [MobileViews.md](docs/MobileViews.md)에 기록한다.
+The mobile screen shares the Dashboard, Tools, and Storage of the desktop. The default Dashboard, bottom 5 tabs, and the responsive criteria for collapsible navigation, settings, and Storage work sheets are recorded in [MobileViews .md](docs/MobileViews.md).
 
 ## Source layout
 
@@ -356,28 +270,21 @@ The file grid and photo gallery test harnesses import their views from `src/App`
 
 ### Dashboard calendar
 
-대시보드의 월간 캘린더·일별 일정 상세는 C++23 `iiCalendar::iiCalendar`를 사용한다.
-빌드 전에 iiCalendar 0.1과 ICU·SQLite를 준비한다. 설치 경로와 로컬 데이터 저장·검증
-계약은 [Dashboard — iiCalendar](docs/Dashboard.md#iicalendar-대시보드)에 기록한다.
+The monthly calendar and daily schedule details of the dashboard use C++23 `iiCalendar::iiCalendar`. Before building, prepare iiCalendar 0.1 and ICU ·SQLite. The installation path and local data storage and verification contract are recorded in [Dashboard — iiCalendar](docs/Dashboard.md#iicalendar-대시보드).
 
-### macOS에서 Library missing으로 실행되지 않을 때
+<a id="macos에서-library-missing으로-실행되지-않을-때"></a>
 
-`libiiLocalDiffusion`이 삭제된 Homebrew의 `libjson-c.5.dylib` 경로를 참조하면
-앱은 QML을 열기 전에 DYLD 오류로 종료된다. `build/bin/Society.app`도 네이티브
-라이브러리 배포·경로 재작성·서명이 모두 끝나야 Finder에서 실행할 수 있다.
-링크 직후 또는 실패·중단된 POST_BUILD 결과를 완성된 앱으로 사용하지 않는다.
+### When not running with Library missing at macOS
 
-`SOCIETY_MAC_RUNTIME_SEARCH_PATHS`에 검증된 런타임 라이브러리 디렉터리를 지정하고
-`cmake --build build --target Society -j4`를 끝까지 완료한다. 삭제된 Homebrew
-절대 경로도 해당 디렉터리의 동일 파일명으로 해결하여 앱 안에 복사한다.
-`tests/test_macos_runtime.py`는 이 전이 의존성을 외부 원본 제거 후 실행하는
-회귀 시험을 포함한다. `tests/verify_macos_runtime.py APP --gui`로 개발용 로더
-환경변수 없이 GUI·데몬·QML 기동을 확인한 뒤 패키지를 교체한다.
+If `libiiLocalDiffusion` refers to the `libjson-c.5.dylib` path of the deleted Homebrew, the app terminates with an DYLD error before opening QML. `build/bin/Society.app` can also be run from Finder only after native library distribution, path rewriting, and signing are all completed. Do not use the completed app with the POST_BUILD result immediately after linking or with failed/aborted results.
 
-같은 빌드의 `build/bin/Society.app`가 이미 독립 실행과 서명 검사를 통과했다면,
-GUI·데몬·SDK의 Mach-O UUID가 일치하는지 먼저 확인한 뒤 중단된 개발 실행본을
-백업하고 검증된 패키지의 전체 번들로 복원할 수 있다. 실행 파일만 복사하면
-외부 라이브러리 경로가 다시 유입될 수 있으므로 Frameworks·Helpers·Resources와
-서명까지 함께 보존한다. 소스나 SDK 빌드가 다르면 이 복원 방식을 사용하지 않는다.
+Specify the runtime library directory verified at `SOCIETY_MAC_RUNTIME_SEARCH_PATHS` and complete `cmake --build build --target Society -j4` to the end. Also resolve the deleted Homebrew absolute path by the same filename in that directory and copy it into the app. `tests/test_macos_runtime.py` includes a regression test that runs after removing external sources of this transition dependency. After checking the development loader environment variable without `tests/verify_macos_runtime.py APP --gui` and the GUI ·daemon· QML startup, replace the package.
 
-macOS 창 닫기·앱 종료·Dock 재열기 동작은 [애플리케이션 수명 정책](docs/ApplicationLifetime.md)을 따른다.
+If the `build/bin/Society.app` of the same build has already passed independent execution and signature verification, first check if the Mach-O UUID of GUI ·daemon·SDK matches, then you can backup the aborted development build and restore the entire bundle of the verified package. If only the executable file is copied, external library paths may be reintroduced, so preserve Frameworks, Helpers, Resources, and the signature together. If the source or SDK build is different, do not use this restoration method.
+
+macOS window close, app termination, and Dock reopen actions follow the [application lifecycle policy](docs/ApplicationLifetime.md).
+## Model Packaging
+
+Tools의 Model merge 옆 Model Packaging에서 로컬 모델 폴더를 단일 Safetensors로 묶을 수 있다.
+구성요소와 샤드를 자동 식별하고 중복·불량 파일을 검사하며, 원래 정밀도와 GGUF 형식을 보존한다.
+SDK가 출력 검증과 원자적 저장을 완료해야 성공으로 표시한다. [사용법과 검증](docs/ModelPackaging.md)을 참조한다.

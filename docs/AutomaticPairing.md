@@ -1,4 +1,4 @@
-> Account host policy (2026-09-21): server-provided `societyContainerDrive.hostDeviceId` and `containerId` take precedence over saved mirror bindings and discovery election. Manual QR also requires mutual account proofs. Account changes revoke current peer access; an authorized replacement preserves old contents in `.society-sync/detached/` before receiving its new namespace. See [Pairing](Pairing.md).
+> 계정 호스트 정책 ( 2026-09-21 ): 제공된 서버의  `societyContainerDrive.hostDeviceId` 와  `containerId` 가 저장된 미러 바인딩 및 발견 선거보다 우선합니다. 수동  QR 도 상호 계정 증명을 필요로 합니다. 계정 변경은 현재 피어 접근을 취소하며, 승인된 대체 항목은 새 네임스페이스를 받기 전에  `.society-sync/detached/` 에 기존 콘텐츠를 유지합니다. [페어링](Pairing.md)을 참조하세요.
 
 # 같은 iisacc 계정의 자동 LAN 페어링
 

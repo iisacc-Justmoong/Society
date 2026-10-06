@@ -1,4 +1,4 @@
-> Account host policy (2026-09-21): server-provided `societyContainerDrive.hostDeviceId` and `containerId` take precedence over saved mirror bindings and discovery election. Manual QR also requires mutual account proofs. Account changes revoke current peer access; an authorized replacement preserves old contents in `.society-sync/detached/` before receiving its new namespace. See [Pairing](Pairing.md).
+> 계정 호스트 정책 ( 2026-09-21 ): 제공된 서버의  `societyContainerDrive.hostDeviceId` 와  `containerId` 가 저장된 미러 바인딩 및 발견 선거보다 우선합니다. 수동  QR 도 상호 계정 증명을 필요로 합니다. 계정 변경은 현재 피어 접근을 취소하며, 승인된 대체 항목은 새 네임스페이스를 받기 전에  `.society-sync/detached/` 에 기존 콘텐츠를 유지합니다. [페어링](Pairing.md)을 참조하세요.
 
 # Society 컨테이너 동기화와 SDK 책임
 
@@ -104,7 +104,7 @@ SDK는 열기·SQLite·감시·해시·매니페스트·전송을 작업 스레�
 
 Society는 Namespace 계약을 포함하는 iiSocietySync 0.8.0 이상을 요구한다. `Society.ClientOnlyNetwork`는 앱 진입의 비동기 반환, 파일을 다시 열지 않는 getter, 전경 복귀 시 재확인과 오래된 컨테이너 결과의 폐기를 검사한다. SDK 테스트는 다운로드 원자성과 실제 TLS 동기화도 함께 검증한다.
 
-On iOS, the foreground app-opening catch-up automatically requests a continued-processing grant for actual file and Photos work. It ends after both queues finish, respects cancellation/expiration, and resumes on the next activation. See [iOS lifecycle and gestures](iOS.md#app-opening-sync-and-touch-navigation).
+iOS 에서 전경 앱 열기 추월은 실제 파일 및 사진 작업에 대한 계속 처리 권한을 자동으로 요청합니다. 두 큐가 모두 완료되면 종료되며 취소/만료에 따르고 다음 활성화 시 재개됩니다. [iOS 수명 주기 및 제스처](iOS.md#app-opening-sync-and-touch-navigation)를 참조하세요.
 
 ## 메타데이터 우선·선택 다운로드
 

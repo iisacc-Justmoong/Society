@@ -65,7 +65,7 @@ LV.VStack {
                 LV.Label {
                     objectName: "onboardingTitle"
                     Layout.fillWidth: true
-                    text: root.client ? qsTr("Connect to your Society host") : qsTr("Connect your Society disk")
+                    text: root.client ? qsTr("Connect to your Society host") : qsTr("Connect your Society folder")
                     style: title
                     wrapMode: Text.WordWrap
                     sizeToContentHeight: true
@@ -74,7 +74,7 @@ LV.VStack {
                     Layout.fillWidth: true
                     text: root.client
                         ? qsTr("Sign in to the same iisacc account as your desktop. Society saves the verified host and reconnects automatically. After the first setup, your saved workspace opens while the connection resumes.")
-                        : qsTr("Create a Society disk in a folder you choose, or select an existing disk to reconnect it. Keep its storage connected while using Society.")
+                        : qsTr("Create a Society folder in a location you choose, or select an existing Society folder. Keep its storage connected while using Society.")
                     style: body
                     color: LV.Theme.descriptionColor
                     wrapMode: Text.WordWrap
@@ -163,7 +163,7 @@ LV.VStack {
                     objectName: "onboardingCreateDisk"
                     Layout.fillWidth: true
                     Layout.minimumHeight: 44
-                    text: qsTr("Create a new disk…")
+                    text: qsTr("Create a new folder…")
                     tone: LV.AbstractButton.Primary
                     enabled: !root.working
                     onClicked: folderDialog.open()
@@ -172,7 +172,7 @@ LV.VStack {
                     objectName: "onboardingChooseDisk"
                     Layout.fillWidth: true
                     Layout.minimumHeight: 44
-                    text: qsTr("Choose an existing disk…")
+                    text: qsTr("Choose an existing folder…")
                     tone: LV.AbstractButton.Default
                     enabled: !root.working
                     onClicked: diskDialog.open()
@@ -189,7 +189,7 @@ LV.VStack {
                 }
                 LV.Label {
                     Layout.fillWidth: true
-                    text: qsTr("A disk image is saved inside the folder you choose. Your file manager opens directly to Files. Models, photos, and app data stay inside Society.")
+                    text: qsTr("Society creates a regular folder with Files, Photos, Asset Library, Generation History, Models, Thinking Space, Forked, Published, and Deleted. These are the same folders shown in Storage.")
                     style: caption
                     color: LV.Theme.descriptionColor
                     wrapMode: Text.WordWrap
@@ -197,7 +197,7 @@ LV.VStack {
                 }
                 LV.Label {
                     Layout.fillWidth: true
-                    text: qsTr("Sign in to save the drive location to your account and keep your other devices up to date. A moved account drive must be the same Society disk.")
+                    text: qsTr("Sign in to save the drive location to your account and keep your other devices up to date. A moved account drive must be the same Society folder.")
                     style: caption
                     color: LV.Theme.descriptionColor
                     wrapMode: Text.WordWrap
@@ -207,18 +207,16 @@ LV.VStack {
         }
     }
 
-    FileDialog {
+    FolderDialog {
         id: diskDialog
         objectName: "onboardingDiskDialog"
-        title: qsTr("Choose your Society disk image")
-        fileMode: FileDialog.OpenFile
-        nameFilters: [qsTr("Society disk images (*.sparsebundle)")]
-        onAccepted: root.selectDisk(selectedFile)
+        title: qsTr("Choose your Society folder")
+        onAccepted: root.selectDisk(selectedFolder)
     }
     FolderDialog {
         id: folderDialog
         objectName: "onboardingFolderDialog"
-        title: qsTr("Choose where to create the Society disk")
+        title: qsTr("Choose where to create the Society folder")
         onAccepted: root.createDisk(selectedFolder)
     }
 }

@@ -1,4 +1,6 @@
-# Society desktop dashboard
+<a id="society-desktop-dashboard"></a>
+
+# Society 데스크탑 대시보드
 
 ## 공용 안내창
 

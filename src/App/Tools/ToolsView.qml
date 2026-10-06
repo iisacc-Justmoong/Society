@@ -14,10 +14,13 @@ Item {
     property string activeTool: ""
     property string query: ""
     signal generateRequested(string prompt, string mediaType, string aspectRatio, int count)
+    signal packageCreated(string path)
     readonly property bool canGoBack: activeTool.length > 0
     readonly property var tools: [
         { key: "model-merge", title: qsTr("Model merge"), category: qsTr("Models"), symbol: "M", tint: "#92B57B",
-          description: qsTr("Combine checkpoints and LoRA into a new model.") }
+          description: qsTr("Combine checkpoints and LoRA into a new model.") },
+        { key: "model-packaging", title: qsTr("Model Packaging"), category: qsTr("Models"), symbol: "P", icon: "localSwiftPackageDependency", tint: "#92B57B",
+          description: qsTr("Turn a model folder into one safetensors file. Components are detected automatically.") }
     ]
     readonly property var filteredTools: tools.filter(function(tool) {
         return (tool.title + " " + tool.description + " " + tool.category).toLowerCase().includes(query.trim().toLowerCase())
@@ -25,7 +28,7 @@ Item {
     function openTool(key: string): void {
         if (tools.some(function(tool) { return tool.key === key })) {
             activeTool = key
-            Qt.callLater(function() { merge.focusBackButton() })
+            Qt.callLater(function() { if (key === "model-packaging") packaging.focusBackButton(); else merge.focusBackButton() })
         }
     }
     function goBack(): void { activeTool = "" }
@@ -81,9 +84,9 @@ Item {
                             id: cards
                             objectName: "toolCards"
                             Layout.fillWidth: true
-                            Layout.maximumWidth: 420
+                            Layout.maximumWidth: 856
                             Layout.alignment: Qt.AlignLeft
-                            columns: 1
+                            columns: root.width >= 900 ? 2 : 1
                             columnSpacing: 16
                             rowSpacing: 16
                             uniformCellWidths: true
@@ -116,6 +119,16 @@ Item {
                 modelsBusy: root.modelsBusy
                 touchNavigation: root.touchNavigation
                 onBackRequested: root.goBack()
+            }
+            ModelPackagingTool {
+                id: packaging
+                anchors.fill: parent
+                visible: root.activeTool === "model-packaging"
+                modelsDirectory: root.modelsDirectory
+                modelsBusy: root.modelsBusy
+                touchNavigation: root.touchNavigation
+                onBackRequested: root.goBack()
+                onPackageCreated: function(path) { root.packageCreated(path) }
             }
         }
     }

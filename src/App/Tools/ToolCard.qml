@@ -30,9 +30,18 @@ LV.Card {
                 color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.15)
                 LV.Label {
                     anchors.centerIn: parent
+                    visible: !root.tool.icon
                     text: root.tool.symbol
                     color: root.accent
                     style: header
+                }
+                Image {
+                    anchors.centerIn: parent
+                    width: 22
+                    height: 22
+                    visible: !!root.tool.icon
+                    source: root.tool.icon ? LV.Theme.iconPath(root.tool.icon) : ""
+                    fillMode: Image.PreserveAspectFit
                 }
             }
             Item { Layout.fillWidth: true }

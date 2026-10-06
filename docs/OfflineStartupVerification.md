@@ -25,10 +25,10 @@ SDK의 기존 비동기 연결 및 동기화 워커를 유지하며, 파일 접�
 
 | 실행 | 로컬 작업공간 준비 | 통신 연결 | 화면 상태 |
 | --- | ---: | ---: | --- |
-| 미연결 1, PID 1042 | 871 ms | 연결 비활성 | Dashboard·Storage·Tools 전환, 16.16초 동안 화면 유지 |
-| 미연결 2, PID 1044 | 810 ms | 연결 비활성 | Dashboard·Storage·Tools 전환, 16.01초 동안 화면 유지 |
-| 자동 연결 1, PID 1048 | 1,277 ms | 2,551 ms | 연결 전후 화면 유지 |
-| 자동 연결 2, PID 1050 | 1,313 ms | 2,320 ms | 연결 전후 화면 유지 |
+| 미연결 1, PID 1042 |871 ms| 연결 비활성 | Dashboard·Storage·Tools 전환, 16.16초 동안 화면 유지 |
+| 미연결 2, PID 1044 |810 ms| 연결 비활성 | Dashboard·Storage·Tools 전환, 16.01초 동안 화면 유지 |
+| 자동 연결 1, PID 1048 |1,277 ms|2,551 ms| 연결 전후 화면 유지 |
+| 자동 연결 2, PID 1050 |1,313 ms|2,320 ms| 연결 전후 화면 유지 |
 
 미연결 probe는 해당 프로세스의 네트워크 런타임만 비활성화했다. 기기의 비행기 모드를
 조작한 테스트가 아니다. 모든 실행에서 `onboardingRequired=false`, `shellVisible=true`를
@@ -42,7 +42,7 @@ SDK의 기존 비동기 연결 및 동기화 워커를 유지하며, 파일 접�
 
 ## 빌드와 회귀 검증
 
-- iOS Release: `BUILD SUCCEEDED`.
+- iOS 출시: `BUILD SUCCEEDED`.
 - 앱, File Provider, Live Activity 서명·프로비저닝·필수 런타임 검사 통과.
 - 단일 앱 감사: `build/bin/Society.app` 하나, 중첩 앱 없음.
 - 설치 SDK 헤더 변경 후 증분 재컴파일 테스트 1개 및 iOS 빌드 계약 테스트 3개 통과.

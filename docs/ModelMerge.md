@@ -1,4 +1,6 @@
-# Tools · Model merge
+<a id="tools--model-merge"></a>
+
+# 도구 · 모델 병합
 
 ## 자동 구조 진단과 저장 결과 검증
 
@@ -42,7 +44,7 @@ Weighted sum/difference는 베이스 텐서 좌표에서 계산한다. Unified�
 Figma의 모델명은 예시이며 앱의 입력은 비어 있는 상태로 시작한다. **Save to**에서 폴더를 선택하고 그 아래에 결과 파일명을 표시한다. 전체 출력 경로는 파일명의 LVRS 툴팁과 접근성 설명으로 확인한다. 필수 첫 재료의 **Remove material**은 선택만 비우며, 추가 재료의 **Remove**는 해당 행을 제거한다.
 
 
-**Model name** is required. The selected method adds `.iildmodel` for Unified, `.safetensors` for weighted single-checkpoint arithmetic, and `.iildmodel` for weighted arithmetic whose base is a legacy directory-shaped package, without duplicating an entered extension. Empty names, path separators, hidden names and control characters are rejected before checking or merging. The controller requires an explicit output path even for inspection; inspection does not create it.
+**모델 이름** 이 필요합니다. 선택된 방법은 Unified 에 `.iildmodel`, 가중치 단일 체크포인트 산술에 `.safetensors`, 그리고 기본이 레거시 디렉토리 형식 패키지의 가중치 산술에 `.iildmodel` 를 추가하며, 입력된 확장자를 중복하지 않습니다. 빈 이름, 경로 구분자, 숨겨진 이름 및 제어 문자는 확인 또는 병합 전에 거부됩니다. 컨트롤러는 검사에도 명시적인 출력 경로가 필요합니다; 검사는 이를 생성하지 않습니다.
 
 **베이스와 모든 재료는 병합 후에도 같은 경로에 그대로 보존한다.** 모델을 이동하거나 삭제하지 않으며 원본과 기존 출력의 덮어쓰기를 거부한다. 재료 행의 **Remove**는 병합 목록에서만 선택을 제거한다. 성공·검사 실패·병합 실패·취소 시 원본 바이트 보존을 회귀 검사한다.
 
@@ -72,17 +74,17 @@ Society 데스크톱의 **Tools → Model merge**는 iiLocalDiffusion의 설치�
 
 | 화면 | SDK 입력 | 동작 |
 | --- | --- | --- |
-| Base model (A) | `--base-model` | Models 드롭다운에서 단일 전체 체크포인트 파일 선택 |
-| Material 1…N | 반복 `--additional-model` | Models 드롭다운에서 필수 첫 재료와 추가 체크포인트·LoRA 선택 |
-| Unified | `--mode unified` | Ordered image refinement with architecture-specific checkpoints and LoRA routing |
-| Weighted sum / Weighted difference | `--mode` | 호환 가중치의 합·차, 기본값은 합 |
-| Common layer | `--checkpoint-policy common-layer` | 같은 생태계의 다른 저장 레이아웃을 베이스 텐서 좌표계로 축별 재표본화하며 누락 스케줄은 베이스 값 유지 |
-| Per-resource weights | `--weights`에 N개 | 각 재료 카드의 유한한 0 이상 실수를 화면 순서대로 전달 |
-| Model name / Save to | `--output` | New `.iildmodel` package (Unified) or `.safetensors` file (weighted arithmetic) |
-| Conversion cache | `--cache-dir` | 레거시 체크포인트 변환 캐시 경로 |
-| Inspect inputs (optional) | `--inspect` | 구조·예정 투영·LoRA 대상과 강도를 JSON으로 표시하며 병합을 차단하지 않음 |
-| iiLocalDiffusion executable | 실행 프로그램 | 설치된 `iild-merge` 자동 탐색 또는 직접 지정 |
-| Python executable | `IILD_PYTHON_EXECUTABLE` | 선택적 Python 실행 파일. 비우면 SDK의 기본 환경 사용 |
+|기본 모델(A)| `--base-model` | Models 드롭다운에서 단일 전체 체크포인트 파일 선택 |
+|자재 1…N| 반복 `--additional-model` | Models 드롭다운에서 필수 첫 재료와 추가 체크포인트·LoRA 선택 |
+|통합| `--mode unified` |아키텍처별 체크포인트 및 LoRA 라우팅을 사용하여 정렬된 이미지 개선|
+|가중합 / 가중차| `--mode` | 호환 가중치의 합·차, 기본값은 합 |
+|공통 레이어| `--checkpoint-policy common-layer` | 같은 생태계의 다른 저장 레이아웃을 베이스 텐서 좌표계로 축별 재표본화하며 누락 스케줄은 베이스 값 유지 |
+|리소스별 가중치| `--weights`에 N개 | 각 재료 카드의 유한한 0 이상 실수를 화면 순서대로 전달 |
+|모델 이름/| `--output` |에 저장 새로운 `.iildmodel` 패키지(통합) 또는 `.safetensors` 파일(가중 산술)|
+|변환 캐시| `--cache-dir` | 레거시 체크포인트 변환 캐시 경로 |
+|입력 검사(선택 사항)| `--inspect` | 구조·예정 투영·LoRA 대상과 강도를 JSON으로 표시하며 병합을 차단하지 않음 |
+|iiLocalDiffusion 실행 파일| 실행 프로그램 | 설치된 `iild-merge` 자동 탐색 또는 직접 지정 |
+|Python 실행 파일| `IILD_PYTHON_EXECUTABLE` | 선택적 Python 실행 파일. 비우면 SDK의 기본 환경 사용 |
 
 가중치는 유한한 0 이상의 수이며 소수와 과학적 표기법을 지원한다. Per-model에서는 모든 재료의 가중치가 필요하다. `NaN`, 무한대, 음수와 쉼표를 포함하는 숫자는 거부한다. LoRA 강도와 차 방식 가중치를 임의로 1 이하로 제한하지 않는다.
 
@@ -131,16 +133,20 @@ Figma 화면 회귀는 1212 px 본문의 348 px 요약 열, 카드 간격, 기�
 
 Storage에서 하나의 모델로 보관하는 `.iildmodel`도 베이스와 추가 재료에 하나의 항목으로 표시한다. 신규 패키지는 ZIP64 stored 단일 파일이며 Society는 그 파일 경로 자체를 병합기에 전달한다. 과거 디렉터리형 `.iildmodel`도 manifest와 모든 stage 체크포인트의 경로 구속·존재 여부를 확인한 뒤, 다중 stage이면 패키지 전체 경로를 SDK에 전달한다. 단일 stage·strength 1·별도 LoRA 없음인 레거시 래퍼만 기존 호환 동작대로 내부 체크포인트를 해석한다. 내부 체크포인트는 별도 모델로 노출하지 않으며, 현재 병합 방식과 호환되지 않는 구성은 선택 목록에서 숨기지 않고 SDK 검사 결과로 명시한다. 잘못된 manifest, 누락 파일과 패키지 밖 경로는 선택 목록에서 제외한다. 일반 Diffusers 폴더 제외 규칙은 유지한다. `packagedModelIsPassedWholeToTheSdkAndCanBeMerged`와 `wrappedCheckpointsAppearOnceAndResolveForExecution`에서 각각 단일 파일의 실제 산술 병합과 단일·다중 stage 레거시 디렉터리 선택을 검증한다.
 
-## Unified input normalization
+<a id="unified-input-normalization"></a>
 
-Unified is the default and writes one `.iildmodel` package. The same base-scoped compatibility selection applies before its stages are planned: another ecosystem and an unmatched LoRA are excluded as whole resources. Weighted sum/difference use the same selection policy and write `.safetensors`. Exact matching remains an arithmetic and structural contract, not a guarantee of visual quality.
+## 통합된 입력 정규화
 
-Input checking never executes a merge or writes its output. `unifiedInspectionPreservesArchitecturesWithoutWritingOutput` verifies the unified request, stages, LoRA routing, explicit compatibility paths, output naming, and no output/cache creation.
+Unified 는 기본값이며 하나의 `.iildmodel` 패키지를 작성합니다. 동일한 기본 범위 호환성 선택은 해당 단계가 계획되기 전에 적용되며: 다른 생태계와 일치하지 않는 LoRA 는 전체 리소스로 제외됩니다. 가중치 합/차이와 같은 선택 정책은 동일하며 `.safetensors` 를 작성합니다. 정확한 매칭은 시각적 품질의 보장이 아닌 산술 및 구조적 계약으로 남아 있습니다.
 
-The installed SDK launcher selects an explicit Python override first, then `reference/runtime-python.json`, then its bundled `.venv` or launch interpreter. It rejects Python older than 3.10 before model imports and explains how to select a valid environment. A configured SDK environment works without entering Python in Society each session.
+입력 검사는 병합을 실행하거나 출력을 기록하지 않습니다. `unifiedInspectionPreservesArchitecturesWithoutWritingOutput`는 통합 요청, 단계, LoRA 라우팅, 명시적 호환성 경로, 출력 이름 지정 및 출력/캐시 생성 없음을 확인합니다.
 
-### LoRA alias normalization
+설치된 SDK 런처는 명시적인 Python 오버라이드를 먼저 선택한 후 `reference/runtime-python.json`, 다음으로 내장된 `.venv` 또는 런치 인터프리터를 선택합니다. Python 보다 오래된 3.10 는 모델 가져오기 전에 거부하며 유효한 환경을 선택하는 방법을 설명합니다. 구성된 SDK 환경은 Python 를 Society 세션마다 입력하지 않아도 작동합니다.
 
-LoRA projection pairs are normalized to the checkpoint's actual tensor address after shape, rank, alpha and orientation checks. Some exports include both SGM and Diffusers names for the same address. Identical projection tensors with identical dtype, scale and orientation are applied once. Distinct projection pairs are retained as additive deltas on that address, including each pair's own alpha/rank scale. No target is silently dropped or arbitrarily reshaped. Reports expose `lora_alias_policy` as `identical-projections-once; distinct-projections-additive`. Input inspection may read the duplicate LoRA projections to establish equality, but does not materialize full checkpoint tensors or produce a merged model.
+<a id="lora-alias-normalization"></a>
 
-The LoRA regression suite verifies duplicate aliases apply once, distinct projections sum correctly, and different alpha values preserve their individual scaling, using tiny fixture tensors.
+### LoRA 별칭 정규화
+
+LoRA 투영 쌍은 형식, 랭크, 알파 및 방향성 확인 후 체크포인트의 실제 텐서 주소로 정규화됩니다. 일부 내보내기에는 동일한 주소에 대한 SGM 와 Diffusers 이름이 모두 포함될 수 있습니다. 동일한 형식, 스케일 및 방향성을 가진 동일한 투영 텐서는 한 번 적용됩니다. 구별되는 투영 쌍은 해당 주소에 대한 가산 델타로 유지되며, 각 쌍의 자체 알파/랭크 스케일을 포함합니다. 대상은 아무런 알림 없이 삭제되거나 임의로 재형상되지 않습니다. 보고서는 `lora_alias_policy` 를 `identical-projections-once; distinct-projections-additive` 로 노출합니다. 입력 검사 는 동등성을 확립하기 위해 중복 LoRA 프로젝션을 읽을 수 있지만, 전체 체크포인트 텐서를 구체화하거나 병합된 모델을 생성하지 않습니다.
+
+LoRA 회귀 제품군은 중복된 별칭이 한 번 적용되고, 고유한 투영이 올바르게 합산되고, 다양한 알파 값이 작은 픽스처 텐서를 사용하여 개별 스케일링을 유지하는지 확인합니다.

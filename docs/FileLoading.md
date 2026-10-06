@@ -1,25 +1,13 @@
-# File loading
+<a id="file-loading"></a>
 
-Society registers the SDK `society-preview` asynchronous image provider at engine
-startup. Files and Gallery use `fileThumbnailUrl`, and Dashboard uses the same cache
-through `thumbnailSource` (falling back to the original `previewSource`). Original-file activation and on-demand download routes do
-not change. The UI continues using installed LVRS components.
+# 파일 로딩
 
-The application cache contains directory snapshots, source SHA-256 manifests and
-512-pixel previews. No originals, credentials or pairing data are moved into it.
-Cached rows paint before live reconciliation; they do not authorize opening until
-the model is Ready. The previous per-second whole-directory scan becomes a debounced
-filesystem watcher plus a ten-second fallback. Dashboard sections and requested
-preview jobs run in parallel with explicit decoder memory limits.
+Society 는 엔진 시작 시 SDK `society-preview` 비동기 이미지 제공자를 등록합니다. 파일과 갤러리는 `fileThumbnailUrl` 를 사용하며 대시보드는 `thumbnailSource` 를 통해 동일한 캐시를 사용하며 원래 `previewSource` 로 되돌아갑니다. 원래 파일 활성화 및 온디맨드 다운로드 경로는 변경되지 않습니다. UI 는 설치된 LVRS 구성 요소를 계속 사용합니다.
 
-Implementation limits, invalidation and test commands are in
-[the SDK contract](../../../SDK/iiSocietyContainer/FileLoading.md).
-Source/SDK test results, installed application validation and real-device behavior
-must be reported separately; a benchmark of warm cache hits is not cold-start proof.
+애플리케이션 캐시는 디렉토리 스냅샷, 소스 SHA-256 매니페스트 및 512픽셀 미리보기를 포함합니다. 원본, 자격 증명 또는 페어링 데이터는 이동되지 않습니다. 캐시된 행은 라이브 조정 전에 페인트되며, 모델이 준비될 때까지 열기를 승인하지 않습니다. 이전 초당 전체 디렉토리 스캔은 디바운스 파일 시스템 감시자 및 10초 대체 경로 로 변경됩니다. 대시보드 섹션 및 요청된 미리보기 작업은 명시적인 디코더 메모리 한계로 병렬로 실행됩니다.
 
-The synchronization SDK also uses bounded streaming watch discovery. It prioritizes
-section roots, stops at its descriptor/inspection budget, and checks cancellation
-between entries rather than eagerly sorting every file in a large preview folder.
-This reduces background filesystem contention; it does not make stalled physical
-storage fast or remove the host-ownership shutdown barrier. See
-[watch discovery](../../../SDK/iiSocietySync/NearbySync.md#bounded-filesystem-watch-discovery).
+구현 제한, 무효화 및 테스트 명령은
+[SDK 계약](../../../SDK/iiSocietyContainer/FileLoading.md). 소스/SDK 테스트 결과, 설치된 애플리케이션 검증 및 실제 장치 동작은 별도로 보고되어야 합니다. 웜 캐시 적중의 벤치마크는 콜드 스타트 ​​증거가 아닙니다.
+
+동기화 SDK 도 한계가 설정된 스트리밍 감시 발견을 사용합니다. 이는 섹션 루트를 우선순위로 하고, 설명자/검사 예산에서 멈추며, 큰 미리보기 폴더의 모든 파일을 즉시 정렬하는 대신 항목 간 취소 확인을 수행합니다. 이는 배경 파일 시스템 경쟁을 줄입니다; 지연된 물리적 저장소를 빠르게 만들거나 호스트 소유권 종료 장벽을 제거하지 않습니다. 참조
+[시계 발견](../../../SDK/iiSocietySync/NearbySync.md#bounded-filesystem-watch-discovery).
