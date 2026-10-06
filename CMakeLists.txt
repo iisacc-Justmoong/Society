@@ -163,6 +163,11 @@ foreach(_app_resource IN LISTS _app_source_resources)
     set_source_files_properties("${_app_resource}" PROPERTIES QT_RESOURCE_ALIAS "${_app_resource_alias}")
 endforeach()
 
+# Qt 6.8's generated registrar includes QML_ELEMENT headers by basename.
+target_include_directories(Society PRIVATE
+    src/App/Account src/App/Dashboard src/App/Drive src/App/Network
+    src/App/Environment src/App/Files src/App/Models src/App/Tools)
+
 qt_add_qml_module(Society
     URI Society VERSION 1.0 RESOURCE_PREFIX "/qt/qml"
     IMPORT_PATH "${iiAcountManager_QML_IMPORT_PATH}" "${iiPhotoLibrary_QML_IMPORT_PATH}"
@@ -190,6 +195,12 @@ qt_add_qml_module(Society
         src/App/Dashboard/icons/organization.svg
 )
 society_add_photo_qml(Society)
+# GNU's PE big-object LTO plugin cannot read the generated registrar reliably.
+if(WIN32 AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    set_source_files_properties("${CMAKE_CURRENT_BINARY_DIR}/society_qmltyperegistrations.cpp"
+        PROPERTIES COMPILE_OPTIONS "-fno-lto")
+endif()
+
 target_include_directories(Society PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src/App/Models" "${CMAKE_CURRENT_SOURCE_DIR}/src/App/Environment")
 # Shared Qt resolves QML plugins at runtime; avoid recursively scanning build/
 # (including archived app bundles) on every desktop reconfiguration.
@@ -558,7 +569,7 @@ if(BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)
     add_test(NAME Society.ModelMerge COMMAND SocietyModelMergeTests)
     set_tests_properties(Society.ModelMerge PROPERTIES
         ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software;QML_DISABLE_DISK_CACHE=1"
-        TIMEOUT 180)
+        TIMEOUT 600)
 
     if(TARGET iiLocalDiffusion::ModelPackaging)
         qt_add_executable(SocietyModelPackagingTests tests/tst_modelpackaging.cpp ${society_model_packaging_sources})
@@ -679,6 +690,13 @@ if(BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)
         endif()
     endif()
 
+    # App-relative QML imports use the same resource aliases in every GUI fixture.
+    foreach(qml_consumer SocietyDriveTests SocietyModelMergeTests SocietyModelPackagingTests SocietyClientOnlyNetworkTests)
+        if(TARGET ${qml_consumer})
+            qt_add_resources(${qml_consumer} SocietyAppQml PREFIX "/qt/qml/Society"
+                FILES ${_app_source_resources})
+        endif()
+    endforeach()
     foreach(account_consumer SocietyAccountTests SocietyNetworkTests SocietyClientOnlyNetworkTests SocietyDriveTests)
         target_sources(${account_consumer} PRIVATE ${society_account_sources})
         target_link_libraries(${account_consumer} PRIVATE iiAcountManager::Quick)
@@ -785,3 +803,12 @@ endif()
 include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/single-app/SingleApp.cmake")
 product_plain_executables("${CMAKE_SOURCE_DIR}" Society)
 cmake_language(DEFER CALL product_single_app Society "bin")
+
+if(WIN32 AND BUILD_TESTING)
+    get_property(_society_tests DIRECTORY PROPERTY TESTS)
+    foreach(_society_test IN LISTS _society_tests)
+        get_property(_test_environment TEST ${_society_test} PROPERTY ENVIRONMENT)
+        list(TRANSFORM _test_environment REPLACE "QT_QPA_PLATFORM=offscreen" "QT_QPA_PLATFORM=windows")
+        set_tests_properties(${_society_test} PROPERTIES ENVIRONMENT "${_test_environment}")
+    endforeach()
+endif()

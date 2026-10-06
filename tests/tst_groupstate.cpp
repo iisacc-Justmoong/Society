@@ -1,3 +1,4 @@
+#include "native_link.h"
 #include "App/State/GroupSessionStore.h"
 #include "App/State/StateCrypto.h"
 #include "MemorySessionStore.h"
@@ -8,6 +9,10 @@
 #include <QTemporaryDir>
 #include <QTest>
 #include <optional>
+#ifdef Q_OS_WIN
+#include <windows.h>
+#include <aclapi.h>
+#endif
 
 using Store = iisacc::accounts::SessionStore;
 static Store::Result complete(std::function<void(Store::Completion)> action) {
@@ -53,7 +58,24 @@ private slots:
         GroupSessionStore restored(dir.path(), &keys, &legacy);
         QCOMPARE(complete([&](auto done) { restored.read("login", done); }).data, login);
         QCOMPARE(complete([&](auto done) { restored.read("pairing", done); }).data, pairing);
+#ifdef Q_OS_WIN
+        const auto path = recordPath(dir.path(), "login");
+        PSECURITY_DESCRIPTOR descriptor = nullptr; PACL acl = nullptr; PSID owner = nullptr;
+        QCOMPARE(GetNamedSecurityInfoW(const_cast<LPWSTR>(reinterpret_cast<LPCWSTR>(path.utf16())),
+            SE_FILE_OBJECT, OWNER_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION,
+            &owner, nullptr, &acl, nullptr, &descriptor), DWORD(ERROR_SUCCESS));
+        QVERIFY(acl != nullptr); QCOMPARE(acl->AceCount, WORD(1));
+        void *entry = nullptr; QVERIFY(GetAce(acl, 0, &entry));
+        const auto allowed = static_cast<ACCESS_ALLOWED_ACE *>(entry);
+        QCOMPARE(allowed->Header.AceType, BYTE(ACCESS_ALLOWED_ACE_TYPE));
+        QVERIFY(EqualSid(owner, &allowed->SidStart));
+        QVERIFY((allowed->Mask & FILE_ALL_ACCESS) == FILE_ALL_ACCESS);
+        SECURITY_DESCRIPTOR_CONTROL control{}; DWORD revision{};
+        QVERIFY(GetSecurityDescriptorControl(descriptor, &control, &revision));
+        QVERIFY(control & SE_DACL_PROTECTED); LocalFree(descriptor);
+#else
         QCOMPARE(QFile::permissions(recordPath(dir.path(), "login")) & (QFileDevice::ReadGroup | QFileDevice::ReadOther | QFileDevice::WriteOther), QFileDevice::Permissions{});
+#endif
     }
     void migratesOnlyAfterSuccessfulEncryptedWrite() {
         QTemporaryDir dir(QString(SOCIETY_TEST_DIRECTORY) + "/group-state-XXXXXX"); QVERIFY(dir.isValid());
@@ -100,12 +122,12 @@ private slots:
         QTemporaryDir dir(QString(SOCIETY_TEST_DIRECTORY) + "/group-state-XXXXXX"); QVERIFY(dir.isValid());
         MemorySessionStore keys, legacy;
         QVERIFY(QDir(dir.path()).mkdir("real"));
-        QVERIFY(QFile::link(dir.path() + "/real", dir.path() + "/alias"));
+        QVERIFY(createNativeTestLink(dir.path() + "/real", dir.path() + "/alias"));
         GroupSessionStore redirected(dir.path() + "/alias/state", &keys, &legacy);
         QCOMPARE(complete([&](auto done) { redirected.write("login", "fixture", done); }).error, Store::Error::Unavailable);
         GroupSessionStore store(dir.path() + "/real", &keys, &legacy);
         const auto outside = dir.path() + "/outside"; QVERIFY(replace(outside, "untouched"));
-        QVERIFY(QFile::link(outside, recordPath(store.directory(), "login")));
+        QVERIFY(createNativeTestLink(outside, recordPath(store.directory(), "login")));
         QCOMPARE(complete([&](auto done) { store.write("login", "fixture", done); }).error, Store::Error::Unavailable);
         QCOMPARE(bytes(outside), QByteArray("untouched"));
     }

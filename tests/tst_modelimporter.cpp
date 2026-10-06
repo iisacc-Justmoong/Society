@@ -1,3 +1,4 @@
+#include "native_link.h"
 #include "App/Files/ModelImporter.h"
 #include <SocietyDrive.h>
 #include <ModelStore.h>
@@ -178,7 +179,7 @@ private slots:
         const auto path = source.filePath("weights.safetensor");
         writeFile(path, "private model");
         QVERIFY(QDir().rename(target.filePath("Models"), target.filePath("Models-original")));
-        QVERIFY(QFile::link(target.filePath("Files"), target.filePath("Models")));
+        QVERIFY(createNativeTestLink(target.filePath("Files"), target.filePath("Models")));
         QVERIFY(importer.importFiles({QUrl::fromLocalFile(path)}));
         QTRY_COMPARE(done.size(), 2);
         QVERIFY(!importer.errorString().isEmpty());

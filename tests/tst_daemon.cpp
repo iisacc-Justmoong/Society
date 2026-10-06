@@ -36,7 +36,7 @@ private slots:
     void isolatedSyncServicePublishesStateWithoutAccessingAnAccount() {
         QTemporaryDir root(SOCIETY_TEST_DIRECTORY "/daemon-sync-XXXXXX");
         QProcess daemon;
-        daemon.start(QStringLiteral(SOCIETY_DAEMON_EXECUTABLE), {"--directory", root.path(), "--sync", "--status-file", root.filePath("status.json")});
+        daemon.start(QStringLiteral(SOCIETY_DAEMON_EXECUTABLE), {"--directory", root.path(), "--sync", "--status-file", root.filePath("status.json"), "--exit-after-ms", "1500"});
         const auto stop = qScopeGuard([&] {
             if (daemon.state() != QProcess::NotRunning) { daemon.terminate(); if (!daemon.waitForFinished(4000)) { daemon.kill(); daemon.waitForFinished(); } }
         });
@@ -51,7 +51,9 @@ private slots:
         const auto state = readState();
         QVERIFY(!state.value("signedIn").toBool()); QVERIFY(!state.value("connected").toBool());
         QVERIFY(!state.contains("credentials"));
-        daemon.terminate(); QVERIFY(daemon.waitForFinished(4000)); QCOMPARE(daemon.exitCode(), 0);
+        // The finite service duration provides a native shutdown request on
+        // Windows, whose QProcess::terminate() does not deliver POSIX SIGTERM.
+        QVERIFY(daemon.waitForFinished(4000)); QCOMPARE(daemon.exitCode(), 0);
         QLockFile owner(root.filePath("SyncRuntime/owner.lock")); QVERIFY(owner.tryLock());
     }
     void offlineQueueAndLateSocietyReceiver()

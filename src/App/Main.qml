@@ -312,6 +312,8 @@ LV.ApplicationWindow {
         title: qsTr("Import models into Society")
         fileMode: FileDialog.OpenFiles
         nameFilters: [qsTr("Safetensors models (*.safetensor *.safetensors)")]
+        // Qt 6.8's Windows native helper can outlive a rapidly closed dialog.
+        options: Qt.platform.os === "windows" ? FileDialog.DontUseNativeDialog : 0
         onAccepted: modelImporter.importFiles(selectedFiles)
     }
 

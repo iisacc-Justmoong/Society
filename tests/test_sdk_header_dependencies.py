@@ -20,7 +20,7 @@ class SdkHeaderDependencies(unittest.TestCase):
                 'int main() { std::printf("%zu", sizeof(Layout)); }\n')
             (root / "CMakeLists.txt").write_text(f'''cmake_minimum_required(VERSION 3.24)
 project(HeaderTracking LANGUAGES CXX)
-include("{SOURCE / 'cmake/SdkHeaders.cmake'}")
+include("{(SOURCE / 'cmake/SdkHeaders.cmake').as_posix()}")
 add_library(iiFixture INTERFACE IMPORTED)
 set_target_properties(iiFixture PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${{CMAKE_CURRENT_SOURCE_DIR}}/sdk")
 add_executable(consumer main.cpp)
@@ -31,12 +31,12 @@ target_link_libraries(consumer PRIVATE iiFixture)
                 return subprocess.check_output(args, text=True, stderr=subprocess.STDOUT)
             run("cmake", "-S", str(root), "-B", str(build), "-G", "Ninja")
             run("cmake", "--build", str(build))
-            self.assertEqual(run(str(build / "consumer")), "256")
+            self.assertEqual(run(str(build / ("consumer.exe" if __import__("os").name == "nt" else "consumer"))), "256")
             commands = run("ninja", "-C", str(build), "-t", "commands")
             self.assertNotIn("-isystem " + str(headers), commands)
             header.write_text("struct Layout { char bytes[264]; };\n")
             run("cmake", "--build", str(build))
-            self.assertEqual(run(str(build / "consumer")), "264")
+            self.assertEqual(run(str(build / ("consumer.exe" if __import__("os").name == "nt" else "consumer"))), "264")
 
 
 if __name__ == "__main__":

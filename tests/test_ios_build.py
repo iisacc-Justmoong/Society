@@ -67,7 +67,7 @@ class IosBuildTest(unittest.TestCase):
             self.assertIn('-DLVRS_BUILD_SHARED_LIBS=OFF', configurations[0])
             account = next(c for c in configurations if Path(c[c.index('-S') + 1]).name == 'iiAcountManager')
             self.assertIn('-DIIACCOUNTMANAGER_BUILD_QUICK=ON', account)
-            self.assertIn(f'-DLVRS_DIR={build_ios.WORKSPACE}/build/{mode}/install/lib/cmake/LVRS', account)
+            self.assertIn(f'-DLVRS_DIR={build_ios.WORKSPACE / "build" / mode / "install"}/lib/cmake/LVRS', account)
             variables = next(p['cacheVariables'] for p in presets if p['name'] == mode)
             self.assertEqual(variables['CMAKE_OSX_SYSROOT'], sdk)
             self.assertEqual({k for k in variables if k.startswith('ii')},

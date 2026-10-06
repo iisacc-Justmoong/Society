@@ -1,3 +1,4 @@
+#include "native_link.h"
 #include "App/Drive/DriveController.h"
 #include "App/Environment/EnvironmentAppsModel.h"
 #include "AccountServer.h"
@@ -857,7 +858,7 @@ private slots:
         QCOMPARE(filesIcon->size(), QSizeF(13.375, 15.6659));
         QTRY_COMPARE(filesIcon->property("status").toInt(), 1); // Image.Ready
         auto *history = visualItem(sidebar, "storageSectiongeneration-history"); QVERIFY(history);
-        QVERIFY(history->property("iconSource").toUrl().toLocalFile().endsWith("Drive/icons/generation-history.svg"));
+        QVERIFY(history->property("iconSource").toUrl().path().endsWith("Drive/icons/generation-history.svg"));
         auto *published = visualItem(sidebar, "storageSectionpublished"); QVERIFY(published);
         QVERIFY(published->property("iconSource").toUrl().toLocalFile().endsWith("Drive/icons/published.svg"));
         const QStringList targetKeys{"devicesdesktop", "devicesphone", "devicestablet",
@@ -948,7 +949,7 @@ private slots:
         }
         const auto outside = fixture.filePath("outside.safetensors");
         QVERIFY(writeCatalogModel(outside, {{"society.modality", "audio"}}));
-        QVERIFY(QFile::link(outside, fixture.filePath("Models/escaped.safetensors")));
+        QVERIFY(createNativeTestLink(outside, fixture.filePath("Models/escaped.safetensors")));
         StorageModels catalog;
         catalog.setDirectory(fixture.filePath("Models"));
         QTRY_VERIFY(!catalog.loading());
@@ -1014,7 +1015,8 @@ private slots:
         QCOMPARE(sidebar->width(), 228.0); QCOMPARE(sidebar->mapToScene(QPointF()).y(), 56.0);
         QCOMPARE(navigation->height(), 32.0);
         QCOMPARE(navigation->width(), 204.0);
-        QCOMPARE(navigation->mapToScene(QPointF()), QPointF(12, 247));
+        auto *filesNavigation = visualItem(window->contentItem(), "storageSectionfiles"); QVERIFY(filesNavigation);
+        QCOMPARE(navigation->mapToScene(QPointF()), filesNavigation->mapToScene(QPointF()) + QPointF(0, 4 * 32));
         QCOMPARE(catalog->categories().size(), 23);
         for (const auto type : iiSocietyContainer::allModelTypes())
             QVERIFY(visualItem(models, "modelHeading" + iiSocietyContainer::modelTypeName(type)));
@@ -1038,6 +1040,9 @@ private slots:
             QSignalSpy requests(models, SIGNAL(importRequested())); QVERIFY(requests.isValid());
             QVERIFY(QMetaObject::invokeMethod(import, "clicked")); QCOMPARE(requests.size(), 1);
             auto *dialog = window->findChild<QObject *>("modelFileDialog"); QVERIFY(dialog);
+#ifdef Q_OS_WIN
+            QVERIFY(dialog->property("options").toInt() != 0);
+#endif
             QVERIFY(QMetaObject::invokeMethod(dialog, "close"));
         }
         auto *card = visualItem(lists.first(), "modelCardCheckpoint0"); QVERIFY(card);
@@ -1709,8 +1714,8 @@ private slots:
         QTemporaryDir outside(SOCIETY_TEST_DIRECTORY "/dashboard-outside-XXXXXX");
         QFile secret(outside.filePath("outside.txt"));
         QVERIFY(secret.open(QIODevice::WriteOnly)); secret.write("outside"); secret.close();
-        QVERIFY(QFile::link(secret.fileName(), fixture.filePath("Files/linked.txt")));
-        QVERIFY(QFile::link(outside.path(), fixture.filePath("Files/Linked folder")));
+        QVERIFY(createNativeTestLink(secret.fileName(), fixture.filePath("Files/linked.txt")));
+        QVERIFY(createNativeTestLink(outside.path(), fixture.filePath("Files/Linked folder")));
 
         DashboardFiles files;
         files.refresh();
@@ -3195,6 +3200,8 @@ int main(int argc, char *argv[])
     if (!lvrs::preApplicationBootstrap(options).ok)
         return 1;
     QGuiApplication app(argc, argv);
+    QCoreApplication::setOrganizationName(QStringLiteral("iisacc.tests"));
+    QCoreApplication::setOrganizationDomain(QStringLiteral("iisacc.com"));
     QTemporaryDir settings(SOCIETY_TEST_DIRECTORY "/drive-settings-XXXXXX");
     if (!settings.isValid()) return 1;
     qputenv("SOCIETY_STORAGE_SETTINGS_PATH", settings.filePath("storage.json").toUtf8());

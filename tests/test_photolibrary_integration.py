@@ -20,8 +20,8 @@ class PhotoLibraryIntegrationTests(unittest.TestCase):
             sdk_configure = next(i for i, step in enumerate(steps) if str(SDK) in step)
             app_configure = next(i for i, step in enumerate(steps) if str(ROOT) in step)
             self.assertLess(sdk_configure, app_configure)
-            self.assertIn(f'-DiiPhotoLibrary_DIR={ROOT.parents[1]}/build/{mode}/install/lib/cmake/iiPhotoLibrary', steps[app_configure])
-            self.assertIn(f'-DiiSocietyContainer_DIR={ROOT.parents[1]}/build/{mode}/install/lib/cmake/iiSocietyContainer', steps[sdk_configure])
+            self.assertIn(f'-DiiPhotoLibrary_DIR={ROOT.parents[1] / "build" / mode / "install"}/lib/cmake/iiPhotoLibrary', steps[app_configure])
+            self.assertIn(f'-DiiSocietyContainer_DIR={ROOT.parents[1] / "build" / mode / "install"}/lib/cmake/iiSocietyContainer', steps[sdk_configure])
         presets = json.loads((ROOT / 'CMakePresets.json').read_text())
         for preset in presets['configurePresets']:
             variables = preset.get('cacheVariables', {})
@@ -43,17 +43,17 @@ class PhotoLibraryIntegrationTests(unittest.TestCase):
             # Only target registration and Qt resource registration are mocked;
             # the real CMake helper performs manifest and Java file packaging.
             script = base / 'package.cmake'
-            script.write_text(f'''set(CMAKE_CURRENT_SOURCE_DIR "{ROOT}")
-set(Qt6_DIR "{base}/qt/lib/cmake/Qt6")
-set(iiPhotoLibrary_ANDROID_SOURCE_DIR "{SDK}/platform/android/src")
+            script.write_text(f'''set(CMAKE_CURRENT_SOURCE_DIR "{ROOT.as_posix()}")
+set(Qt6_DIR "{base.as_posix()}/qt/lib/cmake/Qt6")
+set(iiPhotoLibrary_ANDROID_SOURCE_DIR "{SDK.as_posix()}/platform/android/src")
 function(get_target_property output target property)
-  set(${{output}} "{package}" PARENT_SCOPE)
+  set(${{output}} "{package.as_posix()}" PARENT_SCOPE)
 endfunction()
 function(target_sources)
 endfunction()
 function(qt_add_resources)
 endfunction()
-include("{ROOT}/cmake/AndroidQr.cmake")
+include("{ROOT.as_posix()}/cmake/AndroidQr.cmake")
 society_add_android_qr(Fixture)
 ''')
             subprocess.run(['cmake', '-P', str(script)], check=True, capture_output=True, text=True)

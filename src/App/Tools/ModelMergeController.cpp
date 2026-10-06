@@ -5,6 +5,7 @@
 #include <QDesktopServices>
 #include <QDir>
 #include <QFileInfo>
+#include <QFile>
 #include <QGuiApplication>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -33,7 +34,15 @@ QString executable(QString value)
     value = value.trimmed();
     if (value.isEmpty()) return {};
     const auto path = pathFromText(value);
-    if (!path.isEmpty()) return QFileInfo(path).isExecutable() && QFileInfo(path).isFile() ? path : QString();
+    if (!path.isEmpty()) {
+#ifdef Q_OS_WIN
+        const auto nativePath = path.endsWith(".exe", Qt::CaseInsensitive) ? path : path + ".exe";
+        if (QFileInfo(nativePath).isFile() && QFileInfo(nativePath).isExecutable()) return nativePath;
+        QFile script(path);
+        if (script.open(QIODevice::ReadOnly) && script.peek(2) == "#!") return path;
+#endif
+        return QFileInfo(path).isExecutable() && QFileInfo(path).isFile() ? path : QString();
+    }
     return QStandardPaths::findExecutable(value);
 }
 
@@ -218,7 +227,21 @@ bool ModelMergeController::run(const QVariantMap &options, bool validateOnly)
     else environment.remove("IILD_PYTHON_EXECUTABLE");
     environment.insert("PYTHONUNBUFFERED", "1");
     m_process.setProcessEnvironment(environment);
-    m_process.setProgram(program);
+    auto processProgram = program;
+#ifdef Q_OS_WIN
+    QFile script(program);
+    if (script.open(QIODevice::ReadOnly)) {
+        const auto header = script.readLine(256);
+        if (header.startsWith("#!")) {
+            processProgram = header.contains("python")
+                ? (python.isEmpty() ? executable(defaultPython().isEmpty() ? QStringLiteral("python") : defaultPython()) : python)
+                : QStandardPaths::findExecutable("bash");
+            if (processProgram.isEmpty()) return fail(tr("The script interpreter could not be found."));
+            arguments.prepend(program);
+        }
+    }
+#endif
+    m_process.setProgram(processProgram);
     m_process.setArguments(arguments);
     m_process.setWorkingDirectory(QFileInfo(base).absolutePath());
     m_stdout.clear(); m_stderr.clear();
@@ -267,11 +290,11 @@ void ModelMergeController::finish(int exitCode, bool crashed)
     readOutput();
     m_tick.stop(); m_elapsedSeconds = int(m_elapsed.elapsed() / 1000);
     m_busy = false;
-    const auto document = QJsonDocument::fromJson(m_stdout);
+    auto document = QJsonDocument::fromJson(m_stdout);
     bool success = exitCode == 0 && !crashed && m_error.isEmpty() && document.isObject();
     if (success && !m_validationOnly)
         success = document.object().value("schema").toString() == "iild-model-merge-v1"
-            && document.object().value("output").toString() == m_requestedOutput
+            && QDir::fromNativeSeparators(document.object().value("output").toString()) == m_requestedOutput
             && (QFileInfo(m_requestedOutput).isFile() || (QFileInfo(m_requestedOutput).isDir()
                 && QFileInfo(m_requestedOutput).suffix().compare("iildmodel", Qt::CaseInsensitive) == 0));
     if (success && !m_validationOnly
@@ -280,6 +303,24 @@ void ModelMergeController::finish(int exitCode, bool crashed)
         m_error = tr("The SDK created an output without saved-output verification. Update the merge runtime and inspect the file before using it.");
     }
     if (success) {
+        auto normalized = document.object();
+        for (const auto &key : {"output", "base_model", "cache_dir"})
+            if (normalized.value(key).isString()) normalized[key] = QDir::fromNativeSeparators(normalized.value(key).toString());
+        for (const auto &key : {"additional_models", "compatibility_models", "resolved_sources"}) {
+            if (!normalized.contains(key)) continue;
+            auto paths = normalized.value(key).toArray();
+            for (qsizetype index = 0; index < paths.size(); ++index)
+                if (paths[index].isString()) paths[index] = QDir::fromNativeSeparators(paths[index].toString());
+            normalized[key] = paths;
+        }
+        auto sources = normalized.value("sources").toArray();
+        for (qsizetype index = 0; index < sources.size(); ++index) {
+            auto source = sources[index].toObject();
+            if (source.value("path").isString()) source["path"] = QDir::fromNativeSeparators(source.value("path").toString());
+            sources[index] = source;
+        }
+        if (normalized.contains("sources")) normalized["sources"] = sources;
+        document.setObject(normalized);
         m_report = document.object().toVariantMap();
         m_details = QString::fromUtf8(document.toJson(QJsonDocument::Indented));
         if (m_validationOnly) {

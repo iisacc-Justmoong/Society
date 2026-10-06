@@ -1,3 +1,4 @@
+#include "native_link.h"
 #include <iiPhotoLibrary/PhotoStore.h>
 #include <iiPhotoLibrary/PhotoController.h>
 #include <QFile>
@@ -402,7 +403,7 @@ private slots:
         request["action"] = "commit"; QVERIFY(!target.store->command(request).value("ok").toBool());
         QCOMPARE(target.library->imports, 0);
         const auto outside = target.temporary.path() + "/untouched"; write(outside, "private");
-        const auto cache = target.store->resourcePath(id, 0); QVERIFY(QFile::link(outside, cache));
+        const auto cache = target.store->resourcePath(id, 0); QVERIFY(createNativeTestLink(outside, cache));
         request["action"] = "read"; QVERIFY(!target.store->command(request).value("ok").toBool());
         QFile untouched(outside); QVERIFY(untouched.open(QIODevice::ReadOnly)); QCOMPARE(untouched.readAll(), QByteArray("private"));
     }

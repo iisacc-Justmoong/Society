@@ -1,3 +1,4 @@
+#include "native_link.h"
 #include "App/Tools/ModelMergeController.h"
 #include "App/Tools/MergeModelCatalog.h"
 #include "backend/runtime/appbootstrap.h"
@@ -82,6 +83,9 @@ private slots:
         qmlRegisterType<MergeModelCatalog>("Society", 1, 0, "MergeModelCatalog");
         ModelMergeController controller;
         QVERIFY2(!controller.defaultExecutable().isEmpty(), "Installed iild-merge is required for the integration contract.");
+#ifdef Q_OS_WIN
+        QVERIFY(controller.defaultExecutable().endsWith(".exe", Qt::CaseInsensitive));
+#endif
         m_hasRuntime = python({"create", m_fixture.path()});
         if (!m_hasRuntime) {
             for (const auto &name : {"base.safetensors", "extra.safetensors", "style.safetensors"}) {
@@ -154,6 +158,26 @@ private slots:
         QVERIFY(controller.completedOutput().isEmpty());
     }
 
+    void inspectionNormalizesOnlyKnownPathFields()
+    {
+        const auto runner = m_fixture.filePath("native-path-report.py");
+        QVERIFY(writeFixture(runner, "#!/usr/bin/env python3\nimport json\np='D:\\\\Models\\\\한글 model.safetensors'\nprint(json.dumps({'output':p,'compatibility_models':[p],'resolved_sources':[p],'sources':[{'path':p,'note':'keep\\\\literal'}],'note':'keep\\\\literal'}))\n"));
+        auto request = options();
+        request["executable"] = runner;
+        ModelMergeController controller;
+        QSignalSpy done(&controller, &ModelMergeController::finished);
+        QVERIFY(controller.run(request, true));
+        QTRY_COMPARE_WITH_TIMEOUT(done.count(), 1, 30000);
+        QVERIFY2(done.first().first().toBool(), qPrintable(controller.errorString()));
+        const auto report = controller.report();
+        const auto expected = QDir::fromNativeSeparators(QStringLiteral("D:\\Models\\한글 model.safetensors"));
+        QCOMPARE(report.value("compatibility_models").toStringList(), QStringList{expected});
+        QCOMPARE(report.value("resolved_sources").toStringList(), QStringList{expected});
+        QCOMPARE(report.value("sources").toList().first().toMap().value("path").toString(), expected);
+        QCOMPARE(report.value("note").toString(), QStringLiteral("keep\\literal"));
+        QCOMPARE(report.value("sources").toList().first().toMap().value("note").toString(), QStringLiteral("keep\\literal"));
+    }
+
     void catalogListsOnlyContainerModelsAndKeepsPackagesWhole()
     {
         QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/model catalog-XXXXXX");
@@ -171,8 +195,8 @@ private slots:
         QVERIFY(writeFixture(QDir(models).filePath("empty.safetensors"), {}));
         QVERIFY(writeFixture(QDir(models).filePath(".staging/incomplete.safetensors")));
         QVERIFY(writeFixture(fixture.filePath("Files/outside.safetensors")));
-        QVERIFY(QFile::link(fixture.filePath("Files/outside.safetensors"), QDir(models).filePath("linked.safetensors")));
-        QVERIFY(QFile::link(fixture.filePath("Files"), QDir(models).filePath("linked-folder")));
+        QVERIFY(createNativeTestLink(fixture.filePath("Files/outside.safetensors"), QDir(models).filePath("linked.safetensors")));
+        QVERIFY(createNativeTestLink(fixture.filePath("Files"), QDir(models).filePath("linked-folder")));
         MergeModelCatalog catalog;
         catalog.setDirectory(models);
         QTRY_VERIFY(!catalog.loading());
@@ -225,7 +249,7 @@ private slots:
         catalog.setDirectory(fixture.filePath("missing/Models"));
         QTRY_VERIFY(!catalog.loading());
         QVERIFY(!catalog.errorString().isEmpty());
-        QVERIFY(QFile::link(models, fixture.filePath("Models-alias")));
+        QVERIFY(createNativeTestLink(models, fixture.filePath("Models-alias")));
         catalog.setDirectory(fixture.filePath("Models-alias"));
         QTRY_VERIFY(!catalog.loading());
         QVERIFY(catalog.models().isEmpty());

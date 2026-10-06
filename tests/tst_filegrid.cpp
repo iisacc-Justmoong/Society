@@ -1,4 +1,5 @@
 #include "App/Files/DirectoryLocation.h"
+#include <iiSocietyContainer/PreviewCache.h>
 #include "backend/runtime/appbootstrap.h"
 
 #include <QAbstractItemModel>
@@ -45,6 +46,7 @@ private slots:
         qmlRegisterType<DirectoryLocation>("Society", 1, 0, "DirectoryLocation");
         qmlRegisterType<FileActions>("Society", 1, 0, "FileActions");
         qmlRegisterType<StorageDirectoryModel>("Society", 1, 0, "StorageDirectoryModel");
+        engine.addImageProvider(QStringLiteral("society-preview"), new iiSocietyContainer::PreviewProvider);
         engine.addImportPath(QString::fromUtf8(SOCIETY_LVRS_QML_IMPORT_PATH));
         connect(&engine, &QQmlApplicationEngine::warnings, this,
                 [this](const QList<QQmlError> &errors) {
@@ -230,8 +232,8 @@ private slots:
         auto *preview = tileNamed("preview #한글.png")->findChild<QQuickItem *>("fileThumbnail");
         QVERIFY(preview);
         QTRY_COMPARE(preview->property("status").toInt(), 1); // Image.Ready
-        QCOMPARE(preview->property("source").toUrl().toLocalFile(),
-                 fixtures.filePath("preview #한글.png"));
+        QCOMPARE(preview->property("source").toUrl(),
+                 StorageDirectoryModel::thumbnailUrl(fixtures.filePath("preview #한글.png")));
         QVERIFY(!view->findChild<QQuickItem *>("fileGridEmptyState")->isVisible());
     }
 
@@ -737,6 +739,8 @@ int main(int argc, char *argv[])
         return 1;
 
     QGuiApplication app(argc, argv);
+    QCoreApplication::setOrganizationName(QStringLiteral("iisacc.tests"));
+    QCoreApplication::setOrganizationDomain(QStringLiteral("iisacc.com"));
     lvrs::postApplicationBootstrap(app, options);
     FileGridTest test;
     return QTest::qExec(&test, argc, argv);

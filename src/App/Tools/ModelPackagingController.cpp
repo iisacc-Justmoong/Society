@@ -219,9 +219,10 @@ void ModelPackagingController::finish()
         success = false;
     } else if (m_packaging) {
         success = success && result.value("verified").toBool()
-            && result.value("output").toString() == m_requestedOutput
+            && QDir::cleanPath(QDir::fromNativeSeparators(result.value("output").toString()))
+                == QDir::cleanPath(QDir::fromNativeSeparators(m_requestedOutput))
             && QFileInfo(m_requestedOutput).isFile();
-        if (success) { m_report = result; m_output = m_requestedOutput; m_phase = "complete"; m_progress = 1; }
+        if (success) { m_report = result; m_report["output"] = m_requestedOutput; m_output = m_requestedOutput; m_phase = "complete"; m_progress = 1; }
         else { m_phase = "error"; m_error = tr("The SDK did not confirm a saved and verified model package."); }
     } else {
         m_scanned = result; rebuildSelection(); m_phase = success ? "ready" : "error";

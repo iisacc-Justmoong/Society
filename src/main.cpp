@@ -41,6 +41,9 @@ extern "C" void society_ios_files_integration_test();
 #include "Daemon/platform/macos/ServiceRegistration.h"
 #endif
 
+// Keep Qt's generated type registrar alive under Windows LTO and section GC.
+void qml_register_types_Society();
+
 int main(int argc, char *argv[])
 {
 #ifdef Q_OS_ANDROID
@@ -54,6 +57,9 @@ int main(int argc, char *argv[])
         return result.value("ok").toBool() ? 0 : 1;
     }
 #endif
+    QCoreApplication::setOrganizationName(QStringLiteral("iisacc"));
+    QCoreApplication::setOrganizationDomain(QStringLiteral("iisacc.com"));
+    qml_register_types_Society();
     lvrs::QmlAppLaunchSpec launchSpec;
     launchSpec.bootstrap.applicationName = QStringLiteral("Society");
     launchSpec.bootstrap.quickStyleName = QStringLiteral("Basic");
@@ -61,6 +67,7 @@ int main(int argc, char *argv[])
     launchSpec.rootObject = QStringLiteral("Main");
     launchSpec.qmlImportPaths.append(QString::fromUtf8(SOCIETY_LVRS_QML_IMPORT_PATH));
     launchSpec.configureEngine = [](QQmlApplicationEngine &engine) {
+
         configureApplicationLifetime(engine);
         engine.addImageProvider(QStringLiteral("society-preview"), new iiSocietyContainer::PreviewProvider);
 #ifdef Q_OS_MACOS
