@@ -26,6 +26,11 @@ Item {
     readonly property string outputPath: controller.outputPathForName(outputName, effectiveOutputDirectory)
     signal backRequested()
     signal packageCreated(string path)
+    onModelsDirectoryChanged: {
+        if (controller) controller.cancel()
+        if (outputPicker) outputPicker.close()
+        outputDirectory = ""
+    }
 
     function focusBackButton() { scroll.contentItem.contentY = 0; back.forceActiveFocus() }
     function revealFocusedControl(item) {
@@ -57,7 +62,6 @@ Item {
             if (success && packaging) { completion.open(); root.packageCreated(completedOutput) }
         }
     }
-    Rectangle { anchors.fill: parent; color: LV.Theme.panelBackground03; z: -1 }
     Connections {
         target: root.Window.window
         function onActiveFocusItemChanged() {
@@ -72,11 +76,56 @@ Item {
             if (controller.scanFolder(controller.localPath(selectedFolder))) root.outputName = ""
         }
     }
-    FolderDialog {
+    LV.Sheet {
         id: outputPicker
         objectName: "packagingOutputDialog"
-        title: qsTr("Choose where to save the model package")
-        onAccepted: root.outputDirectory = controller.localPath(selectedFolder)
+        title: qsTr("Save inside Models")
+        description: qsTr("Enter a folder relative to Models, such as Checkpoint or Checkpoint/Packages.")
+        presentation: root.touchNavigation ? LV.Sheet.Mobile : LV.Sheet.Desktop
+        preferredWidth: 500
+        preferredHeight: 300
+        property string errorText: ""
+        onOpened: {
+            outputFolder.text = root.effectiveOutputDirectory.startsWith(root.modelsDirectory + "/")
+                ? root.effectiveOutputDirectory.slice(root.modelsDirectory.length + 1) : "Checkpoint"
+            errorText = ""
+            outputFolder.forceActiveFocus()
+        }
+        function applyFolder() {
+            const folder = outputFolder.text.trim()
+            if (!root.modelsDirectory || !folder || folder.startsWith("/") || folder.includes("\\")
+                || folder.includes(":") || folder.includes("\u0000")
+                || folder.split("/").some(part => !part || part === "." || part === "..")) {
+                errorText = qsTr("Use a relative folder inside Models.")
+                return
+            }
+            root.outputDirectory = root.modelsDirectory + "/" + folder
+            close()
+        }
+        ColumnLayout {
+            width: parent.width
+            spacing: 12
+            LV.InputField {
+                id: outputFolder
+                objectName: "packagingOutputRelativeFolder"
+                Layout.fillWidth: true
+                placeholderText: "Checkpoint"
+                Accessible.name: qsTr("Folder inside Models")
+                onAccepted: outputPicker.applyFolder()
+            }
+            LV.Label { Layout.fillWidth: true; visible: outputPicker.errorText.length > 0; text: outputPicker.errorText; wrapMode: Text.Wrap; sizeToContentHeight: true }
+            RowLayout {
+                Layout.fillWidth: true
+                Item { Layout.fillWidth: true }
+                LV.PushButton { text: qsTr("Cancel"); onClicked: outputPicker.close() }
+                LV.PushButton {
+                    objectName: "packagingOutputConfirm"
+                    text: qsTr("Use folder")
+                    enabled: root.editingEnabled && root.modelsDirectory.length > 0
+                    onClicked: outputPicker.applyFolder()
+                }
+            }
+        }
     }
     component Panel: LV.Card {
         id: panel
@@ -95,7 +144,7 @@ Item {
         Layout.fillWidth: true
         Layout.minimumWidth: 0
         background: Rectangle {
-            color: panel.surfaceColor
+            color: "transparent"
             radius: panel.resolvedCornerRadius
             border.width: panel.borderWidth
             border.color: panel.borderColor
@@ -134,7 +183,7 @@ Item {
         width: visible ? 228 : 0
         anchors.top: parent.top
         anchors.bottom: parent.bottom
-        color: LV.Theme.panelBackground04
+        color: "transparent"
         Rectangle { width: 1; anchors.right: parent.right; height: parent.height; color: LV.Theme.panelBackground10 }
         ColumnLayout {
             anchors.fill: parent

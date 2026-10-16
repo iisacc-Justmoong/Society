@@ -1,9 +1,9 @@
+#include <iiFileProviderDevice.h>
 #pragma once
 
 #include <iiSocietyHelper.h>
 #include <DeliveryStore.h>
 #include <QElapsedTimer>
-#include <QLockFile>
 #include <QObject>
 #include <QTimer>
 #include <memory>
@@ -26,7 +26,7 @@ private:
     bool fail(const QString &message);
     iiSocietyHelper::Helper m_helper;
     iiSocietyHelper::DeliveryStore m_store;
-    std::unique_ptr<QLockFile> m_lock;
+    std::unique_ptr<iiFileProvider::LockFile> m_lock;
     QTimer m_timer;
     QElapsedTimer m_snapshotAge;
     QString m_error;

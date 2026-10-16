@@ -31,6 +31,17 @@
 
 using namespace iiSocietyContainer;
 
+namespace {
+bool legacyDiskImage(const QString &path)
+{
+    const auto suffix = QFileInfo(path).suffix().toLower();
+    return suffix == "sparsebundle"
+        || QFileInfo::exists(QDir(path).filePath(".society-disk.plist"))
+        || (QFileInfo::exists(QDir(path).filePath("Info.plist"))
+            && QFileInfo(QDir(path).filePath("bands")).isDir());
+}
+}
+
 struct DriveController::ReloadResult {
     std::optional<SocietyDrive> drive;
     QString error, checkedPath;
@@ -212,6 +223,22 @@ void DriveController::applyAccountDrive()
         return; // Host filesystem paths must never replace client replica paths.
     }
     const auto image = saved.value("imagePath").toString();
+    if (legacyDiskImage(image)) {
+        const auto message = tr("Legacy Society disk images are not restored. Choose a Society.societycontainer package.");
+        setAccountDriveStatus(message);
+        fail(message);
+        return;
+    }
+    // A selected package with the same host identity is authoritative after
+    // relocating the source. Publish its new location before considering the
+    // stale account path; never reopen or recreate the removed directory.
+    if (hasDrive() && m_drive->isValid() && identifier() == saved.value("containerId")
+        && image != rootPath() && !QFileInfo(image).exists()) {
+        m_publishToAccount = true;
+        m_pendingAccountSubject = m_account->account()->sub();
+        saveContainerToAccount();
+        return;
+    }
     if (image == (m_diskImagePath.isEmpty() ? rootPath() : m_diskImagePath) && hasDrive() && identifier() == saved.value("containerId")) return;
     // Retire the stale mount before the network controller serves it again.
     m_drive.reset(); m_currentPath.clear(); m_systemPath.clear();
@@ -224,6 +251,16 @@ void DriveController::openDefaultContainer()
     if (m_account && m_account->isAuthenticated()) {
         const auto saved = m_account->account()->societyContainerDrive();
         if (!saved.isEmpty() && saved.value("hostDeviceId") == m_account->deviceInfo().value("id")) {
+            if (legacyDiskImage(saved.value("imagePath").toString())) {
+                fail(tr("Legacy Society disk images are not restored. Choose a Society.societycontainer package."));
+                return;
+            }
+            const auto selected = SharedStorage::open({}, nullptr, true);
+            if (selected && selected->drive().identifier() == saved.value("containerId")
+                && !QFileInfo(saved.value("imagePath").toString()).exists()) {
+                prepareDisk(selected->drive().rootPath(), false, saved.value("containerId").toString());
+                return;
+            }
             prepareDisk(saved.value("imagePath").toString(), false, saved.value("containerId").toString());
             return;
         }
@@ -297,7 +334,7 @@ bool DriveController::openContainerImage(const QUrl &url)
 {
     if (busy()) return false;
     if (managedContainer() || !url.isLocalFile() || !QFileInfo::exists(url.toLocalFile()))
-        return fail(tr("Select an existing local Society folder."));
+        return fail(tr("Select an existing local .societycontainer package."));
     const auto saved = m_account && m_account->isAuthenticated() ? m_account->account()->societyContainerDrive() : QVariantMap{};
     if (!saved.isEmpty() && saved.value("hostDeviceId") == m_account->deviceInfo().value("id"))
         return useMovedContainer(url);
@@ -313,7 +350,7 @@ bool DriveController::createContainerAt(const QString &location)
     const auto saved = m_account && m_account->isAuthenticated() ? m_account->account()->societyContainerDrive() : QVariantMap{};
     if (!saved.isEmpty() && saved.value("hostDeviceId") == m_account->deviceInfo().value("id")) {
         // Reconnecting a moved drive must never silently create a new identity.
-        prepareDisk(QFileInfo::exists(QDir(location).filePath(".society-drive.json")) ? location : QDir(location).filePath("Society"), false, saved.value("containerId").toString(), true);
+        prepareDisk(QFileInfo::exists(QDir(location).filePath(".society-drive.json")) ? location : QDir(location).filePath("Society.societycontainer"), false, saved.value("containerId").toString(), true);
     } else prepareDisk(location, true, {}, true);
     return true;
 }
@@ -323,7 +360,7 @@ void DriveController::prepareDisk(const QString &location, bool create, const QS
     if (busy()) return;
     struct Result { std::optional<SocietyDrive> drive; QString image, error; };
     m_action = QStringLiteral("disk");
-    m_systemStatus = create ? tr("Preparing the Society folder…") : tr("Opening the Society folder…");
+    m_systemStatus = create ? tr("Creating Society.societycontainer…") : tr("Opening Society.societycontainer…");
     fail({});
     emit systemChanged();
     const auto accountBinding = m_account ? m_account->sessionBinding() : QVariantMap{};
@@ -353,8 +390,8 @@ void DriveController::prepareDisk(const QString &location, bool create, const QS
         m_drive = result.drive;
         m_diskImagePath = result.image;
         m_currentPath.clear();
-        m_systemPath = m_diskImagePath.isEmpty() ? rootPath() : m_drive->sectionPath(StoreSection::Files);
-        m_systemStatus = m_diskImagePath.isEmpty() ? tr("Society uses an ordinary folder in %1.").arg(systemName())
+        m_systemPath.clear();
+        m_systemStatus = m_diskImagePath.isEmpty() ? tr("Society.societycontainer is ready. Connect its drive to %1.").arg(systemName())
             : tr("Society is mounted as a legacy disk in %1.").arg(systemName());
         fail({});
         emit locationChanged();
@@ -367,22 +404,24 @@ void DriveController::prepareDisk(const QString &location, bool create, const QS
                 setAccountDriveStatus(tr("Sign in, then save this drive location to your account to share future changes."));
             else saveContainerToAccount();
         } else applyAccountDrive();
+#if defined(Q_OS_MACOS) || defined(SOCIETY_DESKTOP_MOUNT)
+        if (m_diskImagePath.isEmpty() && QFileInfo(nativeExecutable()).isExecutable())
+            QTimer::singleShot(0, this, &DriveController::connectToSystem);
+#endif
     });
     watcher->setFuture(QtConcurrent::run([location, create, expectedId] {
         Result result;
         if (create) {
             result.drive = SocietyDrive::createAt(location, &result.error);
         } else if (!location.isEmpty()) {
-            if (QFileInfo::exists(QDir(location).filePath(".society-drive.json"))) {
-                result.drive = SocietyDrive::open(location, &result.error);
-            } else if (QFileInfo::exists(QDir(location).filePath("Info.plist"))
-                       && QFileInfo(QDir(location).filePath("bands")).isDir()) {
-                // Legacy images remain readable for migration and recovery.
-                const auto volume = DiskImage::mount(location.toStdString());
-                if (!volume) { result.error = QString::fromStdString(volume.error()); return result; }
-                result.drive = SocietyDrive::open(QString::fromStdString(volume->mountPath.string()), &result.error);
+            if (legacyDiskImage(location)) {
+                result.error = tr("Legacy Society disk images are not restored. Choose a Society.societycontainer package.");
+                return result;
+            } else if (QFileInfo::exists(QDir(location).filePath(".society-drive.json"))) {
+                const auto storage = SharedStorage::open(location, &result.error, true);
+                if (storage) result.drive = storage->drive();
             } else {
-                result.error = tr("Choose an existing Society folder with its drive manifest.");
+                result.error = tr("Choose an existing .societycontainer package with its drive manifest.");
                 return result;
             }
         } else {
@@ -392,7 +431,7 @@ void DriveController::prepareDisk(const QString &location, bool create, const QS
         if (!result.drive) return result;
         if (!expectedId.isEmpty() && result.drive->identifier() != expectedId) {
             result.drive.reset();
-            result.error = tr("This is a different drive. Select the Society folder already registered to your account.");
+            result.error = tr("This is a different drive. Select the .societycontainer package already registered to your account.");
             return result;
         }
         if (const auto volume = DiskImage::mountedAt(result.drive->rootPath().toStdString()))
@@ -413,20 +452,23 @@ bool DriveController::openContainer(const QString &path)
         return fail(tr("Wait for the %1 connection to finish.").arg(systemName()));
     if (!QDir::isAbsolutePath(path))
         return fail(tr("The container requires an absolute folder path."));
+    if (legacyDiskImage(path))
+        return fail(tr("Legacy Society disk images are not restored. Choose a Society.societycontainer package."));
     QString error;
-    auto drive = SocietyDrive::open(path, &error);
-    if (!drive)
+    const auto storage = SharedStorage::open(path, &error, true);
+    if (!storage)
         return fail(error);
+    auto drive = std::optional<SocietyDrive>{storage->drive()};
     if (!SharedStorage::setDefaultContainer(drive->rootPath(), &error))
         return fail(error);
     ++m_reloadRevision;
     m_reloadPending = false;
     m_drive = std::move(drive);
     m_currentPath.clear();
-    m_systemPath = managedContainer() ? QString() : rootPath();
+    m_systemPath.clear();
     m_diskImagePath.clear();
     m_systemStatus = managedContainer() ? tr("Connect this container to %1.").arg(systemName())
-        : tr("Society uses an ordinary folder in %1.").arg(systemName());
+        : tr("Society.societycontainer is ready. Connect its drive to %1.").arg(systemName());
     if (const auto volume = DiskImage::mountedAt(rootPath().toStdString())) {
         m_diskImagePath = QString::fromStdString(volume->imagePath.string());
         m_systemPath = m_drive->sectionPath(StoreSection::Files);
@@ -437,6 +479,10 @@ bool DriveController::openContainer(const QString &path)
     emit systemChanged();
     emit contentsChanged();
     applyAccountDrive();
+#if defined(Q_OS_MACOS) || defined(SOCIETY_DESKTOP_MOUNT)
+    if (m_diskImagePath.isEmpty() && QFileInfo(nativeExecutable()).isExecutable())
+        QTimer::singleShot(0, this, &DriveController::connectToSystem);
+#endif
     return true;
 }
 
@@ -580,13 +626,14 @@ bool DriveController::openFile(const QString &path)
 
 bool DriveController::systemSupported() const
 {
-    // Desktop file managers open the ordinary source directory directly;
-    // mobile platforms retain their managed Files adapter.
+    // Ordinary-folder access remains available; installed native adapters add
+    // a validated connection to the platform file manager.
     return true;
 }
 
 QString DriveController::nativeExecutable() const
 {
+    if (qEnvironmentVariableIntValue("SOCIETY_DISABLE_NATIVE_DRIVE") == 1) return {};
 #ifdef SOCIETY_NATIVE_DRIVE_APP
     return QString::fromUtf8(SOCIETY_NATIVE_DRIVE_APP) + QStringLiteral("/Contents/MacOS/SocietyContainerDrive");
 #elif defined(SOCIETY_MOUNT_EXECUTABLE)
@@ -606,16 +653,22 @@ QString DriveController::nativeExecutable() const
 void DriveController::connectToSystem()
 {
     if (!m_diskImagePath.isEmpty()) prepareDisk(m_diskImagePath);
+#if defined(Q_OS_MACOS) || defined(SOCIETY_DESKTOP_MOUNT)
+    else if (!managedContainer() && hasDrive() && QFileInfo(nativeExecutable()).isExecutable()) startNative(QStringLiteral("mount"), true);
+#endif
     else if (!managedContainer() && hasDrive()) refreshSystem();
     else startNative(QStringLiteral("register"), true);
 }
 void DriveController::refreshSystem()
 {
     if (!m_diskImagePath.isEmpty()) prepareDisk(m_diskImagePath);
+#if defined(Q_OS_MACOS) || defined(SOCIETY_DESKTOP_MOUNT)
+    else if (!managedContainer() && hasDrive() && QFileInfo(nativeExecutable()).isExecutable()) connectToSystem();
+#endif
     else if (!managedContainer() && hasDrive()) {
         if (reloadFromDisk()) {
-            m_systemPath = rootPath();
-            m_systemStatus = tr("Society uses an ordinary folder in %1.").arg(systemName());
+            m_systemPath.clear();
+            m_systemStatus = tr("Society.societycontainer is ready. Connect its drive to %1.").arg(systemName());
             emit systemChanged();
         }
     } else startNative(QStringLiteral("refresh"));
@@ -661,19 +714,21 @@ void DriveController::startNative(const QString &action, bool registerBundle)
     if (registerBundle) {
         const auto bundle = QFileInfo(nativeExecutable()).dir().absoluteFilePath(QStringLiteral("../.."));
         m_commands.append({QStringLiteral("/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"), {QStringLiteral("-f"), bundle}});
-        m_commands.append({QStringLiteral("/usr/bin/pluginkit"), {QStringLiteral("-a"), bundle + QStringLiteral("/Contents/PlugIns/SocietyContainerProvider.appex")}});
+        if (action != QStringLiteral("mount"))
+            m_commands.append({QStringLiteral("/usr/bin/pluginkit"), {QStringLiteral("-a"), bundle + QStringLiteral("/Contents/PlugIns/SocietyContainerProvider.appex")}});
         // Launch Services must acknowledge the containing app after an update
         // before File Provider treats its extension as launchable.
         m_commands.append({QStringLiteral("/usr/bin/open"), {QStringLiteral("-W"), QStringLiteral("-g"),
-            QStringLiteral("-a"), bundle, QStringLiteral("--args"), QStringLiteral("list")}});
+            QStringLiteral("-a"), bundle, QStringLiteral("--args"),
+            action == QStringLiteral("mount") ? QStringLiteral("ready") : QStringLiteral("list")}});
     }
-    m_commands.append({nativeExecutable(), {action, action == QStringLiteral("register") ? rootPath() : identifier()}});
+    m_commands.append({nativeExecutable(), {action, (action == QStringLiteral("register") || action == QStringLiteral("mount")) ? rootPath() : identifier()}});
     emit systemChanged();
     m_timeout.start();
     runNextCommand();
 #elif defined(SOCIETY_DESKTOP_MOUNT)
     Q_UNUSED(registerBundle);
-    m_commands.append({nativeExecutable(), {action, action == QStringLiteral("register") ? rootPath() : identifier()}});
+    m_commands.append({nativeExecutable(), {action, (action == QStringLiteral("register") || action == QStringLiteral("mount")) ? rootPath() : identifier()}});
     emit systemChanged();
     m_timeout.start();
     runNextCommand();
@@ -720,7 +775,31 @@ void DriveController::finishNative(bool success, const QByteArray &output)
     QJsonParseError parseError;
     const auto document = QJsonDocument::fromJson(output, &parseError);
     const auto result = document.object();
-    if (!success || parseError.error != QJsonParseError::NoError || result.contains("error")) {
+    const auto mountPath = result.value("systemPath").toString();
+    const QStorageInfo mountedVolume(mountPath);
+#ifdef Q_OS_WIN
+    const auto expectedFilesystem = QByteArrayLiteral("Society");
+#elif defined(Q_OS_LINUX) && !defined(Q_OS_ANDROID)
+    const auto expectedFilesystem = QByteArrayLiteral("fuse.society");
+#else
+    const auto expectedFilesystem = QByteArrayLiteral("societyfs");
+#endif
+    const auto normalizedMount = QDir::cleanPath(QDir::fromNativeSeparators(mountPath));
+    const auto normalizedRoot = QDir::cleanPath(QDir::fromNativeSeparators(mountedVolume.rootPath()));
+    const bool mountVerified = action != QStringLiteral("mount")
+        || (result.value("isMounted").toBool() && !mountPath.isEmpty()
+            && mountedVolume.isReady() && normalizedRoot == normalizedMount
+            && mountedVolume.fileSystemType() == expectedFilesystem);
+    bool providerVerified = true;
+#ifdef Q_OS_ANDROID
+    if (action != QStringLiteral("default"))
+        providerVerified = result.value("enabled").toBool()
+            && result.value("connectionKind").toString() == QStringLiteral("documentsProvider")
+            && QUrl(mountPath).scheme() == QStringLiteral("content")
+            && QUrl(mountPath).authority() == QStringLiteral("com.iisacc.society.documents")
+            && result.value("identifier").toString() == identifier();
+#endif
+    if (!success || parseError.error != QJsonParseError::NoError || result.contains("error") || !mountVerified || !providerVerified) {
         m_systemPath.clear();
         m_systemStatus = result.value("error").toString(tr("The %1 connection failed.").arg(systemName()));
         fail(m_systemStatus);
@@ -730,7 +809,9 @@ void DriveController::finishNative(bool success, const QByteArray &output)
     } else {
         if (result.contains("systemPath"))
             m_systemPath = result.value("systemPath").toString();
-        m_systemStatus = result.contains("enabled") && !result.value("enabled").toBool()
+        m_systemStatus = action == QStringLiteral("mount")
+            ? tr("Society is mounted as a drive in %1.").arg(systemName())
+            : result.contains("enabled") && !result.value("enabled").toBool()
             ? tr("Open %1 and enable Society in Locations.").arg(systemName())
             : tr("Connected to %1").arg(systemName());
 #if !defined(Q_OS_IOS) && !defined(Q_OS_ANDROID)

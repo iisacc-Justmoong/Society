@@ -16,7 +16,7 @@ Rectangle {
     signal featureRequested(string feature)
     signal workspaceRequested(string kind, string id)
     implicitWidth: 204
-    color: LV.Theme.panelBackground04
+    color: "transparent"
 
     readonly property var workspaceEntries: [
         { id: "home", name: qsTr("Home"), icon: "home", extent: 16 },

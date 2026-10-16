@@ -3,6 +3,9 @@
 #include <SocietyDrive.h>
 #include <QDir>
 #include <QFile>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QTest>
@@ -15,12 +18,18 @@ class AppleModelSourceTest : public QObject
 private slots:
     void pickerUrlRemainsReadableUntilImportFinishes()
     {
-        QTemporaryDir source(SOCIETY_TEST_DIRECTORY "/picker-source-XXXXXX");
-        QTemporaryDir target(SOCIETY_TEST_DIRECTORY "/picker-target-XXXXXX");
+        QTemporaryDir source(SOCIETY_TEST_DIRECTORY "/picker-source-XXXXXX.societycontainer");
+        QTemporaryDir target(SOCIETY_TEST_DIRECTORY "/picker-target-XXXXXX.societycontainer");
         QVERIFY(iiSocietyContainer::SocietyDrive::create(target.path()));
         QFile file(source.filePath("선택한 모델.safetensors"));
         QVERIFY(file.open(QIODevice::WriteOnly));
-        file.write("picked model bytes");
+        const QByteArray payload("picked model bytes");
+        const auto header = QJsonDocument(QJsonObject{{"tensor", QJsonObject{{"dtype", "U8"},
+            {"shape", QJsonArray{payload.size()}}, {"data_offsets", QJsonArray{0, payload.size()}}}}})
+            .toJson(QJsonDocument::Compact);
+        QByteArray bytes(8, '\0'); qToLittleEndian(quint64(header.size()), bytes.data());
+        bytes += header + payload;
+        QCOMPARE(file.write(bytes), bytes.size());
         file.close();
         ModelImportSource picked;
         @autoreleasepool {
@@ -34,7 +43,7 @@ private slots:
         QVERIFY2(importer.errorString().isEmpty(), qPrintable(importer.errorString()));
         QFile imported(target.filePath("Models/Other/선택한 모델.safetensors"));
         QVERIFY(imported.open(QIODevice::ReadOnly));
-        QCOMPARE(imported.readAll(), QByteArray("picked model bytes"));
+        QCOMPARE(imported.readAll(), bytes);
         QVERIFY(file.exists());
         QCOMPARE(QDir(target.filePath("Files")).entryList(QDir::AllEntries | QDir::Hidden | QDir::NoDotAndDotDot, QDir::Name),
             QStringList{});
@@ -42,8 +51,8 @@ private slots:
 
     void importsWhileTheProviderGrantsAccess()
     {
-        QTemporaryDir source(SOCIETY_TEST_DIRECTORY "/apple-source-XXXXXX");
-        QTemporaryDir target(SOCIETY_TEST_DIRECTORY "/apple-drive-XXXXXX");
+        QTemporaryDir source(SOCIETY_TEST_DIRECTORY "/apple-source-XXXXXX.societycontainer");
+        QTemporaryDir target(SOCIETY_TEST_DIRECTORY "/apple-drive-XXXXXX.societycontainer");
         QVERIFY(iiSocietyContainer::SocietyDrive::create(target.path()));
         const auto path = source.filePath("provider-file.tmp");
         QFile file(path);
@@ -78,7 +87,7 @@ private slots:
 
     void cancellationIgnoresALateProviderCallback()
     {
-        QTemporaryDir target(SOCIETY_TEST_DIRECTORY "/apple-drive-XXXXXX");
+        QTemporaryDir target(SOCIETY_TEST_DIRECTORY "/apple-drive-XXXXXX.societycontainer");
         QVERIFY(iiSocietyContainer::SocietyDrive::create(target.path()));
         auto requested = std::make_shared<std::atomic_bool>(false);
         __block void (^reply)(NSURL *, BOOL, NSError *) = nil;

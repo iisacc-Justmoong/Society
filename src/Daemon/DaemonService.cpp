@@ -1,7 +1,8 @@
+#include <iiFileProviderDevice.h>
 #include "DaemonService.h"
+#include "App/Services/ContainerRuntimePath.h"
 
 #include <QCoreApplication>
-#include <QDir>
 #include <QFile>
 #include <QFileInfo>
 #include <QLoggingCategory>
@@ -30,16 +31,17 @@ bool SocietyDaemonService::start(const QString &directory, int heartbeatMs, int 
 {
     if (m_running) return fail(QStringLiteral("Society daemon is already running."));
     const auto root = directory.isEmpty() ? iiSocietyHelper::Helper::defaultDirectory(&m_error) : directory;
-    if (root.isEmpty() || !QDir::isAbsolutePath(root) || QDir(root).isRoot() || QFileInfo(root).isSymLink())
+    if (!societyContainerRuntimePath(root)) return fail(QStringLiteral("Society daemon storage must be inside the selected container's runtime directory."));
+    if (root.isEmpty() || !iiFileProvider::Directory::isAbsolutePath(root) || iiFileProvider::Directory(root).isRoot() || QFileInfo(root).isSymLink())
         return fail(QStringLiteral("Society daemon needs a local absolute observation directory."));
     const bool existed = QFileInfo::exists(root);
-    if (!QDir().mkpath(root) || (!existed && !QFile::setPermissions(root,
+    if (!iiFileProvider::Directory().mkpath(root) || (!existed && !QFile::setPermissions(root,
             QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner)))
         return fail(QStringLiteral("Cannot prepare Society daemon storage."));
     if (!m_store.open(root)) return fail(m_store.errorString());
-    const auto lockPath = QDir(root).filePath("delivery/daemon.lock");
+    const auto lockPath = iiFileProvider::Directory(root).filePath("delivery/daemon.lock");
     if (QFileInfo(lockPath).isSymLink()) { m_store.close(); return fail(QStringLiteral("Invalid Society daemon lock.")); }
-    m_lock = std::make_unique<QLockFile>(lockPath);
+    m_lock = std::make_unique<iiFileProvider::LockFile>(lockPath);
     m_lock->setStaleLockTime(0); // Never evict a live daemon based on the age of its lock.
     if (!m_lock->tryLock()) {
         m_lock.reset();

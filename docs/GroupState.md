@@ -1,33 +1,21 @@
-# 로그인과 페어링의 그룹 컨테이너
+# 선택한 컨테이너의 로그인과 페어링 상태
 
-Society의 로그인 복원 쿠키와 페어링 상태는 `GroupSessionStore`가 관리하는 **OS 그룹 컨테이너의 AES-256-GCM 암호문**에 저장한다. 사용자가 선택하는 Society 데이터 컨테이너와 수명이 독립적이며 `Files/`, Finder, Files 앱, Android DocumentsProvider 및 LAN 전송 대상에 포함하지 않는다.
+Society의 로그인 복원 쿠키와 페어링 상태는 `GroupSessionStore`가 관리하는 **AES-256-GCM 암호문**으로 선택한 `.societycontainer/.society-runtime/state/`에 저장한다. GUI와 데몬은 같은 패키지의 상태를 사용하며 선택이 바뀌면 상태 경로도 함께 바뀐다. `Files/`, Finder, Files 앱, Android DocumentsProvider 및 LAN 전송에는 이 비공개 운영 경로를 포함하지 않는다.
 
 | 플랫폼 | 상태 저장 위치 | 암호화 키 |
 | --- | --- | --- |
-| macOS | OS가 반환한 `SocietyAppGroup`의 `Library/Application Support/SocietyState` | 해당 그룹 서비스 이름의 macOS Keychain 항목 |
-| iOS·iPadOS | 서명된 `SocietyAppGroup`의 `Library/Application Support/SocietyState` | 같은 App Group의 Keychain access group, `AfterFirstUnlockThisDeviceOnly` |
-| Android | Society의 `getNoBackupFilesDir()/group.com.iisacc.society/State` | 기존 QtKeychain·Android Keystore |
-| Windows·Linux | 사용자 GenericDataLocation의 `iisacc/Group Containers/group.com.iisacc.society/State` | 기존 QtKeychain 플랫폼 보안 저장소 |
+| macOS | 선택한 `.societycontainer/.society-runtime/state/` | 기존 Society 그룹 서비스 이름의 macOS Keychain 항목 |
+| iOS·iPadOS | App Group의 `Society.societycontainer/.society-runtime/state/` | 같은 App Group의 Keychain access group, `AfterFirstUnlockThisDeviceOnly` |
+| Android | 앱 관리 `Society.societycontainer/.society-runtime/state/` | 기존 QtKeychain·Android Keystore |
+| Windows·Linux | 선택한 `.societycontainer/.society-runtime/state/` | 기존 QtKeychain 플랫폼 보안 저장소 |
 
-Android에는 Apple App Group 파일 경로가 없으므로 Society가 관리하는 비공개 그룹 저장 영역을 사용한다. 다른 앱의 접근은 기존 서명 권한을 가진 Society provider 경계를 따르며 이번 변경에서 로그인 쿠키를 반환하는 provider API는 추가하지 않는다. iOS에서 그룹 권한이 없거나 OS 보안 저장소가 잠겨 있으면 저장·복원을 실패로 보고하며 평문이나 앱별 임시 디렉터리로 대체하지 않는다. Apple 상태 파일은 백업에서 제외하고, iOS에는 첫 잠금 해제 이후 접근 가능한 Data Protection을 적용한다. 디렉터리는 0700, 파일은 0600 권한으로 생성한다.
+`SharedStorage::open()`으로 유효한 선택 패키지와 UUID를 확인한 뒤 `ensureRuntimeDirectory("state")`를 통해 필요한 경로만 생성한다. 선택한 패키지가 없거나 접근할 수 없으면 저장·복원을 실패로 보고하며 외부 Application Support, GenericDataLocation, 앱별 임시 경로로 대체하지 않는다. 상태 디렉터리와 파일의 링크·junction·리디렉션은 거부한다. Apple 상태 파일은 백업에서 제외하고 iOS Data Protection을 적용하며, 디렉터리는 0700, 파일은 0600 권한으로 생성한다.
 
-macOS는 `SOCIETY_MAC_APP_GROUP=<TeamID>.com.iisacc.society`와 그 팀의 `SOCIETY_MAC_SIGN_IDENTITY`를 설정해 빌드한다. 빌드는 앱·내장 helper를 서명하고 앱에 해당 그룹 entitlement를 포함한다. 패키징도 이 권한을 유지한다. iOS/iPadOS는 기존 `group.com.iisacc.society`와 App Group provisioning을 사용한다. ad-hoc 서명만으로 macOS 보호 그룹의 쓰기 권한이 확보됐다고 간주하지 않는다.
+암호화 키는 운영체제의 기존 보안 저장소가 관리한다. macOS의 `SOCIETY_MAC_APP_GROUP=<TeamID>.com.iisacc.society`와 `SOCIETY_MAC_SIGN_IDENTITY`, iOS·iPadOS의 `group.com.iisacc.society` 및 App Group provisioning은 네이티브 키 접근과 앱 협업을 위한 설정이다. 이 설정은 암호문 파일의 저장 경계를 패키지 밖으로 넓히지 않는다. 운영체제의 키 접근 실패에도 평문 저장으로 대체하지 않는다.
 
-개발자 팀 서명이 없는 비샌드박스 macOS 빌드는 iiSocietyClient가 실제 코드 서명을 확인한 후
-사용자 Application Support의 `iisacc/Development Groups/<SocietyAppGroup>/Library/Application Support/SocietyState`에
-동일한 암호화 형식으로 저장한다. GUI와 helper는 같은 위치를 사용하며 개발용 Keychain 항목은
-정식 빌드와 분리한다. 팀 서명·sandbox·iOS의 보호 그룹 접근 실패에는 이 경로를 사용하지 않는다.
-2026-09-19의 로그인 정보 삭제 오류는 팀 그룹을 지정한 임시 서명 앱에서 발생했으며,
-해당 개발 빌드 경로 선택을 SDK의 네이티브 서명 회귀 검사로 검증한다.
+이전 OS 그룹·개발 그룹·Android no-backup·Windows/Linux GenericDataLocation 상태는 기존 암호화 레코드를 이전하기 위한 읽기 전용 입력으로 남아 있다. 현재 패키지에 레코드와 철회 표식이 없을 때 요청된 레코드만 크기·형식·경로를 검증하고 내부 `state/`에 복사한다. 이전 디렉터리의 잠금과 무관한 파일은 수정·삭제하지 않고 그곳에 새 상태를 기록하지 않는다. 이 로그인 상태 이전은 과거 디스크 이미지의 마운트·복원과 무관하다.
 
-해당 수정의 SDK 검사 2개, Society 계정 27개 및 그룹 상태 10개 검사가 통과했다.
-실제 앱과 같은 그룹 entitlement를 적용한 임시 서명 검사에서도 개발 경로 선택과
-네이티브 Keychain의 합성 항목 저장·읽기·삭제가 통과했다. 최종 앱의 재빌드·번들 서명과
-`Society.MacRuntimeDeployment`, `Society.MacRuntimeLaunch`도 통과했다. 실행 검사는
-개발용 라이브러리 경로 없이 GUI·helper 로딩과 QML 루트 초기화를 확인했다.
-운영 계정 API의 404는 별도 서버 배포 불일치이며 이 저장소 수정만으로 해결되지 않는다.
-
-모바일 경로 검사는 OS가 반환한 관리 루트에서 시작해 그 아래 구성요소를 검증한다. 앱 샌드박스 밖의 `/var`·`/data/user` 등을 열람해야만 저장할 수 있도록 만들지 않는다. 하위 디렉터리와 레코드의 symlink는 계속 거부한다.
+모바일 경로 검사는 운영체제가 반환한 `.societycontainer` 관리 루트에서 시작해 그 아래 구성요소를 검증한다. 앱 샌드박스 밖의 `/var`·`/data/user` 등을 열람해야만 저장할 수 있도록 만들지 않는다.
 
 각 평문 레코드는 최대 256 KiB이다. SDK가 허용하는 전체 계정 스냅샷과 기기 이력을 함께 담을 수 있으며, 초과한 쓰기는 기존 레코드를 교체하지 않는다. 암호문은 이 제한에 버전·철회 세대·nonce·인증 태그 48바이트를 더한 크기까지만 읽는다.
 
@@ -46,7 +34,7 @@ v3 레코드의 선택적 `hostConnection` 필드에 계정 scope·등록 호스
 
 ## 이전과 무결성
 
-새 그룹 레코드가 없을 때만 기존 앱 전용 SessionStore에서 해당 로그인 항목을 읽는다. 그룹 컨테이너에 암호문을 원자적으로 저장한 뒤 이전 항목을 제거한다. 저장에 실패하면 이전 항목을 남긴다. 손상된 암호문을 읽을 때는 이전 로그인으로 우회하지 않는다.
+현재 패키지에 레코드가 없을 때만 기존 앱 전용 SessionStore에서 해당 로그인 항목을 읽는다. 선택한 패키지의 `state/`에 암호문을 원자적으로 저장한 뒤 이전 보안 저장소의 항목을 제거한다. 저장에 실패하면 이전 항목을 남긴다. 손상된 암호문을 읽을 때는 이전 로그인으로 우회하지 않는다.
 
 레코드별 키 이름은 SHA-256으로 파일명을 만들며, 원래 키와 철회 세대는 AES-GCM의 인증 데이터에 포함한다. 다른 origin·기기의 파일을 바꿔 넣거나 암호문을 변조하면 복호화하지 못한다. 파일 잠금과 QSaveFile로 쓰기를 직렬화하며, 다른 프로세스가 저장 중이면 이벤트 루프를 막지 않고 최대 10초 기다린다. 로그아웃은 Keychain 비동기 작업 전에 철회 세대를 기록하여 같은 프로세스와 다른 프로세스에서 진행 중이던 오래된 쓰기를 무효화한다. 이전 저장소 삭제 실패나 재실행으로 로그아웃한 세션이 되살아나지 않는다. 정상적인 새 로그인만 새 세대에 저장할 수 있다.
 

@@ -5,6 +5,8 @@
 #include <QTimer>
 #include <QUrl>
 #include <QVariantMap>
+#include <TemporaryLease.h>
+#include <memory>
 #include <QtQml/qqmlregistration.h>
 #if !defined(Q_OS_IOS) && !defined(Q_OS_ANDROID)
 #include <QProcess>
@@ -64,6 +66,9 @@ private:
     QElapsedTimer m_elapsed;
     QTimer m_tick;
     int m_elapsedSeconds = 0;
+    QString m_temporaryWorkspace;
+    std::unique_ptr<iiFileProvider::TemporaryLease> m_temporaryLease;
+    std::unique_ptr<iiFileProvider::TemporaryLease> m_outputLease;
 #ifdef SOCIETY_MODEL_MERGE_PROCESS
     QProcess m_process;
 #endif

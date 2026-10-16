@@ -2,7 +2,6 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls as Controls
-import QtQuick.Dialogs
 import LVRS 1.0 as LV
 import Society
 
@@ -19,7 +18,6 @@ LV.Sheet {
     contentPadding: 20
     showHeader: false
     scrollContent: false
-    property string selectedPath: ""
     property string selectedDeviceId: ""
     property string selectedDeviceName: ""
     property bool selectionPending: false
@@ -50,22 +48,14 @@ LV.Sheet {
     function clearDeviceSelection() {
         selectedDeviceId = ""
         selectedDeviceName = ""
-        selectedPath = ""
         selectionPending = false
     }
     function selectDevice(id, name, peerId) {
         const sameDevice = selectedDeviceId === id
         selectedDeviceName = name
         selectedDeviceId = id
-        selectedPath = ""
         if (sameDevice) selectionPending = peerId.length > 0 && selectedPeerId === peerId
         browseSelectedDevice()
-    }
-    FileDialog {
-        id: destination
-        title: qsTr("Save file from your device")
-        fileMode: FileDialog.SaveFile
-        onAccepted: panel.network.download(panel.selectedPath, selectedFile)
     }
     Controls.ScrollView {
         id: scroll
@@ -113,7 +103,7 @@ LV.Sheet {
                 ? (panel.network.containerPath.length > 0
                     ? qsTr("Share this container's Files with your other devices when connected.")
                     : qsTr("Open a Society container to host files."))
-                : qsTr("Access Files on your other devices.")
+                : qsTr("Access Files on your other devices. Save files in this container's Files.")
             wrapMode: Text.Wrap
         }
         LV.Label {
@@ -252,6 +242,7 @@ LV.Sheet {
                     model: panel.selectedFilesVisible ? panel.network.entries : []
                     LV.AbstractButton {
                         required property var modelData
+                        objectName: modelData.directory ? "networkDirectoryEntry" : "networkFileEntry"
                         Layout.fillWidth: true
                         implicitHeight: 36
                         text: (modelData.directory ? "▸ " : "↓ ") + modelData.name
@@ -259,7 +250,7 @@ LV.Sheet {
                         onClicked: {
                             const path = (panel.network.currentPath.length ? panel.network.currentPath + "/" : "") + modelData.name
                             if (modelData.directory) panel.network.browse(panel.network.currentHost, path)
-                            else { panel.selectedPath = path; destination.open() }
+                            else panel.network.downloadToFiles(path)
                         }
                     }
                 }

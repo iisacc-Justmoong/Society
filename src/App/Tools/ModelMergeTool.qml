@@ -4,7 +4,6 @@ import QtQuick
 import QtQuick.Window
 import QtQuick.Layouts
 import QtQuick.Controls as Controls
-import QtQuick.Dialogs
 import LVRS 1.0 as LV
 import Society
 
@@ -54,6 +53,9 @@ Item {
     }
 
     onModelsDirectoryChanged: {
+        if (mergeController) mergeController.cancel();
+        if (previewController) previewController.cancel();
+        if (outputFolderDialog) outputFolderDialog.close();
         baseModel = "";
         compatibilityModel = "";
         outputName = "";
@@ -260,10 +262,6 @@ Item {
         function onRowsRemoved() { root.schedulePreview(); }
     }
 
-    Rectangle {
-        anchors.fill: parent
-        color: LV.Theme.panelBackground03
-    }
     Connections {
         id: focusObserver
         target: root.Window.window
@@ -295,7 +293,7 @@ Item {
         Layout.fillWidth: true
         Layout.minimumWidth: 0
         background: Rectangle {
-            color: panel.surfaceColor
+            color: "transparent"
             radius: panel.resolvedCornerRadius
             border.width: panel.borderWidth
             border.color: panel.borderColor
@@ -829,10 +827,56 @@ Item {
             }
         }
     }
-    FolderDialog {
+    LV.Sheet {
         id: outputFolderDialog
-        title: qsTr("Output folder")
-        onAccepted: root.outputDirectory = mergeController.localPath(selectedFolder)
+        objectName: "mergeOutputDialog"
+        title: qsTr("Save inside Models")
+        description: qsTr("Enter a folder relative to Models, such as Checkpoint or Checkpoint/Blends.")
+        presentation: root.touchNavigation ? LV.Sheet.Mobile : LV.Sheet.Desktop
+        preferredWidth: 500
+        preferredHeight: 300
+        property string errorText: ""
+        onOpened: {
+            outputFolder.text = root.effectiveOutputDirectory.startsWith(root.modelsDirectory + "/")
+                ? root.effectiveOutputDirectory.slice(root.modelsDirectory.length + 1) : "Checkpoint"
+            errorText = ""
+            outputFolder.forceActiveFocus()
+        }
+        function applyFolder() {
+            const folder = outputFolder.text.trim()
+            if (!root.modelsDirectory || !folder || folder.startsWith("/") || folder.includes("\\")
+                || folder.includes(":") || folder.includes("\u0000")
+                || folder.split("/").some(part => !part || part === "." || part === "..")) {
+                errorText = qsTr("Use a relative folder inside Models.")
+                return
+            }
+            root.outputDirectory = root.modelsDirectory + "/" + folder
+            close()
+        }
+        ColumnLayout {
+            width: parent.width
+            spacing: 12
+            LV.InputField {
+                id: outputFolder
+                objectName: "mergeOutputRelativeFolder"
+                Layout.fillWidth: true
+                placeholderText: "Checkpoint"
+                Accessible.name: qsTr("Folder inside Models")
+                onAccepted: outputFolderDialog.applyFolder()
+            }
+            LV.Label { Layout.fillWidth: true; visible: outputFolderDialog.errorText.length > 0; text: outputFolderDialog.errorText; wrapMode: Text.Wrap; sizeToContentHeight: true }
+            RowLayout {
+                Layout.fillWidth: true
+                Item { Layout.fillWidth: true }
+                LV.PushButton { text: qsTr("Cancel"); onClicked: outputFolderDialog.close() }
+                LV.PushButton {
+                    objectName: "mergeOutputConfirm"
+                    text: qsTr("Use folder")
+                    enabled: root.editingEnabled && root.modelsDirectory.length > 0
+                    onClicked: outputFolderDialog.applyFolder()
+                }
+            }
+        }
     }
     LV.Tooltip {
         objectName: "mergeOutputPathTooltip"

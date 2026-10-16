@@ -95,6 +95,37 @@ class RuntimeDeploymentTests(unittest.TestCase):
         self.assertFalse(list(self.app.rglob("*.app")))
         deployment.run("codesign", "--verify", "--strict", helper)
 
+    def test_unused_runtime_is_pruned_but_plugins_and_helpers_remain_loadable(self):
+        library = self.library(self.root / "vendor", "choice", 4)
+        self.link(library, 4)
+        import shutil
+        helper = self.executable.with_name("Helper")
+        shutil.copy2(self.executable, helper)
+        deployment.prepare_native(self.app, [], [])
+        deployment.prepare_native(self.app, [], [], helper)
+        unused = self.library(self.app / "Contents/Frameworks", "unused", 99)
+        plugin_dependency = self.library(self.app / "Contents/Frameworks", "plugin_dependency", 9,
+            "@loader_path/../../Frameworks/libplugin_dependency.dylib")
+        plugin = self.app / "Contents/PlugIns/example/libplugin.dylib"
+        plugin.parent.mkdir(parents=True)
+        source = self.root / "plugin.c"
+        source.write_text("extern int plugin_dependency(void); int plugin(void) { return plugin_dependency(); }")
+        deployment.run("cc", "-dynamiclib", source, plugin_dependency, "-o", plugin,
+                       "-Wl,-headerpad_max_install_names", "-install_name", "@rpath/libplugin.dylib")
+        removed = deployment.prune_native(self.app)
+        self.assertIn(str(unused.relative_to(self.app)), removed)
+        self.assertFalse(unused.exists())
+        self.assertTrue((self.app / "Contents/Frameworks/libchoice.dylib").is_file())
+        self.assertTrue(plugin_dependency.is_file())
+        deployment.localize(self.app)
+        deployment.strip_native(self.app)
+        self.seal()
+        library.unlink()
+        self.assertEqual(self.execute().returncode, 0)
+        self.assertEqual(subprocess.run([str(helper)]).returncode, 0)
+        import ctypes
+        self.assertEqual(ctypes.CDLL(str(plugin)).plugin(), 9)
+
     def test_selected_sdk_replaces_an_older_transitive_copy(self):
         old = self.library(self.root / "old", "choice", 1)
         selected = self.library(self.root / "selected", "choice", 2)

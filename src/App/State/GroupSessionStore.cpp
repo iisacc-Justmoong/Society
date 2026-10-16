@@ -1,1 +1,1 @@
-// Implementation moved to SDK/iiSocietyClient/GroupSessionStore.cpp.
+// Implementation moved to SDK/iiSocietyHelper/src/iiSocietyHelper/GroupSessionStore.cpp.

@@ -1,1 +1,1 @@
-// Implementation moved to SDK/iiSocietyClient/DeviceInfo.cpp.
+// Implementation moved to SDK/iiSocietyHelper/src/iiSocietyHelper/DeviceInfo.cpp.

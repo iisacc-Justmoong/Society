@@ -16,6 +16,7 @@ public:
     int status = 200;
     int pairingStatus = 0;
     int pairingVersion = 2;
+    QDateTime pairingIssuedAt;
     bool hang = false;
     QJsonObject profile;
     QList<QJsonObject> sessionRequests() const {
@@ -87,7 +88,8 @@ public:
                             cookies.clear();
                         }
                         if (intent == "pairing") {
-                            auto proof = pairingVersion == 2 ? localPairingCredentialsFixture(scope())
+                            auto proof = pairingVersion == 2 ? localPairingCredentialsFixture(scope(), 'a',
+                                pairingIssuedAt.isValid() ? pairingIssuedAt : QDateTime::currentDateTimeUtc())
                                 : pairingCredentialsFixture(scope());
                             if (pairingVersion == 1)
                                 proof.insert("refreshAt", QDateTime::currentDateTimeUtc().addSecs(200).toString(Qt::ISODate));

@@ -1,2 +1,2 @@
 #pragma once
-#include <iiSocietyClient/AutomaticPairing.h>
+#include <iiSocietyHelper/AutomaticPairing.h>

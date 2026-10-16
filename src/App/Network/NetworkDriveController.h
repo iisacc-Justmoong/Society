@@ -1,3 +1,4 @@
+#include <iiFileProviderDevice.h>
 #pragma once
 #include <iiServerHost.h>
 #include <iiSocietySync.h>
@@ -9,11 +10,10 @@
 #include <SharedStorage.h>
 #include <QPointer>
 #include <QSet>
-#include <QLockFile>
 #if !defined(Q_OS_IOS) && !defined(Q_OS_ANDROID) && !defined(Q_OS_WASM)
 #include <iiSocietyGeneration/Host.h>
 #endif
-#include <QtQml/qqmlregistration.h>
+#include <QtQmlIntegration/qqmlintegration.h>
 
 class NetworkDriveController : public QObject {
     Q_OBJECT
@@ -125,6 +125,7 @@ public:
     Q_INVOKABLE void refresh();
     Q_INVOKABLE void browse(const QString &host, const QString &path = {}, const QString &cursor = {});
     Q_INVOKABLE void download(const QString &path, const QUrl &destination);
+    Q_INVOKABLE void downloadToFiles(const QString &path);
 signals:
     void connectionChanged();
     void configurationChanged();
@@ -193,7 +194,7 @@ private:
     bool m_suspended = false, m_runtimeEnabled = true;
     bool m_backgroundExpired = false;
     bool m_continuedSyncRequested = false;
-    std::unique_ptr<QLockFile> m_clientLease;
+    std::unique_ptr<iiFileProvider::LockFile> m_clientLease;
     Qt::ApplicationState m_applicationState = Qt::ApplicationActive;
     QString m_discoverySession;
     QJsonObject m_mirror;

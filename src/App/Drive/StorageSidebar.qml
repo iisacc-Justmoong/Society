@@ -13,7 +13,7 @@ Rectangle {
     property string objectNamePrefix: ""
     signal activated()
     implicitWidth: 228
-    color: LV.Theme.panelBackground04
+    color: "transparent"
 
     component NavigationGroup: LV.VStack {
         id: group
@@ -39,6 +39,7 @@ Rectangle {
                 Layout.fillWidth: true
                 Layout.preferredHeight: root.touchNavigation ? 44 : 32
                 standardItemHeight: root.touchNavigation ? 44 : 32
+                detailVerticalPadding: 0
                 type: LV.ListItem.Navigation
                 label: modelData.name
                 iconName: modelData.icon

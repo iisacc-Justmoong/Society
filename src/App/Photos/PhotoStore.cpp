@@ -1,14 +1,12 @@
+#include <iiFileProviderDevice.h>
 #include "PhotoStore.h"
 #include <QCryptographicHash>
 #include <QDirIterator>
-#include <QFile>
 #include <QFileInfo>
 #include <QImageReader>
 #include <QJsonDocument>
-#include <QLockFile>
 #include <QMimeDatabase>
 #include <QRegularExpression>
-#include <QSaveFile>
 #include <QStorageInfo>
 #include <QUuid>
 #include <QUrl>
@@ -25,8 +23,8 @@ bool ordinary(const QString &path, bool directory = false) {
     const QFileInfo info(path); return !info.isSymLink() && !info.isJunction() && (directory ? info.isDir() : info.isFile());
 }
 bool confined(const QString &root, const QString &path) {
-    const auto relative = QDir(root).relativeFilePath(path);
-    if (relative == ".." || relative.startsWith("../") || QDir::isAbsolutePath(relative)) return false;
+    const auto relative = iiFileProvider::Directory(root).relativeFilePath(path);
+    if (relative == ".." || relative.startsWith("../") || iiFileProvider::Directory::isAbsolutePath(relative)) return false;
     QString current = root;
     if (!ordinary(root, true)) return false;
     for (const auto &part : relative.split('/')) {
@@ -37,11 +35,11 @@ bool confined(const QString &root, const QString &path) {
     return true;
 }
 bool writeJson(const QString &path, const QJsonObject &value) {
-    const auto bytes = json(value); QSaveFile file(path);
+    const auto bytes = json(value); iiFileProvider::SaveFile file(path);
     return file.open(QIODevice::WriteOnly) && file.write(bytes) == bytes.size() && file.commit();
 }
 QJsonObject readJson(const QString &path) {
-    QFile file(path); if (!ordinary(path) || file.size() > 256 * 1024 || !file.open(QIODevice::ReadOnly)) return {};
+    iiFileProvider::FileDevice file(path); if (!ordinary(path) || file.size() > 256 * 1024 || !file.open(QIODevice::ReadOnly)) return {};
     return QJsonDocument::fromJson(file.readAll()).object();
 }
 QString contentId(const QJsonArray &resources) {
@@ -90,10 +88,10 @@ bool PhotoStore::open(const GalleryProgress &published) {
     m_drive = iiSocietyContainer::SocietyDrive::open(m_root, &m_error);
     if (!m_drive || !m_drive->isReady()) return fail("The Society container is not ready.");
     m_photos = m_drive->sectionPath(iiSocietyContainer::StoreSection::Photos);
-    m_private = QDir(m_root).filePath(".society-photos/" + m_drive->identifier());
+    m_private = iiFileProvider::Directory(m_root).filePath(".society-photos/" + m_drive->identifier());
     if (!confined(m_root, m_private) || !confined(m_root, m_photos)) return fail("The photo storage location was redirected.");
     for (const auto &path : {m_private, m_private + "/gallery", m_private + "/references", m_private + "/originals", m_private + "/incoming", m_photos + "/.previews"}) {
-        if (!confined(m_root, path) || !QDir().mkpath(path)) return fail("Could not prepare photo storage.");
+        if (!confined(m_root, path) || !iiFileProvider::Directory().mkpath(path)) return fail("Could not prepare photo storage.");
     }
     if (published) published(loadGalleryCatalog(), true);
     return load();
@@ -107,12 +105,12 @@ bool PhotoStore::intact() {
 bool PhotoStore::load() {
     if (!intact()) return false;
     const auto path = m_private + "/index.json";
-    if (QFile::exists(path)) {
+    if (iiFileProvider::FileDevice::exists(path)) {
         m_local = readJson(path);
         if (m_local.value("schema") != 1 || m_local.value("container") != containerId()) return fail("The local photo index is invalid.");
     } else m_local = {{"schema", 1}, {"container", containerId()}};
     m_references.clear();
-    QDirIterator references(m_private + "/references", {"*.json"}, QDir::Files | QDir::NoDotAndDotDot);
+    QDirIterator references(m_private + "/references", {"*.json"}, iiFileProvider::Directory::Files | iiFileProvider::Directory::NoDotAndDotDot);
     while (references.hasNext()) {
         if (m_cancelled) return fail("The photo session ended.");
         const auto file = references.next(), id = QFileInfo(file).completeBaseName();
@@ -128,7 +126,7 @@ bool PhotoStore::load() {
         if (!m_references.contains(i.key()) && !saveReference(i.key(), i.value().toObject())) return false;
     if (!legacy.isEmpty()) { m_local.remove("assets"); if (!save()) return false; }
     m_gallery.clear();
-    QDirIterator galleryFiles(m_private + "/gallery", {"*.json"}, QDir::Files);
+    QDirIterator galleryFiles(m_private + "/gallery", {"*.json"}, iiFileProvider::Directory::Files);
     while (galleryFiles.hasNext()) {
         if (m_cancelled) return false;
         const auto file = galleryFiles.next(), key = QFileInfo(file).completeBaseName();
@@ -155,7 +153,7 @@ bool PhotoStore::saveReference(const QString &id, const QJsonObject &reference) 
     m_references[id] = reference; return true;
 }
 QString PhotoStore::digestFile(const QString &path, QString *error, const std::function<bool()> &cancelled) {
-    QFile file(path); if (!ordinary(path) || !file.open(QIODevice::ReadOnly)) { if (error) *error = "Could not read the original resource."; return {}; }
+    iiFileProvider::FileDevice file(path); if (!ordinary(path) || !file.open(QIODevice::ReadOnly)) { if (error) *error = "Could not read the original resource."; return {}; }
     QCryptographicHash digest(QCryptographicHash::Sha256);
     QByteArray chunk(1024 * 1024, Qt::Uninitialized);
     while (!file.atEnd()) {
@@ -188,7 +186,7 @@ bool PhotoStore::validRecord(const QJsonObject &record) {
 QJsonArray PhotoStore::catalog() {
     QJsonArray result; m_paths.clear();
     if (!intact()) return result;
-    QDirIterator it(m_photos, QDir::Files | QDir::NoDotAndDotDot, QDirIterator::Subdirectories);
+    QDirIterator it(m_photos, iiFileProvider::Directory::Files | iiFileProvider::Directory::NoDotAndDotDot, QDirIterator::Subdirectories);
     while (it.hasNext()) {
         if (m_cancelled) { fail("The photo session ended."); return {}; }
         const auto path = it.next(); if (!path.endsWith(".societyphoto")) continue;
@@ -214,7 +212,7 @@ bool PhotoStore::writeRecord(const QJsonObject &record, const QString &location)
     const auto id = record.value("id").toString();
     const auto path = location.isEmpty() ? m_paths.value(id, m_photos + '/' + id + ".societyphoto") : location;
     if (!confined(m_photos, path)) return fail("The photo object is outside Photos.");
-    if (QFile::exists(path)) {
+    if (iiFileProvider::FileDevice::exists(path)) {
         const auto existing = readJson(path);
         if (!validRecord(existing) || existing.value("id") != id) return fail("A different file already occupies this photo alias name.");
     }
@@ -261,7 +259,7 @@ bool PhotoStore::remember(const Asset &asset, const QString &id, const QJsonObje
 QJsonArray PhotoStore::loadGalleryCatalog() {
     const auto path = m_private + "/gallery-catalog.json";
     if (!confined(m_root, path)) return {};
-    QFile file(path);
+    iiFileProvider::FileDevice file(path);
     if (!file.open(QIODevice::ReadOnly) || file.size() > 128 * 1024 * 1024) return {};
     const auto cached = QJsonDocument::fromJson(file.readAll()).object();
     if (cached.value("schema") != 1 || cached.value("container") != containerId()) return {};
@@ -349,7 +347,7 @@ bool PhotoStore::indexGallery(const Snapshot &snapshot, const GalleryProgress &p
     if (snapshot.complete) {
         for (const auto &key : m_gallery.keys()) if (!seen.contains(key)) {
             const auto path = m_private + "/gallery/" + key + ".json";
-            if (!confined(m_root, path) || !QFile::remove(path)) return fail("Could not update the gallery index.");
+            if (!confined(m_root, path) || !iiFileProvider::FileDevice::remove(path)) return fail("Could not update the gallery index.");
             m_gallery.remove(key);
         }
     }
@@ -393,17 +391,17 @@ bool PhotoStore::indexGallery(const Snapshot &snapshot, const GalleryProgress &p
         const auto canonical = previewPath(alias);
         const auto temporary = m_private + "/incoming/gallery-" + key + ".jpg";
         if (path.isEmpty() || !confined(m_root, temporary)) return fail("The gallery preview was redirected.");
-        QFile::remove(temporary);
+        iiFileProvider::FileDevice::remove(temporary);
         QString error;
         const bool reuse = local.value("stamp") == asset.stamp && ordinary(canonical) && QImageReader(canonical).canRead();
-        const bool ready = reuse ? QFile::copy(canonical, temporary) : m_library->preview(asset.identifier, temporary, &error);
-        if (!ready || !QImageReader(temporary).canRead()) { QFile::remove(temporary); continue; }
-        QFile input(temporary); QSaveFile output(path);
+        const bool ready = reuse ? iiFileProvider::FileDevice::copy(canonical, temporary) : m_library->preview(asset.identifier, temporary, &error);
+        if (!ready || !QImageReader(temporary).canRead()) { iiFileProvider::FileDevice::remove(temporary); continue; }
+        iiFileProvider::FileDevice input(temporary); iiFileProvider::SaveFile output(path);
         if (!input.open(QIODevice::ReadOnly) || input.size() > 16 * 1024 * 1024 || !output.open(QIODevice::WriteOnly))
             return fail("Could not save the gallery preview.");
         const auto bytes = input.readAll();
         if (output.write(bytes) != bytes.size() || !output.commit()) return fail("Could not commit the gallery preview.");
-        input.close(); QFile::remove(temporary);
+        input.close(); iiFileProvider::FileDevice::remove(temporary);
         entry["previewStamp"] = asset.stamp;
         if (!saveGallery(key, entry)) return false;
         const auto row = galleryRow(key);
@@ -419,7 +417,7 @@ bool PhotoStore::indexGallery(const Snapshot &snapshot, const GalleryProgress &p
 
 bool PhotoStore::refresh(const Progress &progress, const GalleryProgress &galleryProgress) {
     m_error.clear(); if (!intact()) return false;
-    QLockFile lock(m_private + "/operation.lock"); lock.setStaleLockTime(0);
+    iiFileProvider::LockFile lock(m_private + "/operation.lock"); lock.setStaleLockTime(0);
     if (!lock.tryLock()) return fail("Another Society photo operation is in progress.");
     if (!load()) return false;
     pruneExports(); return refreshImpl(progress, galleryProgress);
@@ -477,17 +475,17 @@ bool PhotoStore::refreshImpl(const Progress &progress, const GalleryProgress &ga
         if (!record.isEmpty() && local.value("stamp") == asset.stamp
             && local.value("content") != contentId(record.value("resources").toArray())) return true;
         if (!record.isEmpty() && local.value("stamp") == asset.stamp && !local.value("unavailable").toBool()
-            && local.value("content") == contentId(record.value("resources").toArray()) && QFile::exists(previewPath(id))) return true;
+            && local.value("content") == contentId(record.value("resources").toArray()) && iiFileProvider::FileDevice::exists(previewPath(id))) return true;
         // Imports discovered after a crash retain the originating Society ID.
         QJsonArray resources;
         for (const auto &resource : asset.resources) {
             const auto temporary = m_private + "/incoming/export-" + QUuid::createUuid().toString(QUuid::WithoutBraces);
-            if (!m_library->exportResource(asset.identifier, resource.token, temporary, &m_error)) { QFile::remove(temporary); return false; }
+            if (!m_library->exportResource(asset.identifier, resource.token, temporary, &m_error)) { iiFileProvider::FileDevice::remove(temporary); return false; }
             const auto digest = hashResource(temporary, &m_error); const auto size = QFileInfo(temporary).size();
-            if (digest.isEmpty() || size <= 0) { QFile::remove(temporary); return fail("The photo original is unavailable."); }
+            if (digest.isEmpty() || size <= 0) { iiFileProvider::FileDevice::remove(temporary); return fail("The photo original is unavailable."); }
             // Discovery hashes a transient native export. Retain only the
             // reference and preview; a transfer stages an original on demand.
-            QFile::remove(temporary);
+            iiFileProvider::FileDevice::remove(temporary);
             QString name = resource.name;
             const int resourceIndex = resources.size();
             if (!record.isEmpty() && resourceIndex < record.value("resources").toArray().size()) name = record.value("resources").toArray()[resourceIndex].toObject().value("name").toString();
@@ -502,24 +500,24 @@ bool PhotoStore::refreshImpl(const Progress &progress, const GalleryProgress &ga
         if (!asset.cloudIdentifier.isEmpty() && record.value("cloud").toString().isEmpty()) record["cloud"] = asset.cloudIdentifier;
         const auto preview = previewPath(id), temporary = m_private + "/incoming/preview-" + id + ".jpg";
         if (preview.isEmpty() || !confined(m_root, temporary)) return fail("The photo preview location was redirected.");
-        QFile::remove(temporary);
+        iiFileProvider::FileDevice::remove(temporary);
         const auto galleryKey = hash(asset.identifier.toUtf8());
         const auto cached = m_gallery.value(galleryKey);
         const auto cachedPreview = galleryPreview(galleryKey);
         const bool ready = cached.value("previewStamp") == asset.stamp && ordinary(cachedPreview);
-        if (!(ready ? QFile::copy(cachedPreview, temporary) : m_library->preview(asset.identifier, temporary, &m_error))) {
-            QFile::remove(temporary); return false;
+        if (!(ready ? iiFileProvider::FileDevice::copy(cachedPreview, temporary) : m_library->preview(asset.identifier, temporary, &m_error))) {
+            iiFileProvider::FileDevice::remove(temporary); return false;
         }
         const auto previewHash = hashResource(temporary, &m_error);
-        if (previewHash.isEmpty()) { QFile::remove(temporary); return false; }
+        if (previewHash.isEmpty()) { iiFileProvider::FileDevice::remove(temporary); return false; }
         record["previewHash"] = previewHash;
         if (hashResource(preview) != previewHash) {
-            QSaveFile output(preview); QFile input(temporary);
-            if (!input.open(QIODevice::ReadOnly) || !output.open(QIODevice::WriteOnly)) { QFile::remove(temporary); return fail("Could not save the photo preview."); }
+            iiFileProvider::SaveFile output(preview); iiFileProvider::FileDevice input(temporary);
+            if (!input.open(QIODevice::ReadOnly) || !output.open(QIODevice::WriteOnly)) { iiFileProvider::FileDevice::remove(temporary); return fail("Could not save the photo preview."); }
             const auto bytes = input.readAll();
-            if (bytes.size() > 16 * 1024 * 1024 || output.write(bytes) != bytes.size() || !output.commit()) { QFile::remove(temporary); return fail("Could not save the photo preview."); }
+            if (bytes.size() > 16 * 1024 * 1024 || output.write(bytes) != bytes.size() || !output.commit()) { iiFileProvider::FileDevice::remove(temporary); return fail("Could not save the photo preview."); }
         }
-        QFile::remove(temporary);
+        iiFileProvider::FileDevice::remove(temporary);
         if (!remember(asset, id, record) || !writeRecord(record)) return false;
         if (galleryProgress) galleryProgress({galleryRow(galleryKey)}, false);
         if (progress) progress(record);
@@ -561,10 +559,10 @@ bool PhotoStore::prepare(const QString &id) {
         const auto resource = resources[i].toObject(); if (cacheValid(resource)) continue;
         if (local.value("identifier").toString().isEmpty() || i >= tokens.size() || local.value("unavailable").toBool()) return fail("Waiting for a device with this photo original.");
         const auto path = cachePath(resource.value("hash").toString()), temporary = m_private + "/incoming/read-" + QUuid::createUuid().toString(QUuid::WithoutBraces);
-        if (path.isEmpty() || !m_library->exportResource(local.value("identifier").toString(), tokens[i].toString(), temporary, &m_error)) { QFile::remove(temporary); return false; }
-        if (hashResource(temporary) != resource.value("hash").toString()) { QFile::remove(temporary); return fail("The original changed. Refresh Photos before transferring it."); }
-        if (QFile::exists(path)) QFile::remove(path);
-        if (!intact() || !QFile::rename(temporary, path)) { QFile::remove(temporary); return fail("Could not stage the photo original."); }
+        if (path.isEmpty() || !m_library->exportResource(local.value("identifier").toString(), tokens[i].toString(), temporary, &m_error)) { iiFileProvider::FileDevice::remove(temporary); return false; }
+        if (hashResource(temporary) != resource.value("hash").toString()) { iiFileProvider::FileDevice::remove(temporary); return fail("The original changed. Refresh Photos before transferring it."); }
+        if (iiFileProvider::FileDevice::exists(path)) iiFileProvider::FileDevice::remove(path);
+        if (!intact() || !iiFileProvider::FileDevice::rename(temporary, path)) { iiFileProvider::FileDevice::remove(temporary); return fail("Could not stage the photo original."); }
     }
     return true;
 }
@@ -586,12 +584,12 @@ bool PhotoStore::consumeImpl(const QString &id) {
 }
 bool PhotoStore::consume(const QString &id) {
     m_error.clear(); if (!intact()) return false;
-    QLockFile lock(m_private + "/operation.lock"); lock.setStaleLockTime(0);
+    iiFileProvider::LockFile lock(m_private + "/operation.lock"); lock.setStaleLockTime(0);
     return (lock.tryLock() || fail("Another Society photo operation is in progress.")) && consumeImpl(id);
 }
 bool PhotoStore::importLooseFiles() {
-    QStringList files; QDirIterator it(m_photos, QDir::Files | QDir::NoDotAndDotDot, QDirIterator::Subdirectories);
-    while (it.hasNext()) { if (m_cancelled) return false; const auto path = it.next(); if (!path.endsWith(".societyphoto") && !QDir(m_photos).relativeFilePath(path).startsWith('.')) files.append(path); }
+    QStringList files; QDirIterator it(m_photos, iiFileProvider::Directory::Files | iiFileProvider::Directory::NoDotAndDotDot, QDirIterator::Subdirectories);
+    while (it.hasNext()) { if (m_cancelled) return false; const auto path = it.next(); if (!path.endsWith(".societyphoto") && !iiFileProvider::Directory(m_photos).relativeFilePath(path).startsWith('.')) files.append(path); }
     for (const auto &path : files) {
         if (m_cancelled) return false;
         if (!intact() || !confined(m_photos, path) || !ordinary(path)) continue;
@@ -601,29 +599,29 @@ bool PhotoStore::importLooseFiles() {
         const auto digest = hashResource(path, &m_error); if (digest.isEmpty()) return false;
         const QJsonArray resources{QJsonObject{{"name", safeName(QFileInfo(path).fileName())}, {"role", media}, {"hash", digest}, {"size", QString::number(QFileInfo(path).size())}}};
         const auto id = contentId(resources), cache = cachePath(digest);
-        if (cache.isEmpty() || (!QFile::exists(cache) && !QFile::copy(path, cache))) return fail("Could not prepare the photo import.");
+        if (cache.isEmpty() || (!iiFileProvider::FileDevice::exists(cache) && !iiFileProvider::FileDevice::copy(path, cache))) return fail("Could not prepare the photo import.");
         auto record = readRecord(id);
         if (record.isEmpty()) record = {{"schema", 1}, {"id", id}, {"name", safeName(QFileInfo(path).fileName())}, {"media", media},
             {"resources", resources}, {"created", QFileInfo(path).birthTime().toUTC().toString(Qt::ISODateWithMs)}, {"deleted", false}};
-        if (media == "photo" && !QFile::exists(previewPath(id))) {
+        if (media == "photo" && !iiFileProvider::FileDevice::exists(previewPath(id))) {
             QImageReader reader(path); reader.setAutoTransform(true);
             const auto size = reader.size(); if (size.isValid()) reader.setScaledSize(size.scaled(1024, 1024, Qt::KeepAspectRatio));
             const auto image = reader.read(); const auto preview = previewPath(id);
-            QSaveFile output(preview);
+            iiFileProvider::SaveFile output(preview);
             if (!image.isNull() && !preview.isEmpty() && output.open(QIODevice::WriteOnly)
                 && image.save(&output, "JPEG", 85) && output.commit()) record["previewHash"] = hashResource(preview);
         }
         if (!writeRecord(record, m_paths.value(id, QFileInfo(path).dir().filePath(id + ".societyphoto"))) || !consumeImpl(id)) return false;
         if (!m_references.value(id).value("identifier").toString().isEmpty()) {
             // Verify the source again; an editor may have changed it during import.
-            if (hashResource(path) == digest && !QFile::remove(path)) return fail("The photo was imported, but its temporary Files copy could not be removed.");
+            if (hashResource(path) == digest && !iiFileProvider::FileDevice::remove(path)) return fail("The photo was imported, but its temporary Files copy could not be removed.");
         }
     }
     return true;
 }
 bool PhotoStore::trash(const QString &id) {
     m_error.clear(); if (!intact()) return false;
-    QLockFile lock(m_private + "/operation.lock"); lock.setStaleLockTime(0);
+    iiFileProvider::LockFile lock(m_private + "/operation.lock"); lock.setStaleLockTime(0);
     if (!lock.tryLock()) return fail("Another Society photo operation is in progress.");
     auto record = readRecord(id); if (record.isEmpty()) return fail("The photo is unavailable.");
     const auto local = m_references.value(id);
@@ -637,8 +635,8 @@ bool PhotoStore::addFiles(const QStringList &paths) {
         const auto mime = QMimeDatabase().mimeTypeForFile(path, QMimeDatabase::MatchContent).name();
         if (!mime.startsWith("image/") && !mime.startsWith("video/")) return fail("Choose a photo or video file.");
         auto destination = m_photos + '/' + safeName(QFileInfo(path).fileName());
-        if (QFile::exists(destination)) destination = m_photos + '/' + QUuid::createUuid().toString(QUuid::WithoutBraces) + '-' + safeName(QFileInfo(path).fileName());
-        if (!confined(m_root, destination) || !QFile::copy(path, destination)) return fail("Could not add the photo to Society.");
+        if (iiFileProvider::FileDevice::exists(destination)) destination = m_photos + '/' + QUuid::createUuid().toString(QUuid::WithoutBraces) + '-' + safeName(QFileInfo(path).fileName());
+        if (!confined(m_root, destination) || !iiFileProvider::FileDevice::copy(path, destination)) return fail("Could not add the photo to Society.");
     }
     return refresh();
 }
@@ -646,30 +644,30 @@ QString PhotoStore::originalForViewing(const QString &id) {
     if (!prepare(id)) return {};
     const auto resource = readRecord(id).value("resources").toArray().first().toObject();
     const auto directory = m_private + "/viewing";
-    if (!confined(m_root, directory) || !QDir().mkpath(directory)) return {};
+    if (!confined(m_root, directory) || !iiFileProvider::Directory().mkpath(directory)) return {};
     const auto path = directory + '/' + id + '-' + safeName(resource.value("name").toString());
     if (!confined(m_root, path)) return {};
-    if (QFile::exists(path)) QFile::remove(path);
-    return QFile::copy(resourcePath(id, 0), path) ? path : QString();
+    if (iiFileProvider::FileDevice::exists(path)) iiFileProvider::FileDevice::remove(path);
+    return iiFileProvider::FileDevice::copy(resourcePath(id, 0), path) ? path : QString();
 }
 QStringList PhotoStore::originalsForSharing(const QString &id) {
     if (!prepare(id)) return {};
     const auto resources = readRecord(id).value("resources").toArray();
     const auto directory = m_private + "/viewing/" + id;
-    if (!confined(m_root, directory) || !QDir().mkpath(directory)) { fail("Could not prepare the original for sharing."); return {}; }
+    if (!confined(m_root, directory) || !iiFileProvider::Directory().mkpath(directory)) { fail("Could not prepare the original for sharing."); return {}; }
     QStringList paths;
     for (int i = 0; i < resources.size(); ++i) {
         const auto path = directory + '/' + QString::number(i) + '-' + safeName(resources[i].toObject().value("name").toString());
         if (!confined(m_root, path)) { fail("The original export path is unavailable."); return {}; }
-        if (QFile::exists(path)) QFile::remove(path);
-        if (!QFile::copy(resourcePath(id, i), path)) { fail("Could not export the photo original."); return {}; }
+        if (iiFileProvider::FileDevice::exists(path)) iiFileProvider::FileDevice::remove(path);
+        if (!iiFileProvider::FileDevice::copy(resourcePath(id, i), path)) { fail("Could not export the photo original."); return {}; }
         paths.append(path);
     }
     return paths;
 }
 bool PhotoStore::duplicate(const QString &id) {
     if (!prepare(id)) return false;
-    QLockFile lock(m_private + "/operation.lock"); lock.setStaleLockTime(0);
+    iiFileProvider::LockFile lock(m_private + "/operation.lock"); lock.setStaleLockTime(0);
     if (!lock.tryLock()) return fail("Another Society photo operation is in progress.");
     auto record = readRecord(id); if (record.isEmpty() || record.value("deleted").toBool()) return fail("The photo is unavailable.");
     const auto newId = QString::fromLatin1(QCryptographicHash::hash(QUuid::createUuid().toByteArray(), QCryptographicHash::Sha256).toHex());
@@ -685,7 +683,7 @@ void PhotoStore::releaseExports() {
         const auto local = i.value();
         if (local.value("identifier").toString().isEmpty() || local.value("unavailable").toBool() || local.value("tokens").toArray().isEmpty()) continue;
         for (const auto &resource : readRecord(i.key()).value("resources").toArray()) {
-            const auto path = cachePath(resource.toObject().value("hash").toString()); if (!path.isEmpty()) QFile::remove(path);
+            const auto path = cachePath(resource.toObject().value("hash").toString()); if (!path.isEmpty()) iiFileProvider::FileDevice::remove(path);
         }
     }
 }
@@ -695,7 +693,7 @@ void PhotoStore::releasePhoto(const QString &id) {
         || local.value("tokens").toArray().isEmpty()) return;
     for (const auto &value : readRecord(id).value("resources").toArray()) {
         const auto digest = value.toObject().value("hash").toString();
-        if (m_leases.value(digest).isEmpty()) { const auto path = cachePath(digest); if (!path.isEmpty()) QFile::remove(path); }
+        if (m_leases.value(digest).isEmpty()) { const auto path = cachePath(digest); if (!path.isEmpty()) iiFileProvider::FileDevice::remove(path); }
     }
 }
 void PhotoStore::pruneExports() {
@@ -704,12 +702,12 @@ void PhotoStore::pruneExports() {
     // redirected files or purge the NAS's committed originals here.
     for (const auto &directory : {m_private + "/viewing", m_private + "/incoming"}) {
         if (!confined(m_root, directory)) continue;
-        QDirIterator files(directory, QDir::Files | QDir::NoDotAndDotDot);
+        QDirIterator files(directory, iiFileProvider::Directory::Files | iiFileProvider::Directory::NoDotAndDotDot);
         while (files.hasNext()) {
             if (m_cancelled) return;
             const auto path = files.next(); const QFileInfo info(path);
             const qint64 age = hex(info.fileName()) ? 7LL * 24 * 60 * 60 * 1000 : 24LL * 60 * 60 * 1000;
-            if (confined(m_root, path) && ordinary(path) && now - info.lastModified().toMSecsSinceEpoch() > age) QFile::remove(path);
+            if (confined(m_root, path) && ordinary(path) && now - info.lastModified().toMSecsSinceEpoch() > age) iiFileProvider::FileDevice::remove(path);
         }
     }
     for (auto &leases : m_leases) for (auto i = leases.begin(); i != leases.end();)
@@ -721,7 +719,7 @@ void PhotoStore::pruneExports() {
         for (const auto &value : readRecord(i.key()).value("resources").toArray()) {
             const auto digest = value.toObject().value("hash").toString(), path = cachePath(digest);
             if (!path.isEmpty() && m_leases.value(digest).isEmpty() && QFileInfo(path).exists()
-                && now - QFileInfo(path).lastModified().toMSecsSinceEpoch() > 10 * 60 * 1000) QFile::remove(path);
+                && now - QFileInfo(path).lastModified().toMSecsSinceEpoch() > 10 * 60 * 1000) iiFileProvider::FileDevice::remove(path);
         }
     }
 }
@@ -757,15 +755,15 @@ QJsonObject PhotoStore::command(const QJsonObject &request) {
     if (action == "begin") {
         if (cacheValid(resource)) return {{"ok", true}, {"offset", QString::number(size)}};
         if (QStorageInfo(m_private).bytesAvailable() < size + 16 * 1024 * 1024) return failed("insufficient_storage");
-        QFile file(incoming); if (!file.open(QIODevice::ReadWrite)) return failed("could_not_create_transfer");
+        iiFileProvider::FileDevice file(incoming); if (!file.open(QIODevice::ReadWrite)) return failed("could_not_create_transfer");
         if (file.size() > size && !file.resize(0)) return failed("invalid_partial_transfer");
         return {{"ok", true}, {"offset", QString::number(file.size())}};
     }
     if (action == "commit") {
         if (cacheValid(resource)) return {{"ok", true}};
-        if (QFileInfo(incoming).size() != size || hashResource(incoming) != resource.value("hash").toString()) { QFile::remove(incoming); return failed("resource_hash_mismatch"); }
-        if (QFile::exists(path) && !QFile::remove(path)) return failed("resource_replace_failed");
-        if (!QFile::rename(incoming, path)) return failed("resource_commit_failed");
+        if (QFileInfo(incoming).size() != size || hashResource(incoming) != resource.value("hash").toString()) { iiFileProvider::FileDevice::remove(incoming); return failed("resource_hash_mismatch"); }
+        if (iiFileProvider::FileDevice::exists(path) && !iiFileProvider::FileDevice::remove(path)) return failed("resource_replace_failed");
+        if (!iiFileProvider::FileDevice::rename(incoming, path)) return failed("resource_commit_failed");
         return {{"ok", true}};
     }
     bool number; const auto offset = request.value("offset").toString().toLongLong(&number);
@@ -776,7 +774,7 @@ QJsonObject PhotoStore::command(const QJsonObject &request) {
             if (!leases.contains(lease)) return failed("photo_transfer_expired");
             leases[lease] = QDateTime::currentMSecsSinceEpoch();
         }
-        QFile file(path); if (!ordinary(path) || file.size() != size || !file.open(QIODevice::ReadOnly) || !file.seek(offset)) return failed("original_unavailable");
+        iiFileProvider::FileDevice file(path); if (!ordinary(path) || file.size() != size || !file.open(QIODevice::ReadOnly) || !file.seek(offset)) return failed("original_unavailable");
         const auto data = file.read(qMin(ChunkBytes, size - offset));
         if (data.isEmpty() && offset != size) return failed("original_read_failed");
         return {{"ok", true}, {"offset", QString::number(offset)}, {"data", QString::fromLatin1(data.toBase64())}};
@@ -784,7 +782,7 @@ QJsonObject PhotoStore::command(const QJsonObject &request) {
     if (action == "chunk") {
         const auto data = QByteArray::fromBase64Encoding(request.value("data").toString().toLatin1(), QByteArray::AbortOnBase64DecodingErrors);
         if (!data || data.decoded.isEmpty() || data.decoded.size() > ChunkBytes || data.decoded.size() > size - offset) return failed("invalid_chunk");
-        QFile file(incoming); if (!file.open(QIODevice::ReadWrite) || offset > file.size() || !file.seek(offset)) return failed("chunk_out_of_order");
+        iiFileProvider::FileDevice file(incoming); if (!file.open(QIODevice::ReadWrite) || offset > file.size() || !file.seek(offset)) return failed("chunk_out_of_order");
         if (offset < file.size()) {
             if (offset + data.decoded.size() > file.size() || file.read(data.decoded.size()) != data.decoded) return failed("chunk_replay_mismatch");
         } else if (file.write(data.decoded) != data.decoded.size() || !file.flush()) return failed("chunk_write_failed");

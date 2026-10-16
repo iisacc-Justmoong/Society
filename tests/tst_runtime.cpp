@@ -1,5 +1,6 @@
 #include "App/Services/SocietyRuntime.h"
 #include <QDir>
+#include <SharedStorage.h>
 #include <QFile>
 #include <QSignalSpy>
 #include <QTemporaryDir>
@@ -8,15 +9,29 @@
 class RuntimeTests : public QObject {
     Q_OBJECT
 private slots:
+    void outsideRuntimeOverridesNeverCreateAppState() {
+        QTemporaryDir root(SOCIETY_TEST_DIRECTORY "/runtime-scope-XXXXXX.societycontainer");
+        QVERIFY(iiSocietyContainer::SocietyDrive::create(root.path()));
+        qputenv("SOCIETY_CONTAINER_PATH", root.path().toUtf8());
+        const auto outside = root.path() + "-outside";
+        SocietyRuntime runtime(true, {outside, 50, 400});
+        runtime.setApplicationState(Qt::ApplicationActive);
+        QVERIFY(!runtime.helper()->isRunning()); QVERIFY(!runtime.inbox()->connected());
+        SocietyDaemonService daemon; QVERIFY(!daemon.start(outside, 50, 400));
+        QVERIFY(!QFileInfo::exists(outside));
+    }
     void suspendedReceiverReleasesLockAndReplaysUnacknowledgedData()
     {
-        QTemporaryDir root(SOCIETY_TEST_DIRECTORY "/runtime-XXXXXX");
-        SocietyRuntime runtime(true, {root.path(), 50, 400});
+        QTemporaryDir root(SOCIETY_TEST_DIRECTORY "/runtime-XXXXXX.societycontainer");
+        QVERIFY(iiSocietyContainer::SocietyDrive::create(root.path()));
+        qputenv("SOCIETY_CONTAINER_PATH", root.path().toUtf8());
+        const auto directory = root.filePath(".society-runtime/helpers/v1");
+        SocietyRuntime runtime(true, {directory, 50, 400});
         runtime.setApplicationState(Qt::ApplicationActive);
         QVERIFY(runtime.helper()->isRunning());
         QVERIFY(runtime.inbox()->connected());
         iiSocietyHelper::Helper sender;
-        QVERIFY(sender.start({"com.iisacc.dreamscapes", "Dreamscapes", "1"}, {root.path(), 50, 400}));
+        QVERIFY(sender.start({"com.iisacc.dreamscapes", "Dreamscapes", "1"}, {directory, 50, 400}));
         const auto before = sender.sendData("test.data", {{"phase", "foreground"}});
         auto received = [&](const QString &id) {
             for (const auto &message : runtime.inbox()->messages())
@@ -29,7 +44,7 @@ private slots:
         QVERIFY(!runtime.helper()->isRunning());
         QVERIFY(!runtime.inbox()->connected());
         SocietyDaemonService otherReceiver;
-        QVERIFY(otherReceiver.start(root.path(), 50, 400)); // No lock held by a suspended app.
+        QVERIFY(otherReceiver.start(directory, 50, 400)); // No lock held by a suspended app.
         otherReceiver.stop();
         const auto offline = sender.sendData("test.data", {{"phase", "suspended"}});
         QVERIFY(!offline.isEmpty());
@@ -47,8 +62,12 @@ private slots:
 
     void startupFailureRecoversWithoutRelaunch()
     {
-        QTemporaryDir root(SOCIETY_TEST_DIRECTORY "/runtime-retry-XXXXXX");
-        const auto path = root.filePath("unavailable");
+        QTemporaryDir root(SOCIETY_TEST_DIRECTORY "/runtime-retry-XXXXXX.societycontainer");
+        QVERIFY(iiSocietyContainer::SocietyDrive::create(root.path()));
+        qputenv("SOCIETY_CONTAINER_PATH", root.path().toUtf8());
+        const auto directory = root.filePath(".society-runtime/helpers/v1");
+        QVERIFY(QDir().mkpath(directory));
+        const auto path = directory + "/unavailable";
         QFile blocker(path);
         QVERIFY(blocker.open(QIODevice::WriteOnly));
         blocker.close();
@@ -66,10 +85,13 @@ private slots:
 
     void desktopWindowDeactivationKeepsReceiving()
     {
-        QTemporaryDir root(SOCIETY_TEST_DIRECTORY "/runtime-desktop-XXXXXX");
+        QTemporaryDir root(SOCIETY_TEST_DIRECTORY "/runtime-desktop-XXXXXX.societycontainer");
+        QVERIFY(iiSocietyContainer::SocietyDrive::create(root.path()));
+        qputenv("SOCIETY_CONTAINER_PATH", root.path().toUtf8());
+        const auto directory = root.filePath(".society-runtime/helpers/v1");
         SocietyDaemonService daemon;
-        QVERIFY(daemon.start(root.path(), 50, 400));
-        SocietyRuntime runtime(false, {root.path(), 50, 400});
+        QVERIFY(daemon.start(directory, 50, 400));
+        SocietyRuntime runtime(false, {directory, 50, 400});
         runtime.setApplicationState(Qt::ApplicationActive);
         const auto instance = runtime.helper()->self().instanceId;
         runtime.setApplicationState(Qt::ApplicationHidden);

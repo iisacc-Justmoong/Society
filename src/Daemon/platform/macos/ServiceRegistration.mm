@@ -2,11 +2,12 @@
 #import <Foundation/Foundation.h>
 #import <ServiceManagement/ServiceManagement.h>
 
-QVariantMap societyDaemonRegistration(const QString &command)
+namespace {
+QVariantMap registration(const QString &command, NSString *plist, const QString &label)
 {
     @autoreleasepool {
         if (@available(macOS 13.0, *)) {
-            SMAppService *service = [SMAppService agentServiceWithPlistName:@"com.iisacc.society.daemon.plist"];
+            SMAppService *service = [SMAppService agentServiceWithPlistName:plist];
             NSError *error = nil;
             bool ok = true;
             if (command == "register") {
@@ -26,7 +27,7 @@ QVariantMap societyDaemonRegistration(const QString &command)
             default: status = "not-registered"; break;
             }
             if (command == "register" && service.status != SMAppServiceStatusEnabled) ok = false;
-            QVariantMap result{{"ok", ok}, {"status", status}, {"label", "com.iisacc.society.daemon"}};
+            QVariantMap result{{"ok", ok}, {"status", status}, {"label", label}};
             if (error) {
                 result.insert("error", QString::fromNSString(error.localizedDescription));
                 result.insert("errorCode", qint64(error.code));
@@ -35,4 +36,13 @@ QVariantMap societyDaemonRegistration(const QString &command)
         }
         return {{"ok", false}, {"status", "unsupported"}, {"error", "Society background service registration requires macOS 13 or later."}};
     }
+}
+}
+QVariantMap societyDaemonRegistration(const QString &command)
+{
+    return registration(command, @"com.iisacc.society.daemon.plist", "com.iisacc.society.daemon");
+}
+QVariantMap societyContainerMonitorRegistration(const QString &command)
+{
+    return registration(command, @"com.iisacc.society.container-monitor.plist", "com.iisacc.society.container-monitor");
 }

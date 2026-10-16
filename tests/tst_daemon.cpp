@@ -2,8 +2,12 @@
 #include "App/Services/SocietyInbox.h"
 #include <iiSocietyHelper.h>
 #include <DeliveryStore.h>
+#include <SocietyDrive.h>
 #include <QDir>
+#include <SharedStorage.h>
 #include <QJsonDocument>
+#include <QJsonArray>
+#include <QUuid>
 #include <QLockFile>
 #include <QProcess>
 #include <QSignalSpy>
@@ -14,8 +18,58 @@
 class DaemonTests : public QObject {
     Q_OBJECT
 private slots:
+    void explicitPathsOutsideTheSelectedRuntimeAreRejectedBeforeWriting() {
+        QTemporaryDir root(SOCIETY_TEST_DIRECTORY "/daemon-scope-XXXXXX.societycontainer");
+        QVERIFY(iiSocietyContainer::SocietyDrive::create(root.path()));
+        qputenv("SOCIETY_CONTAINER_PATH", root.path().toUtf8());
+        const auto outside = root.path() + "-outside";
+        for (const auto &arguments : QList<QStringList>{{"--directory", outside}, {"--status-file", outside}}) {
+            QProcess daemon; daemon.start(QStringLiteral(SOCIETY_DAEMON_EXECUTABLE), arguments);
+            // A cold signed bundle on external storage can need more than five
+            // seconds to load its own runtime before rejecting the argument.
+            QVERIFY(daemon.waitForStarted()); QVERIFY(daemon.waitForFinished(15000)); QCOMPARE(daemon.exitCode(), 2);
+            QVERIFY(!QFileInfo::exists(outside));
+        }
+    }
+    void daemonMaintainsSelectedFolderWithoutAnAccount()
+    {
+        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/daemon-maintenance-XXXXXX");
+        const auto root = fixture.filePath("Society.societycontainer");
+        QVERIFY(QDir().mkdir(root));
+        // Build the package fixture without opening it in this process;
+        // only the child daemon can register its maintenance worker.
+        const auto identifier = QUuid::createUuid().toString(QUuid::WithoutBraces);
+        QJsonArray sections;
+        for (const auto section : iiSocietyContainer::allStoreSections()) {
+            const auto name = iiSocietyContainer::storeSectionName(section);
+            QVERIFY(QDir(root).mkdir(name));
+            sections.append(QJsonObject{{"id", iiSocietyContainer::storeSectionKey(section)}, {"name", name}, {"path", name}});
+        }
+        const auto manifest = QDir(root).filePath(".society-drive.json");
+        const auto temporary = QDir(root).filePath(".society-write-daemon-test");
+        QFile orphan(temporary); QVERIFY(orphan.open(QIODevice::WriteOnly));
+        QCOMPARE(orphan.write("orphan"), 6); orphan.close();
+        QFile savedManifest(manifest); QVERIFY(savedManifest.open(QIODevice::WriteOnly));
+        savedManifest.write(QJsonDocument(QJsonObject{{"type", "SocietyDrive"}, {"schemaVersion", 1},
+            {"filesLayoutVersion", 1}, {"identifier", identifier}, {"displayName", "Society"}, {"sections", sections}}).toJson());
+        savedManifest.close();
+        const auto settings = fixture.filePath("storage.json");
+        QFile selected(settings); QVERIFY(selected.open(QIODevice::WriteOnly));
+        selected.write(QJsonDocument(QJsonObject{{"schemaVersion", 1}, {"path", root},
+            {"containerId", identifier}}).toJson()); selected.close();
+        auto environment = QProcessEnvironment::systemEnvironment();
+        environment.remove("SOCIETY_CONTAINER_PATH");
+        environment.insert("SOCIETY_STORAGE_SETTINGS_PATH", settings);
+        QProcess daemon; daemon.setProcessEnvironment(environment);
+        daemon.start(QStringLiteral(SOCIETY_DAEMON_EXECUTABLE), {"--directory", QDir(root).filePath(".society-runtime/helpers/v1"), "--exit-after-ms", "1500"});
+        QVERIFY(daemon.waitForStarted());
+        QVERIFY(daemon.waitForFinished(5000));
+        QCOMPARE(daemon.exitCode(), 0);
+        QVERIFY(!QFileInfo::exists(temporary));
+        QVERIFY(QFileInfo::exists(manifest));
+    }
     void headlessServerRejectsUnsafeConfigurationBeforeStartingServices() {
-        QTemporaryDir root(SOCIETY_TEST_DIRECTORY "/daemon-server-invalid-XXXXXX");
+        QTemporaryDir root(SOCIETY_TEST_DIRECTORY "/daemon-server-invalid-XXXXXX.societycontainer");
         for (const auto &arguments : QList<QStringList>{
                 {"--server", "wss://nas.example.test"},
                 {"--sync", "--host"},
@@ -34,15 +88,18 @@ private slots:
         QVERIFY(result.value("tls").toBool()); QVERIFY(result.value("sqlite").toBool());
     }
     void isolatedSyncServicePublishesStateWithoutAccessingAnAccount() {
-        QTemporaryDir root(SOCIETY_TEST_DIRECTORY "/daemon-sync-XXXXXX");
+        QTemporaryDir root(SOCIETY_TEST_DIRECTORY "/daemon-sync-XXXXXX.societycontainer");
+        QVERIFY(iiSocietyContainer::SocietyDrive::create(root.path()));
+        qputenv("SOCIETY_CONTAINER_PATH", root.path().toUtf8());
+        const auto directory = root.filePath(".society-runtime/helpers/v1");
         QProcess daemon;
-        daemon.start(QStringLiteral(SOCIETY_DAEMON_EXECUTABLE), {"--directory", root.path(), "--sync", "--status-file", root.filePath("status.json"), "--exit-after-ms", "1500"});
+        daemon.start(QStringLiteral(SOCIETY_DAEMON_EXECUTABLE), {"--directory", directory, "--sync", "--status-file", root.filePath(".society-runtime/status.json"), "--exit-after-ms", "1500"});
         const auto stop = qScopeGuard([&] {
             if (daemon.state() != QProcess::NotRunning) { daemon.terminate(); if (!daemon.waitForFinished(4000)) { daemon.kill(); daemon.waitForFinished(); } }
         });
         QVERIFY(daemon.waitForStarted());
         const auto readState = [&] {
-            QFile file(root.filePath("status.json"));
+            QFile file(root.filePath(".society-runtime/status.json"));
             return file.open(QIODevice::ReadOnly) ? QJsonDocument::fromJson(file.readAll()).object() : QJsonObject{};
         };
         // Observe ownership while running; shutdown correctly releases it and
@@ -54,25 +111,28 @@ private slots:
         // The finite service duration provides a native shutdown request on
         // Windows, whose QProcess::terminate() does not deliver POSIX SIGTERM.
         QVERIFY(daemon.waitForFinished(4000)); QCOMPARE(daemon.exitCode(), 0);
-        QLockFile owner(root.filePath("SyncRuntime/owner.lock")); QVERIFY(owner.tryLock());
+        QLockFile owner(root.filePath(".society-runtime/sync/owner.lock")); QVERIFY(owner.tryLock());
     }
     void offlineQueueAndLateSocietyReceiver()
     {
-        QTemporaryDir root(SOCIETY_TEST_DIRECTORY "/daemon-XXXXXX");
+        QTemporaryDir root(SOCIETY_TEST_DIRECTORY "/daemon-XXXXXX.societycontainer");
+        QVERIFY(iiSocietyContainer::SocietyDrive::create(root.path()));
+        qputenv("SOCIETY_CONTAINER_PATH", root.path().toUtf8());
+        const auto directory = root.filePath(".society-runtime/helpers/v1");
         QString message;
         {
             iiSocietyHelper::Helper helper;
-            QVERIFY(helper.start({"com.iisacc.dreamscapes", "Dreamscapes", "1"}, {root.path(), 50, 400}));
+            QVERIFY(helper.start({"com.iisacc.dreamscapes", "Dreamscapes", "1"}, {directory, 50, 400}));
             message = helper.sendData("generation.queued", {{"job", "persisted-before-society"}});
             QVERIFY(!message.isEmpty());
         }
         SocietyDaemonService daemon;
-        QVERIFY(daemon.start(root.path(), 50, 400));
+        QVERIFY(daemon.start(directory, 50, 400));
         SocietyDaemonService duplicate;
-        QVERIFY(!duplicate.start(root.path(), 50, 400));
+        QVERIFY(!duplicate.start(directory, 50, 400));
         SocietyInbox inbox;
         QSignalSpy received(&inbox, &SocietyInbox::dataReceived);
-        QVERIFY(inbox.start(root.path()));
+        QVERIFY(inbox.start(directory));
         auto hasMessage = [&] {
             for (const auto &entry : received) if (entry[0].toMap().value("id") == message) return true;
             return false;
@@ -81,7 +141,7 @@ private slots:
         QVERIFY(inbox.lastSequence() > 0);
         QVERIFY(inbox.acknowledge(inbox.lastSequence()));
         daemon.stop();
-        QVERIFY(duplicate.start(root.path(), 50, 400));
+        QVERIFY(duplicate.start(directory, 50, 400));
         QTest::qWait(500);
         int copies = 0;
         for (const auto &entry : received) if (entry[0].toMap().value("id") == message) ++copies;
@@ -90,16 +150,19 @@ private slots:
 
     void processCrashRestartAndSocietyAppReceipt()
     {
-        QTemporaryDir root(SOCIETY_TEST_DIRECTORY "/daemon-process-XXXXXX");
+        QTemporaryDir root(SOCIETY_TEST_DIRECTORY "/daemon-process-XXXXXX.societycontainer");
+        QVERIFY(iiSocietyContainer::SocietyDrive::create(root.path()));
+        qputenv("SOCIETY_CONTAINER_PATH", root.path().toUtf8());
+        const auto directory = root.filePath(".society-runtime/helpers/v1");
         QProcess daemon;
         daemon.setProgram(QStringLiteral(SOCIETY_DAEMON_EXECUTABLE));
-        daemon.setArguments({"--directory", root.path()});
+        daemon.setArguments({"--directory", directory});
         daemon.start();
         QVERIFY(daemon.waitForStarted());
         iiSocietyHelper::Helper helper;
-        QVERIFY(helper.start({"com.iisacc.dreamscapes.test", "Dreamscapes test", "1"}, {root.path(), 100, 5000}));
+        QVERIFY(helper.start({"com.iisacc.dreamscapes.test", "Dreamscapes test", "1"}, {directory, 100, 5000}));
         iiSocietyHelper::DeliveryStore store;
-        QVERIFY(store.open(root.path()));
+        QVERIFY(store.open(directory));
         const auto before = helper.sendData("app.data", {{"value", "before-crash"}});
         auto contains = [&](const QString &id) {
             for (const auto &entry : store.readAfter(0)) if (entry.toMap().value("id") == id) return true;
@@ -120,7 +183,7 @@ private slots:
         // native test executable uses explicitly selected SDK libraries.
         for (const auto *key : {"DYLD_LIBRARY_PATH", "DYLD_FRAMEWORK_PATH", "DYLD_FALLBACK_LIBRARY_PATH"})
             environment.remove(QString::fromLatin1(key));
-        environment.insert("SOCIETY_HELPER_DIRECTORY", root.path());
+        environment.insert("SOCIETY_HELPER_DIRECTORY", directory);
         environment.insert("SOCIETY_STORAGE_SETTINGS_PATH", root.filePath("storage.json"));
         environment.insert("SOCIETY_DISABLE_SESSION_RESTORE", "1");
         environment.insert("QT_QPA_PLATFORM", "offscreen");

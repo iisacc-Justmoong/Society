@@ -107,7 +107,7 @@ ColumnLayout {
                     visible: root.collection === 3
                     Layout.fillWidth: true
                     implicitHeight: dock.implicitHeight + 40
-                    color: LV.Theme.panelBackground04
+                    color: "transparent"
                     radius: 16
                     Flow {
                         id: dock

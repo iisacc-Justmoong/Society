@@ -1,2 +1,2 @@
 #pragma once
-#include <iiSocietyClient/GroupSessionStore.h>
+#include <iiSocietyHelper/GroupSessionStore.h>

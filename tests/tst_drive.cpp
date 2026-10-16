@@ -57,9 +57,13 @@
 #include "App/Network/PairingQr.h"
 #include "App/Network/QrScanner.h"
 #include <SharedStorage.h>
-#include <DiskImage.h>
 #include <QStorageInfo>
 #include <FilesView.h>
+
+#ifdef Q_OS_MACOS
+QRectF societyNativeTitleBarControlsRect(QQuickWindow *window);
+bool societyNativeWindowHasTranslucentBackdrop(QQuickWindow *window);
+#endif
 
 static QQuickItem *visualItem(QQuickItem *parent, const QString &name)
 {
@@ -119,36 +123,17 @@ private slots:
         qmlRegisterType<QrScanner>("Society", 1, 0, "QrScanner");
     }
 
-    void accountOwnsMovedDiskAndRemoteDevicesKeepTheirLocalMounts_data()
-    {
-        QTest::addColumn<bool>("legacyDisk");
-        QTest::newRow("legacy-image") << true;
-        QTest::newRow("ordinary-directory") << false;
-    }
-
     void accountOwnsMovedDiskAndRemoteDevicesKeepTheirLocalMounts()
     {
-#ifndef Q_OS_MACOS
-        QSKIP("Native disk image relocation is available on macOS.");
-#else
-        QFETCH(bool, legacyDisk);
         QNetworkProxy::setApplicationProxy(QNetworkProxy::NoProxy);
         QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/account-drive-XXXXXX");
         QVERIFY(fixture.isValid());
         const auto previousSettings = qgetenv("SOCIETY_STORAGE_SETTINGS_PATH");
         const auto reset = qScopeGuard([&] { qputenv("SOCIETY_STORAGE_SETTINGS_PATH", previousSettings); });
         qputenv("SOCIETY_STORAGE_SETTINGS_PATH", fixture.filePath("settings.json").toUtf8());
-        std::optional<iiSocietyContainer::DiskVolume> volume;
-        if (legacyDisk) {
-            const auto result = iiSocietyContainer::DiskImage::create(fixture.path().toStdString(), 512ULL * 1024 * 1024);
-            QVERIFY(result); volume = *result;
-        }
-        const auto disk = legacyDisk
-            ? iiSocietyContainer::SocietyDrive::create(QString::fromStdString(volume->mountPath.string()))
-            : iiSocietyContainer::SocietyDrive::createAt(fixture.path());
+        const auto disk = iiSocietyContainer::SocietyDrive::createAt(fixture.path());
         QVERIFY(disk);
-        QString image = legacyDisk ? QString::fromStdString(volume->imagePath.string()) : disk->rootPath();
-        const auto eject = qScopeGuard([&] { if (legacyDisk) iiSocietyContainer::DiskImage::detach(image.toStdString()); });
+        QString image = disk->rootPath();
         AccountServer authority; QVERIFY(authority.server.listen(QHostAddress::LocalHost));
         iisacc::accounts::AccountManager host(authority.url()), peer(authority.url());
         auto device = host.deviceInfo(); device["appId"] = "com.iisacc.society"; device["id"] = QString(64, 'a');
@@ -157,15 +142,12 @@ private slots:
         QVERIFY(peer.loginWithPassword("builder@example.com", "fixture")); QTRY_VERIFY(peer.isAuthenticated());
         DriveController local, remote; local.setAccountManager(&host); remote.setAccountManager(&peer);
         QVERIFY(local.openContainer(disk->rootPath()));
-        const auto replica = fixture.filePath("local-replica"); QVERIFY(QDir().mkpath(replica));
+        const auto replica = fixture.filePath("local-replica.societycontainer"); QVERIFY(QDir().mkpath(replica));
         QVERIFY(iiSocietyContainer::SocietyDrive::create(replica)); QVERIFY(remote.openContainer(replica));
         // Opening the existing host disk while signed in must register it automatically.
         QTRY_COMPARE(host.account()->societyContainerDrive().value("imagePath").toString(), image);
-        if (legacyDisk) QVERIFY(iiSocietyContainer::DiskImage::detach(image.toStdString()));
-        else {
-            const auto offline = fixture.filePath("offline-folder");
-            QVERIFY(QDir().rename(image, offline)); image = offline;
-        }
+        const auto offline = fixture.filePath("offline-folder");
+        QVERIFY(QDir().rename(image, offline)); image = offline;
         QVERIFY(!local.reloadFromDisk()); QVERIFY(!local.hasDrive());
         QQmlEngine onboardingEngine;
         onboardingEngine.addImageProvider(QStringLiteral("society-preview"), new iiSocietyContainer::PreviewProvider);
@@ -175,7 +157,7 @@ private slots:
         QVERIFY2(onboarding, qPrintable(onboardingComponent.errorString()));
         auto* locate = onboarding->findChild<QQuickItem*>("onboardingChooseDisk");
         QVERIFY(locate); QVERIFY(locate->isVisible());
-        const auto moved = fixture.filePath(legacyDisk ? "Moved.societycontainer" : "MovedSociety"); QVERIFY(QDir().rename(image, moved)); image = moved;
+        const auto moved = fixture.filePath("MovedSociety.societycontainer"); QVERIFY(QDir().rename(image, moved)); image = moved;
         QVERIFY(local.openContainerImage(QUrl::fromLocalFile(moved)));
         QTRY_VERIFY_WITH_TIMEOUT(!local.busy(), 60000);
         QVERIFY2(local.hasDrive(), qPrintable(local.errorString())); QCOMPARE(local.identifier(), disk->identifier());
@@ -185,7 +167,77 @@ private slots:
         QCOMPARE(remote.rootPath(), replica); // A remote host path is metadata, never a local mount.
         QVERIFY(!remote.saveContainerToAccount());
         QCOMPARE(peer.account()->societyContainerDrive().value("containerId").toString(), disk->identifier());
-#endif
+    }
+
+    void movedPackageRepairsTheSameHostAccountLocation()
+    {
+        QNetworkProxy::setApplicationProxy(QNetworkProxy::NoProxy);
+        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/account-package-moved-XXXXXX");
+        const auto previousSettings = qgetenv("SOCIETY_STORAGE_SETTINGS_PATH");
+        const auto reset = qScopeGuard([&] { qputenv("SOCIETY_STORAGE_SETTINGS_PATH", previousSettings); });
+        qputenv("SOCIETY_STORAGE_SETTINGS_PATH", fixture.filePath("settings.json").toUtf8());
+        const auto package = iiSocietyContainer::SocietyDrive::createAt(fixture.path()); QVERIFY(package);
+        QVERIFY(iiSocietyContainer::SharedStorage::setDefaultContainer(package->rootPath()));
+        AccountServer authority; QVERIFY(authority.server.listen(QHostAddress::LocalHost));
+        const auto hostId = QString(64, 'a');
+        authority.profile.insert("societyContainerDrive", QJsonObject{
+            {"containerId", package->identifier()}, {"imagePath", fixture.filePath("Society")},
+            {"hostDeviceId", hostId}, {"revision", QUuid::createUuid().toString(QUuid::WithoutBraces)}});
+        iisacc::accounts::AccountManager host(authority.url());
+        auto device = host.deviceInfo(); device["appId"] = "com.iisacc.society"; device["id"] = hostId;
+        QVERIFY(host.setDeviceInfo(device));
+        QVERIFY(host.loginWithPassword("builder@example.com", "fixture")); QTRY_VERIFY(host.isAuthenticated());
+        DriveController controller; QVERIFY(controller.openContainer(package->rootPath()));
+        controller.setAccountManager(&host); controller.openDefaultContainer();
+        QTRY_VERIFY_WITH_TIMEOUT(!controller.busy(), 60000);
+        QVERIFY(controller.hasDrive()); QCOMPARE(controller.identifier(), package->identifier());
+        QTRY_COMPARE(host.account()->societyContainerDrive().value("imagePath").toString(), package->rootPath());
+        QVERIFY(!QFileInfo::exists(fixture.filePath("Society")));
+    }
+
+    void accountLegacyImageDoesNotReplaceTheCurrentOrdinaryFolder()
+    {
+        QNetworkProxy::setApplicationProxy(QNetworkProxy::NoProxy);
+        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/account-legacy-image-XXXXXX");
+        QVERIFY(fixture.isValid());
+        const auto previousSettings = qgetenv("SOCIETY_STORAGE_SETTINGS_PATH");
+        const auto previousContainer = qgetenv("SOCIETY_CONTAINER_PATH");
+        const auto restore = qScopeGuard([&] {
+            qputenv("SOCIETY_STORAGE_SETTINGS_PATH", previousSettings);
+            qputenv("SOCIETY_CONTAINER_PATH", previousContainer);
+        });
+        const auto settingsPath = fixture.filePath("settings.json");
+        qputenv("SOCIETY_STORAGE_SETTINGS_PATH", settingsPath.toUtf8());
+        qunsetenv("SOCIETY_CONTAINER_PATH");
+        const auto ordinary = iiSocietyContainer::SocietyDrive::createAt(fixture.path()); QVERIFY(ordinary);
+        DriveController drive; QVERIFY(drive.openContainer(ordinary->rootPath()));
+        QFile settings(settingsPath); QVERIFY(settings.open(QIODevice::ReadOnly));
+        const auto settingsBytes = settings.readAll(); settings.close();
+        const auto image = fixture.filePath("Old.sparsebundle");
+        QVERIFY(QDir().mkpath(image + "/bands"));
+        QFile payload(image + "/bands/preserved"); QVERIFY(payload.open(QIODevice::WriteOnly));
+        payload.write("old image bytes"); payload.close();
+        AccountServer authority; QVERIFY(authority.server.listen(QHostAddress::LocalHost));
+        const auto hostId = QString(64, 'a');
+        authority.profile.insert("societyContainerDrive", QJsonObject{
+            {"containerId", ordinary->identifier()}, {"imagePath", image},
+            {"hostDeviceId", hostId}, {"revision", QUuid::createUuid().toString(QUuid::WithoutBraces)}});
+        iisacc::accounts::AccountManager host(authority.url());
+        auto device = host.deviceInfo(); device["appId"] = "com.iisacc.society"; device["id"] = hostId;
+        QVERIFY(host.setDeviceInfo(device));
+        QVERIFY(host.loginWithPassword("builder@example.com", "fixture")); QTRY_VERIFY(host.isAuthenticated());
+        drive.setAccountManager(&host);
+        QTRY_VERIFY(drive.errorString().contains("not restored"));
+        QVERIFY(drive.hasDrive()); QCOMPARE(drive.rootPath(), ordinary->rootPath());
+        drive.openDefaultContainer(); QVERIFY(!drive.busy());
+        QVERIFY(drive.hasDrive()); QCOMPARE(drive.identifier(), ordinary->identifier());
+        QVERIFY(drive.openContainerImage(QUrl::fromLocalFile(image)));
+        QTRY_VERIFY_WITH_TIMEOUT(!drive.busy(), 60000);
+        QVERIFY(drive.errorString().contains("not restored"));
+        QCOMPARE(drive.rootPath(), ordinary->rootPath());
+        QVERIFY(settings.open(QIODevice::ReadOnly)); QCOMPARE(settings.readAll(), settingsBytes);
+        QVERIFY(payload.open(QIODevice::ReadOnly)); QCOMPARE(payload.readAll(), QByteArray("old image bytes"));
+        QCOMPARE(host.account()->societyContainerDrive().value("imagePath").toString(), image);
     }
 
     void onboardingProvidesPlatformRecoveryActions_data()
@@ -253,6 +305,81 @@ private slots:
         }
     }
 
+    void creationApisCreateOnlyAPackageInTheSelectedParent_data()
+    {
+        QTest::addColumn<bool>("useUrl");
+        QTest::newRow("createContainerAt") << false;
+        QTest::newRow("openContainerUrl") << true;
+    }
+
+    void creationApisCreateOnlyAPackageInTheSelectedParent()
+    {
+        QFETCH(bool, useUrl);
+        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/package-creation-XXXXXX");
+        QVERIFY(fixture.isValid());
+        const auto previousSettings = qgetenv("SOCIETY_STORAGE_SETTINGS_PATH");
+        const auto previousContainer = qgetenv("SOCIETY_CONTAINER_PATH");
+        const auto previousNativeGate = qgetenv("SOCIETY_DISABLE_NATIVE_DRIVE");
+        const auto restore = qScopeGuard([&] {
+            qputenv("SOCIETY_STORAGE_SETTINGS_PATH", previousSettings);
+            if (previousContainer.isNull()) qunsetenv("SOCIETY_CONTAINER_PATH");
+            else qputenv("SOCIETY_CONTAINER_PATH", previousContainer);
+            if (previousNativeGate.isNull()) qunsetenv("SOCIETY_DISABLE_NATIVE_DRIVE");
+            else qputenv("SOCIETY_DISABLE_NATIVE_DRIVE", previousNativeGate);
+        });
+        const auto settingsPath = fixture.filePath("settings.json");
+        qputenv("SOCIETY_STORAGE_SETTINGS_PATH", settingsPath.toUtf8());
+        qunsetenv("SOCIETY_CONTAINER_PATH");
+        qputenv("SOCIETY_DISABLE_NATIVE_DRIVE", "1");
+        const auto parent = fixture.filePath("Society");
+        QVERIFY(QDir().mkdir(parent));
+        QVERIFY(QDir::isAbsolutePath(parent));
+        QFile userFile(parent + "/user.txt");
+        QVERIFY(userFile.open(QIODevice::WriteOnly));
+        QCOMPARE(userFile.write("preserved user content"), qint64(22)); userFile.close();
+        const auto entries = QDir::AllEntries | QDir::Hidden | QDir::NoDotAndDotDot;
+        QCOMPARE(QDir(parent).entryList(entries, QDir::Name), QStringList{"user.txt"});
+        const auto package = parent + "/Society.societycontainer";
+        QVERIFY(!QFileInfo::exists(package)); QVERIFY(!QFileInfo::exists(settingsPath));
+        DriveController drive;
+        QString identifier;
+        for (int attempt = 0; attempt < 2; ++attempt) {
+            const bool accepted = useUrl ? drive.openContainerUrl(QUrl::fromLocalFile(parent))
+                : drive.createContainerAt(parent);
+            QVERIFY2(accepted, qPrintable(drive.errorString()));
+            QTRY_VERIFY_WITH_TIMEOUT(!drive.busy(), 30000);
+            QVERIFY2(drive.hasDrive(), qPrintable(drive.errorString()));
+            QCOMPARE(drive.rootPath(), package); QVERIFY(drive.systemPath().isEmpty());
+            QVERIFY(!QUuid(drive.identifier()).isNull());
+            if (attempt == 0) identifier = drive.identifier();
+            else QCOMPARE(drive.identifier(), identifier);
+            QCOMPARE(QDir(parent).entryList(entries, QDir::Name),
+                QStringList({"Society.societycontainer", "user.txt"}));
+            QVERIFY(!QFileInfo::exists(parent + "/.society-drive.json"));
+            QCOMPARE(iiSocietyContainer::allStoreSections().size(), 9);
+            for (const auto section : iiSocietyContainer::allStoreSections()) {
+                const auto name = iiSocietyContainer::storeSectionName(section);
+                QVERIFY(!QFileInfo::exists(parent + '/' + name));
+                const QFileInfo folder(package + '/' + name);
+                QVERIFY(folder.isDir()); QVERIFY(!folder.isSymLink());
+            }
+            QVERIFY(QDir(package + "/Models").entryList(entries).isEmpty());
+            QFile manifest(package + "/.society-drive.json");
+            QVERIFY(manifest.open(QIODevice::ReadOnly));
+            const auto identity = QJsonDocument::fromJson(manifest.readAll()).object();
+            QCOMPARE(identity.value("identifier").toString(), identifier);
+            QCOMPARE(identity.value("sections").toArray().size(), 9);
+            QFile settings(settingsPath); QVERIFY(settings.open(QIODevice::ReadOnly));
+            const auto saved = QJsonDocument::fromJson(settings.readAll()).object();
+            QCOMPARE(saved.value("schemaVersion").toInt(), 1);
+            QCOMPARE(saved.value("path").toString(), package);
+            QCOMPARE(saved.value("containerId").toString(), identifier);
+            QVERIFY(!saved.contains("imagePath"));
+            QVERIFY(userFile.open(QIODevice::ReadOnly));
+            QCOMPARE(userFile.readAll(), QByteArray("preserved user content")); userFile.close();
+        }
+    }
+
     void onboardingStartsWithoutAContainer_data()
     {
         QTest::addColumn<QSize>("viewport");
@@ -295,7 +422,11 @@ private slots:
         QVERIFY(!QFileInfo::exists(settingsPath));
         QVERIFY(!window->findChild<QObject *>("onboardingContainerPath"));
         auto *diskDialog = window->findChild<QObject *>("onboardingDiskDialog"); QVERIFY(diskDialog);
-        QVERIFY(diskDialog->metaObject()->indexOfProperty("selectedFolder") >= 0);
+        QVERIFY(diskDialog->metaObject()->indexOfProperty("selectedFile") >= 0);
+        auto *creationDialog = window->findChild<QObject *>("containerCreationDialog"); QVERIFY(creationDialog);
+        auto *onboardingCreationDialog = window->findChild<QObject *>("onboardingFolderDialog"); QVERIFY(onboardingCreationDialog);
+        QVERIFY(creationDialog->property("title").toString().contains("Society.societycontainer"));
+        QVERIFY(onboardingCreationDialog->property("title").toString().contains("Society.societycontainer"));
 
         auto *scroll = window->findChild<QQuickItem *>("onboardingViewport"); QVERIFY(scroll);
         QTRY_VERIFY(proceed->width() > 0 && proceed->height() >= 44);
@@ -315,20 +446,24 @@ private slots:
         QVERIFY(error->isVisible()); QVERIFY(!QFileInfo::exists(settingsPath));
         const auto container = fixture.filePath(QString::fromUtf8("Society 한글 #100%"));
         QVERIFY(QDir().mkpath(container));
+        QCOMPARE(QFileInfo(container).canonicalFilePath(), container);
+        const auto selectedFolder = QUrl::fromLocalFile(container);
+        QCOMPARE(selectedFolder.toLocalFile(), container);
         // Exercise the same accepted-folder handler used by the native dialog.
-        QVERIFY(QMetaObject::invokeMethod(onboarding, "createDisk", Q_ARG(QVariant, QUrl::fromLocalFile(container))));
+        QVERIFY(QMetaObject::invokeMethod(onboarding, "createDisk", Q_ARG(QVariant, selectedFolder)));
         QVERIFY(drive->busy());
         QVERIFY(!proceed->isEnabled());
         QTRY_VERIFY_WITH_TIMEOUT(!drive->busy(), 120000);
         QVERIFY2(drive->hasDrive(), qPrintable(drive->errorString()));
         QVERIFY(!window->property("onboardingRequired").toBool());
         QVERIFY(!onboarding->isVisible()); QVERIFY(content->isVisible());
-        QCOMPARE(drive->rootPath(), container + "/Society");
+        QCOMPARE(drive->rootPath(), container + "/Society.societycontainer");
         QCOMPARE(QStorageInfo(drive->rootPath()).device(), QStorageInfo(container).device());
-        QCOMPARE(drive->systemPath(), drive->rootPath());
+        QVERIFY(drive->systemPath().isEmpty());
         for (const auto section : iiSocietyContainer::allStoreSections())
             QVERIFY(QFileInfo::exists(drive->rootPath() + '/' + iiSocietyContainer::storeSectionName(section)));
-        QVERIFY(!QFileInfo::exists(container + "/Society.societycontainer"));
+        QVERIFY(QFileInfo::exists(container + "/Society.societycontainer"));
+        QVERIFY(!QFileInfo::exists(container + "/Society"));
         QVERIFY(!QFileInfo::exists(drive->rootPath() + "/bands"));
         QVERIFY(drive->navigate(drive->rootPath() + "/Files"));
         QCOMPARE(drive->currentSection(), QString("Files"));
@@ -348,7 +483,7 @@ private slots:
 
     void mobileShellOpensWithoutAccountContainerOrHost()
     {
-        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/offline-shell-XXXXXX");
+        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/offline-shell-XXXXXX.societycontainer");
         QVERIFY(fixture.isValid());
         const auto previous = qgetenv("SOCIETY_STORAGE_SETTINGS_PATH");
         const auto restore = qScopeGuard([&] { qputenv("SOCIETY_STORAGE_SETTINGS_PATH", previous); });
@@ -378,25 +513,26 @@ private slots:
         QVERIFY(content->isVisible());
     }
 
-    void onboardingRecoversUnavailableSavedContainer()
+    void onboardingDoesNotRestoreTheSavedLegacyImage()
     {
-#ifndef Q_OS_MACOS
-        QSKIP("Native disk-image onboarding is currently available on macOS.");
-#endif
-        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/onboarding-recovery-XXXXXX");
+        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/onboarding-no-image-XXXXXX.societycontainer");
         QVERIFY(fixture.isValid());
         const auto previousSettings = qgetenv("SOCIETY_STORAGE_SETTINGS_PATH");
-        const auto restoreSettings = qScopeGuard([&] { qputenv("SOCIETY_STORAGE_SETTINGS_PATH", previousSettings); });
-        qputenv("SOCIETY_STORAGE_SETTINGS_PATH", fixture.filePath("settings.json").toUtf8());
-        const auto volume = iiSocietyContainer::DiskImage::create(fixture.path().toStdString(), 512ULL * 1024 * 1024);
-        QVERIFY2(volume, volume ? "" : volume.error().c_str());
-        const auto eject = qScopeGuard([&] { iiSocietyContainer::DiskImage::detach(volume->imagePath); });
-        const auto container = QString::fromStdString(volume->mountPath.string());
-        const auto image = QString::fromStdString(volume->imagePath.string()), offline = fixture.filePath("offline.sparsebundle");
-        const auto original = iiSocietyContainer::SocietyDrive::create(container); QVERIFY(original);
-        QVERIFY(iiSocietyContainer::SharedStorage::setDefaultContainer(container));
-        QVERIFY(iiSocietyContainer::DiskImage::detach(volume->imagePath));
-        QVERIFY(QDir().rename(image, offline));
+        const auto previousContainer = qgetenv("SOCIETY_CONTAINER_PATH");
+        const auto restore = qScopeGuard([&] {
+            qputenv("SOCIETY_STORAGE_SETTINGS_PATH", previousSettings);
+            qputenv("SOCIETY_CONTAINER_PATH", previousContainer);
+        });
+        const auto settingsPath = fixture.filePath("settings.json");
+        qputenv("SOCIETY_STORAGE_SETTINGS_PATH", settingsPath.toUtf8());
+        qunsetenv("SOCIETY_CONTAINER_PATH");
+        const auto image = fixture.filePath("Old.sparsebundle");
+        QVERIFY(QDir().mkpath(image + "/bands"));
+        const auto container = fixture.filePath("unmounted-root");
+        const auto configuration = QJsonDocument(QJsonObject{{"schemaVersion", 2},
+            {"imagePath", image}, {"path", container}, {"containerId", "legacy-id"}}).toJson();
+        QFile saved(settingsPath); QVERIFY(saved.open(QIODevice::WriteOnly));
+        QCOMPARE(saved.write(configuration), configuration.size()); saved.close();
         QQmlApplicationEngine engine;
         engine.addImageProvider(QStringLiteral("society-preview"), new iiSocietyContainer::PreviewProvider);
         engine.addImportPath(QString::fromUtf8(SOCIETY_LVRS_QML_IMPORT_PATH));
@@ -405,42 +541,27 @@ private slots:
         auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first()); QVERIFY(window);
         QVERIFY(QTest::qWaitForWindowExposed(window));
         auto *drive = window->findChild<DriveController *>("driveController"); QVERIFY(drive);
-        QVERIFY(window->property("onboardingRequired").toBool());
         QTRY_VERIFY_WITH_TIMEOUT(!drive->busy(), 60000);
-        QVERIFY(!drive->errorString().isEmpty()); QVERIFY(!QFileInfo::exists(image));
-        QFile saved(fixture.filePath("settings.json")); QVERIFY(saved.open(QIODevice::ReadOnly));
-        QCOMPARE(QJsonDocument::fromJson(saved.readAll()).object().value("path").toString(), container);
-        saved.close();
-        QVERIFY(QDir().rename(offline, image));
+        QVERIFY(window->property("onboardingRequired").toBool());
+        QVERIFY(!drive->hasDrive()); QVERIFY(drive->errorString().contains("not restored"));
         auto *retry = window->findChild<QQuickItem *>("onboardingRetry"); QVERIFY(retry);
         QTest::mouseClick(window, Qt::LeftButton, Qt::NoModifier, retry->mapToScene(retry->boundingRect().center()).toPoint());
-        QTRY_VERIFY_WITH_TIMEOUT(!window->property("onboardingRequired").toBool(), 60000);
-        QCOMPARE(drive->identifier(), original->identifier());
-        QVERIFY(iiSocietyContainer::DiskImage::detach(volume->imagePath));
-        QTRY_VERIFY_WITH_TIMEOUT(window->property("onboardingRequired").toBool(), 10000);
-        QVERIFY(drive->systemPath().isEmpty());
-        drive->openDefaultContainer();
         QTRY_VERIFY_WITH_TIMEOUT(!drive->busy(), 60000);
-        QVERIFY2(drive->hasDrive(), qPrintable(drive->errorString()));
-        QCOMPARE(drive->identifier(), original->identifier());
+        QVERIFY(window->property("onboardingRequired").toBool());
+        QVERIFY(!drive->hasDrive()); QVERIFY(!QFileInfo::exists(container));
+        QVERIFY(saved.open(QIODevice::ReadOnly)); QCOMPARE(saved.readAll(), configuration);
     }
 
     void onboardingRecoversInvalidInitialPath()
     {
-#ifndef Q_OS_MACOS
-        QSKIP("Native disk-image onboarding is currently available on macOS.");
-#endif
         QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/onboarding-cli-XXXXXX");
         QVERIFY(fixture.isValid());
         const auto previousSettings = qgetenv("SOCIETY_STORAGE_SETTINGS_PATH");
         const auto restoreSettings = qScopeGuard([&] { qputenv("SOCIETY_STORAGE_SETTINGS_PATH", previousSettings); });
         qputenv("SOCIETY_STORAGE_SETTINGS_PATH", fixture.filePath("settings.json").toUtf8());
-        const auto container = fixture.filePath("existing");
+        const auto container = fixture.filePath("existing.societycontainer");
         QVERIFY(QDir().mkpath(container));
-        const auto volume = iiSocietyContainer::DiskImage::create(container.toStdString(), 512ULL * 1024 * 1024);
-        QVERIFY2(volume, volume ? "" : volume.error().c_str());
-        const auto eject = qScopeGuard([&] { iiSocietyContainer::DiskImage::detach(volume->imagePath); });
-        const auto original = iiSocietyContainer::SocietyDrive::create(QString::fromStdString(volume->mountPath.string())); QVERIFY(original);
+        const auto original = iiSocietyContainer::SocietyDrive::create(container); QVERIFY(original);
         QQmlApplicationEngine engine;
         engine.addImageProvider(QStringLiteral("society-preview"), new iiSocietyContainer::PreviewProvider);
         engine.addImportPath(QString::fromUtf8(SOCIETY_LVRS_QML_IMPORT_PATH));
@@ -453,13 +574,13 @@ private slots:
         auto *drive = window->findChild<DriveController *>("driveController"); QVERIFY(drive);
         QVERIFY(drive->localContainerPath(QUrl("https://example.invalid/container")).isEmpty());
         auto *onboarding = window->findChild<QQuickItem *>("containerOnboarding"); QVERIFY(onboarding);
-        const auto image = QUrl::fromLocalFile(QString::fromStdString(volume->imagePath.string()));
+        const auto image = QUrl::fromLocalFile(container);
         QVERIFY(QMetaObject::invokeMethod(onboarding, "selectDisk", Q_ARG(QVariant, image)));
         QTRY_VERIFY_WITH_TIMEOUT(!window->property("onboardingRequired").toBool(), 60000);
         QCOMPARE(drive->identifier(), original->identifier());
     }
 
-    void ordinaryFoldersReconnectThroughSavedSettings()
+    void ordinaryFoldersPreserveSettingsDuringReconnect()
     {
         QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/directory-storage-XXXXXX");
         const auto previous = qgetenv("SOCIETY_STORAGE_SETTINGS_PATH");
@@ -474,14 +595,21 @@ private slots:
         QTRY_VERIFY_WITH_TIMEOUT(!drive.busy(), 60000);
         QVERIFY2(drive.hasDrive(), qPrintable(drive.errorString()));
         QCOMPARE(drive.identifier(), original->identifier());
-        QCOMPARE(drive.systemPath(), original->rootPath());
+        QVERIFY(drive.systemPath().isEmpty());
         drive.connectToSystem(); QVERIFY(!drive.busy());
-        QCOMPARE(drive.systemPath(), original->rootPath());
+        QVERIFY(drive.systemPath().isEmpty());
+        drive.refreshSystem(); QVERIFY(!drive.busy());
+        QCOMPARE(drive.identifier(), original->identifier());
+        QVERIFY(drive.systemPath().isEmpty());
+        // This test target has no native adapter. Direct folder access must
+        // preserve storage configuration without claiming an OS mount.
+        QVERIFY(drive.systemStatus().contains("Society.societycontainer"));
+        QVERIFY(QStorageInfo(original->rootPath()).rootPath() != original->rootPath());
         QFile settings(fixture.filePath("settings.json")); QVERIFY(settings.open(QIODevice::ReadOnly));
         const auto configuration = QJsonDocument::fromJson(settings.readAll()).object();
         QCOMPARE(configuration.value("schemaVersion").toInt(), 1);
         QVERIFY(!configuration.contains("imagePath"));
-        QVERIFY(!QFileInfo::exists(fixture.filePath("Society.societycontainer")));
+        QVERIFY(QFileInfo::exists(fixture.filePath("Society.societycontainer")));
     }
 
     void noticeKeepsFigmaGeometryAndMaterial_data()
@@ -495,7 +623,7 @@ private slots:
     void noticeKeepsFigmaGeometryAndMaterial()
     {
         QFETCH(QSize, viewport);
-        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/alert-figma-XXXXXX");
+        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/alert-figma-XXXXXX.societycontainer");
         QVERIFY(iiSocietyContainer::SocietyDrive::create(fixture.path()));
         QQmlApplicationEngine engine;
         engine.addImageProvider(QStringLiteral("society-preview"), new iiSocietyContainer::PreviewProvider);
@@ -557,7 +685,7 @@ private slots:
 
     void filesStartEmptyAndPhotosShowsImagesAndVideos()
     {
-        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/fixed-files-ui-XXXXXX");
+        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/fixed-files-ui-XXXXXX.societycontainer");
         QVERIFY(iiSocietyContainer::SocietyDrive::create(fixture.path()));
         QImage photo(32, 32, QImage::Format_RGB32); photo.fill(Qt::blue);
         QVERIFY(photo.save(fixture.filePath("Photos/photo.png")));
@@ -795,7 +923,7 @@ private slots:
 
     void sidebarMatchesFigmaAndRoutesDynamicTargets()
     {
-        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/sidebar-figma-XXXXXX");
+        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/sidebar-figma-XXXXXX.societycontainer");
         QVERIFY(iiSocietyContainer::SocietyDrive::create(fixture.path()));
         QQmlApplicationEngine engine;
         engine.addImageProvider(QStringLiteral("society-preview"), new iiSocietyContainer::PreviewProvider);
@@ -839,20 +967,32 @@ private slots:
             "thinking-space", "forked", "published", "deleted"};
         const QStringList sectionIcons{"database", "fileTypesimage", "nodesfolder", "profileCPU", "warehouse",
             "fileTypestext", "RemoteChanges", "application", "generaldelete"};
+        const auto leadingIconFits = [](QQuickItem *row, QQuickItem *glyph) {
+            auto *content = visualItem(row, "listItem_content");
+            if (!content || !glyph || !content->clip()) return false;
+            return content->height() == row->height()
+                && QRectF(QPointF(), content->size()).contains(
+                glyph->mapRectToItem(content, QRectF(QPointF(), glyph->size())));
+        };
         for (int i = 0; i < sectionKeys.size(); ++i) {
             auto *row = visualItem(sidebar, "storageSection" + sectionKeys[i]); QVERIFY(row);
             QCOMPARE(row->size(), QSizeF(204, 32));
             QCOMPARE(row->mapToItem(sidebar, QPointF()), QPointF(12, 23 + i * 32));
+            QCOMPARE(row->property("topPadding").toReal(), 0.0);
+            QCOMPARE(row->property("bottomPadding").toReal(), 0.0);
             QCOMPARE(row->property("iconName").toString(), sectionIcons[i]);
             if (i > 0) {
                 auto *glyph = visualItem(row, "listItem_leadingIcon"); QVERIFY(glyph);
                 QCOMPARE(glyph->size(), QSizeF(18, 18));
                 QVERIFY(!glyph->childItems().isEmpty());
                 QTRY_COMPARE(glyph->childItems().first()->property("status").toInt(), 1); // Image.Ready
+                QVERIFY2(leadingIconFits(row, glyph), qPrintable(sectionKeys[i] + " leading icon is clipped"));
             }
         }
         auto *filesIconSlot = visualItem(sidebar, "storageFilesIconSlot"); QVERIFY(filesIconSlot);
         QCOMPARE(filesIconSlot->size(), QSizeF(18, 18));
+        QVERIFY2(leadingIconFits(visualItem(sidebar, "storageSectionfiles"), filesIconSlot),
+                 "Files leading icon is clipped");
         auto *filesIcon = visualItem(sidebar, "storageFilesIcon"); QVERIFY(filesIcon);
         QCOMPARE(filesIcon->position(), QPointF(2.3125, 1.1875));
         QCOMPARE(filesIcon->size(), QSizeF(13.375, 15.6659));
@@ -870,11 +1010,14 @@ private slots:
             auto *row = visualItem(sidebar, "storageTarget" + targetKeys[i]); QVERIFY(row);
             QCOMPARE(row->size(), QSizeF(204, 32));
             QCOMPARE(row->mapToItem(sidebar, QPointF()), QPointF(12, targetPositions[i]));
+            QCOMPARE(row->property("topPadding").toReal(), 0.0);
+            QCOMPARE(row->property("bottomPadding").toReal(), 0.0);
             QCOMPARE(row->property("iconName").toString(), targetIcons[i]);
             auto *glyph = visualItem(row, "listItem_leadingIcon"); QVERIFY(glyph);
             QCOMPARE(glyph->size(), QSizeF(18, 18));
             QVERIFY(!glyph->childItems().isEmpty());
             QTRY_COMPARE(glyph->childItems().first()->property("status").toInt(), 1);
+            QVERIFY2(leadingIconFits(row, glyph), qPrintable(targetKeys[i] + " leading icon is clipped"));
         }
         auto *phone = visualItem(sidebar, "storageTargetdevicesphone"); QVERIFY(phone);
         QCOMPARE(phone->property("iconName").toString(), QString("iPhoneDevice"));
@@ -916,6 +1059,15 @@ private slots:
         QVERIFY(QMetaObject::invokeMethod(files, "clicked"));
         QCOMPARE(drive->currentSection(), QString("Files")); QVERIFY(files->property("selected").toBool());
         QVERIFY(!models->property("selected").toBool());
+        QVERIFY(sidebar->setProperty("touchNavigation", true));
+        for (const auto &key : sectionKeys) {
+            auto *row = visualItem(sidebar, "storageSection" + key); QVERIFY(row);
+            QTRY_COMPARE(row->height(), 44.0);
+            QCOMPARE(row->property("topPadding").toReal(), 0.0);
+            QCOMPARE(row->property("bottomPadding").toReal(), 0.0);
+            auto *glyph = visualItem(row, key == "files" ? "storageFilesIconSlot" : "listItem_leadingIcon");
+            QVERIFY2(leadingIconFits(row, glyph), qPrintable(key + " touch leading icon is clipped"));
+        }
         window->resize(390, 844); QTRY_VERIFY(!sidebar->isVisible());
         QVERIFY2(warnings.isEmpty(), qPrintable(warnings.join('\n')));
         window->close();
@@ -923,7 +1075,7 @@ private slots:
 
     void modelCatalogUsesHostIdentificationBeforeLocalHeaders()
     {
-        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/model-map-XXXXXX");
+        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/model-map-XXXXXX.societycontainer");
         const auto drive = iiSocietyContainer::SocietyDrive::create(fixture.path()); QVERIFY(drive);
         const auto modelPath = fixture.filePath("Models/Checkpoint/cached.safetensors");
         QVERIFY(writeCatalogModel(modelPath, {{"modelspec.title", "Payload header title"}}));
@@ -940,7 +1092,7 @@ private slots:
 
     void modelCatalogGroupsPhysicalTypesAndWatchesChanges()
     {
-        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/model-catalog-XXXXXX");
+        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/model-catalog-XXXXXX.societycontainer");
         QVERIFY(iiSocietyContainer::SocietyDrive::create(fixture.path()));
         for (const auto type : iiSocietyContainer::allModelTypes()) {
             const auto name = iiSocietyContainer::modelTypeName(type);
@@ -981,7 +1133,7 @@ private slots:
 
     void modelsShowTypesAndScrollEachCategoryIndependently()
     {
-        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/models-figma-XXXXXX");
+        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/models-figma-XXXXXX.societycontainer");
         QVERIFY(iiSocietyContainer::SocietyDrive::create(fixture.path()));
         const QStringList modalities{"Checkpoint", "Embedding", "Hypernetwork", "Aesthetic Gradient"};
         for (const auto &modality : modalities)
@@ -1129,14 +1281,17 @@ private slots:
         window->resize(1440, 900);
         QVERIFY(QMetaObject::invokeMethod(models, "browseFoldersRequested"));
         auto *files = window->findChild<QQuickItem *>("fileGridView"); QVERIFY(files);
-        QTRY_VERIFY(files->isVisible()); QTRY_COMPARE(files->property("count").toInt(), 23);
+        QTRY_VERIFY(files->isVisible());
+        // Only the four user-populated categories and Other exist physically;
+        // the catalog's 23 headings do not allocate empty type directories.
+        QTRY_COMPARE(files->property("count").toInt(), modalities.size() + 1);
         QVERIFY(drive->openSection("models")); QTRY_VERIFY(models->isVisible());
         QVERIFY2(warnings.isEmpty(), qPrintable(warnings.join('\n')));
         window->close();
     }
     void reloadAdoptedIdentityAndHideAnIncompleteMirror()
     {
-        QTemporaryDir root(QStringLiteral(SOCIETY_TEST_DIRECTORY "/drive-mirror-XXXXXX"));
+        QTemporaryDir root(QStringLiteral(SOCIETY_TEST_DIRECTORY "/drive-mirror-XXXXXX.societycontainer"));
         QVERIFY(iiSocietyContainer::SocietyDrive::create(root.path()));
         DriveController drive; QVERIFY(drive.openContainer(root.path()));
         const auto old = drive.identifier(); const auto host = QUuid::createUuid().toString(QUuid::WithoutBraces);
@@ -1151,7 +1306,7 @@ private slots:
     }
     void fileGridRendersPersistentPreviewAndInvalidatesEdits()
     {
-        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/preview-grid-XXXXXX");
+        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/preview-grid-XXXXXX.societycontainer");
         QVERIFY(iiSocietyContainer::SocietyDrive::create(fixture.path()));
         const auto source = fixture.filePath("Files/picture.png");
         QImage image(1600, 1200, QImage::Format_RGB32); image.fill(Qt::red); QVERIFY(image.save(source));
@@ -1178,7 +1333,7 @@ private slots:
     }
     void synchronizationPreservesFileModelSelectionAndScroll()
     {
-        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/drive-sync-view-XXXXXX");
+        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/drive-sync-view-XXXXXX.societycontainer");
         QVERIFY(iiSocietyContainer::SocietyDrive::create(fixture.path()));
         for (int i = 0; i < 80; ++i) {
             QFile file(fixture.filePath(QString("Files/file-%1.txt").arg(i, 3, 10, QChar('0'))));
@@ -1230,7 +1385,7 @@ private slots:
     }
     void backgroundRefreshRejectsStaleRootsAndNavigation()
     {
-        QTemporaryDir first(SOCIETY_TEST_DIRECTORY "/refresh-first-XXXXXX"), second(SOCIETY_TEST_DIRECTORY "/refresh-second-XXXXXX");
+        QTemporaryDir first(SOCIETY_TEST_DIRECTORY "/refresh-first-XXXXXX.societycontainer"), second(SOCIETY_TEST_DIRECTORY "/refresh-second-XXXXXX.societycontainer");
         QVERIFY(iiSocietyContainer::SocietyDrive::create(first.path()));
         QVERIFY(iiSocietyContainer::SocietyDrive::create(second.path()));
         DriveController drive; QVERIFY(drive.openContainer(first.path()));
@@ -1277,7 +1432,7 @@ private slots:
     }
     void unchangedDashboardSnapshotDoesNotReplaceRows()
     {
-        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/dashboard-stable-XXXXXX");
+        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/dashboard-stable-XXXXXX.societycontainer");
         QVERIFY(iiSocietyContainer::SocietyDrive::create(fixture.path()));
         QFile file(fixture.filePath("Files/item.txt")); QVERIFY(file.open(QIODevice::WriteOnly));
         QVERIFY(file.write("stable") > 0); file.close();
@@ -1289,7 +1444,7 @@ private slots:
     }
     void controllerLayoutAndNavigation()
     {
-        QTemporaryDir fixture(QStringLiteral(SOCIETY_TEST_DIRECTORY "/drive-core-XXXXXX"));
+        QTemporaryDir fixture(QStringLiteral(SOCIETY_TEST_DIRECTORY "/drive-core-XXXXXX.societycontainer"));
         QVERIFY(fixture.isValid());
         DriveController controller;
         QVERIFY(!controller.hasDrive());
@@ -1350,8 +1505,8 @@ private slots:
 
     void rejectsConflictsWithoutChangingTheCurrentDrive()
     {
-        QTemporaryDir first(QStringLiteral(SOCIETY_TEST_DIRECTORY "/drive-first-XXXXXX"));
-        QTemporaryDir second(QStringLiteral(SOCIETY_TEST_DIRECTORY "/drive-conflict-XXXXXX"));
+        QTemporaryDir first(QStringLiteral(SOCIETY_TEST_DIRECTORY "/drive-first-XXXXXX.societycontainer"));
+        QTemporaryDir second(QStringLiteral(SOCIETY_TEST_DIRECTORY "/drive-conflict-XXXXXX.societycontainer"));
         QVERIFY(first.isValid() && second.isValid());
         QFile conflict(second.filePath("Models"));
         QVERIFY(conflict.open(QIODevice::WriteOnly));
@@ -1370,7 +1525,7 @@ private slots:
 
     void rejectsPublicFilesAsANewContainer()
     {
-        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/drive-public-source-XXXXXX");
+        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/drive-public-source-XXXXXX.societycontainer");
         QVERIFY(fixture.isValid());
         DriveController controller;
         QVERIFY(iiSocietyContainer::SocietyDrive::create(fixture.path()));
@@ -1397,7 +1552,7 @@ private slots:
     void storageTabOpensFilesDirectly()
     {
         QFETCH(bool, mobile);
-        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/storage-entry-XXXXXX");
+        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/storage-entry-XXXXXX.societycontainer");
         QVERIFY(iiSocietyContainer::SocietyDrive::create(fixture.path()));
         QVERIFY(QDir().mkpath(fixture.filePath("Files/Nested")));
         QQmlApplicationEngine engine;
@@ -1461,9 +1616,75 @@ private slots:
         window->close();
     }
 
+    void storageSectionsUseFullHeightWithoutCommonFooter_data()
+    {
+        QTest::addColumn<QSize>("size");
+        QTest::addColumn<bool>("mobile");
+        QTest::newRow("desktop") << QSize(1120, 720) << false;
+        QTest::newRow("desktop-landscape") << QSize(844, 390) << false;
+        QTest::newRow("desktop-compact") << QSize(360, 320) << false;
+        QTest::newRow("mobile") << QSize(390, 844) << true;
+    }
+
+    void storageSectionsUseFullHeightWithoutCommonFooter()
+    {
+        QFETCH(QSize, size);
+        QFETCH(bool, mobile);
+        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/storage-no-footer-XXXXXX.societycontainer");
+        QVERIFY(iiSocietyContainer::SocietyDrive::create(fixture.path()));
+        QQmlApplicationEngine engine;
+        engine.addImageProvider(QStringLiteral("society-preview"), new iiSocietyContainer::PreviewProvider);
+        QStringList warnings;
+        connect(&engine, &QQmlApplicationEngine::warnings, this, [&](const QList<QQmlError> &errors) {
+            for (const auto &error : errors) warnings.append(error.toString());
+        });
+        engine.addImportPath(QString::fromUtf8(SOCIETY_LVRS_QML_IMPORT_PATH));
+        engine.setInitialProperties({{"initialContainerPath", fixture.path()}, {"selectedTab", "Storage"},
+            {"mobileLayout", mobile}, {"desktopMinWidth", 320}, {"desktopMinHeight", 240},
+            {"width", size.width()}, {"height", size.height()}});
+        engine.load(QUrl::fromLocalFile(QString::fromUtf8(SOCIETY_QML_FILE)));
+        QCOMPARE(engine.rootObjects().size(), 1);
+        auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first()); QVERIFY(window);
+        QVERIFY(QTest::qWaitForWindowExposed(window));
+        QTRY_COMPARE(window->size(), size);
+        auto *drive = window->findChild<DriveController *>("driveController"); QVERIFY(drive);
+        auto *storage = window->findChild<QQuickItem *>("storageView"); QVERIFY(storage);
+        QTRY_VERIFY(storage->isVisible());
+        QVERIFY(drive->errorString().isEmpty());
+        for (const QString name : {"importModels", "modelImportStatus", "cancelModelImport", "modelImportError",
+                "systemStatus", "connectToSystem", "revealInSystem"})
+            QVERIFY2(!storage->findChild<QQuickItem *>(name), qPrintable(name));
+
+        // Every section owns the full Storage viewport, including the area
+        // previously reserved for the shared import and system footer.
+        for (const auto section : iiSocietyContainer::allStoreSections()) {
+            QVERIFY(drive->openSection(iiSocietyContainer::storeSectionKey(section)));
+            const auto name = section == iiSocietyContainer::StoreSection::Files ? "filesBrowser"
+                : section == iiSocietyContainer::StoreSection::Models ? "modelsView"
+                : section == iiSocietyContainer::StoreSection::Photos ? "photosView" : "fileGridView";
+            auto *view = visualItem(storage, name); QVERIFY(view);
+            QTRY_VERIFY(view->isVisible());
+            QTRY_VERIFY(view->width() > 0 && view->height() > 0);
+            QTRY_COMPARE(view->mapToItem(storage, QPointF()).y(), 0.0);
+            QTRY_COMPARE(view->mapToItem(storage, QPointF(0, view->height())).y(), storage->height());
+            if (section == iiSocietyContainer::StoreSection::Models) {
+                QVERIFY(visualItem(view, "modelsStatus"));
+                QVERIFY(visualItem(view, "importModelsCheckpoint"));
+            }
+        }
+        // The existing actions sheet remains available after removing the
+        // desktop footer; its controls are created even while it is closed.
+        QVERIFY(storage->findChild<QObject *>("storageActions"));
+        QVERIFY(window->findChild<QQuickItem *>("mobileImportModels"));
+        QVERIFY(window->findChild<QQuickItem *>("mobileConnectToSystem"));
+        QVERIFY(window->findChild<QQuickItem *>("mobileRevealInSystem"));
+        QVERIFY2(warnings.isEmpty(), qPrintable(warnings.join('\n')));
+        window->close();
+    }
+
     void driveWindowOpensFilesAndNavigatesSections()
     {
-        QTemporaryDir fixture(QStringLiteral(SOCIETY_TEST_DIRECTORY "/drive-gui-XXXXXX"));
+        QTemporaryDir fixture(QStringLiteral(SOCIETY_TEST_DIRECTORY "/drive-gui-XXXXXX.societycontainer"));
         QVERIFY(fixture.isValid());
         QVERIFY(iiSocietyContainer::SocietyDrive::create(fixture.path()));
         QVERIFY(QDir().mkpath(fixture.filePath("Files/Nested")));
@@ -1537,7 +1758,9 @@ private slots:
         auto *modelGrid = window->findChild<QQuickItem *>("fileGridView"); QVERIFY(modelGrid);
         QVERIFY(modelGrid->isVisible()); QVERIFY(!files->isVisible());
         QTRY_COMPARE(modelGrid->property("path").toString(), fixture.filePath("Models"));
-        QTRY_COMPARE(modelGrid->property("count").toInt(), 23);
+        // Logical categories stay available without precreating unused
+        // folders; this fixture populates only Wildcards during organization.
+        QTRY_COMPARE(modelGrid->property("count").toInt(), 1);
         const auto modelsScreenshot = qEnvironmentVariable("SOCIETY_MODEL_TYPES_SCREENSHOT_PATH");
         if (!modelsScreenshot.isEmpty()) { QTest::qWait(200); QVERIFY(window->grabWindow().save(modelsScreenshot)); }
         controller->goHome();
@@ -1595,12 +1818,8 @@ private slots:
             QTRY_VERIFY(files->isVisible());
             QCOMPARE(controller->currentPath(), fixture.filePath("Files"));
         }
-        const auto *connectButton = window->findChild<QQuickItem *>("connectToSystem");
-        QVERIFY(connectButton);
-        QCOMPARE(connectButton->property("text").toString(), QString("Connect to %1").arg(controller->systemName()));
-
         // OS URL drops target Models from Files and a phone-size header.
-        QTemporaryDir dropped(SOCIETY_TEST_DIRECTORY "/model-drop-XXXXXX");
+        QTemporaryDir dropped(SOCIETY_TEST_DIRECTORY "/model-drop-XXXXXX.societycontainer");
         QVERIFY(dropped.isValid());
         auto *importer = window->findChild<ModelImporter *>("modelImporter");
         auto *overlay = window->findChild<QQuickItem *>("modelDropOverlay");
@@ -1646,7 +1865,7 @@ private slots:
 
     void viewAllRecentFilesOpensStorageList()
     {
-        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/recent-storage-XXXXXX");
+        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/recent-storage-XXXXXX.societycontainer");
         QVERIFY(iiSocietyContainer::SocietyDrive::create(fixture.path()));
         const auto epoch = QDateTime::fromString("2026-01-01T00:00:00Z", Qt::ISODate);
         for (int i = 0; i < 80; ++i) {
@@ -1686,7 +1905,7 @@ private slots:
 
     void dashboardFilesUseRealDriveDataAndRejectStaleRoots()
     {
-        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/dashboard-files-XXXXXX");
+        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/dashboard-files-XXXXXX.societycontainer");
         QVERIFY(iiSocietyContainer::SocietyDrive::create(fixture.path()));
         QVERIFY(QDir().mkpath(fixture.filePath("Files/Work")));
         const auto write = [&](const QString &name, int age) {
@@ -1711,7 +1930,7 @@ private slots:
         QVERIFY(write("Generation History/request.json", 1));
         QVERIFY(QDir().mkpath(fixture.filePath("Generation History/Legacy")));
         QVERIFY(write("Generation History/Legacy/nested.png", 0));
-        QTemporaryDir outside(SOCIETY_TEST_DIRECTORY "/dashboard-outside-XXXXXX");
+        QTemporaryDir outside(SOCIETY_TEST_DIRECTORY "/dashboard-outside-XXXXXX.societycontainer");
         QFile secret(outside.filePath("outside.txt"));
         QVERIFY(secret.open(QIODevice::WriteOnly)); secret.write("outside"); secret.close();
         QVERIFY(createNativeTestLink(secret.fileName(), fixture.filePath("Files/linked.txt")));
@@ -1766,7 +1985,7 @@ private slots:
         QTRY_VERIFY(!files.loading());
         QVERIFY(!files.errorString().isEmpty()); QVERIFY(files.recentFiles().isEmpty());
 
-        QTemporaryDir historyOnly(SOCIETY_TEST_DIRECTORY "/dashboard-history-only-XXXXXX");
+        QTemporaryDir historyOnly(SOCIETY_TEST_DIRECTORY "/dashboard-history-only-XXXXXX.societycontainer");
         QVERIFY(iiSocietyContainer::SocietyDrive::create(historyOnly.path()));
         QFile generated(historyOnly.filePath("Generation History/generated.png"));
         QVERIFY(generated.open(QIODevice::WriteOnly)); generated.write("fixture"); generated.close();
@@ -1777,7 +1996,7 @@ private slots:
 
     void dashboardLoadsLocalFilesWhileNetworkMirrorIsPending()
     {
-        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/dashboard-startup-XXXXXX");
+        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/dashboard-startup-XXXXXX.societycontainer");
         QVERIFY(iiSocietyContainer::SocietyDrive::create(fixture.path()));
         QFile document(fixture.filePath("Files/Existing.txt"));
         QVERIFY(document.open(QIODevice::WriteOnly)); document.write("existing"); document.close();
@@ -1813,7 +2032,7 @@ private slots:
 
     void dashboardCreationRefreshesTheInjectedViewModel()
     {
-        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/dashboard-creation-XXXXXX");
+        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/dashboard-creation-XXXXXX.societycontainer");
         QVERIFY(iiSocietyContainer::SocietyDrive::create(fixture.path()));
         DashboardFiles files;
         files.setContainerPath(fixture.path()); QTRY_VERIFY(!files.loading());
@@ -1840,7 +2059,7 @@ private slots:
 
     void dashboardObservesLocalAdditionsEditsAndRemovals()
     {
-        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/dashboard-watch-XXXXXX");
+        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/dashboard-watch-XXXXXX.societycontainer");
         const auto drive = iiSocietyContainer::SocietyDrive::create(fixture.path()); QVERIFY(drive);
         DashboardFiles files;
         files.setContainerPath(fixture.path()); QTRY_VERIFY(!files.loading());
@@ -1896,7 +2115,7 @@ private slots:
     void dashboardListsShowAtMostTwentyFiles()
     {
         QFETCH(bool, mobile);
-        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/dashboard-limit-XXXXXX");
+        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/dashboard-limit-XXXXXX.societycontainer");
         QVERIFY(iiSocietyContainer::SocietyDrive::create(fixture.path()));
         QImage preview(16, 16, QImage::Format_RGB32); preview.fill(Qt::darkCyan);
         const auto newest = QDateTime::currentDateTimeUtc();
@@ -1958,7 +2177,7 @@ private slots:
     void dashboardCalendarMatchesFigmaAndNavigates()
     {
         using namespace iiCalendar;
-        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/calendar-dashboard-XXXXXX");
+        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/calendar-dashboard-XXXXXX.societycontainer");
         QVERIFY(iiSocietyContainer::SocietyDrive::create(fixture.path()));
         QImage preview(240, 160, QImage::Format_RGB32); preview.fill(QColor("#526757"));
         const auto reference = qEnvironmentVariable("SOCIETY_DASHBOARD_CARDS_PREVIEW_PATH");
@@ -2078,7 +2297,7 @@ private slots:
 
     void dashboardCardRowsMatchFigmaAndRemainInteractive()
     {
-        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/dashboard-cards-XXXXXX");
+        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/dashboard-cards-XXXXXX.societycontainer");
         QVERIFY(iiSocietyContainer::SocietyDrive::create(fixture.path()));
         QImage preview(96, 64, QImage::Format_RGB32);
         preview.fill(QColor("#316c98"));
@@ -2340,7 +2559,7 @@ private slots:
     void mobileViewsShareDesktopContentAndKeepState()
     {
         QFETCH(int, tabPlatformStyle);
-        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/mobile-views-XXXXXX");
+        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/mobile-views-XXXXXX.societycontainer");
         QVERIFY(iiSocietyContainer::SocietyDrive::create(fixture.path()));
         QVERIFY(QDir().mkpath(fixture.filePath("Files/Work")));
         QImage sample(240, 160, QImage::Format_RGB32); sample.fill(Qt::darkCyan);
@@ -2432,7 +2651,8 @@ private slots:
         QCOMPARE(searchNavigation.count(), 0); // Typing must not navigate again and dismiss the keyboard.
         QCOMPARE(view->property("query").toString(), QString("Mobile landscape"));
         QVERIFY(search->setProperty("text", ""));
-        QVERIFY(tap("mobileSearchToggle")); QTRY_VERIFY(!search->isVisible());
+        QVERIFY(tap("mobileSearchToggle"));
+        QTRY_VERIFY(!search->isVisible());
         QVERIFY(tap("mobileBrowseTab"));
         QCOMPARE(tabs->property("currentIndex").toInt(), 3);
         auto *devices = window->findChild<QObject *>("networkDevices"); QVERIFY(devices);
@@ -2516,7 +2736,7 @@ private slots:
 
     void mobileStorageKeepsSectionsActionsAndGalleryReachable()
     {
-        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/mobile-storage-XXXXXX");
+        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/mobile-storage-XXXXXX.societycontainer");
         QVERIFY(iiSocietyContainer::SocietyDrive::create(fixture.path()));
         QImage photo(90, 160, QImage::Format_RGB32); photo.fill(Qt::darkMagenta);
         QVERIFY(photo.save(fixture.filePath("Generation History/Portrait.png")));
@@ -2596,7 +2816,7 @@ private slots:
 
     void windowUsesFrameworkChromeAndContent()
     {
-        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/window-content-XXXXXX");
+        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/window-content-XXXXXX.societycontainer");
         QVERIFY(iiSocietyContainer::SocietyDrive::create(fixture.path()));
         QQmlApplicationEngine engine;
         engine.addImageProvider(QStringLiteral("society-preview"), new iiSocietyContainer::PreviewProvider);
@@ -2611,11 +2831,57 @@ private slots:
         auto *material = window->findChild<QQuickItem *>("applicationWindowMaterial");
         QVERIFY(material);
         QCOMPARE(material->property("primaryColor").value<QColor>(), QColor("#57965C"));
-        QCOMPARE(material->property("color").value<QColor>(), QColor("#0B0B0B"));
-        QCOMPARE(material->property("tintOpacity").toReal(), 0.5);
+        QCOMPARE(material->property("color").value<QColor>(), QColor("#141414"));
+        QCOMPARE(material->property("tintOpacity").toReal(), 0.66);
         QCOMPARE(material->property("intenseOpacity").toReal(), 0.0);
         QCOMPARE(material->property("faintOpacity").toReal(), 0.0);
+        auto *accentOverlay = material->findChild<QQuickItem *>("applicationWindowAccentOverlay");
+        QVERIFY(accentOverlay);
+        QCOMPARE(accentOverlay->opacity(), 0.04);
+        QTRY_COMPARE(accentOverlay->property("color").value<QColor>(), QColor("#57965C"));
         QCOMPARE(material->property("blurRadius").toReal(), 64.0);
+        QCOMPARE(window->property("windowBackgroundOpacity").toReal(), 0.66);
+        QCOMPARE(window->opacity(), 1.0);
+        QCOMPARE(material->opacity(), 1.0);
+        const bool nativeBlur = window->property("isDesktopPlatform").toBool()
+            && window->property("backgroundBlurSupported").toBool();
+        QCOMPARE(window->property("backgroundBlurEnabled").toBool(), nativeBlur);
+        if (nativeBlur) {
+            QVERIFY(QTest::qWaitForWindowExposed(window));
+            QTRY_VERIFY(window->property("backgroundBlurActive").toBool());
+            QCOMPARE(window->color().alpha(), 0);
+            const QImage rendered = window->grabWindow();
+            QVERIFY(!rendered.isNull());
+            QVERIFY(rendered.hasAlphaChannel());
+            const qreal dpr = window->devicePixelRatio();
+            const QColor backgroundPixel = rendered.pixelColor(qRound(8 * dpr), qRound(80 * dpr));
+            QVERIFY2(qAbs(backgroundPixel.alpha() - 172) <= 2,
+                     qPrintable(QStringLiteral("The rendered accent overlay must remain translucent; got alpha %1.")
+                         .arg(backgroundPixel.alpha())));
+            auto capture = material->grabToImage();
+            QVERIFY(capture);
+            QTRY_VERIFY(!capture->image().isNull());
+            const QImage background = capture->image();
+            const auto backgroundAt = [&](qreal x, qreal y) {
+                return background.pixelColor(qRound(x * background.width() / material->width()),
+                                             qRound(y * background.height() / material->height()));
+            };
+            const QColor accent = backgroundAt(48, 80);
+            const QColor quiet = backgroundAt(material->width() / 2, 80);
+            QVERIFY2(accent.green() > accent.red() + 2 && accent.green() > accent.blue() + 2
+                         && qAbs(accent.red() - quiet.red()) <= 1 && qAbs(accent.green() - quiet.green()) <= 1
+                         && qAbs(accent.blue() - quiet.blue()) <= 1,
+                     qPrintable(QStringLiteral("Society's 4% green overlay must be uniform: edge %1, center %2.")
+                         .arg(accent.name(QColor::HexArgb), quiet.name(QColor::HexArgb))));
+            QVERIFY(qAbs(quiet.alpha() - 172) <= 2);
+            const QString captureDirectory = qEnvironmentVariable("SOCIETY_PANEL_CAPTURE_DIR");
+            if (!captureDirectory.isEmpty())
+                QVERIFY(rendered.save(captureDirectory + QStringLiteral("/window-accent-overlay.png")));
+#ifdef Q_OS_MACOS
+            QVERIFY2(societyNativeWindowHasTranslucentBackdrop(window),
+                     "Society must retain an active behind-window AppKit backdrop in a nonopaque window.");
+#endif
+        }
         QVERIFY2(!window->flags().testFlag(Qt::FramelessWindowHint),
                  "The design must be app content inside a standard LVRS window.");
         QVERIFY(window->property("solidChrome").toBool());
@@ -2638,9 +2904,200 @@ private slots:
         window->close();
     }
 
+    void panelsRevealApplicationWindowBackground_data()
+    {
+        QTest::addColumn<QSize>("size");
+        QTest::addColumn<bool>("mobile");
+        QTest::newRow("desktop") << QSize(1440, 900) << false;
+        QTest::newRow("mobile") << QSize(390, 844) << true;
+    }
+
+    void panelsRevealApplicationWindowBackground()
+    {
+        QFETCH(QSize, size);
+        QFETCH(bool, mobile);
+        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/panel-backgrounds-XXXXXX.societycontainer");
+        QVERIFY(iiSocietyContainer::SocietyDrive::create(fixture.path()));
+        QImage preview(80, 80, QImage::Format_RGB32); preview.fill(Qt::green);
+        QVERIFY(preview.save(fixture.filePath("Files/Preview.png")));
+        QVERIFY(writeCatalogModel(fixture.filePath("Models/Checkpoint/Fixture.safetensors"),
+                                  {{"architecture", "stable-diffusion-v1"}}));
+        QQmlApplicationEngine engine;
+        engine.addImageProvider(QStringLiteral("society-preview"), new iiSocietyContainer::PreviewProvider);
+        engine.addImportPath(QString::fromUtf8(SOCIETY_LVRS_QML_IMPORT_PATH));
+        engine.setInitialProperties({{"initialContainerPath", fixture.path()}, {"mobileLayout", mobile},
+            {"width", size.width()}, {"height", size.height()}, {"backgroundBlurEnabled", false},
+            {"windowBackgroundOpacity", 1.0}});
+        engine.load(QUrl::fromLocalFile(QString::fromUtf8(SOCIETY_QML_FILE)));
+        QCOMPARE(engine.rootObjects().size(), 1);
+        auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first()); QVERIFY(window);
+        QVERIFY(QTest::qWaitForWindowExposed(window));
+        const QStringList panels{"globalToolbarSurface", "dashboardSidebar", "driveSidebar",
+            "calendarMonthPanel", "calendarDetailPanel", "environmentView", "environmentAccountPanel"};
+        for (const auto &color : {QColor("#123447"), QColor("#452136")}) {
+            QVERIFY(window->setProperty("windowColor", color));
+            for (const auto &name : panels) {
+                auto *panel = visualItem(window->contentItem(), name); QVERIFY2(panel, qPrintable(name));
+                QCOMPARE(panel->property("color").value<QColor>().alpha(), 0);
+            }
+        }
+        const QString captureDirectory = qEnvironmentVariable("SOCIETY_PANEL_CAPTURE_DIR");
+        int checkedCards = 0;
+        const auto checkCards = [&](auto &&self, QQuickItem *item) -> bool {
+            if (item->metaObject()->indexOfProperty("imageCard") >= 0) {
+                auto *background = qvariant_cast<QQuickItem *>(item->property("background"));
+                if (!background) return false;
+                const auto state = item->property("displayState");
+                item->setProperty("displayState", 1); // LV.Card.DefaultState
+                const bool transparent = background->property("color").value<QColor>().alpha() == 0;
+                item->setProperty("displayState", state);
+                if (!transparent) { qWarning() << "Opaque card:" << item->objectName(); return false; }
+                ++checkedCards;
+            }
+            for (auto *child : item->childItems()) if (!self(self, child)) return false;
+            return true;
+        };
+        QVERIFY(checkCards(checkCards, window->contentItem()));
+        QVERIFY(checkedCards >= 8);
+        auto *toolCard = visualItem(window->contentItem(), "toolCard-model-merge"); QVERIFY(toolCard);
+        auto *toolBackground = qvariant_cast<QQuickItem *>(toolCard->property("background")); QVERIFY(toolBackground);
+        toolCard->setProperty("displayState", 2); // LV.Card.HoverState
+        QCOMPARE(toolBackground->property("color").value<QColor>(), toolCard->property("surfaceColor").value<QColor>());
+        toolCard->setProperty("displayState", 0);
+        const auto capture = [&](const QString &name) {
+            if (captureDirectory.isEmpty()) return true;
+            QTest::qWait(250);
+            return window->grabWindow().save(QDir(captureDirectory).filePath(
+                name + (mobile ? "-mobile.png" : "-desktop.png")));
+        };
+        QVERIFY(window->setProperty("windowColor", QColor("#0b0b0b")));
+        for (const auto &tab : {"Dashboard", "Storage", "Environment", "Tools"}) {
+            QVERIFY(window->setProperty("selectedTab", QString::fromLatin1(tab)));
+            QTest::qWait(150);
+            QVERIFY(capture(QString::fromLatin1(tab).toLower()));
+        }
+        auto *tools = visualItem(window->contentItem(), "toolsView"); QVERIFY(tools);
+        for (const auto &tool : {"model-merge", "model-packaging"}) {
+            QVERIFY(tools->setProperty("activeTool", QString::fromLatin1(tool)));
+            QTest::qWait(100);
+            const QStringList cardNames = QString::fromLatin1(tool) == "model-merge"
+                ? QStringList{"mergeInputPanel", "mergeSettingsPanel", "mergeOutputPanel", "mergeReviewPanel"}
+                : QStringList{"packagingSourcePanel", "packagingComponentsPanel", "packagingOutputPanel", "packagingSummaryPanel"};
+            for (const auto &name : cardNames) {
+                auto *card = visualItem(tools, name); QVERIFY2(card, qPrintable(name));
+                auto *background = qvariant_cast<QQuickItem *>(card->property("background")); QVERIFY(background);
+                QCOMPARE(background->property("color").value<QColor>().alpha(), 0);
+            }
+            QVERIFY(capture(QString::fromLatin1(tool)));
+        }
+        window->close();
+    }
+
+    void globalToolbarMatchesFigmaAndRoutesActions()
+    {
+        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/global-toolbar-XXXXXX.societycontainer");
+        QVERIFY(iiSocietyContainer::SocietyDrive::create(fixture.path()));
+        QQmlApplicationEngine engine;
+        engine.addImageProvider(QStringLiteral("society-preview"), new iiSocietyContainer::PreviewProvider);
+        QStringList warnings;
+        connect(&engine, &QQmlApplicationEngine::warnings, this, [&](const QList<QQmlError> &errors) {
+            for (const auto &error : errors) warnings.append(error.toString());
+        });
+        engine.addImportPath(QString::fromUtf8(SOCIETY_LVRS_QML_IMPORT_PATH));
+        engine.setInitialProperties({{"initialContainerPath", fixture.path()}, {"width", 1440}, {"height", 900}});
+        engine.load(QUrl::fromLocalFile(QString::fromUtf8(SOCIETY_QML_FILE)));
+        QCOMPARE(engine.rootObjects().size(), 1);
+        auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first()); QVERIFY(window);
+        QVERIFY(QTest::qWaitForWindowExposed(window));
+        auto *toolbar = window->findChild<QQuickItem *>("dashboardToolbar");
+        auto *surface = window->findChild<QQuickItem *>("globalToolbarSurface");
+        auto *tabs = window->findChild<QQuickItem *>("dashboardTabs");
+        auto *search = window->findChild<QQuickItem *>("dashboardSearch");
+        auto *searchIcon = window->findChild<QQuickItem *>("globalSearchIcon");
+        auto *notifications = window->findChild<QQuickItem *>("dashboardNotifications");
+        auto *account = window->findChild<QQuickItem *>("dashboardAccount");
+        auto *content = window->findChild<QQuickItem *>("societyContent");
+        auto *drive = window->findChild<DriveController *>("driveController");
+        auto *notice = window->findChild<QObject *>("dashboardNotice");
+        QVERIFY(toolbar && surface && tabs && search && searchIcon && notifications && account && content && drive && notice);
+        QTRY_COMPARE(toolbar->height(), 56.0);
+        QCOMPARE(surface->property("color").value<QColor>().alpha(), 0);
+        QTRY_COMPARE(tabs->size(), QSizeF(360, 29));
+        QTRY_VERIFY(qAbs(tabs->mapToItem(toolbar, QPointF()).x()
+            - window->property("nativeTitleBarControlsRect").toRectF().right() - 12.0) <= 0.5);
+        QTRY_COMPARE(search->width(), 300.0);
+        QCOMPARE(search->height(), 22.0);
+        QCOMPARE(search->mapToItem(toolbar, QPointF()), QPointF(1060, 17));
+        QCOMPARE(notifications->size(), QSizeF(22, 22));
+        QCOMPARE(notifications->mapToItem(toolbar, QPointF()), QPointF(1372, 17));
+        QCOMPARE(account->size(), QSizeF(22, 22));
+        QCOMPARE(account->mapToItem(toolbar, QPointF()), QPointF(1406, 17));
+        QCOMPARE(searchIcon->size(), QSizeF(12, 12));
+        QTRY_COMPARE(searchIcon->property("status").toInt(), 1); // Image.Ready
+        QVERIFY(searchIcon->property("source").toUrl().toString().endsWith("Toolbar/icons/search.svg"));
+        for (auto *button : {notifications, account}) {
+            auto *icon = visualItem(button, "iconButton_icon"); QVERIFY(icon);
+            QCOMPARE(icon->size(), QSizeF(18, 18));
+            QTRY_COMPARE(icon->property("status").toInt(), 1);
+            QCOMPARE(button->property("backgroundColor").value<QColor>().name(), QString("#313233"));
+        }
+        QVERIFY(notifications->property("resolvedIconSource").toUrl().toString().endsWith("Toolbar/icons/notifications.svg"));
+        QVERIFY(account->property("resolvedIconSource").toUrl().toString().endsWith("Toolbar/icons/account.svg"));
+        const auto click = [window](QQuickItem *item) {
+            QTest::mouseClick(window, Qt::LeftButton, Qt::NoModifier,
+                item->mapToScene(item->boundingRect().center()).toPoint());
+        };
+        for (const QString tab : {"Dashboard", "Tools", "Storage", "Browse", "Environment"}) {
+            auto *button = window->findChild<QQuickItem *>(tab.toLower() + "Tab"); QVERIFY(button);
+            click(button);
+            QTRY_COMPARE(window->property("selectedTab").toString(), tab);
+            QCOMPARE(toolbar->height(), 56.0);
+            QCOMPARE(button->property("backgroundColor").value<QColor>().name(), QString("#313233"));
+        }
+        QSignalSpy moves(window, SIGNAL(windowMoveAttempted(bool))); QVERIFY(moves.isValid());
+        click(search); QTest::keyClick(window, Qt::Key_Q);
+        QTRY_COMPARE(window->property("selectedTab").toString(), QString("Dashboard"));
+        QCOMPARE(search->property("text").toString(), QString("q"));
+        auto *clear = search->findChild<QQuickItem *>("dashboardSearch_clearButton"); QVERIFY(clear);
+        QTRY_VERIFY(clear->isVisible()); click(clear);
+        QTRY_COMPARE(search->property("text").toString(), QString());
+        click(notifications);
+        QTRY_VERIFY(notice->property("open").toBool());
+        QCOMPARE(notice->property("title").toString(), QString("Notifications"));
+        QCOMPARE(notice->property("message").toString(), QString("No new notifications."));
+        QVERIFY(notice->setProperty("open", false));
+        QVERIFY(!drive->navigate(fixture.filePath("Unavailable")));
+        QVERIFY(!drive->errorString().isEmpty());
+        click(notifications);
+        QTRY_VERIFY(notice->property("open").toBool());
+        QCOMPARE(notice->property("message").toString(), drive->errorString());
+        QVERIFY(notice->setProperty("open", false));
+        QVERIFY(drive->openSection("files"));
+        click(account);
+        auto *accountViews = window->findChild<QObject *>("accountViews"); QVERIFY(accountViews);
+        auto *accountPanel = accountViews->property("dialog").value<QObject *>(); QVERIFY(accountPanel);
+        QTRY_VERIFY(accountPanel->property("visible").toBool());
+        QVERIFY(QMetaObject::invokeMethod(accountPanel, "close"));
+        QTRY_VERIFY(!accountPanel->property("visible").toBool());
+        QCOMPARE(moves.count(), 0);
+        const auto captures = qEnvironmentVariable("SOCIETY_GLOBAL_TOOLBAR_CAPTURE_DIR");
+        if (!captures.isEmpty()) {
+            // Match the reference's populated Search state, including LVRS's clear affordance.
+            QVERIFY(search->setProperty("text", "Search"));
+            QVERIFY(QDir().mkpath(captures)); QTest::qWait(100);
+            QVERIFY(window->grabWindow().save(captures + "/desktop.png"));
+            auto grab = toolbar->grabToImage(); QVERIFY(grab);
+            QSignalSpy ready(grab.data(), &QQuickItemGrabResult::ready); QVERIFY(ready.wait(3000));
+            QVERIFY(grab->saveToFile(captures + "/toolbar.png"));
+            QVERIFY(search->setProperty("text", ""));
+        }
+        QVERIFY2(warnings.isEmpty(), qPrintable(warnings.join('\n')));
+        window->close();
+    }
+
     void toolbarSharesWindowControlsRow()
     {
-        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/toolbar-row-XXXXXX");
+        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/toolbar-row-XXXXXX.societycontainer");
         QVERIFY(iiSocietyContainer::SocietyDrive::create(fixture.path()));
         QQmlApplicationEngine engine;
         engine.addImageProvider(QStringLiteral("society-preview"), new iiSocietyContainer::PreviewProvider);
@@ -2661,6 +3118,15 @@ private slots:
         QTRY_COMPARE(toolbar->mapToScene(QPointF()).y(), 0.0);
         QCOMPARE(toolbar->height(), 56.0);
         QCOMPARE(window->property("windowDragHandleHeight").toReal(), toolbar->height());
+#ifdef Q_OS_MACOS
+        const bool nativeControls = QGuiApplication::platformName() == QStringLiteral("cocoa");
+        if (nativeControls) {
+            // Cached LVRS geometry alone cannot detect a later AppKit reflow.
+            QTest::qWait(100);
+            QTRY_VERIFY(!societyNativeTitleBarControlsRect(window).isEmpty());
+            QTRY_VERIFY(qAbs(societyNativeTitleBarControlsRect(window).center().y() - 28.0) <= 0.5);
+        }
+#endif
         QSignalSpy moves(window, SIGNAL(windowMoveAttempted(bool)));
         QVERIFY(moves.isValid());
         const auto center = [](QQuickItem *item) {
@@ -2670,9 +3136,21 @@ private slots:
             window->resize(size);
             QTRY_COMPARE(window->size(), size);
             QTRY_COMPARE(toolbar->width(), qreal(size.width()));
-            // Qt layouts round odd-height controls to the device pixel grid.
-            QTRY_VERIFY(qAbs(center(tabs).y() - 28.0) <= 0.5);
+            QTRY_VERIFY2(qAbs(center(tabs).y() - toolbar->height() * 0.5) <= 0.01,
+                         qPrintable(QString("Tab center %1, toolbar center %2")
+                             .arg(center(tabs).y()).arg(toolbar->height() * 0.5)));
             QTRY_VERIFY(qAbs(center(account).y() - 28.0) <= 0.5);
+#ifdef Q_OS_MACOS
+            if (nativeControls) {
+                QTRY_VERIFY(qAbs(societyNativeTitleBarControlsRect(window).center().y()
+                                 - center(tabs).y()) <= 0.5);
+                QTRY_VERIFY(qAbs(societyNativeTitleBarControlsRect(window).center().y()
+                                 - center(account).y()) <= 0.5);
+                qInfo().nospace() << "Toolbar alignment: width=" << size.width()
+                                 << ", native=" << societyNativeTitleBarControlsRect(window).center().y()
+                                 << ", tabs=" << center(tabs).y() << ", account=" << center(account).y();
+            }
+#endif
             QTRY_VERIFY(tabs->mapToScene(QPointF()).x()
                         >= window->property("nativeTitleBarControlsRect").toRectF().right());
             QTRY_VERIFY(account->mapToScene(QPointF(account->width(), 0)).x() <= size.width() - 12);
@@ -2695,6 +3173,11 @@ private slots:
         QCOMPARE(moves.count(), 0);
         window->resize(1440, 900);
         QTRY_COMPARE(toolbar->width(), 1440.0);
+        // Cocoa/Metal can update logical widths before presenting the resized
+        // scene. Send the drag to the geometry that has actually been drawn.
+        QSignalSpy frames(window, &QQuickWindow::frameSwapped);
+        window->requestUpdate();
+        QTRY_VERIFY(!frames.isEmpty());
         QTest::mouseClick(window, Qt::LeftButton, Qt::NoModifier, QPoint(600, 28));
         QCOMPARE(moves.count(), 1);
         window->close();
@@ -2702,7 +3185,7 @@ private slots:
 
     void dashboardKeepsStorageAndPromptState()
     {
-        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/dashboard-gui-XXXXXX");
+        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/dashboard-gui-XXXXXX.societycontainer");
         QVERIFY(iiSocietyContainer::SocietyDrive::create(fixture.path()));
         QVERIFY(QDir().mkpath(fixture.filePath("Files/Work")));
         QVERIFY(QDir().mkpath(fixture.filePath("Files/Folder.png")));
@@ -2909,7 +3392,7 @@ private slots:
 
     void environmentPagesPairingAndResponsiveLayout()
     {
-        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/environment-gui-XXXXXX");
+        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/environment-gui-XXXXXX.societycontainer");
         QVERIFY(iiSocietyContainer::SocietyDrive::create(fixture.path()));
         QQmlApplicationEngine engine;
         engine.addImageProvider(QStringLiteral("society-preview"), new iiSocietyContainer::PreviewProvider);
@@ -3088,7 +3571,7 @@ private slots:
 
     void preferencesDriveLocationAndWindowLifecycle()
     {
-        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/preferences-gui-XXXXXX");
+        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/preferences-gui-XXXXXX.societycontainer");
         QVERIFY(iiSocietyContainer::SocietyDrive::create(fixture.path()));
         QQmlApplicationEngine engine;
         engine.addImageProvider(QStringLiteral("society-preview"), new iiSocietyContainer::PreviewProvider);
@@ -3116,10 +3599,13 @@ private slots:
         QCOMPARE(preferences->property("primaryColor").value<QColor>(), QColor("#57965C"));
         auto *preferencesMaterial = preferences->findChild<QQuickItem *>("applicationWindowMaterial");
         QVERIFY(preferencesMaterial);
-        QCOMPARE(preferencesMaterial->property("color").value<QColor>(), QColor("#0B0B0B"));
-        QCOMPARE(preferencesMaterial->property("tintOpacity").toReal(), 0.5);
+        QCOMPARE(preferencesMaterial->property("color").value<QColor>(), QColor("#141414"));
+        QCOMPARE(preferencesMaterial->property("tintOpacity").toReal(), 0.66);
         QCOMPARE(preferencesMaterial->property("intenseOpacity").toReal(), 0.0);
         QCOMPARE(preferencesMaterial->property("faintOpacity").toReal(), 0.0);
+        auto *preferencesAccent = preferencesMaterial->findChild<QQuickItem *>("applicationWindowAccentOverlay");
+        QVERIFY(preferencesAccent);
+        QCOMPARE(preferencesAccent->opacity(), 0.04);
         QCOMPARE(preferencesMaterial->property("primaryColor").value<QColor>(), QColor("#57965C"));
         QCOMPARE(preferences->transientParent(), window);
         QCOMPARE(preferences->modality(), Qt::NonModal);
@@ -3132,7 +3618,7 @@ private slots:
         auto *apply = preferences->findChild<QQuickItem *>("applySocietyDrive");
         auto *current = preferences->findChild<QQuickItem *>("preferencesCurrentDrive");
         QVERIFY(location && apply && current);
-        QTemporaryDir other(SOCIETY_TEST_DIRECTORY "/preferences-other-XXXXXX");
+        QTemporaryDir other(SOCIETY_TEST_DIRECTORY "/preferences-other-XXXXXX.societycontainer");
         QVERIFY(iiSocietyContainer::SocietyDrive::create(other.path()));
         QVERIFY(location->setProperty("text", other.path()));
         QVERIFY(QMetaObject::invokeMethod(apply, "clicked"));
@@ -3193,8 +3679,9 @@ int main(int argc, char *argv[])
     lvrs::AppBootstrapOptions options;
     options.applicationName = QStringLiteral("SocietyDriveTests");
     options.quickStyleName = QStringLiteral("Basic");
-    options.bootstrapGraphicsBackend = false;
-    options.configureRenderQualityDefaults = false;
+    const bool useApplicationRendering = qEnvironmentVariableIntValue("SOCIETY_TEST_APPLICATION_RENDERING") == 1;
+    options.bootstrapGraphicsBackend = useApplicationRendering;
+    options.configureRenderQualityDefaults = useApplicationRendering;
     options.logBootstrapDiagnostics = false;
     options.logGraphicsBackend = false;
     if (!lvrs::preApplicationBootstrap(options).ok)
@@ -3202,11 +3689,11 @@ int main(int argc, char *argv[])
     QGuiApplication app(argc, argv);
     QCoreApplication::setOrganizationName(QStringLiteral("iisacc.tests"));
     QCoreApplication::setOrganizationDomain(QStringLiteral("iisacc.com"));
-    QTemporaryDir settings(SOCIETY_TEST_DIRECTORY "/drive-settings-XXXXXX");
+    QTemporaryDir settings(SOCIETY_TEST_DIRECTORY "/drive-settings-XXXXXX.societycontainer");
     if (!settings.isValid()) return 1;
     qputenv("SOCIETY_STORAGE_SETTINGS_PATH", settings.filePath("storage.json").toUtf8());
     qputenv("SOCIETY_CALENDAR_DIRECTORY", settings.filePath("calendar").toUtf8());
-    qputenv("IISOCIETY_FILE_CACHE_DIRECTORY", settings.filePath("file-cache").toUtf8());
+    qunsetenv("IISOCIETY_FILE_CACHE_DIRECTORY"); // Each selected package owns its private cache.
     qunsetenv("SOCIETY_CONTAINER_PATH");
     lvrs::postApplicationBootstrap(app, options);
     SocietyDriveTest test;

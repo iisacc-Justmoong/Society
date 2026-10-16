@@ -1,9 +1,9 @@
+#include <iiFileProviderDevice.h>
 #include "ModelMergeController.h"
 #include "MergeModelCatalog.h"
 
 #include <QClipboard>
 #include <QDesktopServices>
-#include <QDir>
 #include <QFileInfo>
 #include <QFile>
 #include <QGuiApplication>
@@ -12,6 +12,7 @@
 #include <QJsonObject>
 #include <QLocale>
 #include <QStandardPaths>
+#include <SharedStorage.h>
 #include <QUuid>
 #include <cmath>
 #if defined(SOCIETY_MODEL_MERGE_PROCESS) && defined(Q_OS_UNIX)
@@ -23,10 +24,10 @@ QString pathFromText(QString text)
 {
     text = text.trimmed();
     if (text.startsWith("file:")) text = QUrl(text).toLocalFile();
-    if (text == "~") text = QDir::homePath();
-    else if (text.startsWith("~/")) text = QDir::home().filePath(text.mid(2));
-    if (text.isEmpty() || !QDir::isAbsolutePath(text)) return {};
-    return QDir::cleanPath(text);
+    if (text == "~") text = iiFileProvider::Directory::homePath();
+    else if (text.startsWith("~/")) text = iiFileProvider::Directory::home().filePath(text.mid(2));
+    if (text.isEmpty() || !iiFileProvider::Directory::isAbsolutePath(text)) return {};
+    return iiFileProvider::Directory::cleanPath(text);
 }
 
 QString executable(QString value)
@@ -55,6 +56,19 @@ bool weightValue(const QVariant &value, QString &argument)
     const double number = locale.toDouble(value.toString().trimmed(), &ok);
     if (!ok || !std::isfinite(number) || number < 0) return false;
     argument = QString::number(number, 'g', 17);
+    return true;
+}
+bool confinedOutput(const QString &root, const QString &path)
+{
+    const auto relative = iiFileProvider::Directory(root).relativeFilePath(path);
+    if (relative.isEmpty() || relative == "." || relative == ".." || relative.startsWith("../")
+        || iiFileProvider::Directory::isAbsolutePath(relative)) return false;
+    auto parent = root;
+    for (const auto &part : relative.split('/')) {
+        parent = iiFileProvider::Directory(parent).filePath(part);
+        const QFileInfo info(parent);
+        if (info.isSymLink() || info.isJunction() || (info.exists() && parent != path && !info.isDir())) return false;
+    }
     return true;
 }
 }
@@ -94,6 +108,9 @@ ModelMergeController::~ModelMergeController()
         }
     }
 #endif
+    if (!m_temporaryWorkspace.isEmpty()) iiFileProvider::Directory(m_temporaryWorkspace).removeRecursively();
+    m_temporaryLease.reset();
+    m_outputLease.reset();
 }
 
 bool ModelMergeController::supported() const
@@ -109,11 +126,11 @@ QString ModelMergeController::defaultExecutable() const
 {
     const auto override = executable(qEnvironmentVariable("SOCIETY_MODEL_MERGE_EXECUTABLE"));
     if (!override.isEmpty()) return override;
-    QStringList candidates{QDir(QCoreApplication::applicationDirPath()).filePath("iild-merge")};
+    QStringList candidates{iiFileProvider::Directory(QCoreApplication::applicationDirPath()).filePath("iild-merge")};
 #ifdef SOCIETY_MODEL_MERGE_EXECUTABLE
     candidates.append(QString::fromUtf8(SOCIETY_MODEL_MERGE_EXECUTABLE));
 #endif
-    candidates.append(QDir::home().filePath(".local/SDK/iiLocalDiffusion/bin/iild-merge"));
+    candidates.append(iiFileProvider::Directory::home().filePath(".local/SDK/iiLocalDiffusion/bin/iild-merge"));
     candidates.append("iild-merge");
     for (const auto &candidate : candidates) {
         const auto result = executable(candidate);
@@ -143,7 +160,7 @@ QString ModelMergeController::outputPathForName(const QString &name, const QStri
     const auto base = pathFromText(baseModel);
     const bool packageOutput = mode == "unified" || (QFileInfo(base).isDir()
         && QFileInfo(base).suffix().compare("iildmodel", Qt::CaseInsensitive) == 0);
-    return QDir(parent).filePath(stem + (packageOutput ? ".iildmodel" : ".safetensors"));
+    return iiFileProvider::Directory(parent).filePath(stem + (packageOutput ? ".iildmodel" : ".safetensors"));
 }
 
 bool ModelMergeController::fail(const QString &message)
@@ -209,6 +226,9 @@ bool ModelMergeController::run(const QVariantMap &options, bool validateOnly)
     if (requested.isEmpty()) return fail(tr("Enter an output model name before checking or merging models."));
     const auto output = pathFromText(requested);
     if (output.isEmpty()) return fail(tr("Enter an absolute local output path."));
+    QString storageError;
+    const auto storage = iiSocietyContainer::SharedStorage::open(options.value("containerPath").toString(), &storageError, true);
+    if (!storage) return fail(storageError.isEmpty() ? tr("Select a Society container before merging models.") : storageError);
     const auto suffix = QFileInfo(output).suffix().toLower();
     const bool packageOutput = mode == "unified" || (QFileInfo(base).isDir()
         && QFileInfo(base).suffix().compare("iildmodel", Qt::CaseInsensitive) == 0);
@@ -216,13 +236,48 @@ bool ModelMergeController::run(const QVariantMap &options, bool validateOnly)
         return fail(packageOutput ? tr("This package merge requires an .iildmodel output.")
                                   : tr("Weighted checkpoint arithmetic requires a .safetensors output."));
     if (QFileInfo::exists(output) || QFileInfo(output).isSymLink()) return fail(tr("The output already exists. Choose a new model name. Original models are always kept."));
+    if (!confinedOutput(storage->drive().rootPath(), output))
+        return fail(tr("Save merged models inside the selected Society container."));
     const auto cacheText = options.value("cacheDirectory").toString().trimmed();
-    const auto cache = cacheText.isEmpty() ? QDir(QStandardPaths::writableLocation(QStandardPaths::CacheLocation)).filePath("model-merge") : pathFromText(cacheText);
-    if (cache.isEmpty()) return fail(tr("Enter an absolute local conversion cache path."));
-    arguments << "--output" << output << "--cache-dir" << cache;
+    const auto cache = cacheText.isEmpty() ? storage->runtimePath(QStringLiteral("cache/model-merge"), &storageError) : pathFromText(cacheText);
+    const auto runtimeRoot = storage->runtimePath({}, &storageError);
+    const auto cacheRelative = runtimeRoot.isEmpty() ? QString() : iiFileProvider::Directory(runtimeRoot).relativeFilePath(cache);
+    if (cache.isEmpty() || cacheRelative.isEmpty() || storage->runtimePath(cacheRelative, &storageError) != cache)
+        return fail(tr("Keep the conversion cache inside the selected Society container's runtime directory."));
+    const auto workspaceBase = cacheText.isEmpty() ? QStringLiteral("tmp") : cacheRelative;
+    const auto workspaceRelative = workspaceBase + QStringLiteral("/.society-model-merge-") + QUuid::createUuid().toString(QUuid::WithoutBraces);
+    const auto workspace = storage->runtimePath(workspaceRelative, &storageError);
+    if (workspace.isEmpty()) return fail(storageError);
+    arguments << "--output" << output << "--cache-dir" << iiFileProvider::Directory(workspace).filePath("cache");
     if (validateOnly) arguments << "--inspect";
 #ifdef SOCIETY_MODEL_MERGE_PROCESS
     auto environment = QProcessEnvironment::systemEnvironment();
+    {
+        const auto parent = storage->ensureRuntimeDirectory(workspaceBase, &storageError);
+        if (parent.isEmpty()) return fail(storageError);
+        try {
+            m_temporaryLease = std::make_unique<iiFileProvider::TemporaryLease>(
+                std::filesystem::path(parent.toStdString()), iiFileProvider::TemporaryLease::Mode::Shared);
+        } catch (const std::exception &error) { return fail(QString::fromUtf8(error.what())); }
+        if (!iiFileProvider::Directory().mkdir(workspace)) { m_temporaryLease.reset(); return fail(tr("Cannot prepare the model merge workspace.")); }
+        m_temporaryWorkspace = workspace;
+        if (!validateOnly) {
+            if (!iiFileProvider::Directory().mkpath(QFileInfo(output).absolutePath())) {
+                iiFileProvider::Directory(workspace).removeRecursively(); m_temporaryWorkspace.clear(); m_temporaryLease.reset();
+                return fail(tr("Cannot prepare the model output directory."));
+            }
+            try {
+                m_outputLease = std::make_unique<iiFileProvider::TemporaryLease>(
+                    std::filesystem::path(QFileInfo(output).absolutePath().toStdString()), iiFileProvider::TemporaryLease::Mode::Shared);
+            } catch (const std::exception &error) {
+                iiFileProvider::Directory(workspace).removeRecursively(); m_temporaryWorkspace.clear(); m_temporaryLease.reset();
+                return fail(QString::fromUtf8(error.what()));
+            }
+        }
+        for (const auto &variable : {"TMPDIR", "TEMP", "TMP", "HF_HOME", "HF_HUB_CACHE", "TRANSFORMERS_CACHE", "TORCH_HOME", "XDG_CACHE_HOME"})
+            environment.insert(QString::fromLatin1(variable), workspace);
+    }
+    environment.insert("PYTHONDONTWRITEBYTECODE", "1");
     if (!python.isEmpty()) environment.insert("IILD_PYTHON_EXECUTABLE", python);
     else environment.remove("IILD_PYTHON_EXECUTABLE");
     environment.insert("PYTHONUNBUFFERED", "1");
@@ -265,8 +320,10 @@ bool ModelMergeController::inspectInputs(QVariantMap options)
     // A unique prospective name also avoids rejecting inspection after a merge.
     const auto base = options.value("baseModel").toString();
     const auto mode = options.value("mode", "weighted-sum").toString();
+    const auto storage = iiSocietyContainer::SharedStorage::open(options.value("containerPath").toString(), nullptr, true);
+    if (!storage) return fail(tr("Select a Society container before inspecting models."));
     options["output"] = outputPathForName("inspection-" + QUuid::createUuid().toString(QUuid::WithoutBraces),
-        QFileInfo(base).absolutePath(), mode, base);
+        storage->runtimePath(QStringLiteral("tmp")), mode, base);
     return run(options, true);
 }
 
@@ -294,7 +351,7 @@ void ModelMergeController::finish(int exitCode, bool crashed)
     bool success = exitCode == 0 && !crashed && m_error.isEmpty() && document.isObject();
     if (success && !m_validationOnly)
         success = document.object().value("schema").toString() == "iild-model-merge-v1"
-            && QDir::fromNativeSeparators(document.object().value("output").toString()) == m_requestedOutput
+            && iiFileProvider::Directory::fromNativeSeparators(document.object().value("output").toString()) == m_requestedOutput
             && (QFileInfo(m_requestedOutput).isFile() || (QFileInfo(m_requestedOutput).isDir()
                 && QFileInfo(m_requestedOutput).suffix().compare("iildmodel", Qt::CaseInsensitive) == 0));
     if (success && !m_validationOnly
@@ -305,18 +362,18 @@ void ModelMergeController::finish(int exitCode, bool crashed)
     if (success) {
         auto normalized = document.object();
         for (const auto &key : {"output", "base_model", "cache_dir"})
-            if (normalized.value(key).isString()) normalized[key] = QDir::fromNativeSeparators(normalized.value(key).toString());
+            if (normalized.value(key).isString()) normalized[key] = iiFileProvider::Directory::fromNativeSeparators(normalized.value(key).toString());
         for (const auto &key : {"additional_models", "compatibility_models", "resolved_sources"}) {
             if (!normalized.contains(key)) continue;
             auto paths = normalized.value(key).toArray();
             for (qsizetype index = 0; index < paths.size(); ++index)
-                if (paths[index].isString()) paths[index] = QDir::fromNativeSeparators(paths[index].toString());
+                if (paths[index].isString()) paths[index] = iiFileProvider::Directory::fromNativeSeparators(paths[index].toString());
             normalized[key] = paths;
         }
         auto sources = normalized.value("sources").toArray();
         for (qsizetype index = 0; index < sources.size(); ++index) {
             auto source = sources[index].toObject();
-            if (source.value("path").isString()) source["path"] = QDir::fromNativeSeparators(source.value("path").toString());
+            if (source.value("path").isString()) source["path"] = iiFileProvider::Directory::fromNativeSeparators(source.value("path").toString());
             sources[index] = source;
         }
         if (normalized.contains("sources")) normalized["sources"] = sources;
@@ -367,6 +424,12 @@ void ModelMergeController::finish(int exitCode, bool crashed)
         m_status = tr("Model merge failed");
     }
     if (!m_stderr.isEmpty()) m_details += "\n" + QString::fromUtf8(m_stderr);
+    if (!m_temporaryWorkspace.isEmpty()) {
+        iiFileProvider::Directory(m_temporaryWorkspace).removeRecursively();
+        m_temporaryWorkspace.clear();
+    }
+    m_temporaryLease.reset();
+    m_outputLease.reset();
     m_cancelled = false;
     emit elapsedChanged(); emit changed(); emit finished(success, m_validationOnly);
 }

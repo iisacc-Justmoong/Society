@@ -1,6 +1,6 @@
 # 유형별 모델 보관
 
-Society는 iiSocietyContainer의 `ModelStore`를 사용해 `Models/`를 23개 유형 디렉터리로 관리한다. Storage → Models도 같은 23개 유형을 같은 순서로 표시한다. 유형 이름과 순서는 SDK `allModelTypes()` → `StorageModelCatalog.categories`를 공유하며 화면에 별도 분류표를 두지 않는다.
+Society는 iiSocietyContainer의 `ModelStore`를 사용해 `Models/`를 23개 유형으로 관리한다. 새 저장소에는 사용하지 않는 빈 유형 폴더를 미리 생성하지 않으며, 가져오기나 실제 모델 이동이 필요할 때 선택한 유형 폴더만 생성한다. Storage → Models는 폴더의 존재 여부와 관계없이 같은 23개 유형을 같은 순서로 표시한다. 유형 이름과 순서는 SDK `allModelTypes()` → `StorageModelCatalog.categories`를 공유하며 화면에 별도 분류표를 두지 않는다.
 
 - Checkpoint부터 Other까지 아래 23개 유형 순서로 표시한다. Image·Video·Audio·Language 미디어 그룹은 사용하지 않는다. 사이드바는 228 px, 콘텐츠 여백은 24 px, 각 제목 행은 60 px이다. `LV.Card.Model`은 256×280 px이고 카드 간격은 8 px, 제목과 목록 및 카테고리 사이 간격은 24 px다. 빈 유형은 44 px 안내 행으로 표시한다.
 - 사이드바는 [Figma 39:1275의 네 그룹과 탐색 객체](StorageNavigation.md)를 사용한다. My storage 제목 아래 Models 행이 현재 선택을 표시하며 모델 콘텐츠 좌표는 그대로 유지한다.
@@ -9,7 +9,7 @@ Society는 iiSocietyContainer의 `ModelStore`를 사용해 `Models/`를 23개 �
 - `StorageModels`는 SDK `StorageModelCatalog`의 QML 등록용 래퍼이다. 파일 조회와 분류는 SDK 작업 스레드에서 실행한다. 호스트 맵이 없는 로컬 전용 저장소도 실제 유형 폴더를 사용한다. 유형 폴더 밖의 항목은 정리 전까지 Other에 표시한다. `society.modality`는 분류를 덮어쓰지 않는다. 카탈로그 감시는 Models와 내부 메타데이터 디렉터리 두 곳으로 제한하고 30초 폴백 갱신을 둔다.
 - 미보유 모델 카드를 누르면 그 파일 또는 패키지만 다운로드하며 카드에 진행 상태를 표시한다. Open은 검증된 다운로드 완료 후 파일을 열거나 패키지로 이동한다. 목록 조회·새로고침은 원본 요청을 만들지 않는다. 숨겨진 파일 그리드는 폴더 조회를 중단한다.
 - 일반 터치는 모델 선택·다운로드만 실행한다. 우클릭 메뉴 처리는 마우스·터치패드로 제한하고, 터치 화면의 메뉴는 길게 누르기 또는 메뉴 버튼으로 연다. 단일 터치 뒤 의도하지 않은 메뉴가 다음 탭 이동을 막지 않는지 실제 터치 이벤트로 검사한다.
-- 하단 `Society / Models`를 누르면 기존 23개 폴더와 미분류 모델을 탐색할 수 있다. 사이드바 Models를 누르면 유형별 목록으로 돌아온다. 각 Import models… 버튼은 기존 자동 분류 가져오기를 연다. 가져오기 형식과 원본 보존 정책은 아래 계약을 유지한다.
+- 하단 `Society / Models`를 누르면 실제 존재하는 유형 폴더와 미분류 모델을 탐색할 수 있다. 사이드바 Models를 누르면 유형별 목록으로 돌아온다. 각 Import models… 버튼은 기존 자동 분류 가져오기를 연다. 가져오기 형식과 원본 보존 정책은 아래 계약을 유지한다.
 - 모델 추가·삭제·수정, 가져오기·정리 완료 및 화면 재진입 시 목록을 갱신한다. 바뀌지 않은 스냅샷은 갱신 신호를 내보내지 않으며, 실제 변경 시에도 선택·키보드 탐색 항목을 경로로 찾아 복원한다. 카테고리별 가로 스크롤과 페이지 세로 스크롤을 함께 유지하고, 카드 재배치 중 포커스가 카메라를 이동시키지 않는다. 연속 변경은 최초 저장한 위치로 합치며 컨테이너 전환은 이전 비동기 결과를 폐기한다.
 
 `modelCatalogUsesHostIdentificationBeforeLocalHeaders`는 호스트 식별 정보를 원본 헤더보다 우선하는지 검사한다. SDK `shared_storage`는 8,000개 원격 항목의 비동기 조회, 폴더 전환의 오래된 결과 폐기, 미선택 원본 부재와 선택 파일의 버전 고정 요청을 검사한다. iOS `testModelsShowsMetadataAndRemainsResponsive`와 `testModelsDownloadsOnlyTheTappedCard`는 설치 앱의 Models 진입·재탐색과 카드 선택을 검사한다. 두 테스트 사이에 App Group 원본 부재를, 선택 뒤 파일 해시와 미선택 원본 부재를 별도 검증한다.
@@ -22,7 +22,9 @@ Society는 iiSocietyContainer의 `ModelStore`를 사용해 `Models/`를 23개 �
 
 `Checkpoint`, `Embedding`, `Hypernetwork`, `Aesthetic Gradient`, `LoRA`, `LyCORIS`, `DoRA`, `Controlnet`, `Upscaler`, `Motion`, `VAE`, `Text Encoder`, `UNet`, `CLIP Vision`, `Poses`, `Wildcards`, `Workflows`, `ComfyUI Workflows`, `Detection`, `VLM`, `CLIP`, `LLM`, `Other`를 제공한다. **Storage → Models**에서 각 폴더를 탐색한다. Finder·파일 앱에는 기존처럼 `Files/`만 공개된다.
 
-컨테이너를 열면 `ModelImporter`가 작업 스레드에서 누락된 유형 폴더를 생성하고 기존 미분류 모델을 정리한다. SDK가 모델 헤더·설정·부속 메타데이터로 유형을 판정하며 근거가 없으면 **Other**로 보관한다. 이미 유형 폴더에 있는 모델은 사용자의 배치를 유지한다. 새 `.safetensor`/`.safetensors` 가져오기는 유형을 판정한 뒤 완성된 복사본을 해당 폴더에 게시하고 원본 파일은 보존한다. 가져오기 중 동일 이름 충돌은 새 번호를 붙여 처리한다.
+컨테이너를 열면 `ModelImporter`가 작업 스레드에서 기존 미분류 모델을 정리한다. 비어 있는 Models에는 유형 폴더를 추가하지 않는다. SDK가 모델 헤더·설정·부속 메타데이터로 유형을 판정하며 근거가 없으면 **Other**로 보관한다. 이미 유형 폴더에 있는 모델과 기존 빈 유형 폴더는 사용자의 배치를 유지한다. 새 `.safetensor`/`.safetensors` 가져오기는 유형을 판정한 뒤 해당 유형 폴더를 준비하여 완성된 복사본을 게시하고 원본 파일은 보존한다. 가져오기 중 동일 이름 충돌은 새 번호를 붙여 처리한다.
+
+가져오기는 `iiFileProvider::TemporaryLease`로 Models의 임시 복사본을 생성 전부터 게시·삭제 완료까지 보호한다. SDK의 시작 시·5분 간격 정리는 활성 가져오기를 건너뛰고 비정상 종료 뒤 남은 `.society-import-*` 파일을 즉시 삭제한다. 0바이트 `.iisacc-temporary.lock`은 잠금 식별을 유지하는 SDK 내부 파일이다. 잠금 경로가 링크로 바뀌면 원본과 기존 모델을 보존한 채 가져오기를 거부하며 `Society.ModelImport`가 이 동작을 검사한다.
 
 Anima 원본·파생 모델은 내부 확산 네트워크·LLM 어댑터·입출력 행렬의 조합과 차원을 검사하여 **Checkpoint**로 분류한다. 텍스트 인코더·VAE가 포함된 통합본도 동일하게 처리하며, Anima LoRA는 LoRA로 구분한다. 기존 `Other` 항목은 컨테이너를 다시 열거나 정리를 실행하면 이동 기록을 남기고 재분류한다. 이미 다른 명시적 유형 폴더에 놓인 항목은 내부 판정 확인 후 SDK의 명시적 `place()`로 수정한다.
 
@@ -73,3 +75,20 @@ Storage Models의 최초 조회만 로딩 문구를 표시한다. 이후 컨테�
 VAE 등 가중치 유형 폴더에서는 지원하는 가중치 확장자의 파일과 모델 패키지만 카드로 표시한다. README·LICENSE·NOTICE·독립 설정 JSON은 모델 카드에서 제외하며 원본은 삭제하거나 이동하지 않는다. Wildcards의 텍스트, Workflows·Poses의 JSON/이미지, Other의 미분류 파일은 각 용도에 맞게 유지한다. 동일 기준을 SDK의 로컬 조회와 다운로드 전 원격 카탈로그 조회에 적용한다.
 
 모델 가져오기 동안 영구 상태 및 취소 컨트롤 은 모델 스크롤 영역 위에 유지됩니다. 대형 체크포인트 복사 는 따라서 모든 카테고리 스크롤 위치에서 진행 상황을 노출합니다. Krea2 분류는 iiSocietyContainer 에서 제공되며 이전에 가져온 Krea2 가중치는 Other 에서 컨테이너 열 때 재구성됩니다. 로컬 safetensors 소스는 복사 전에 구조적으로 유효성 검사를 거치고, 공급자 복사는 게시 전에 유효성 검사를 거칩니다. 단축 다운로드 는 명시적인 재시도 후 다운로드 오류를 보고하며, 결코 모델 행이 되지 않습니다. 테스트 는 실제 safetensors 프레임을 사용합니다. 공식 호스트 에서 새로 가져온 카테고리 파일 은 동기화 해싱이 완료되기 전에 표시됩니다; 동기화 메타데이터 및 패키지 탐색 은 가져오기 완료와 독립적으로 유지됩니다. 리플라 탐색 은 여전히 호스트의 카탈로그를 사용합니다.
+
+Model Packaging output is confined to a writable public section of the selected `.societycontainer`. Inputs may be read from an external model folder. A rejected external output does not create its parent directory. Requested relative output folders below `Models`, including the default `Checkpoint`, are created lazily through `SharedStorage::ensureDirectory` only when packaging starts, after confinement checks. Missing output parents in other public sections remain errors.
+
+Packaging writes its verified intermediate output in a leased `.society-runtime/tmp/.society-model-package-<UUID>/` workspace, publishes it without overwriting an existing destination, and removes the workspace after success, failure or cancellation.
+
+
+## 모델 작업의 컨테이너 경계
+
+모델 병합의 입력은 사용자가 선택한 기존 파일을 읽을 수 있으나, 생성 결과는 현재 선택한 유효 `.societycontainer` 안에만 저장한다. 외부 출력과 링크로 우회된 출력 부모는 시작 전에 거부한다. 변환 캐시 위치를 지정하면 `.society-runtime` 내부 경로만 허용하며, 그 부모 아래에 개별 `.society-model-merge-<UUID>/cache` 작업공간을 사용한다. 기본 작업공간은 `.society-runtime/tmp`이다. 검사 작업도 같은 임시 공간을 사용한다. 모든 작업공간은 프로세스 종료 직후 제거하며 완성 모델과 입력 원본은 유지한다.
+
+병합과 패키징의 출력 폴더는 LVRS 내부 입력 창에서 `Models/` 아래의 상대 경로로 지정한다. `Checkpoint`를 기본 입력으로 사용하며 `Checkpoint/Blends` 같은 하위 폴더도 지정할 수 있다. 이미 선택된 유형 폴더는 입력 창에 그대로 표시한다. 절대 경로·상위 경로·드라이브 경로는 입력 단계에서 거부하고 외부 폴더를 만들 수 있는 OS 출력 선택기는 열지 않는다. 폴더는 입력 창을 닫을 때 만들지 않으며, 실제 작업 시작 시 기존 C++ 컨테이너 경계 검증을 통과한 출력 부모만 준비한다. 원본 파일과 모델 폴더를 읽는 OS 입력 선택기는 유지한다.
+
+선택 컨테이너의 `modelsDirectory`가 바뀌면 진행 중 병합·검사·패키징을 취소하고 임시 작업공간을 정리한다. 이전 절대 출력 폴더와 출력 입력 창을 초기화하며 새 컨테이너의 기본 모델 경로를 사용한다.
+
+자식 Python 프로세스의 임시 파일과 HF·Torch·XDG 캐시도 작업공간 내부로 지정하고 Python 바이트코드 디스크 생성을 끈다. 사용자 자료 경로의 임의 `.tmp`·`.log` 파일은 정리 대상으로 추측하지 않는다.
+
+병합 패널 UI 검사는 격리된 테스트 컨테이너의 비동기 모델 목록을 최대 15초 동안 기다린 뒤 편집과 반응형 탐색을 검사한다. 병렬 SDK·GUI 회귀 검사의 파일 조회 시간은 제품의 연산 성공 조건과 구분하며, 제한 시간 안에 목록이 준비되지 않으면 실패한다.

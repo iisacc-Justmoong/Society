@@ -1,7 +1,7 @@
+#include <iiFileProviderDevice.h>
 #include "PhotoLibrary.h"
 #include <QCoreApplication>
 #include <QDesktopServices>
-#include <QFile>
 #include <QFileInfo>
 #include <QDir>
 #include <QHash>
@@ -210,7 +210,7 @@ public:
             if (!valid || index < 0 || NSUInteger(index) >= resources.count) return failure(error, @"The photo resource changed.");
             PHAssetResourceRequestOptions *options = [PHAssetResourceRequestOptions new];
             options.networkAccessAllowed = YES;
-            struct Output { QMutex mutex; QFile file; bool cancelled = false, failed = false; explicit Output(const QString &path) : file(path) {} };
+            struct Output { QMutex mutex; iiFileProvider::FileDevice file; bool cancelled = false, failed = false; explicit Output(const QString &path) : file(path) {} };
             const auto output = std::make_shared<Output>(destination); const auto reply = std::make_shared<NativeReply>();
             if (!output->file.open(QIODevice::WriteOnly | QIODevice::NewOnly)) return failure(error, @"Could not stage the photo original.");
             const auto request = [[PHAssetResourceManager defaultManager] requestDataForAssetResource:resources[index] options:options
@@ -241,9 +241,9 @@ public:
                     const auto nativeRole = role(native[i].type); if (nativeRole.isEmpty()) continue;
                     if (index >= resources.size() || resources[index].toObject().value("role") != nativeRole) break;
                     const auto path = QFileInfo(paths.first()).dir().filePath("verify-" + QUuid::createUuid().toString(QUuid::WithoutBraces));
-                    if (!exportResource(identifier, QString::number(i), path, error)) { QFile::remove(path); return {}; }
-                    QFile file(path); QCryptographicHash digest(QCryptographicHash::Sha256);
-                    const bool read = file.open(QIODevice::ReadOnly) && digest.addData(&file); file.close(); QFile::remove(path);
+                    if (!exportResource(identifier, QString::number(i), path, error)) { iiFileProvider::FileDevice::remove(path); return {}; }
+                    iiFileProvider::FileDevice file(path); QCryptographicHash digest(QCryptographicHash::Sha256);
+                    const bool read = file.open(QIODevice::ReadOnly) && digest.addData(&file); file.close(); iiFileProvider::FileDevice::remove(path);
                     if (!read || QString::fromLatin1(digest.result().toHex()) != resources[index].toObject().value("hash").toString()) break;
                     ++index;
                 }

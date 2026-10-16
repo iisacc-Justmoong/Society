@@ -1,1 +1,1 @@
-// Implementation moved to SDK/iiSocietyClient/AppleStateLocation.mm.
+// Implementation moved to SDK/iiSocietyHelper/src/iiSocietyHelper/AppleStateLocation.mm.

@@ -1,4 +1,5 @@
 #include "SocietyRuntime.h"
+#include "ContainerRuntimePath.h"
 #include <QCoreApplication>
 
 SocietyRuntime::SocietyRuntime(bool embeddedReceiver, const iiSocietyHelper::ObservationOptions &options, QObject *parent)
@@ -23,6 +24,16 @@ void SocietyRuntime::setApplicationState(Qt::ApplicationState state)
 }
 void SocietyRuntime::reconcile()
 {
+    const auto directory = m_options.directory.isEmpty() ? iiSocietyHelper::Helper::defaultDirectory() : m_options.directory;
+    if (!societyContainerRuntimePath(directory)) {
+        m_helper.stop(); m_inbox.stop(); m_receiver.stop(); return;
+    }
+    if (m_options.directory.isEmpty() && m_helper.isRunning()
+        && m_helper.directory() != iiSocietyHelper::Helper::defaultDirectory()) {
+        m_helper.stop();
+        m_inbox.stop();
+        m_receiver.stop();
+    }
     if (!m_helper.isRunning()) {
         m_inbox.stop();
         m_receiver.stop();

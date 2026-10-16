@@ -6,7 +6,7 @@ Rectangle {
     id: root
     property string title: ""
     default property alias contents: content.data
-    color: LV.Theme.panelBackground04
+    color: "transparent"
     border.color: LV.Theme.panelBackground10
     radius: 10
     implicitHeight: content.implicitHeight + 24

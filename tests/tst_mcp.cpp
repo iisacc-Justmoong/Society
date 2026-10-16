@@ -34,15 +34,16 @@ struct AppProcess : QProcess {
         for (const auto* name : {"DYLD_LIBRARY_PATH", "DYLD_FRAMEWORK_PATH", "DYLD_FALLBACK_LIBRARY_PATH", "QML_IMPORT_PATH", "QML2_IMPORT_PATH"}) env.remove(name);
         env.insert("SOCIETY_HELPER_DIRECTORY", base + "/helper");
         env.insert("SOCIETY_STORAGE_SETTINGS_PATH", base + "/storage.json");
-        env.insert("SOCIETY_CONTAINER_PATH", base + "/container");
+        env.insert("SOCIETY_CONTAINER_PATH", base + "/container.societycontainer");
         env.insert("SOCIETY_DISABLE_SESSION_RESTORE", "1");
+        env.insert("SOCIETY_DISABLE_NATIVE_DRIVE", "1");
         env.insert("IILOCALLLM_APP_ENDPOINTS", base + "/apps");
         env.insert("IILOCALLLM_DISABLE_APP_MCP", enabled ? "0" : "1");
         env.insert("QT_QPA_PLATFORM", "offscreen"); env.insert("QT_QUICK_BACKEND", "software");
         env.insert("QML_DISABLE_DISK_CACHE", "1");
         setProcessEnvironment(env); setProcessChannelMode(MergedChannels); setWorkingDirectory(base);
         logPath = base + "/app.log";
-        start(MCP_APP_EXECUTABLE, QStringList{"--container", base + "/container"} + links);
+        start(MCP_APP_EXECUTABLE, QStringList{"--container", base + "/container.societycontainer"} + links);
     }
     bool waitForRoot() {
         QElapsedTimer timer; timer.start();
@@ -107,23 +108,27 @@ class McpTests : public QObject {
 private slots:
     void historyApplicationLinkOpensStorage() {
         QTemporaryDir base(MCP_TEST_DIRECTORY "/mcp-history-link-XXXXXX"); QVERIFY(base.isValid());
-        QVERIFY(QDir().mkpath(base.filePath("container")));
-        QVERIFY(iiSocietyContainer::SocietyDrive::create(base.filePath("container")));
+        QVERIFY(QDir().mkpath(base.filePath("container.societycontainer")));
+        QVERIFY(iiSocietyContainer::SocietyDrive::create(base.filePath("container.societycontainer")));
         AppProcess process; process.startApp(base.path(), true, {"society://generation-history"});
         QVERIFY(process.waitForStarted());
         QVERIFY2(process.waitForRoot(), process.output.constData());
+#ifdef Q_OS_MACOS
+        QProcess mounts; mounts.start("/sbin/mount", {}); QVERIFY(mounts.waitForFinished());
+        QVERIFY(!mounts.readAllStandardOutput().contains(base.filePath("container.societycontainer").toUtf8()));
+#endif
         const auto endpoints = m::discoverLocalApplications(base.filePath("apps")).applications;
         QCOMPARE(endpoints.size(), 1);
         m::HttpClient client(clientOptions(endpoints.first()));
         const auto result = call(client, "status");
         QVERIFY(!result["isError"].toBool());
         const auto state = result["structuredContent"].toObject();
-        QCOMPARE(state["current_path"].toString(), base.filePath("container/Generation History"));
+        QCOMPARE(state["current_path"].toString(), base.filePath("container.societycontainer/Generation History"));
     }
     void appQuestionsWaitForLocalUiAndCancelWithoutBlockingTools() {
         QTemporaryDir base(MCP_TEST_DIRECTORY "/mcp-questions-XXXXXX"); QVERIFY(base.isValid()); base.setAutoRemove(false);
-        QVERIFY(QDir().mkpath(base.filePath("container"))); QVERIFY(QDir().mkpath(base.filePath("tmp")));
-        QVERIFY(iiSocietyContainer::SocietyDrive::create(base.filePath("container")));
+        QVERIFY(QDir().mkpath(base.filePath("container.societycontainer"))); QVERIFY(QDir().mkpath(base.filePath("tmp")));
+        QVERIFY(iiSocietyContainer::SocietyDrive::create(base.filePath("container.societycontainer")));
         AppProcess process; process.startApp(base.path(), true); QVERIFY(process.waitForStarted());
         QVERIFY2(process.waitForRoot(), process.output.constData());
         const auto discovered=m::discoverLocalApplications(base.filePath("apps")); QCOMPARE(discovered.applications.size(),1);
@@ -156,11 +161,11 @@ private slots:
     void actualNavigationAndDiscovery() {
         QTemporaryDir base(MCP_TEST_DIRECTORY "/mcp-society-XXXXXX"); QVERIFY(base.isValid());
         base.setAutoRemove(false); // Evidence remains in build/, including failures.
-        QVERIFY(QDir().mkpath(base.filePath("container")));
-        const auto drive = iiSocietyContainer::SocietyDrive::create(base.filePath("container")); QVERIFY(drive);
-        QFile fixture(base.filePath("container/Asset Library/mcp-fixture.bin")); QVERIFY(fixture.open(QIODevice::WriteOnly));
+        QVERIFY(QDir().mkpath(base.filePath("container.societycontainer")));
+        const auto drive = iiSocietyContainer::SocietyDrive::create(base.filePath("container.societycontainer")); QVERIFY(drive);
+        QFile fixture(base.filePath("container.societycontainer/Asset Library/mcp-fixture.bin")); QVERIFY(fixture.open(QIODevice::WriteOnly));
         fixture.write("Fixture contents must not be returned by list_entries"); fixture.close();
-        QFile second(base.filePath("container/Asset Library/mcp-second.bin")); QVERIFY(second.open(QIODevice::WriteOnly));
+        QFile second(base.filePath("container.societycontainer/Asset Library/mcp-second.bin")); QVERIFY(second.open(QIODevice::WriteOnly));
         second.write("Another entry for the explicit listing limit"); second.close();
         AppProcess process; process.startApp(base.path(), true); QVERIFY(process.waitForStarted());
         QVERIFY2(process.waitForRoot(), process.output.constData());
@@ -197,7 +202,7 @@ private slots:
             if (section.toObject()["name"] == "Asset Library") sectionKey = section.toObject()["key"].toString();
         QVERIFY(!sectionKey.isEmpty());
         response = call(client, "open_section", {{"key", sectionKey}}); QVERIFY(!response["isError"].toBool());
-        QCOMPARE(response["structuredContent"].toObject()["current_path"].toString(), base.filePath("container/Asset Library"));
+        QCOMPARE(response["structuredContent"].toObject()["current_path"].toString(), base.filePath("container.societycontainer/Asset Library"));
         response = call(client, "list_entries", {{"limit", 1}}); QVERIFY(!response["isError"].toBool());
         const auto entries = response["structuredContent"].toObject()["entries"].toArray();
         QCOMPARE(entries.size(), 1); QVERIFY(response["structuredContent"].toObject()["truncated"].toBool());
@@ -208,7 +213,7 @@ private slots:
         QVERIFY(foundFixture);
         QVERIFY(!QJsonDocument(response).toJson().contains("Fixture contents"));
         response = call(client, "navigate", {{"path", base.path()}}); QVERIFY(response["isError"].toBool());
-        QCOMPARE(call(client, "status")["structuredContent"].toObject()["current_path"].toString(), base.filePath("container/Asset Library"));
+        QCOMPARE(call(client, "status")["structuredContent"].toObject()["current_path"].toString(), base.filePath("container.societycontainer/Asset Library"));
         QVERIFY(call(client, "open_section", {{"key", "unknown"}})["isError"].toBool());
         QVERIFY(call(client, "list_entries", {{"limit", 201}})["isError"].toBool());
         QVERIFY(!call(client, "refresh")["isError"].toBool());
@@ -237,8 +242,8 @@ private slots:
     }
     void disabledAppDoesNotAdvertise() {
         QTemporaryDir base(MCP_TEST_DIRECTORY "/mcp-disabled-XXXXXX"); QVERIFY(base.isValid());
-        QVERIFY(QDir().mkpath(base.filePath("container")));
-        QVERIFY(iiSocietyContainer::SocietyDrive::create(base.filePath("container")));
+        QVERIFY(QDir().mkpath(base.filePath("container.societycontainer")));
+        QVERIFY(iiSocietyContainer::SocietyDrive::create(base.filePath("container.societycontainer")));
         AppProcess process; process.startApp(base.path(), false); QVERIFY(process.waitForStarted());
         QVERIFY2(process.waitForRoot(), process.output.constData());
         QVERIFY(m::discoverLocalApplications(base.filePath("apps")).applications.isEmpty());

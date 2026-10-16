@@ -1,5 +1,6 @@
 #include "App/Files/DirectoryLocation.h"
 #include <iiSocietyContainer/PreviewCache.h>
+#include <FileCatalog.h>
 #include "backend/runtime/appbootstrap.h"
 
 #include <QAbstractItemModel>
@@ -120,6 +121,14 @@ private slots:
         QCOMPARE(browser->property("selectedPath").toString(), fixtures.filePath("Alpha.txt"));
         auto *resource = browser->findChild<QObject *>("selectedFileResource"); QVERIFY(resource);
         QCOMPARE(resource->property("label").toString(), QString("Alpha.txt"));
+        auto *quickPreview = browser->findChild<QQuickItem *>("fileQuickPreview"); QVERIFY(quickPreview);
+        QTest::keyClick(&preview, Qt::Key_Space);
+        QTRY_VERIFY(quickPreview->property("open").toBool());
+        auto *filePreviewImage = browser->findChild<QQuickItem *>("selectedFilePreview"); QVERIFY(filePreviewImage);
+        QTRY_VERIFY(filePreviewImage->property("source").toUrl().toString().startsWith("data:image/"));
+        QTRY_COMPARE(filePreviewImage->property("status").toInt(), 1);
+        QTest::keyClick(&preview, Qt::Key_Escape);
+        QTRY_VERIFY(!quickPreview->property("open").toBool());
         QSignalSpy opened(browser, SIGNAL(activated(QString,bool))); QVERIFY(opened.isValid());
         QTest::keyClick(&preview, Qt::Key_Return);
         QTRY_COMPARE(opened.size(), 1);
@@ -177,6 +186,50 @@ private slots:
         browser->setParentItem(nullptr);
     }
 
+    void containerSelectionExposesProviderClassification()
+    {
+        QTemporaryDir root(QStringLiteral(SOCIETY_TEST_DIRECTORY "/rich-inspector-XXXXXX.societycontainer")); QVERIFY(root.isValid());
+        const auto drive = iiSocietyContainer::SocietyDrive::create(root.path()); QVERIFY(drive);
+        iiFileProvider::FileCatalog catalog(std::filesystem::path(root.filePath("Files").toStdU16String()));
+        iiFileProvider::FileMetadata annotation; annotation.title = "Launch brief"; annotation.keywords = {"campaign", "approved"};
+        annotation.rating = 5; annotation.color = iiFileProvider::ColorLabel::Green; annotation.fields = {{"Client", "iisacc"}};
+        const std::string body = "Inspector source content";
+        QVERIFY(catalog.createFile("brief.txt", {reinterpret_cast<const std::byte *>(body.data()), body.size()}, annotation).metadataWritten);
+        DirectoryLocation location; location.setPath(root.filePath("Files")); location.inspectFile(root.filePath("Files/brief.txt"));
+        QTRY_VERIFY(!location.inspecting());
+        QCOMPARE(location.details().value("title").toString(), "Launch brief");
+        QCOMPARE(location.details().value("rating").toInt(), 5);
+        QCOMPARE(location.details().value("colorLabel").toString(), "green");
+        QCOMPARE(location.details().value("keywords").toList().size(), 2);
+        QCOMPARE(location.details().value("fields").toMap().value("Client").toString(), "iisacc");
+        QVERIFY(location.details().value("previewSource").toUrl().toString().startsWith("data:image/"));
+        const auto appPath = QFileInfo(QString::fromUtf8(SOCIETY_QML_FILE)).dir().filePath("../src/App/FilesBrowser.qml");
+        QQmlComponent component(&engine, QUrl::fromLocalFile(appPath));
+        QScopedPointer<QObject> object(component.createWithInitialProperties({
+            {"path", root.filePath("Files")}, {"width", 1212}, {"height", 844}}));
+        QVERIFY2(object, qPrintable(component.errorString()));
+        auto *browser = qobject_cast<QQuickItem *>(object.data()); QVERIFY(browser);
+        QTRY_COMPARE(browser->property("count").toInt(), 1);
+        browser->setProperty("selectedPath", root.filePath("Files/brief.txt"));
+        QTRY_COMPARE(engine.newQObject(browser).property("selectedDetails").property("title").toString(), QString("Launch brief"));
+        const auto shows = [browser](const QString &label, const QString &value) {
+            const auto visit = [&](auto &&self, QQuickItem *item) -> bool {
+                if (item->objectName() == "fileInformationRow" && item->property("label").toString() == label
+                    && item->property("description").toString() == value) return true;
+                for (auto *child : item->childItems()) if (self(self, child)) return true;
+                return false;
+            };
+            return visit(visit, browser);
+        };
+        QTRY_VERIFY(shows("Title", "Launch brief"));
+        QTRY_VERIFY(shows("Keywords", "campaign, approved"));
+        QTRY_VERIFY(shows("Rating", "5 / 5"));
+        QTRY_VERIFY(shows("Color label", "Green"));
+        QTRY_VERIFY(shows("Client", "iisacc"));
+        auto *preview = browser->findChild<QQuickItem *>("selectedFilePreview"); QVERIFY(preview);
+        QTRY_COMPARE(preview->property("status").toInt(), 1); // Image.Ready, actual provider text preview.
+        iiFileProvider::native::Presentation::cancelPending(std::filesystem::path(root.path().toStdU16String()));
+    }
     void selectedFileMetadataUsesOnlyTheVisibleFolder()
     {
         DirectoryLocation location;
@@ -187,6 +240,11 @@ private slots:
         QCOMPARE(image.value("created").toDateTime(), QFileInfo(fixtures.filePath("preview #한글.png")).birthTime());
         QVERIFY(location.fileDetails(fixtures.filePath("missing.png")).isEmpty());
         QVERIFY(location.fileDetails(fixtures.path()).isEmpty());
+        location.inspectFile(fixtures.filePath("Alpha.txt"));
+        location.inspectFile(fixtures.filePath("preview #한글.png"));
+        QTRY_VERIFY(!location.inspecting());
+        QCOMPARE(location.details().value("name").toString(), QString("preview #한글.png"));
+        QVERIFY(location.details().value("previewSource").toUrl().toString().startsWith("data:image/"));
     }
 
     void validatesNativePaths()
@@ -364,7 +422,7 @@ private slots:
 
     void historyGalleryCropsSquaresZoomsAndShowsInformationOnlyOnClick()
     {
-        QTemporaryDir history(SOCIETY_TEST_DIRECTORY "/history-gallery-XXXXXX"); QVERIFY(history.isValid());
+        QTemporaryDir history(SOCIETY_TEST_DIRECTORY "/history-gallery-XXXXXX.societycontainer"); QVERIFY(history.isValid());
         QImage portrait(60, 180, QImage::Format_RGB32); portrait.fill(QColor("#36a67f"));
         for (int i = 0; i < 80; ++i) QVERIFY(portrait.save(history.filePath(QString("result-%1.png").arg(i, 2, 10, QChar('0')))));
         window->resize(960, 720);
@@ -424,7 +482,7 @@ private slots:
 
     void refreshKeepsVisibleDelegatesAndCamera()
     {
-        QTemporaryDir folder(SOCIETY_TEST_DIRECTORY "/stable-file-view-XXXXXX"); QVERIFY(folder.isValid());
+        QTemporaryDir folder(SOCIETY_TEST_DIRECTORY "/stable-file-view-XXXXXX.societycontainer"); QVERIFY(folder.isValid());
         for (int i = 0; i < 80; ++i) {
             QFile file(folder.filePath(QString("file-%1.txt").arg(i, 3, 10, QChar('0'))));
             QVERIFY(file.open(QIODevice::WriteOnly)); QVERIFY(file.write("fixture") > 0);
@@ -480,7 +538,7 @@ private slots:
 
     void chronologicalFilesOpenAtTheNewestAndPreserveBrowsing()
     {
-        QTemporaryDir timeline(SOCIETY_TEST_DIRECTORY "/file-timeline-XXXXXX");
+        QTemporaryDir timeline(SOCIETY_TEST_DIRECTORY "/file-timeline-XXXXXX.societycontainer");
         QVERIFY(timeline.isValid());
         const auto epoch = QDateTime::fromString("2026-01-01T00:00:00Z", Qt::ISODate);
         const auto write = [&](const QString &name, int seconds) {
@@ -575,8 +633,10 @@ private slots:
 
     void remoteFileShowsDownloadStateAndOpensAfterPublication()
     {
-        QTemporaryDir remote(QStringLiteral(SOCIETY_TEST_DIRECTORY "/remote-grid-XXXXXX"));
+        QTemporaryDir remote(QStringLiteral(SOCIETY_TEST_DIRECTORY "/remote-grid-XXXXXX.societycontainer"));
         const auto drive = iiSocietyContainer::SocietyDrive::create(remote.path()); QVERIFY(drive);
+        QVERIFY(iiSocietyContainer::SocietyDrive::adoptReplicaIdentity(remote.path(), drive->identifier(), drive->identifier()));
+        QVERIFY(iiSocietyContainer::SocietyDrive::completeReplica(remote.path(), drive->identifier()));
         QVERIFY(QDir().mkdir(remote.filePath("Files/Documents")));
         iiSocietyContainer::StorageMap map(*drive);
         QJsonObject entry{{"path", "files/Documents/remote.txt"}, {"kind", "file"}, {"size", "3"},
@@ -609,7 +669,7 @@ private slots:
 
     void contextMenuCopiesDuplicatesAndDeletesTheClickedItem()
     {
-        QTemporaryDir temp(QStringLiteral(SOCIETY_TEST_DIRECTORY "/file-menu-XXXXXX"));
+        QTemporaryDir temp(QStringLiteral(SOCIETY_TEST_DIRECTORY "/file-menu-XXXXXX.societycontainer"));
         const auto drive = iiSocietyContainer::SocietyDrive::create(temp.path()); QVERIFY(drive);
         QVERIFY(QDir().mkpath(temp.filePath("Models/Other")));
         const auto source = temp.filePath("Models/Other/sample.safetensors");
@@ -718,7 +778,7 @@ private:
         return visit(visit, grid);
     }
 
-    QTemporaryDir fixtures{QStringLiteral(SOCIETY_TEST_DIRECTORY "/file-grid-XXXXXX")};
+    QTemporaryDir fixtures{QStringLiteral(SOCIETY_TEST_DIRECTORY "/file-grid-XXXXXX.societycontainer")};
     QQmlApplicationEngine engine;
     QQuickWindow *window = nullptr;
     QQuickItem *view = nullptr;

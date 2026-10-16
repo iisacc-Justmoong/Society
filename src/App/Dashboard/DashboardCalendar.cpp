@@ -5,7 +5,7 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QLocale>
-#include <QStandardPaths>
+#include <SharedStorage.h>
 #include <QUrl>
 #include <QtConcurrentRun>
 #include <algorithm>
@@ -92,10 +92,10 @@ void DashboardCalendar::setContainerPath(const QString &path) {
             if (!drive || !drive->isReady()) m_error = error.isEmpty() ? tr("Calendar is waiting for the Society container.") : error;
             else {
                 m_driveIdentifier = drive->identifier();
-                QString base = qEnvironmentVariable("SOCIETY_CALENDAR_DIRECTORY");
-                if (base.isEmpty()) base = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation) + "/Calendar";
+                const auto storage = iiSocietyContainer::SharedStorage::open(path, &error, true);
+                const auto base = storage ? storage->ensureRuntimeDirectory(QStringLiteral("calendar"), &error) : QString();
                 const auto key = QCryptographicHash::hash(drive->identifier().toUtf8(), QCryptographicHash::Sha256).toHex();
-                if (!QDir::isAbsolutePath(base) || !QDir().mkpath(base)) m_error = tr("Cannot create the local calendar directory.");
+                if (base.isEmpty()) m_error = error.isEmpty() ? tr("Cannot create the container calendar directory.") : error;
                 else m_databasePath = QDir(base).filePath(QString::fromLatin1(key) + ".sqlite");
             }
         }

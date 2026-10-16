@@ -5,13 +5,13 @@
 ## 저장된 호스트 재연결
 
 검증된 호스트 ID·컨테이너 ID·계정 scope와 최대 8개의 최근 LAN 주소/포트를
-iiSocietyClient의 암호화된 그룹 상태에 저장한다. 앱 재실행과 전경 복귀에서는
+iiSocietyHelper의 암호화된 그룹 상태에 저장한다. 앱 재실행과 전경 복귀에서는
 기존 자격 증명을 복원한 뒤 저장 주소로 새 서명 challenge를 즉시 보내고,
 Bonjour/BLE 발견도 병행한다. 호스트 응답은 scope·ID·주소·challenge·5초 수명과
 서명을 확인하며, 이후 기존 TLS 지문·상호 계정 인증 절차는 그대로 수행한다.
 주소는 권한이 아니며 과거 QR이나 연결 nonce를 재사용하지 않는다. 호스트 주소나
 프로세스가 바뀌면 일반 발견으로 복구한다. 빠른 경로는 호스트와 클라이언트의
-iiSocietyClient를 함께 갱신해야 하며, 구버전 호스트는 일반 발견으로 연결된다.
+iiSocietyHelper를 함께 갱신해야 하며, 구버전 호스트는 일반 발견으로 연결된다.
 주소는 인증된 TLS 연결 직후 저장하므로 파일 동기화의 잠금·재시도가 다음
 실행의 재연결 정보를 저장하는 일을 지연시키지 않는다.
 인증된 새 실행 nonce를 받으면 이전 실행을 대상으로 한 초대도 즉시 종료한다.
@@ -52,6 +52,8 @@ iiSocietySync 0.6부터 발견은 SDK `BleDiscovery`의 BLE 광고/GATT bootstra
 
 인증된 계정의 `societyContainerDrive.hostDeviceId`와 `containerId`에 등록된 호스트·컨테이너만 연결 대상으로 사용한다. 등록이 없거나 현재 데스크톱의 식별자가 일치하지 않으면 호스트를 자동 선출하지 않는다. 다른 데스크톱, 휴대폰, 태블릿은 등록된 호스트에만 연결한다. 호스트는 한 번에 한 기기를 처리하고, 연결된 ID와 중복 발견은 다시 등록하지 않는다. 대기열은 메모리에만 존재하고 재실행 시 현재 기기로 다시 구성한다.
 
+최초 미러가 호스트 UUID를 채택하면 비동기 로컬 상태 재검증 중 동일한 등록 호스트와 TLS를 다시 연결할 수 있다. `LanPeer::paired`는 각 인증된 연결 완료를 알리므로 최초 실행 전체의 신호 수와 기기 수는 같지 않을 수 있다. 회귀 검사는 알림에 등장한 고유 기기 ID와 현재 연결된 정확한 두 세션, 각 클라이언트의 호스트 ID·Files 목록·완료된 수신 컨테이너를 함께 확인한다. 준비·재인증 이후 중복 발견을 보냈을 때 새 연결 알림이 추가되지 않는지도 별도로 검사한다. 계정 호스트 준비와 이 재연결 검사를 포함하는 `Society.Pairing` 전체 CTest 상한은 90초이며 개별 연결 시도의 20초 제한은 유지한다.
+
 각 시도는 최대 20초이다. 실패하면 0.25·0.5·1·2·4초 간격으로 LAN에서 재시도하면서 다른 후보를 진행한다. 이탈한 기기는 대기열에서 지우고 재발견 시 다시 시도한다. 계정 변경·로그아웃·로컬 권한 만료·모바일 백그라운드 실행 시간 만료는 자동 연결과 미완료 작업을 정리한다. 전경 복귀는 유효한 내부 상태를 사용하며 서버 요청을 매번 만들지 않는다.
 
 **Disconnect**, 명시적인 모드 변경, 수동 QR/초대 시작은 자동 작업을 일시 중지한다. **Resume automatic pairing**으로 재개한다. 패널 닫기는 자동 작업에 영향을 주지 않는다. 상태는 **Queued**, **Connecting…**, **Retrying…**, **Connected**로 표시한다.
@@ -90,7 +92,29 @@ seed·연결 기기 이력·자동 연결 설정과 계정 스냅샷은 모바�
 
 `Society.Account::accountVerifiedPairingAutomaticallySynchronizesContainers`는 합성 계정으로 두 Society가 자동 페어링된 뒤 실제 TLS에서 Models 내려받기와 Files 올리기를 완료하는지 검사한다. 서버 요청은 두 기기의 로그인·seed 준비 총 4회이며 동기화 때문에 증가하지 않는다. 로그인 그룹 상태·Helper 큐는 복제 대상이 아니다.
 
-기존 primary host의 로컬 소유 기록과 서명된 발견 필드가 새 데스크톱 ID 정렬보다 우선한다. 클라이언트는 저장된 primary를 따르고 미러를 자동 호스트로 승격하지 않는다. 페어링 후에는 호스트 UUID의 드라이브로 초기 미러링하며, 그 이전의 독립 클라이언트 파일을 자동 업로드하지 않는다.
+The pairing integration fixtures log in through the synthetic account server and
+use its device/session-bound credentials and registered host/container UUID.
+Both automatic connections and manual invitations retain that authentication
+boundary. `registeredHostOutranksANewLowerIdDesktop` checks that device ID order
+cannot replace the account's registered host; the multi-device queue also uses
+server-issued credentials that are two days old and checks that pairing does not
+request another grant. File-list assertions expose only the user-populated
+`Files/` section of each `.societycontainer` package. Separate in-memory session
+stores keep these synthetic accounts isolated from the user's login state.
+The manual selection regression opens the QR-first panel, clicks its visible
+Nearby devices tab, and then performs invitation, acceptance and code
+confirmation through the actual QML buttons.
+The QR download regression first verifies both authenticated manual connections,
+the single QR completion notification on each side, and the public Files list.
+It then ends the optional manual pairing state and resumes normal automatic pairing
+on both devices before waiting for the receiver's real container bootstrap and
+registered host readiness. UUID adoption may reauthenticate that same host;
+these recovery events must not be counted as additional QR completions.
+The test verifies the adopted UUID, exactly one current session on each side,
+the downloaded bytes inside the receiver's Files, and rejection of the consumed
+QR code. It never creates a ready mirror manifest by hand. Runtime workers are
+closed before either temporary package is removed, including on assertion failure.
+
 ## 복수 LAN 주소
 
 같은 기기가 여러 인터페이스에서 발견되면 초대 패킷의 발신 주소·포트를 그 기기의 모든 최근 발견 endpoint와 대조한다. 목록 표시용으로 선택한 한 주소와 다르다는 이유로 정상 초대를 버리지 않는다. 발견되지 않은 발신 주소, 계정 증명, 인스턴스 nonce, 초대 수명과 TLS 지문 검사는 유지한다. `Society.Discovery`의 복수 endpoint 검사는 기존 임의 선택 경로에서 실패하고, 수정 경로에서 통과한다. 선택적 `SOCIETY_DISCOVERY_TRACE=1`은 패킷 내용·토큰 대신 송수신 및 거부 단계만 기록한다.

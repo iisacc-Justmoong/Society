@@ -2,7 +2,6 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls as Controls
-import QtQuick.Dialogs
 import LVRS 1.0 as LV
 import Society
 import "../Environment"
@@ -12,10 +11,8 @@ Controls.ScrollView {
     objectName: "browseView"
     required property NetworkDriveController network
     signal devicesRequested()
-    property string downloadPath: ""
     clip: true
     contentWidth: availableWidth
-    FileDialog { id: destination; title: qsTr("Save file from your device"); fileMode: FileDialog.SaveFile; onAccepted: root.network.download(root.downloadPath, selectedFile) }
     ColumnLayout {
         width: root.availableWidth
         ColumnLayout {
@@ -23,7 +20,7 @@ Controls.ScrollView {
             Layout.margins: 24
             spacing: 16
             LV.Label { text: qsTr("Browse"); style: title }
-            LV.Label { Layout.fillWidth: true; text: qsTr("Browse files on your connected devices."); style: description; wrapMode: Text.Wrap; sizeToContentHeight: true }
+            LV.Label { Layout.fillWidth: true; text: qsTr("Browse files on your connected devices. Save files in this container's Files."); style: description; wrapMode: Text.Wrap; sizeToContentHeight: true }
             EnvironmentSection {
                 title: qsTr("Connected devices")
                 Repeater {
@@ -46,12 +43,12 @@ Controls.ScrollView {
                     EnvironmentRow {
                         required property var modelData
                         label: modelData.name
-                        value: modelData.directory ? qsTr("Open") : qsTr("Download")
+                        value: modelData.directory ? qsTr("Open") : qsTr("Save to Files")
                         enabled: !root.network.busy
                         onClicked: {
                             const path = (root.network.currentPath ? root.network.currentPath + "/" : "") + modelData.name
                             if (modelData.directory) root.network.browse(root.network.currentHost, path)
-                            else { root.downloadPath = path; destination.open() }
+                            else root.network.downloadToFiles(path)
                         }
                     }
                 }

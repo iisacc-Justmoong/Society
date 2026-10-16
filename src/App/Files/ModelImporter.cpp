@@ -1,16 +1,19 @@
+#include <iiFileProviderDevice.h>
 #include "ModelImporter.h"
 
 #include <SocietyDrive.h>
 #include <ModelStore.h>
+#include <TemporaryLease.h>
 #include <QDateTime>
 #include <QDir>
 #include <QElapsedTimer>
-#include <QFile>
 #include <QFileInfo>
 #include <QSet>
-#include <QTemporaryFile>
 #include <QTimer>
 #include <algorithm>
+#include <exception>
+#include <filesystem>
+#include <optional>
 #ifdef Q_OS_ANDROID
 #include <AndroidStorage.h>
 #endif
@@ -47,7 +50,7 @@ struct ImportResult {
     int existing = 0;
 };
 
-QString publishCopy(QTemporaryFile &copy, const QString &directory, const QString &name)
+QString publishCopy(iiFileProvider::TemporaryFile &copy, const QString &directory, const QString &name)
 {
     const QFileInfo original(name);
     for (int index = 0; index < 10000; ++index) {
@@ -56,7 +59,7 @@ QString publishCopy(QTemporaryFile &copy, const QString &directory, const QStrin
         const QFileInfo destination(candidate);
         if (destination.exists() || destination.isSymLink())
             continue;
-        // QTemporaryFile only renames on the same filesystem and never overwrites.
+        // iiFileProvider::TemporaryFile only renames on the same filesystem and never overwrites.
         // The final filename becomes visible only after the complete copy is flushed.
         if (copy.rename(candidate)) {
             copy.setAutoRemove(false);
@@ -313,8 +316,16 @@ bool ModelImporter::importSources(const QList<ModelImportSource> &sources)
                     else { result->paths.append(placed); ++result->existing; }
                     return;
                 }
-                QFile source(content ? path : input.absoluteFilePath());
-                QTemporaryFile copy(QDir(models).filePath(".society-import-XXXXXX"));
+                iiFileProvider::FileDevice source(content ? path : input.absoluteFilePath());
+                std::optional<iiFileProvider::TemporaryLease> activity;
+                try {
+                    activity.emplace(std::filesystem::path(models.toStdU16String()),
+                        iiFileProvider::TemporaryLease::Mode::Shared);
+                } catch (const std::exception &failure) {
+                    result->errors.append(tr("%1: %2").arg(name, QString::fromUtf8(failure.what())));
+                    return;
+                }
+                iiFileProvider::TemporaryFile copy(QDir(models).filePath(".society-import-XXXXXX"));
                 if (!source.open(QIODevice::ReadOnly) || !copy.open()) {
                     result->errors.append(tr("%1: %2").arg(name, source.isOpen() ? copy.errorString() : source.errorString()));
                     return;

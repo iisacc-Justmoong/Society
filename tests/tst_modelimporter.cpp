@@ -43,10 +43,31 @@ class ModelImporterTest : public QObject
 {
     Q_OBJECT
 private slots:
+    void rejectsRedirectedTemporaryLeaseWithoutCopying()
+    {
+        QTemporaryDir source(SOCIETY_TEST_DIRECTORY "/model-source-XXXXXX.societycontainer");
+        QTemporaryDir target(SOCIETY_TEST_DIRECTORY "/model-drive-XXXXXX.societycontainer");
+        QVERIFY(iiSocietyContainer::SocietyDrive::create(target.path()));
+        const auto path = source.filePath("weights.safetensor");
+        const auto bytes = validModel("preserved model");
+        writeFile(path, bytes);
+        const auto sentinel = target.filePath("Models/.iisacc-temporary.lock");
+        QVERIFY(createNativeTestLink(path, sentinel));
+        ModelImporter importer;
+        importer.setContainerPath(target.path());
+        QSignalSpy done(&importer, &ModelImporter::finished);
+        QVERIFY(importer.importFiles({QUrl::fromLocalFile(path)}));
+        QTRY_COMPARE(done.size(), 1);
+        QVERIFY(!importer.errorString().isEmpty());
+        QCOMPARE(readFile(path), bytes);
+        QCOMPARE(entries(target.filePath("Models/Other")), QStringList{});
+        QCOMPARE(QDir(target.filePath("Models")).entryList({".society-import-*"}, QDir::Files | QDir::Hidden), QStringList{});
+    }
+
     void copiesModelsWithoutPublishingOrRemovingSources()
     {
-        QTemporaryDir source(SOCIETY_TEST_DIRECTORY "/model-source-XXXXXX");
-        QTemporaryDir target(SOCIETY_TEST_DIRECTORY "/model-drive-XXXXXX");
+        QTemporaryDir source(SOCIETY_TEST_DIRECTORY "/model-source-XXXXXX.societycontainer");
+        QTemporaryDir target(SOCIETY_TEST_DIRECTORY "/model-drive-XXXXXX.societycontainer");
         QVERIFY(source.isValid() && target.isValid());
         QVERIFY(iiSocietyContainer::SocietyDrive::create(target.path()));
         const QByteArray bytes = validModel(QByteArray("model\0data", 10).repeated(350000));
@@ -78,11 +99,12 @@ private slots:
 
     void keepsConflictingFilesAndReusesModelsAlreadyInTheDrive()
     {
-        QTemporaryDir source(SOCIETY_TEST_DIRECTORY "/model-source-XXXXXX");
-        QTemporaryDir target(SOCIETY_TEST_DIRECTORY "/model-drive-XXXXXX");
+        QTemporaryDir source(SOCIETY_TEST_DIRECTORY "/model-source-XXXXXX.societycontainer");
+        QTemporaryDir target(SOCIETY_TEST_DIRECTORY "/model-drive-XXXXXX.societycontainer");
         QVERIFY(iiSocietyContainer::SocietyDrive::create(target.path()));
         const auto path = source.filePath("weights.safetensor");
         writeFile(path, validModel("new weights"));
+        QVERIFY(QDir().mkdir(target.filePath("Models/Other")));
         writeFile(target.filePath("Models/Other/weights.safetensor"), "existing weights");
         QVERIFY(QDir().mkdir(target.filePath("Models/Other/weights (1).safetensor")));
         ModelImporter importer;
@@ -102,7 +124,7 @@ private slots:
 
     void rejectsUnsupportedDropsAsAWhole()
     {
-        QTemporaryDir target(SOCIETY_TEST_DIRECTORY "/model-drive-XXXXXX");
+        QTemporaryDir target(SOCIETY_TEST_DIRECTORY "/model-drive-XXXXXX.societycontainer");
         QVERIFY(iiSocietyContainer::SocietyDrive::create(target.path()));
         writeFile(target.filePath("Files/weights.safetensors"), "preserve source");
         ModelImporter importer;
@@ -121,8 +143,8 @@ private slots:
 
     void concurrentImportsNeverReplaceEachOther()
     {
-        QTemporaryDir source(SOCIETY_TEST_DIRECTORY "/model-source-XXXXXX");
-        QTemporaryDir target(SOCIETY_TEST_DIRECTORY "/model-drive-XXXXXX");
+        QTemporaryDir source(SOCIETY_TEST_DIRECTORY "/model-source-XXXXXX.societycontainer");
+        QTemporaryDir target(SOCIETY_TEST_DIRECTORY "/model-drive-XXXXXX.societycontainer");
         QVERIFY(iiSocietyContainer::SocietyDrive::create(target.path()));
         const auto path = source.filePath("shared.safetensors");
         const auto bytes = validModel(QByteArray(4 * 1024 * 1024, 'x'));
@@ -148,8 +170,8 @@ private slots:
 
     void rejectsTruncatedModelsBeforeCopying()
     {
-        QTemporaryDir source(SOCIETY_TEST_DIRECTORY "/truncated-source-XXXXXX");
-        QTemporaryDir target(SOCIETY_TEST_DIRECTORY "/truncated-drive-XXXXXX");
+        QTemporaryDir source(SOCIETY_TEST_DIRECTORY "/truncated-source-XXXXXX.societycontainer");
+        QTemporaryDir target(SOCIETY_TEST_DIRECTORY "/truncated-drive-XXXXXX.societycontainer");
         QVERIFY(iiSocietyContainer::SocietyDrive::create(target.path()));
         const auto path = source.filePath("incomplete.safetensors");
         const auto bytes = validModel(QByteArray(1024, 'x')).chopped(512);
@@ -166,8 +188,8 @@ private slots:
     }
     void rejectsMissingSourcesAndRedirectedModels()
     {
-        QTemporaryDir source(SOCIETY_TEST_DIRECTORY "/model-source-XXXXXX");
-        QTemporaryDir target(SOCIETY_TEST_DIRECTORY "/model-drive-XXXXXX");
+        QTemporaryDir source(SOCIETY_TEST_DIRECTORY "/model-source-XXXXXX.societycontainer");
+        QTemporaryDir target(SOCIETY_TEST_DIRECTORY "/model-drive-XXXXXX.societycontainer");
         QVERIFY(iiSocietyContainer::SocietyDrive::create(target.path()));
         ModelImporter importer;
         importer.setContainerPath(target.path());
@@ -189,7 +211,7 @@ private slots:
 
     void providerNamesCannotEscapeModelsAndReadFailuresAreReported()
     {
-        QTemporaryDir target(SOCIETY_TEST_DIRECTORY "/model-drive-XXXXXX");
+        QTemporaryDir target(SOCIETY_TEST_DIRECTORY "/model-drive-XXXXXX.societycontainer");
         QVERIFY(iiSocietyContainer::SocietyDrive::create(target.path()));
         ModelImporter importer;
         importer.setContainerPath(target.path());
@@ -211,9 +233,9 @@ private slots:
 
     void cancellationRemovesPartialCopiesAndRetainsTheCapturedDrive()
     {
-        QTemporaryDir source(SOCIETY_TEST_DIRECTORY "/model-source-XXXXXX");
-        QTemporaryDir target(SOCIETY_TEST_DIRECTORY "/model-drive-XXXXXX");
-        QTemporaryDir other(SOCIETY_TEST_DIRECTORY "/model-other-XXXXXX");
+        QTemporaryDir source(SOCIETY_TEST_DIRECTORY "/model-source-XXXXXX.societycontainer");
+        QTemporaryDir target(SOCIETY_TEST_DIRECTORY "/model-drive-XXXXXX.societycontainer");
+        QTemporaryDir other(SOCIETY_TEST_DIRECTORY "/model-other-XXXXXX.societycontainer");
         QVERIFY(iiSocietyContainer::SocietyDrive::create(target.path()));
         QVERIFY(iiSocietyContainer::SocietyDrive::create(other.path()));
         const auto path = source.filePath("large.safetensor");
@@ -236,8 +258,8 @@ private slots:
 
     void automaticallyOrganizesOnOpenAndClassifiesNewImports()
     {
-        QTemporaryDir source(SOCIETY_TEST_DIRECTORY "/typed-source-XXXXXX");
-        QTemporaryDir target(SOCIETY_TEST_DIRECTORY "/typed-drive-XXXXXX");
+        QTemporaryDir source(SOCIETY_TEST_DIRECTORY "/typed-source-XXXXXX.societycontainer");
+        QTemporaryDir target(SOCIETY_TEST_DIRECTORY "/typed-drive-XXXXXX.societycontainer");
         QVERIFY(source.isValid() && target.isValid());
         QVERIFY(iiSocietyContainer::SocietyDrive::create(target.path()));
         const auto bytesFor = [](const QString &type) {
@@ -269,8 +291,8 @@ private slots:
 
     void recoversAnimaFromOtherAndImportsRenamedCheckpoints()
     {
-        QTemporaryDir source(SOCIETY_TEST_DIRECTORY "/anima-source-XXXXXX");
-        QTemporaryDir target(SOCIETY_TEST_DIRECTORY "/anima-drive-XXXXXX");
+        QTemporaryDir source(SOCIETY_TEST_DIRECTORY "/anima-source-XXXXXX.societycontainer");
+        QTemporaryDir target(SOCIETY_TEST_DIRECTORY "/anima-drive-XXXXXX.societycontainer");
         QVERIFY(source.isValid() && target.isValid());
         QVERIFY(iiSocietyContainer::SocietyDrive::create(target.path()));
         QJsonObject tensors;
@@ -288,6 +310,7 @@ private slots:
         const auto header = QJsonDocument(tensors).toJson(QJsonDocument::Compact);
         QByteArray bytes(8, '\0'); qToLittleEndian(quint64(header.size()), bytes.data());
         bytes += header + QByteArray(offset, '\0');
+        QVERIFY(QDir().mkdir(target.filePath("Models/Other")));
         writeFile(target.filePath("Models/Other/old.safetensors"), bytes);
         ModelImporter importer;
         QSignalSpy organized(&importer, &ModelImporter::organized);

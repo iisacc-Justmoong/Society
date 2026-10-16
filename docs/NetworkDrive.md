@@ -12,11 +12,17 @@ iOS와 Android는 클라이언트 전용이며 자체 서버에도 클라이언�
 
 `startLocalHost()`와 `joinLocalHost(qr)`는 직접 LAN 연결에 `iiServerHost::LanPeer`를 사용한다. `configureServer(url)`는 검증한 서버 설정과 현재 계정 세션으로 `iiServerHost::Peer`를 시작한다. 계정이 검증된 두 경로 모두 전체 컨테이너 동기화 핸들러를 사용한다. 수동 QR만으로는 전체 컨테이너 동기화 권한을 부여하지 않는다. `startSession(PeerOptions)`는 기존 C++ 통합 API로 유지한다.
 
-원격 Files 탐색·다운로드의 상태와 저장은 `iiSocietySync::RemoteFiles`가 담당한다. Files 공개 범위·심볼릭 링크 차단·디렉터리 교체 검사는 SDK의 `filesHandler`가 기존 SharedStorage/FileShare를 재사용한다. 목록은 256개씩 읽고 파일은 256 KiB 청크로 받는다. 크기·오프셋·버전을 대조한 뒤 QSaveFile로 완성본만 저장한다. 실패하면 기존 목적지 내용을 보존한다. Finder와 모바일 OS File Provider는 기존 경로를 유지한다.
+Browse와 Devices에서 파일을 선택하면 현재 선택된 `.societycontainer/Files/`에 저장한다. 외부 저장 위치를 고르는 파일 다이얼로그는 제공하지 않는다. 같은 이름의 파일이 있으면 `name (2).ext`처럼 새 이름을 사용하여 사용자가 넣은 기존 파일을 보존한다. 컨테이너가 선택되지 않았거나 준비되지 않은 경우에는 저장을 시작하지 않는다.
+
+`NetworkDriveController::download(path, destination)`의 명시 목적지도 선택된 컨테이너의 `Files/` 내부로 제한하며 기존 파일을 교체하지 않는다. `SharedStorage::filePath`로 목적지를 검증하며 다른 컨테이너·Models·런타임 영역·외부 파일과 폴더·심볼릭 링크로 연결된 경로를 거부한다. 선택 컨테이너가 바뀌면 이전 다운로드를 즉시 취소하고 옛 Files에 게시하지 않는다. 외부 입력 파일을 읽는 기존 가져오기 동작에는 이 출력 제한을 적용하지 않는다. 재사용 SDK의 저수준 `iiSocietySync::RemoteFiles`는 일반 전송 API를 유지한다.
+
+원격 Files 탐색·다운로드의 상태와 실제 전송은 `iiSocietySync::RemoteFiles`가 담당한다. Files 공개 범위·심볼릭 링크 차단·디렉터리 교체 검사는 SDK의 `filesHandler`가 기존 SharedStorage/FileShare를 재사용한다. 목록은 256개씩 읽고 파일은 256 KiB 청크로 받는다. 크기·오프셋·버전을 대조한 뒤 QSaveFile로 완성본만 저장한다. 실패하면 기존 목적지 내용을 보존한다. Finder와 모바일 OS File Provider는 기존 경로를 유지한다.
+
+일반 로컬 컨테이너는 실제 파일과 디렉터리를 기준으로 탐색한다. 불완전한 동기화 목록이 사용자가 넣은 파일을 숨기지 않는다. 원격 항목과 다운로드 상태는 명시적으로 완료된 복제본에서 동기화 목록을 기준으로 표시하며, 회귀 검사도 실제 복제본 식별자를 설정한 컨테이너로 이 경계를 확인한다.
 
 ## 빌드와 확인
 
-`iiServerHost 0.4.1`, `iiSocietyHelper 0.7.1`, `iiSocietySync 0.2.0`을 설치한 뒤 `cmake -S . -B build`, `cmake --build build --parallel 4`로 빌드한다. 로그인 테스트를 제외할 때 `ctest --test-dir build -E '^Society.Account$' --output-on-failure`를 사용한다. `Society.Pairing`과 `Society.ClientOnlyNetwork`가 실제 사용 경로를 검사하며, `Society.NetworkDrive`는 네이티브 Peer 소비자의 플랫폼 역할 고정·파일 경계를 검사한다. 실제 모바일 카메라 검증은 빌드 성공이나 테스트용 QR 해독으로 대체하지 않는다.
+`iiServerHost 0.4.1`, `iiSocietyHelper 0.7.1`, `iiSocietySync 0.2.0`을 설치한 뒤 `cmake -S . -B build`, `cmake --build build --parallel 4`로 빌드한다. 로그인 테스트를 제외할 때 `ctest --test-dir build -E '^Society.Account$' --output-on-failure`를 사용한다. `Society.Pairing`과 `Society.ClientOnlyNetwork`가 실제 사용 경로를 검사하며, `Society.NetworkDrive`는 네이티브 Peer 소비자의 플랫폼 역할 고정·파일 경계를 검사한다. 다운로드 회귀 검사는 외부 목적지·링크·다른 영역의 거부, LAN·릴레이에서 선택된 Files 내부 저장, Devices 파일 버튼의 직접 저장과 기존 동일 이름 파일 보존을 확인한다. 실제 모바일 카메라 검증은 빌드 성공이나 테스트용 QR 해독으로 대체하지 않는다.
 
 
 ## 주변 기기 선택

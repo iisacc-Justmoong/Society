@@ -40,7 +40,7 @@ LV.VStack {
     readonly property bool navigationOpen: navigationSheet.visible || storage.actionsOpen
     property real toolbarLeadingInset: 0
     readonly property real toolbarHeight: desktop && toolbar.visible ? 56 : 0
-    readonly property var toolbarInteractiveItems: [toolbarNavigation, dashboardSearch, dashboardAccount]
+    readonly property var toolbarInteractiveItems: [toolbarNavigation, dashboardSearch, dashboardNotifications, dashboardAccount, wideStorageActions]
     readonly property bool toolsCanGoBack: tools.canGoBack
     function goBackTool(): void { tools.goBack() }
 
@@ -48,6 +48,7 @@ LV.VStack {
     signal devicesRequested()
     signal preferencesRequested()
     signal accountRequested()
+    signal notificationsRequested()
     signal chooseContainerRequested()
     signal importModelsRequested()
     signal sectionRequested(string section)
@@ -67,6 +68,12 @@ LV.VStack {
         visible: !root.compactNavigation
         Layout.fillWidth: true
         implicitHeight: root.desktop ? 56 : 64
+        Rectangle {
+            id: toolbarSurface
+            objectName: "globalToolbarSurface"
+            anchors.fill: parent
+            color: "transparent"
+        }
         LV.HStack {
             anchors.fill: parent
             anchors.margins: root.desktop ? 12 : 6
@@ -78,6 +85,7 @@ LV.VStack {
                 implicitWidth: dashboardTabs.implicitWidth
                 implicitHeight: dashboardTabs.implicitHeight
                 Layout.fillWidth: true
+                Layout.fillHeight: true
                 Layout.minimumWidth: 0
                 Layout.maximumWidth: implicitWidth
                 contentWidth: dashboardTabs.implicitWidth
@@ -89,6 +97,7 @@ LV.VStack {
                     id: dashboardTabs
                     objectName: "dashboardTabs"
                     anchors.verticalCenter: parent.verticalCenter
+                    anchors.alignWhenCentered: false
                     forceBorderlessTone: false
                     LV.LabelButton {
                         objectName: "dashboardTab"
@@ -134,13 +143,26 @@ LV.VStack {
                 objectName: "dashboardSearch"
                 visible: toolbar.width >= 700
                 Layout.preferredWidth: Math.min(300, Math.max(130, toolbar.width - 500))
-                mode: searchMode
+                backdropSource: toolbarSurface
+                // Preserve the Figma search artwork inside the LVRS material field.
+                mode: defaultMode
+                leadingItems: Image {
+                    objectName: "globalSearchIcon"
+                    width: 12
+                    height: 12
+                    source: Qt.resolvedUrl("Toolbar/icons/search.svg")
+                    sourceSize: Qt.size(24, 24)
+                    fillMode: Image.PreserveAspectFit
+                    smooth: true
+                }
                 placeholder: qsTr("Search")
+                placeholderColor: LV.Theme.titleHeaderColor
                 Accessible.name: qsTr("Search Society files")
                 text: root.query
                 onTextChanged: if (root.query !== text) root.query = text
             }
             LV.IconButton {
+                id: wideStorageActions
                 objectName: "wideStorageActionsToggle"
                 visible: !root.desktop && root.selectedTab === "Storage"
                 iconName: "generalsettings"
@@ -149,10 +171,18 @@ LV.VStack {
                 onClicked: storage.openActions()
             }
             LV.IconButton {
+                id: dashboardNotifications
+                objectName: "dashboardNotifications"
+                tone: LV.AbstractButton.Default
+                iconSource: Qt.resolvedUrl("Toolbar/icons/notifications.svg")
+                Accessible.name: qsTr("Notifications")
+                onClicked: root.notificationsRequested()
+            }
+            LV.IconButton {
                 id: dashboardAccount
                 objectName: "dashboardAccount"
                 tone: LV.AbstractButton.Default
-                iconName: "loggedInUser"
+                iconSource: Qt.resolvedUrl("Toolbar/icons/account.svg")
                 Accessible.name: root.signedIn ? qsTr("Your iisacc account") : qsTr("Sign in to iisacc")
                 onClicked: root.accountRequested()
             }

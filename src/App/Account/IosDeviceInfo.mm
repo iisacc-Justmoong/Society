@@ -1,1 +1,1 @@
-// Implementation moved to SDK/iiSocietyClient/IosDeviceInfo.mm.
+// Implementation moved to SDK/iiSocietyHelper/src/iiSocietyHelper/IosDeviceInfo.mm.

@@ -1,1 +1,1 @@
-// Implementation moved to SDK/iiSocietyClient/DnsSdDiscoveryService.cpp.
+// Implementation moved to SDK/iiSocietyHelper/src/iiSocietyHelper/DnsSdDiscoveryService.cpp.

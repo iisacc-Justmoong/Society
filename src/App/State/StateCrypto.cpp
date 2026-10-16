@@ -1,1 +1,1 @@
-// Implementation moved to SDK/iiSocietyClient/StateCrypto.cpp.
+// Implementation moved to SDK/iiSocietyHelper/src/iiSocietyHelper/StateCrypto.cpp.

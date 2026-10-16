@@ -17,7 +17,7 @@ LV.Card {
     showAction: false
     implicitHeight: 286
     cornerRadius: 12
-    background: Rectangle { color: LV.Theme.panelBackground04; border.color: root.visualFocus ? LV.Theme.accentGreen : LV.Theme.panelBackground10; radius: 12 }
+    background: Rectangle { color: "transparent"; border.color: root.visualFocus ? LV.Theme.accentGreen : LV.Theme.panelBackground10; radius: 12 }
     onClicked: detailsRequested()
     contentItem: Item {
         ColumnLayout {

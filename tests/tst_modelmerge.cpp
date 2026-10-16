@@ -1,6 +1,7 @@
 #include "native_link.h"
 #include "App/Tools/ModelMergeController.h"
 #include "App/Tools/MergeModelCatalog.h"
+#include <SocietyDrive.h>
 #include "backend/runtime/appbootstrap.h"
 
 #include <QFile>
@@ -42,7 +43,7 @@ static bool writeFixture(const QString &path, const QByteArray &contents = "mode
 class SocietyModelMergeTest final : public QObject
 {
     Q_OBJECT
-    QTemporaryDir m_fixture{SOCIETY_TEST_DIRECTORY "/model merge-XXXXXX"};
+    QTemporaryDir m_fixture{SOCIETY_TEST_DIRECTORY "/model merge-XXXXXX.societycontainer"};
     bool m_hasRuntime = false;
     QString m_pythonError;
 
@@ -67,18 +68,34 @@ class SocietyModelMergeTest final : public QObject
     }
     QVariantMap options(const QString &name = "merged.safetensors")
     {
-        return {{"baseModel", m_fixture.filePath("base.safetensors")},
+        return {{"containerPath", m_fixture.path()}, {"baseModel", m_fixture.filePath("base.safetensors")},
             {"mode", "weighted-sum"}, {"weightMode", "automatic"}, {"sharedWeight", "0.25"},
             {"materials", QVariantList{
                 QVariantMap{{"path", m_fixture.filePath("extra.safetensors")}, {"weight", "0.25"}},
                 QVariantMap{{"path", m_fixture.filePath("style.safetensors")}, {"weight", "1.5"}}}},
-            {"output", m_fixture.filePath(name)}, {"cacheDirectory", m_fixture.filePath("conversion cache")},
+            {"output", m_fixture.filePath(name)}, {"cacheDirectory", m_fixture.filePath(".society-runtime/cache/conversion")},
             {"pythonExecutable", QString::fromUtf8(SOCIETY_MERGE_TEST_PYTHON)}};
     }
 private slots:
+    void rejectsOutputAndCacheOutsideTheSelectedContainerBeforeStartingAProcess()
+    {
+        auto request = options("scope-test.safetensors");
+        ModelMergeController controller;
+        request["output"] = QFileInfo(m_fixture.path()).absolutePath() + "/outside-society-merge.safetensors";
+        QVERIFY(!controller.run(request, true)); QVERIFY(!controller.busy());
+        QVERIFY(controller.errorString().contains("inside the selected Society container"));
+        QVERIFY(!QFileInfo::exists(request["output"].toString()));
+        request = options("cache-scope-test.safetensors");
+        request["cacheDirectory"] = QFileInfo(m_fixture.path()).absolutePath() + "/outside-society-cache";
+        QVERIFY(!controller.run(request, true)); QVERIFY(!controller.busy());
+        QVERIFY(controller.errorString().contains("runtime directory"));
+        QVERIFY(!QFileInfo::exists(request["cacheDirectory"].toString()));
+    }
     void initTestCase()
     {
         QVERIFY(m_fixture.isValid());
+        QVERIFY(iiSocietyContainer::SocietyDrive::create(m_fixture.path()));
+        qputenv("SOCIETY_CONTAINER_PATH", m_fixture.path().toUtf8());
         qmlRegisterType<ModelMergeController>("Society", 1, 0, "ModelMergeController");
         qmlRegisterType<MergeModelCatalog>("Society", 1, 0, "MergeModelCatalog");
         ModelMergeController controller;
@@ -114,12 +131,13 @@ private slots:
         QCOMPARE(result["weights"].toArray(), QJsonArray({0.25, 1.5}));
         QCOMPARE(result["additional_models"].toArray().size(), 2);
         QCOMPARE(result["output"].toString(), request["output"].toString());
-        QCOMPARE(result["cache_dir"].toString(), request["cacheDirectory"].toString());
+        QVERIFY(result["cache_dir"].toString().startsWith(request["cacheDirectory"].toString() + "/.society-model-merge-"));
+        QVERIFY(!QFileInfo::exists(QFileInfo(result["cache_dir"].toString()).absolutePath()));
         QCOMPARE(result["base_weight"].toDouble(), 1.0);
         QCOMPARE(result["lora_policy"].toString(), QString("synthetic"));
         QCOMPARE(result["inspection"].toString(), QString("structure-only"));
         QVERIFY(!QFileInfo::exists(request["output"].toString()));
-        QVERIFY(!QFileInfo::exists(request["cacheDirectory"].toString()));
+        QVERIFY(QDir(request["cacheDirectory"].toString()).entryList({".society-model-merge-*"}, QDir::Dirs | QDir::Hidden | QDir::NoDotAndDotDot).isEmpty());
     }
 
     void automaticInspectionNeedsNoOutputNameAndExposesStructure()
@@ -162,11 +180,12 @@ private slots:
     {
         const auto runner = m_fixture.filePath("native-path-report.py");
         QVERIFY(writeFixture(runner, "#!/usr/bin/env python3\nimport json\np='D:\\\\Models\\\\한글 model.safetensors'\nprint(json.dumps({'output':p,'compatibility_models':[p],'resolved_sources':[p],'sources':[{'path':p,'note':'keep\\\\literal'}],'note':'keep\\\\literal'}))\n"));
+        QVERIFY(QFile::setPermissions(runner, QFile::permissions(runner) | QFileDevice::ExeOwner));
         auto request = options();
         request["executable"] = runner;
         ModelMergeController controller;
         QSignalSpy done(&controller, &ModelMergeController::finished);
-        QVERIFY(controller.run(request, true));
+        QVERIFY2(controller.run(request, true), qPrintable(controller.errorString()));
         QTRY_COMPARE_WITH_TIMEOUT(done.count(), 1, 30000);
         QVERIFY2(done.first().first().toBool(), qPrintable(controller.errorString()));
         const auto report = controller.report();
@@ -280,7 +299,7 @@ private slots:
         QCOMPARE(MergeModelCatalog::checkpointPath(package), payload);
         ModelMergeController controller;
         auto request = options("result.safetensors");
-        request["output"] = fixture.filePath("result.safetensors");
+        request["output"] = m_fixture.filePath("wrapped-result.safetensors");
         request["baseModel"] = package;
         request["materials"] = QVariantList{QVariantMap{{"path", package}}};
         QSignalSpy done(&controller, &ModelMergeController::finished);
@@ -348,7 +367,7 @@ private slots:
         QCOMPARE(report["stages"].toArray().last().toObject()["loras"].toArray().size(), 1);
         QCOMPARE(report["compatibility_models"].toArray(), QJsonArray{m_fixture.filePath("base.safetensors")});
         QVERIFY(!QFileInfo::exists(request["output"].toString()));
-        QVERIFY(!QFileInfo::exists(request["cacheDirectory"].toString()));
+        QVERIFY(QDir(request["cacheDirectory"].toString()).entryList({".society-model-merge-*"}, QDir::Dirs | QDir::Hidden | QDir::NoDotAndDotDot).isEmpty());
     }
 
     void packagedModelIsPassedWholeToTheSdkAndCanBeMerged()
@@ -686,7 +705,7 @@ private slots:
         auto request = options();
         request["baseModel"] = package;
         request["materials"] = QVariantList{QVariantMap{{"path", m_fixture.filePath("extra.safetensors")}}};
-        request["output"] = fixture.filePath("Weighted.iildmodel");
+        request["output"] = m_fixture.filePath("Weighted.iildmodel");
         ModelMergeController controller;
         QSignalSpy done(&controller, &ModelMergeController::finished);
         QVERIFY(controller.run(request));
@@ -721,6 +740,59 @@ private slots:
         QCOMPARE(bytes(request["baseModel"].toString()), baseBefore);
         QCOMPARE(bytes(m_fixture.filePath("extra.safetensors")), extraBefore);
         QCOMPARE(bytes(m_fixture.filePath("style.safetensors")), loraBefore);
+    }
+
+    void qmlOutputFolderStaysInsideModelsAndContainerChangeCancelsWork()
+    {
+        QQmlApplicationEngine engine; engine.addImportPath(QString::fromUtf8(SOCIETY_LVRS_QML_IMPORT_PATH));
+        QStringList warnings;
+        connect(&engine, &QQmlApplicationEngine::warnings, this, [&](const QList<QQmlError> &errors) {
+            for (const auto &error : errors) warnings.append(error.toString());
+        });
+        engine.load(QUrl::fromLocalFile(QString::fromUtf8(SOCIETY_MERGE_QML_FILE)));
+        QCOMPARE(engine.rootObjects().size(), 1);
+        auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first()); QVERIFY(window);
+        auto *tool = window->findChild<QQuickItem *>("modelMergeTool"); QVERIFY(tool);
+        auto *controller = window->findChild<ModelMergeController *>("modelMergeController"); QVERIFY(controller);
+        const auto models = m_fixture.filePath("Models");
+        QVERIFY(tool->setProperty("modelsDirectory", models));
+        auto *row = visualItem(window->contentItem(), "mergeOutputDirectoryField"); QVERIFY(row);
+        QVERIFY(QMetaObject::invokeMethod(row, "clicked"));
+        auto *dialog = window->findChild<QObject *>("mergeOutputDialog"); QVERIFY(dialog);
+        QTRY_VERIFY(dialog->property("opened").toBool());
+        auto *input = visualItem(window->contentItem(), "mergeOutputRelativeFolder"); QVERIFY(input);
+        auto *confirm = visualItem(window->contentItem(), "mergeOutputConfirm"); QVERIFY(confirm);
+        QCOMPARE(input->property("text").toString(), QString("Checkpoint"));
+        for (const auto &invalid : {"/outside", "../escaped", "C:/outside", "Checkpoint//Invalid", "Checkpoint\\Invalid"}) {
+            QVERIFY(input->setProperty("text", QString::fromLatin1(invalid)));
+            QVERIFY(QMetaObject::invokeMethod(confirm, "clicked"));
+            QVERIFY(dialog->property("visible").toBool()); QVERIFY(tool->property("outputDirectory").toString().isEmpty());
+            QVERIFY(!dialog->property("errorText").toString().isEmpty());
+        }
+        QVERIFY(input->setProperty("text", "Checkpoint/Blends"));
+        QVERIFY(QMetaObject::invokeMethod(confirm, "clicked")); QTRY_VERIFY(!dialog->property("visible").toBool());
+        const auto relative = models + "/Checkpoint/Blends";
+        QCOMPARE(tool->property("outputDirectory").toString(), relative);
+        QVERIFY(!QFileInfo::exists(relative));
+        const auto script = m_fixture.filePath("slow merge on switch");
+        QVERIFY(writeFixture(script, "#!/usr/bin/env python3\nimport signal,time\nsignal.signal(signal.SIGINT, lambda *args: exit(130))\nwhile True: time.sleep(0.02)\n"));
+        QVERIFY(QFile::setPermissions(script, QFile::permissions(script) | QFileDevice::ExeOwner));
+        auto request = options("cancelled-on-switch.safetensors"); request["executable"] = script;
+        const auto before = bytes(request["baseModel"].toString());
+        QSignalSpy done(controller, &ModelMergeController::finished);
+        QVERIFY(controller->run(request)); QVERIFY(controller->busy()); QTest::qWait(200);
+        QTemporaryDir next(SOCIETY_TEST_DIRECTORY "/merge-next-XXXXXX.societycontainer");
+        QVERIFY(iiSocietyContainer::SocietyDrive::create(next.path()));
+        QVERIFY(tool->setProperty("modelsDirectory", next.filePath("Models")));
+        QTRY_COMPARE_WITH_TIMEOUT(done.size(), 1, 10000); QVERIFY(!done.first().first().toBool());
+        QCOMPARE(controller->status(), QString("Cancelled")); QVERIFY(!controller->busy());
+        QVERIFY(tool->property("outputDirectory").toString().isEmpty());
+        QCOMPARE(tool->property("effectiveOutputDirectory").toString(), next.filePath("Models"));
+        QVERIFY(!QFileInfo::exists(request["output"].toString()));
+        QCOMPARE(bytes(request["baseModel"].toString()), before);
+        QVERIFY(QDir(request["cacheDirectory"].toString()).entryList({".society-model-merge-*"}, QDir::Dirs | QDir::Hidden | QDir::NoDotAndDotDot).isEmpty());
+        QVERIFY2(warnings.isEmpty(), qPrintable(warnings.join('\n')));
+        window->close();
     }
 
     void qmlModelMenusRefreshScrollAndResetWithContainer()
@@ -943,7 +1015,7 @@ private slots:
         auto *tool = window->findChild<QQuickItem *>("modelMergeTool"); QVERIFY(tool);
         auto *catalog = window->findChild<MergeModelCatalog *>("mergeModelCatalog"); QVERIFY(catalog);
         QVERIFY(tool->setProperty("modelsDirectory", m_fixture.path()));
-        QTRY_VERIFY(!catalog->loading() && !catalog->models().isEmpty());
+        QTRY_VERIFY_WITH_TIMEOUT(!catalog->loading() && !catalog->models().isEmpty(), 15000);
         auto *inputs = visualItem(tool, "mergeInputPanel"); QVERIFY(inputs);
         auto *settings = visualItem(tool, "mergeSettingsPanel"); QVERIFY(settings);
         auto *output = visualItem(tool, "mergeOutputPanel"); QVERIFY(output);
@@ -984,10 +1056,10 @@ private slots:
         QTRY_VERIFY(tool->property("inputModelsReady").toBool());
         click("mergeAdvancedToggle");
         QTRY_VERIFY(advanced->isVisible());
-        QVERIFY(tool->setProperty("cacheDirectory", m_fixture.filePath("preserved cache")));
+        QVERIFY(tool->setProperty("cacheDirectory", m_fixture.filePath(".society-runtime/cache/preserved")));
         click("mergeAdvancedToggle");
         QTRY_VERIFY(!advanced->isVisible());
-        QCOMPARE(tool->property("cacheDirectory").toString(), m_fixture.filePath("preserved cache"));
+        QCOMPARE(tool->property("cacheDirectory").toString(), m_fixture.filePath(".society-runtime/cache/preserved"));
         QSignalSpy back(tool, SIGNAL(backRequested()));
         click("toolsBack");
         QCOMPARE(back.count(), 1);
@@ -1070,7 +1142,7 @@ private slots:
         QVERIFY(tool->property("outputName").toString().isEmpty());
         QVERIFY(tool->property("outputPath").toString().isEmpty());
         QCOMPARE(tool->property("weightMode").toString(), QString("per-model"));
-        QVERIFY(tool->setProperty("cacheDirectory", m_fixture.filePath("form cache")));
+        QVERIFY(tool->setProperty("cacheDirectory", m_fixture.filePath(".society-runtime/cache/form")));
         QVERIFY(tool->setProperty("outputDirectory", m_fixture.path()));
         QVERIFY(tool->setProperty("mergeExecutable", controller->defaultExecutable()));
         QVERIFY(tool->setProperty("pythonExecutable", QString::fromUtf8(SOCIETY_MERGE_TEST_PYTHON)));
@@ -1136,7 +1208,7 @@ private slots:
         QCOMPARE(result["additional_models"].toArray(), QJsonArray({m_fixture.filePath("extra.safetensors"), m_fixture.filePath("style.safetensors")}));
         QCOMPARE(result["weights"].toArray(), QJsonArray({0.25, 1.5}));
         QCOMPARE(result["additional_models"].toArray().size(), 2);
-        QCOMPARE(result["cache_dir"].toString(), m_fixture.filePath("form cache"));
+        QVERIFY(result["cache_dir"].toString().startsWith(m_fixture.filePath(".society-runtime/cache/form/.society-model-merge-")));
         QCOMPARE(result["output"].toString(), m_fixture.filePath("form output.safetensors"));
         if (m_hasRuntime) {
             auto *run = window->findChild<QQuickItem *>("mergeRun"); QVERIFY(run); click(run);

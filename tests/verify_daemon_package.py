@@ -85,3 +85,14 @@ for line in dependencies:
 print(json.dumps({"bundledDaemon": str(executable), "externalDependencies": external,
                   "sqliteDriverDependencies": "passed", "modelClassifierUuids": binary_uuids(packaged_container),
                   "bundledNativeLibraries": sorted(path.name for path in native_libraries)}))
+with (bundle / 'Contents/Library/LaunchAgents/com.iisacc.society.container-monitor.plist').open('rb') as file:
+    monitor_agent = plistlib.load(file)
+assert monitor_agent['Label'] == 'com.iisacc.society.container-monitor'
+assert monitor_agent['RunAtLoad'] and monitor_agent['KeepAlive']
+monitor = bundle / monitor_agent['BundleProgram']
+result = subprocess.run([str(monitor), '--help'], env=environment, capture_output=True, text=True, timeout=60)
+assert result.returncode == 0 and '--selection-file' in result.stdout, result.stderr[-4000:]
+monitor_loaded = re.findall(r'^dyld\[\d+\]: <[^>]+> (/.+)$', result.stderr, re.MULTILINE)
+assert monitor_loaded and all(path.startswith((str(bundle) + '/', '/System/', '/usr/lib/')) for path in monitor_loaded), monitor_loaded
+assert all('Qt' not in path for path in monitor_loaded), 'Container monitor acquired a Qt runtime dependency'
+print(json.dumps({'containerMonitor': str(monitor), 'libraries': len(monitor_loaded), 'qtFree': True}))

@@ -4,6 +4,10 @@ NAS·자체 호스트 서버에서는 `--sync --container PATH --server URL --ho
 
 Society 창과 별도 수명을 갖는 사용자 세션의 수신 서비스이다. 모든 iiSocietyHelper 참여자가 남긴 데이터를 받아 영속 수신함에 보관한다. Society 본체는 나중에 실행해도 데이터를 읽고, 실행 중에는 새로운 데이터를 계속 전달받는다.
 
+데몬은 시작 시 현재 선택된 `.societycontainer` 패키지를 열어 iiSocietyContainer의 정리 작업을 등록하고, 5분마다 저장소 선택을 다시 확인한다. 계정 로그인이나 네트워크 소유권 없이도 SDK의 최초 검사와 5분 간격 검사가 동작하므로 창이 닫힌 상태에서도 사용이 끝난 임시 파일을 삭제하고 내부 로그는 폴더별 최신본 하나만 보존한다. 진행 중인 가져오기·파일 교체·동기화는 shared lease로 보호한다. 공유 설정에 저장된 과거 이미지는 열거나 복원하지 않는다. `daemonMaintainsSelectedFolderWithoutAnAccount`는 실제 데몬 프로세스가 계정 없이 선택된 패키지의 임시 파일을 삭제하는지 검증한다.
+
+임시 파일 lease가 없는 구버전 GUI를 유지한 채 새 정리 데몬만 먼저 실행하면 안 된다. 업데이트 시 작업 중인 창을 보존하려면 새 번들을 설치하되, 기존 GUI가 종료된 뒤 등록된 데몬을 재시작한다. 같은 앱 경로·LaunchAgent plist·서명 식별자를 유지하는 SDK 업데이트에서는 이 전환에 기존 서비스의 `launchctl kickstart -k gui/<uid>/com.iisacc.society.daemon`을 사용할 수 있다. 실제 프로세스 교체와 새 SDK의 로딩을 확인하기 전까지 실행 중 데몬에 정리 정책이 적용되었다고 보고하지 않는다.
+
 ```mermaid
 flowchart LR
     A[각 앱의 iiSocietyHelper] -->|sendData 및 관측 이벤트| B[(공통 발신 큐)]
@@ -14,7 +18,7 @@ flowchart LR
 
 ## 수명과 데이터 보장
 
-- Helper와 데몬 모두 같은 `SOCIETY_HELPER_DIRECTORY` 또는 플랫폼 기본 위치를 사용한다. 데이터는 그 아래 `delivery/delivery.sqlite`에 기록한다. Society 콘텐츠 드라이브의 Files/·Models/에는 넣지 않는다.
+- Helper와 데몬 모두 같은 컨테이너 내부 `SOCIETY_HELPER_DIRECTORY` 또는 `.society-runtime/helpers/v1` 기본 위치를 사용한다. 데이터는 그 아래 `delivery/delivery.sqlite`에 기록한다. Society 콘텐츠 드라이브의 Files/·Models/에는 넣지 않는다.
 - 데몬은 창이 없는 Qt Core 실행 파일이다. 단일 소유자 잠금으로 같은 저장 위치에 두 데몬이 수신을 수행하지 못하게 한다. 강제 종료 후 새 프로세스가 잠금을 회수한다.
 - 250 ms마다 최대 128개 메시지를 수신하고, 1초마다 또는 관측 목록 변경 시 마지막 상태를 저장한다. 이는 OS 스케줄링과 저장 장치 응답에 따른 지연이 있는 폴링 주기이다.
 - SQLite 트랜잭션으로 outbox → inbox 이동과 발신 제거를 함께 커밋한다. 오류나 중단이 발생하면 발신 데이터를 남기며 재처리한다. 같은 메시지 ID를 수신함에 중복 저장하지 않는다.
@@ -86,15 +90,17 @@ MLX의 Metal 라이브러리는 `Resources`에 저장하고 `Frameworks`의 상�
 
 ## 진단과 플랫폼
 
-macOS 또는 다른 데스크톱에서 창 없이 직접 실행할 수 있다. 생성물은 build/ 아래에 둔다.
+macOS 또는 다른 데스크톱에서 창 없이 직접 실행할 수 있다. 진단용 컨테이너는 먼저 앱이나 SDK로 build/ 안에 생성하며, 진단 생성물도 그 패키지 안에 둔다.
 
 ```sh
-build/SocietyDaemon --directory "$PWD/build/daemon-verification"
+build/bin/SocietyDaemon --container "$PWD/build/verification.societycontainer" \
+  --directory "$PWD/build/verification.societycontainer/.society-runtime/helpers/v1" \
+  --exit-after-ms 15000
 ```
 
 `--exit-after-ms 15000`은 유한 시간의 진단 실행에 사용한다. SIGTERM/SIGINT는 이벤트 루프에서 정상 종료하고, SIGKILL 뒤에도 수신함과 미처리 발신 큐가 남는다. Qt 로그 범주는 `iisacc.society.daemon`, `iisacc.society.inbox`, `iisacc.society.helper`이며 메시지 ID·앱 ID·토픽을 기록하고 사용자 payload는 로그에 출력하지 않는다.
 
-iOS는 독립 상주 데몬을 지원하지 않는다. 동일한 Society App Group의 Application Support 안에 발신 데이터를 보관하고, Society 앱이 실행되는 동안 `SocietyDaemonService`로 수신한다. `SocietyRuntime`은 중단 때 Helper의 마지막 이벤트를 기록하고 수신기 잠금·DB 연결을 해제한다. 복귀 때 영속 ACK를 복원하여 누적 데이터를 수신하고, 실행 중 시작 실패도 재시도한다. Inactive는 파일 선택기에서도 발생하므로 중단으로 취급하지 않는다. 호스트의 `Society.MobileLifecycle`이 이 복구 경로를 검증한다. 실제 iOS 빌드·기기 검증 상태는 [iOS 구현 문서](iOS.md)를 따른다. Android 앱 간 저장 위치와 Windows/Linux 로그인 서비스 등록은 아직 별도 구현 대상이다. 현재 서비스 등록과 프로세스 실행 검증 대상은 macOS이다.
+iOS는 독립 상주 데몬을 지원하지 않는다. 선택한 `.societycontainer`의 `.society-runtime/helpers/v1` 안에 발신 데이터를 보관하고, Society 앱이 실행되는 동안 `SocietyDaemonService`로 수신한다. `SocietyRuntime`은 중단 때 Helper의 마지막 이벤트를 기록하고 수신기 잠금·DB 연결을 해제한다. 복귀 때 영속 ACK를 복원하여 누적 데이터를 수신하고, 실행 중 시작 실패도 재시도한다. Inactive는 파일 선택기에서도 발생하므로 중단으로 취급하지 않는다. 호스트의 `Society.MobileLifecycle`이 이 복구 경로를 검증한다. 실제 iOS 빌드·기기 검증 상태는 [iOS 구현 문서](iOS.md)를 따른다. Android 앱 간 저장 위치와 Windows/Linux 로그인 서비스 등록은 아직 별도 구현 대상이다. 현재 서비스 등록과 프로세스 실행 검증 대상은 macOS이다.
 
 ## 검증
 
@@ -117,3 +123,57 @@ GUI도 소유권 반환 시 closeAndWait()로 SDK 작업 큐의 종료를 기다
 런타임 검색 디렉터리에서 해결한다. 찾지 못한 의존성은 빌드 오류이다.
 `verify_daemon_package.py`는 내장된 iiSocietyContainer Core·Gui의 Mach-O UUID를 선택된 SDK와
 대조하며, 본체와 데몬의 실제 로더 검사는 Qt 및 네이티브 라이브러리의 외부 경로 사용을 거부한다.
+
+
+## 단일 컨테이너 관리 범위
+
+기본 Helper 관찰·전달 데이터는 선택한 `.societycontainer/.society-runtime/helpers/v1`, 계정·페어링 암호문은 `state`, 동기화 소유권은 `sync` 하위에 보관한다. GUI와 데몬은 동일 패키지를 사용하며 선택 변경 시 이전 소유권과 관찰 서비스를 해제한다. 선택 전에는 데몬이 쓰기 없이 기다리며 폴더 선택 후 다시 연결한다. SDK의 `SharedStorage::runtimePath`는 경로 조회만 수행하고 명시적 생성은 `ensureRuntimeDirectory`로 수행한다.
+
+기존 OS 계정 암호문은 해당 레코드 조회 때 원본을 읽기 전용으로 접근하여 바이트와 철회 마커를 그대로 이전한다. 플랫폼 Keychain의 키와 작은 OS 저장소 선택 포인터는 그대로 사용한다. 이전 디스크 이미지를 복원하지 않는다. 명시적 `--directory`·Helper override·`--status-file`도 선택한 패키지의 `.society-runtime` 밖이면 시작 전에 거부한다. SDK의 저수준 명시 전송 경로는 통합 테스트를 위해 별도로 유지한다.
+
+QML 디스크 캐시는 끈다. 모델 병합은 컨테이너 내부의 개별 `.society-model-merge-<UUID>` 작업공간에 변환·Python·Torch·HF 임시 파일을 모으고 완료·실패·취소 후 즉시 제거한다. 실행 중에는 작업공간의 직접 부모와 출력 부모의 `iiFileProvider::TemporaryLease` 공유 잠금을 유지하여 정리 작업이 활성 파일을 삭제하지 못하게 한다.
+
+계정 및 네트워크 회귀 테스트는 실제 계정 응답과 등록한 호스트 컨테이너를 사용한다. 테스트의 세션·페어링 자격 증명은 메모리 저장소에만 보관하며, 원격 서버의 계정 주체가 로그인 계정과 다를 때의 연결 거부도 검증한다. 계정 미등록 연결을 허용하는 테스트용 제품 분기는 추가하지 않는다.
+
+The packaged helper discovery regression allows up to 25 seconds for the cold application bootstrap and includes captured application output on failure.
+
+## Container monitoring and app state delivery
+
+`SocietyContainerDaemon` is a separate, Qt-free C++23 service provided by
+`iiSocietyMonitor`. The existing `SocietyDaemon` retains synchronization,
+account restoration and delivery-queue responsibilities. Both plain executables
+ship inside the single `Society.app/Contents/MacOS` directory.
+
+The monitor follows Society's existing `storage.json` selection, validates the
+container UUID and scans public filesystem metadata every second. It publishes
+an atomic credential-free snapshot at
+`.society-runtime/monitor/v1/state.cbor`. Apps subscribe through
+`iiSocietyHelper::FileSystem::containerState` and `containerStateChanged`; QML
+uses `societyHelper.fileSystem.containerState`. GUI callbacks are marshalled onto
+the object's thread. The existing mirror refreshes on changed revisions. Its
+2-second fallback timer remains active for replicas and partial inventories,
+and resumes when the daemon is absent or stale.
+
+The macOS login agent is `com.iisacc.society.container-monitor`, with RunAtLoad and
+KeepAlive enabled. Society registers both agents on ordinary startup. Explicit
+management is available through:
+
+```sh
+Society.app/Contents/MacOS/Society --container-monitor-service register
+Society.app/Contents/MacOS/Society --container-monitor-service status
+Society.app/Contents/MacOS/Society --container-monitor-service unregister
+```
+
+Isolated app tests set `SOCIETY_HELPER_DIRECTORY` to prevent login-service
+registration. The native daemon also accepts `--selection-file`, `--root`,
+`--identifier`, bounded scan limits, `--watch`, `--read-state` and
+`--exit-after-ms` for process-level diagnostics. Windows/Linux can run the
+standalone executable; this change does not install a system service there.
+iOS/Android do not ship a resident desktop daemon. See the SDK's `Protocol.md`
+for completeness, liveness, identity and metadata-only detection semantics.
+
+The bundled runtime verifier allows 90 seconds for a cold launch of the GUI
+loader and legacy daemon. A freshly signed bundle includes large model/Qt
+runtimes, and its first filesystem/signature validation can exceed 30 seconds.
+This deadline does not change the native monitor's one-second scan interval or
+five-second heartbeat expiry.

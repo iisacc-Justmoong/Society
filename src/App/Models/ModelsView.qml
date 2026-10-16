@@ -101,6 +101,10 @@ Item {
                     required property var modelData
                     objectName: "modelCard" + category.modelData.key + index
                     type: LV.Card.Model
+                    background: Rectangle {
+                        color: card.effectiveSelected || card.effectiveHovered ? card.surfaceColor : "transparent"
+                        radius: card.resolvedCornerRadius
+                    }
                     width: 256
                     height: 280
                     title: modelData.name

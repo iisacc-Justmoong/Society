@@ -18,13 +18,69 @@ CMake는 `find_package(iiPhotoLibrary 0.1 CONFIG REQUIRED)`를 사용한다. 호
 `SDK/iiPhotoLibrary/build/install`도 검색한다. 교차 컴파일에서는 같은 타깃 ABI의 설치본을
 명시해야 한다. iOS/Android 빌드 도구는 iiPhotoLibrary를 의존 SDK로 먼저 빌드·설치한다.
 Android 패키지에는 SDK의 `com.iisacc.iiphotolibrary.PhotoLibrary`를 복사하며
-SocietyActivity가 권한·휴지통 콜백을 전달한다.
+SocietyActivity가 SDK 권한 콜백을 전달한다. Society의 사진 저장 계층은 OS 보관함 등록·휴지통 API를 호출하지 않는다.
 
 검증은 `Society.Photos`의 SDK 회귀·QML 렌더링, `Society.PhotoLibraryIntegration`의 실제 SDK 타입·
 비활성화·미인증 요청 검사, `Society.PhotosNavigation`의 Photos 진입·모바일 갤러리 검사로 수행한다.
 
 
-`Society/Photos`는 사진과 비디오를 함께 관리하는 고정 디렉터리이다. Files 디렉터리는 수동 보관을 유지한다. Photos에 사용자가 넣은 사진·비디오는 연결된 기기의 사진 보관함에도 추가하며, Photos 바깥의 파일을 종류별로 이동하지 않는다.
+`Society.societycontainer/Photos`는 사진과 비디오를 함께 관리하는 컨테이너 내부 디렉터리이다. Files 디렉터리는 수동 보관을 유지한다. Photos에 사용자가 넣은 사진·비디오는 그 위치에 보존하고 컨테이너 내부 alias·프리뷰·검증된 원본만 만든다. Photos 바깥의 파일을 종류별로 이동하거나 OS 사진 보관함에 등록하지 않는다.
+
+## Lazy photo storage
+
+Opening a fresh `PhotoStore`, reading its catalog or gallery, checking original
+availability, and resolving preview/resource paths do not create
+`.society-photos/<container-id>/` or `Photos/.previews/`. Missing private cache
+directories represent an empty local photo index. The public API and portable
+photo formats remain unchanged.
+
+The SDK creates destination parents at the actual write boundary. Discovering
+a native asset writes gallery metadata and local references, stages previews
+and hashing exports in `incoming`, and saves previews in `Photos/.previews/`.
+It does not create `originals` merely to discover the asset or return its future
+resource path. Preparing an original for transfer, or committing a received
+original, creates the required original cache only when bytes are written.
+Native preview/export callbacks can rely on the SDK preparing their destination
+parents; adapters do not need to reproduce the former eager initialization.
+
+`PhotoStore::refresh()` reads the container's Photos files and existing local
+references without scanning the operating-system photo library. This also
+applies when native assets exist or access has already been granted. Configure,
+foreground return, periodic refresh, and sync completion do not request photo
+permission or discover unrelated native assets. `PhotoStore::importLibrary()`
+is the explicit full-library read boundary. `PhotoController::connectLibrary()`
+requests permission when needed, then performs one explicit import with full or
+limited access. Limited access reads only the assets allowed by the OS.
+
+A default initial refresh keeps the private photo and `Photos` trees empty for
+all five access states. Existing empty directories from eager initialization,
+including `gallery`, `references`, `originals`, `incoming`, and `.previews`,
+preserve that behavior. No operation lock or index files are created while
+there is no container photo payload. An explicit import of an empty readable
+library publishes one empty gallery reset without allocating cache directories.
+Any file, symlink, junction, or other non-directory entry prevents the empty
+fast path; known write paths continue to reject redirection. Container files,
+existing aliases, explicit library imports, and legacy-index migration enter the
+serialized operation path and create only parents required by actual writes.
+User bytes remain in place.
+
+`iiPhotoLibrary` is linked as a static library. After rebuilding and installing
+the SDK, relink both the Society GUI and `SocietyDaemon` to embed the lazy write
+implementation. A GUI that is already running still executes its previously
+linked code and may expect parents created by the old eager `open()` path.
+Do not force-delete those empty directories during that active session. Apply
+the new lifecycle through the rebuilt binaries and a controlled handoff before
+removing directories on which an older writer still depends.
+
+`Society.Photos` covers fresh open/read/reopen, repeated default refresh in all
+five access states with absent caches and old empty scaffolding, and automatic
+configure/foreground/manual refresh with unselected native assets. Scan,
+authorization, export, preview, import, and removal counters remain zero in the
+unselected cases. Explicit discovery is initialized through `importLibrary()`
+or the controller's Import action. The native fixtures do not prepare
+preview/export destination parents, so discovery and original preparation also
+exercise lazy writes. A malicious redirected-cache fixture creates its own link
+parent; path lookup is never used to allocate it.
 
 ## 저장 계약
 
@@ -36,60 +92,64 @@ SocietyActivity가 권한·휴지통 콜백을 전달한다.
 | `.society-photos/<container-id>/gallery/<native-key>.json` | 네이티브 메타데이터·변경 시점·프리뷰 완료 상태의 영구 인덱스 | 전파하지 않음 |
 | `Photos/.previews/gallery-<native-key>.jpg` | 원본 해시 완료 전부터 사용하는 영구 갤러리 프리뷰 | 컨테이너 내부 저장 |
 | `.society-photos/<container-id>/references/<id>.json` | 기기별 PhotoKit ID, MediaStore URI 또는 Windows 경로·변경 시점 | 전파하지 않음 |
-| `.society-photos/<container-id>/originals/<hash>` | 전송·등록에 필요한 원본 또는 NAS의 원본 저장소 | 인증된 사진 채널 |
+| `.society-photos/<container-id>/originals/<hash>` | 전송·열람에 필요한 검증된 원본 또는 NAS의 원본 저장소 | 인증된 사진 채널 |
 | `.society-photos/<container-id>/incoming` | 검증 전 부분 전송과 임시 출력 | 전파하지 않음 |
 
-`.societyphoto`는 Society가 해석하는 논리적 alias이다. OS 심볼릭 링크나 다른 기기의 절대 경로를 복제하지 않는다. 로컬 원본은 시스템 사진 보관함에 남고, Society는 네이티브 API로 접근한다. 공통 식별자는 원본 리소스 해시를 바탕으로 생성하며, 이후에는 로컬 참조로 식별자를 유지한다. Apple cloud identifier와 Society가 가져온 리소스의 고정 이름도 사용하여 재등록을 방지한다.
+`.societyphoto`는 Society가 해석하는 논리적 alias이다. OS 심볼릭 링크나 다른 기기의 절대 경로를 복제하지 않는다. 명시적으로 연결한 로컬 원본은 시스템 사진 보관함에 남고, Society는 네이티브 API로 읽는다. 공통 식별자는 원본 리소스 해시를 바탕으로 생성하며, 이후에는 로컬 참조로 식별자를 유지한다. 기존 Apple cloud identifier와 리소스 식별자도 참조 매칭에 사용한다. OS 사진 보관함에 재등록하지 않는다.
 
 발견 시에는 임시로 원본을 읽어 해시를 계산하고 임시 출력을 제거한다. 원본 전송 요청이 오면 별도로 준비한다. 전송이 끝난 읽기 임대를 해제하면 로컬 사진 보관함이 보유한 임시 원본을 제거한다. 다른 수신자가 읽는 원본은 유지한다. 중단된 임대는 1시간 후 만료되며, 활성 임대가 없는 오래된 네이티브 캐시는 갱신 시 정리한다. 사진 보관함이 없는 NAS의 원본은 계속 보관한다.
 
-`View original`은 원본을 변경하지 않는 열람용 복사본을 외부 뷰어로 연다. 선택하여 받은 원본은 이후 목록을 갱신해도 기기 사진 보관함에 자동 등록하지 않는다. 네이티브 등록은 명시적인 파일 가져오기와 호스트의 업로드 수신 완료에만 수행한다. 이 복사본과 중단된 임시 출력은 24시간, 이어받기용 부분 원본은 7일이 지난 뒤 갱신 시 정리한다. 외부 뷰어가 열람용 파일에 저장한 편집은 네이티브 원본으로 덮어쓰지 않는다.
+`View original`은 원본을 변경하지 않는 열람용 복사본을 외부 뷰어로 연다. 선택하여 받은 원본은 이후 목록을 갱신해도 기기 사진 보관함에 자동 등록하지 않는다. 명시적인 파일 추가, 복제, 호스트 업로드 수신 완료도 컨테이너 내부 데이터만 만든다. `consume()`는 받은 리소스의 해시·크기와 컨테이너 경계만 확인한다. 이 복사본과 중단된 임시 출력은 24시간, 이어받기용 부분 원본은 7일이 지난 뒤 갱신 시 정리한다. 외부 뷰어가 열람용 파일에 저장한 편집은 네이티브 원본으로 덮어쓰지 않는다.
 
-Photos에 직접 넣은 파일은 네이티브 등록과 로컬 참조 저장이 성공한 뒤 임시 Photos 복사본을 alias로 대체한다. 그 사이 파일 해시가 바뀌면 삭제하지 않는다. 사용자의 외부 원본 경로는 이동하지 않는다. 사진·비디오 이외의 일반 파일은 가져오지 않는다.
+Photos에 직접 넣은 파일은 이름과 경로를 그대로 유지한다. SDK는 그 바이트를 검증하여 컨테이너 내부 원본 캐시와 별도 alias·프리뷰를 만들며, 반복 갱신으로 사용자 파일을 삭제하거나 OS 사진 보관함에 복제하지 않는다. `Add`는 선택한 외부 파일을 Photos로 복사하고 외부 원본을 유지한다. 복제는 별도 alias ID를 만들고 같은 검증된 원본 리소스를 공유한다. 사진·비디오 이외의 일반 파일은 사진 객체로 가져오지 않는다.
 
 ## 양방향 동작
 
-준비된 컨테이너에서 사진 보관함을 조회하고 사진 객체·프리뷰를 기존 `iiSocietySync`로 합친다. 클라이언트는 호스트에 없는 자신의 원본을 올린다. 호스트 원본은 openPhoto/downloadPhoto로 선택할 때만 받아 Society 원본 캐시에 검증하여 저장한다. 원본을 열기 위해 네이티브 사진 보관함에 자동 등록하지 않는다. 호스트를 통해 애플·Android·Windows 사진이 모인다. 원본 소유 기기가 오프라인이면 프리뷰를 표시하며 전송을 대기한다. Live Photo의 사진·paired video와 보조 사진은 한 객체의 여러 리소스로 전송한다.
+준비된 컨테이너의 사진 객체·프리뷰를 기존 `iiSocietySync`로 합친다. OS 사진 보관함의 전체 조회는 명시적 연결 때만 수행한다. 클라이언트는 호스트에 없는 자신의 원본을 올린다. 호스트 원본은 openPhoto/downloadPhoto로 선택할 때만 받아 Society 원본 캐시에 검증하여 저장한다. 원본을 열기 위해 네이티브 사진 보관함에 자동 등록하지 않는다. 호스트를 통해 애플·Android·Windows 사진이 모인다. 원본 소유 기기가 오프라인이면 프리뷰를 표시하며 전송을 대기한다. Live Photo의 사진·paired video와 보조 사진은 한 객체의 여러 리소스로 전송한다.
 
 `society.photos` 채널은 기존 LAN/TLS·자체 서버의 계정 인증을 사용한다. 검증된 피어와 현재 컨테이너 ID가 모두 일치해야 한다. 경로 대신 사진 ID·리소스 번호를 전달하며, 256 KiB 청크·이어받기·중복 청크 확인·최종 SHA-256 및 크기 검증을 적용한다. 원본 준비는 별도 작업 스레드에서 실행하고 티켓으로 결과를 조회한다. 사진을 교환하는 기기는 이 추가 채널을 제공하는 앱 버전이어야 한다.
 
-완료된 응답 캐시는 제한된 크기로 교체하므로 큰 영상의 전송이 요청 수 제한 때문에 멈추지 않는다. 복합 사진을 일부만 등록한 상태는 완료로 처리하지 않는다. Android·Windows는 이미 등록한 원본을 확인하고 빠진 리소스만 등록하며, Apple은 PhotoKit 트랜잭션으로 리소스 묶음을 생성한다. 다른 내용의 네이티브 원본이 같은 객체로 발견되면 충돌을 표시하고 기존 원본과 공유 객체를 보존한다. 원본 바이트 교체에 대한 충돌 자동 해결은 수행하지 않는다.
+완료된 응답 캐시는 제한된 크기로 교체하므로 큰 영상의 전송이 요청 수 제한 때문에 멈추지 않는다. 복합 사진은 모든 리소스의 컨테이너 원본이 해시·크기 검증을 통과해야 완료로 처리한다. 수신 완료를 PhotoKit 생성, MediaStore 등록 또는 Windows 사진 폴더 복사로 판정하지 않는다. 다른 내용의 네이티브 원본이 같은 객체로 발견되면 충돌을 표시하고 기존 원본과 공유 객체를 보존한다. 원본 바이트 교체에 대한 충돌 자동 해결은 수행하지 않는다.
 
-최초 연결은 앱이 전경에 있고 컨테이너가 준비되면 OS 사진 권한을 자동으로 요청한다. Photos 화면의 `Connect photo library…`로도 연결할 수 있다. 제한된 접근에서는 허용된 항목만 연결한다. 주기적 갱신과 컨테이너 동기화 완료·새로 고침에서 다시 조회한다. 변경 없는 결과로 추가 동기화를 유발하지 않으며, 목록 변경 시 선택과 스크롤을 유지한다.
+Photos 화면의 `Import photo library…`를 사용자가 호출하면 필요한 OS 사진 권한을 요청하고 보관함 전체를 한 번 읽어 참조·프리뷰를 컨테이너에 가져온다. 제한된 접근에서는 허용된 항목만 읽는다. 앱 설정, 전경 복귀, 주기적 갱신, 컨테이너 동기화 완료와 `Refresh`는 컨테이너 파일·기존 참조를 갱신하며 권한 요청이나 OS 전체 인덱싱을 수행하지 않는다. 새 OS 사진이나 OS 편집 결과를 전체 목록에서 다시 발견하려면 Import를 명시적으로 호출한다. 변경 없는 결과로 추가 동기화를 유발하지 않으며, 목록 변경 시 선택과 스크롤을 유지한다.
+
+네이티브 참조와 원본 캐시는 컨테이너 UUID별로 저장한다. 독립 컨테이너를 다른 호스트의 컨테이너에 바인딩하면 이전 namespace의 파일은 동기화 계층의 분리 보관 경로에 남고, 새 Photos 목록에는 선택한 호스트의 객체가 표시된다. 이 전환이 OS 사진 보관함의 재가져오기를 의미하지 않는다. 새 호스트 컨테이너에서도 기기 사진을 공유하려면 초기 mirror 완료 후 Import를 명시적으로 호출한다.
 
 최신 항목 위치는 Photos 화면에 진입할 때만 정한다. 백그라운드 갱신 중에는 최신 행을
 보고 있어도 새 사진을 따라 자동 스크롤하지 않는다. 내용이 같으면 목록 변경 신호도
 내보내지 않는다. `Society.Photos`는 모바일·데스크톱 크기에서 변경 없는 조회와 실제 추가·
 재정렬 후 카메라 위치·선택 유지, 명시적 화면 재진입을 검사한다.
 
-모바일에서는 사진 작업도 기존 동기화의 백그라운드 실행 시간에 포함한다. OS가 실행 시간을 종료하거나 컨테이너가 바뀌면 네이티브 요청을 취소하고, 포그라운드 복귀 시 다시 조회한다. OS의 백그라운드 실행 한도를 우회하거나 무제한 실행을 보장하지 않는다.
+모바일에서는 사진 작업도 기존 동기화의 백그라운드 실행 시간에 포함한다. OS가 실행 시간을 종료하거나 컨테이너가 바뀌면 진행 중인 네이티브 읽기를 취소하고, 포그라운드 복귀 시 컨테이너 목록을 갱신한다. OS 전체 가져오기를 자동으로 재개하지 않는다. OS의 백그라운드 실행 한도를 우회하거나 무제한 실행을 보장하지 않는다.
 
-`Move to trash`는 네이티브 삭제가 성공한 뒤 삭제 표식을 전파한다. 다른 기기도 표식을 처리한다. 네이티브 삭제는 연속된 전체 조회에서 확인한 경우에만 전파하며, 권한 손실·제한된 접근·조회 실패·미디어 DB 재구축을 전체 삭제로 해석하지 않는다. 필요한 OS 확인창은 Society에서 호출하고 그 결과를 따른다. 휴지통 비우기는 수행하지 않는다. 각 사진 앱의 비파괴 편집 이력을 다른 OS의 편집 이력으로 변환하는 기능은 포함하지 않는다.
+`Move to trash`는 컨테이너 사진 객체에 삭제 표식을 기록하고 다른 기기에 전파한다. 운영체제 사진 보관함의 원본이나 사용자가 Photos에 넣은 파일은 삭제하지 않는다. 다른 기기도 컨테이너 삭제 표식만 처리하며 OS 휴지통 API를 호출하지 않는다. 명시적 전체 조회에서 네이티브 원본 부재를 확인하는 기존 참조 검증은 권한 손실·제한된 접근·조회 실패·미디어 DB 재구축을 전체 삭제로 해석하지 않는다. 각 사진 앱의 비파괴 편집 이력을 다른 OS의 편집 이력으로 변환하는 기능은 포함하지 않는다.
 
 ## 플랫폼 범위
 
-- Apple: PhotoKit 읽기·쓰기 권한, PHAsset·PHCloudIdentifier·PHAssetResourceManager·PHAssetCreationRequest를 사용한다. iCloud 원본도 PhotoKit을 통해 내려받는다. Photos 내부 DB나 원본 디렉터리는 직접 수정하지 않는다. 사진 앱에서 변경한 프리뷰를 다시 저장하며, 시스템 iCloud 설정 자체는 변경하지 않는다.
-- Android: 이미지·비디오 MediaStore 컬렉션과 외부 볼륨을 조회한다. 미디어 DB 버전·마운트된 볼륨·`GENERATION_MODIFIED`, 제한된 접근을 확인한다. `Pictures/Society`에 `IS_PENDING` 쓰기·공개·실패 정리를 수행한다. Android 11 이상에서 추가 동의가 필요한 휴지통 변경은 Android 항목 확인창을 호출한다. 이전 OS에서는 영구 삭제로 대체하지 않고 시스템 갤러리에서 관리하도록 안내한다. Google Photos의 클라우드 전용 항목 전체를 읽는 API를 의미하지 않는다. 원본 위치 메타데이터 권한도 요청하며, 허용되면 `setRequireOriginal`로 읽는다. 허용되지 않으면 OS가 제공하는 메타데이터 범위를 따른다.
-- Windows: Shell Pictures/Videos 라이브러리와 기본 Pictures/Movies 폴더, 그 안에서 실제 파일로 접근 가능한 OneDrive 항목을 연결한다. Windows Photos의 비공개 DB나 별도 클라우드의 웹 전용 목록을 읽지 않는다. Shell 썸네일과 Recycle Bin을 사용한다.
+- Apple: 명시적 연결 시 PhotoKit 권한과 PHAsset·PHCloudIdentifier·PHAssetResourceManager로 메타데이터·프리뷰·원본을 읽는다. iCloud 원본도 PhotoKit으로 내려받는다. Society 사진 저장 계층은 PHAssetCreationRequest나 OS 원본 삭제를 호출하지 않는다. Photos 내부 DB·원본 디렉터리·시스템 iCloud 설정을 수정하지 않는다.
+- Android: 명시적 연결 시 이미지·비디오 MediaStore 컬렉션과 외부 볼륨을 조회한다. 미디어 DB 버전·마운트된 볼륨·`GENERATION_MODIFIED`, 제한된 접근을 확인한다. Society 사진 저장 계층은 `Pictures/Society` 등록이나 MediaStore 휴지통 변경을 호출하지 않는다. Google Photos의 클라우드 전용 항목 전체를 읽는 API를 의미하지 않는다. 원본 위치 메타데이터 권한이 허용되면 `setRequireOriginal`로 읽으며, 허용되지 않으면 OS가 제공하는 범위를 따른다.
+- Windows: 명시적 연결 시 Shell Pictures/Videos 라이브러리와 기본 Pictures/Movies 폴더, 그 안에서 실제 파일로 접근 가능한 OneDrive 항목을 읽는다. Windows Photos의 비공개 DB나 별도 클라우드의 웹 전용 목록을 읽지 않는다. Shell 썸네일을 사용하며 Society 사진 저장 계층은 OS 보관함 파일이나 Recycle Bin을 변경하지 않는다.
 - 네이티브 사진 보관함이 없는 호스트: 객체·프리뷰와 받은 원본을 보존하여 NAS 역할을 수행한다.
 
 새 외부 패키지를 추가하지 않는다. 기존 Qt와 OS 공식 API를 재사용하고 `PhotoLibrary` 인터페이스로 플랫폼을 분리한다. 컨테이너·파일 동기화 SDK가 상위 앱 UI를 참조하지 않는다.
 
 ## 검증
 
-`Society.Photos`는 기존 Photos 경로 이전 시 원본 참조 보존, alias·프리뷰, 사진·비디오 양방향 전송, 재등록 방지, 청크 재시도·해시 불일치, 경로 리디렉션, 제한된 권한, 네이티브 변경·휴지통, 미인증 피어 거부를 격리된 보관함으로 검사한다. 실제 로컬 TLS와 `iiSocietySync`를 연결하는 통합 시험은 alias·프리뷰 전송, 선택 다운로드 전 원본 미수신, 명시 요청 후 원본 캐시 저장과 호스트의 업로드 등록, 반대 방향 삭제 전파를 검사한다. 사진 보관함 자체는 테스트용 구현을 사용한다.
+`Society.Photos`는 자동 갱신의 OS 스캔·권한 요청 금지, 명시적 연결, 기존 Photos 경로 이전 시 참조 보존, alias·프리뷰, 사진·비디오 양방향 전송, 청크 재시도·해시 불일치, 경로 리디렉션, 제한된 권한, 컨테이너 복제·삭제와 사용자 원본 보존, 미인증 피어 거부를 격리된 보관함으로 검사한다. 실제 로컬 TLS와 `iiSocietySync` 통합 시험은 alias·프리뷰 전송, 선택 다운로드 전 원본 미수신, 명시 요청 후 원본 캐시 저장, 호스트 업로드의 파일 존재·SHA-256, 반대 방향 삭제 표식 전파를 검사한다. OS 보관함 import·trash 호출 횟수는 0이어야 한다. 사진 보관함 자체는 테스트용 구현이다.
 
-동일 테스트의 LVRS 화면 검증은 데스크톱·390 px 화면, 늦은 프리뷰, 선택·스크롤 유지와 삭제 후 선택 해제를 확인하고 `build/photos/gallery-*.png`를 저장한다. `tools/test_android_photos.py`는 실행 중인 Android 에뮬레이터에서 별도 시험 앱으로 실제 MediaStore를 검사한다. 설치 대상은 에뮬레이터로 제한하고 시험이 끝나면 시험 앱을 제거한다. 빌드 산출물은 `build/photos/native-android`에만 생성한다.
+TLS 시험은 독립 기기의 초기 host binding을 완료한 뒤 자동 configure의 OS scan 부재와 호스트 alias 한 개만 표시됨을 먼저 검사한다. 그다음 `connectLibrary()`의 명시적 가져오기에서 기기 alias를 추가하고 원본 업로드의 해시·크기 검증을 수행한다. 컨테이너 전환을 자동 OS 재가져오기로 우회하지 않는다.
+
+동일 테스트의 LVRS 화면 검증은 데스크톱·390 px 화면, 늦은 프리뷰, 선택·스크롤 유지와 삭제 후 선택 해제를 확인하고 `build/photos/gallery-*.png`를 저장한다. `tools/test_android_photos.py`는 실행 중인 Android 에뮬레이터에서 별도 시험 앱으로 하위 네이티브 어댑터의 실제 MediaStore 기능을 검사한다. 어댑터의 직접 등록·휴지통 시험은 Society의 자동 처리나 PhotoStore 호출을 의미하지 않는다. 설치 대상은 에뮬레이터로 제한하고 시험이 끝나면 시험 앱을 제거한다. 빌드 산출물은 `build/photos/native-android`에만 생성한다.
 
 일반 CTest는 `SOCIETY_DISABLE_PHOTOS=1`로 실제 사용자 보관함을 가져오지 않는다. 네이티브 SDK 컴파일, 에뮬레이터, 실기기·iCloud 전파 검증은 별도로 기록한다. 빌드와 테스트만으로 기존 설치 앱의 갱신이나 실제 사용자 보관함의 통합 완료를 주장하지 않는다.
 
 공식 API: [PhotoKit](https://developer.apple.com/documentation/photos), [Apple 기기 간 식별](https://developer.apple.com/videos/play/wwdc2021/10046/), [Android 공유 미디어](https://developer.android.com/training/data-storage/shared/media), [Android 제한된 접근](https://developer.android.com/about/versions/14/changes/partial-photo-video-access), [Windows 라이브러리](https://learn.microsoft.com/en-us/windows/win32/api/shobjidl_core/nf-shobjidl_core-ishelllibrary-getfolders).
 
-## 전경의 자동 연결과 점진적 목록 표시
+## 명시적 보관함 연결과 점진적 목록 표시
 
-전경의 Society GUI는 컨테이너가 준비되면 최초 Photos 읽기·쓰기 권한을 자동으로 요청한다. 백그라운드 데몬이나 중단된 앱은 권한 창을 열지 않는다. 이미 거부된 권한은 사용자가 설정에서 변경하며, 제한된 접근은 허용된 항목만 조회하고 설정을 자동으로 열지 않는다. 전경 복귀 시 바뀐 권한으로 보관함을 다시 조회한다.
+Society GUI는 컨테이너가 준비되어도 Photos 권한을 자동으로 요청하지 않는다. Import를 명시적으로 호출한 경우에만 권한 결과를 기다린 뒤 전체 보관함 가져오기를 실행한다. 처리 중의 반복 Import·갱신은 권한 요청을 중복하지 않는다. 백그라운드 데몬이나 전경 복귀·주기적 갱신은 권한 창을 열거나 전체 보관함을 조회하지 않는다. 제한된 접근은 허용된 항목만 가져오며 설정을 자동으로 열지 않는다.
 
-기존 alias는 저장소를 열자마자 표시한다. 새 사진과 프리뷰도 준비된 항목부터 표시하므로 느린 원본 하나 때문에 전체 목록이 비어 있지 않는다. 검증한 원본 바이트와 수신 확인된 사진 청크가 동기화 활동의 진행량에 반영된다. 원본은 네이티브 보관함에 유지하며, 불완전하거나 제한된 조회로 삭제를 추론하지 않는다. Photos 테스트는 권한 요청 시점, 지연된 허용, 제한·거부 상태, 두 번째 원본 처리가 느린 동안 첫 사진의 표시를 검사한다.
+기존 alias는 저장소를 열자마자 표시한다. 명시적 가져오기의 새 사진과 프리뷰도 준비된 항목부터 표시하므로 느린 원본 하나 때문에 전체 목록이 비어 있지 않는다. 검증한 원본 바이트와 수신 확인된 사진 청크가 동기화 활동의 진행량에 반영된다. 원본은 네이티브 보관함에 유지하며, 불완전하거나 제한된 조회로 삭제를 추론하지 않는다. Photos 테스트는 권한 요청 시점, 지연된 허용, 제한·거부 상태, 두 번째 원본 처리가 느린 동안 첫 사진의 표시를 검사한다.
 
 ## 경로 이전과 갤러리
 
@@ -98,15 +158,15 @@ iiSocietyContainer 0.13.0은 기존 8개 영역 매니페스트를 열 때 `File
 사진과 비디오는 이름 없는 정사각형 프리뷰로 표시한다. Generation History와 같이 오래된 항목은 위, 최신 항목은 아래에 두며 처음 열거나 다시 진입하면 최하단에서 시작한다. 과거 항목을 탐색하는 중에는 갱신되어도 현재 스크롤을 유지한다. 정보·원본 보기·휴지통 동작은 선택 후 정보 시트에서 제공한다. Photos에서는 두 손가락 핀치로 갤러리 열 수나 썸네일 크기를 변경하지 않는다. 가로 드래그 크기 조절과 세로 스크롤은 유지한다. [갤러리](Gallery.md)는 화면별 제스처와 스크롤 보존·입력 검증을 설명한다.
 # 모바일 화면
 
-Photos는 공통 Storage의 최상위 영역으로 제공하며 좁은 화면에서도 같은 갤러리를 유지한다. 모바일의 Connect·Add·Refresh 버튼은 44 px 높이로 표시하고 가용 폭에 맞춰 다음 줄로 배치한다. 전체 탐색과 Storage 작업은 [모바일 공통 화면](MobileViews.md)의 시트를 사용한다.
+Photos는 공통 Storage의 최상위 영역으로 제공하며 좁은 화면에서도 같은 갤러리를 유지한다. 모바일의 Import·Add·Refresh 버튼은 44 px 높이로 표시하고 가용 폭에 맞춰 다음 줄로 배치한다. 전체 탐색과 Storage 작업은 [모바일 공통 화면](MobileViews.md)의 시트를 사용한다.
 
 ## 화면 우선 영구 인덱싱
 
-Photos는 화면의 첫 행과 마지막 행에 해당하는 갤러리 키를 작업 스레드에 전달한다. 프리뷰 큐는 보이는 범위, 그 범위에서 가까운 항목, 먼 항목 순서로 처리하며 화면 밖의 전체 보관함까지 확장한다. 스크롤·창 크기·열 수가 바뀌면 진행 중인 한 항목을 마친 뒤 남은 큐의 순서를 다시 계산한다. 화면 위치를 아직 받지 못했으면 최초 진입 위치인 최신 24개 항목부터 시작한다.
+Photos는 화면의 첫 행과 마지막 행에 해당하는 갤러리 키를 작업 스레드에 전달한다. 명시적 보관함 가져오기의 프리뷰 큐는 보이는 범위, 그 범위에서 가까운 항목, 먼 항목 순서로 처리하며 사용자가 연결한 보관함 전체까지 확장한다. 자동 갱신이 새 OS 항목을 이 큐에 추가하지 않는다. 스크롤·창 크기·열 수가 바뀌면 진행 중인 한 항목을 마친 뒤 남은 큐의 순서를 다시 계산한다. 화면 위치를 아직 받지 못했으면 최초 진입 위치인 최신 24개 항목부터 시작한다.
 
 목록 메타데이터와 갤러리 프리뷰를 먼저 공개한다. 원본 리소스 내보내기·SHA-256 계산과 Apple의 iCloud 식별자 조회는 그 이후에 진행한다. 아직 원본 검증이 끝나지 않은 표시용 행은 사진 전송 카탈로그에 포함하지 않는다. 프리뷰만으로 원본 해시·크기를 조작하거나 검증 완료로 간주하지 않는다.
 
-인덱스는 사용자 전역 캐시가 아닌 현재 Society 컨테이너의 `.society-photos/<container-id>/gallery/`에 항목별로 원자적으로 저장한다. 프리뷰도 컨테이너의 `Photos/.previews/`에 원자적으로 저장한다. 앱 종료·취소·컨테이너 재연결 후 저장된 목록과 프리뷰를 먼저 표시하고 미완료 항목부터 이어간다. 변경 시점이 같고 정상 프리뷰가 있으면 네이티브 재생성을 생략한다. 편집된 항목은 교체하고 누락·손상된 프리뷰는 기존 alias 프리뷰 또는 네이티브 라이브러리에서 복구한다. 제한된 접근을 전체 삭제로 간주하지 않는다.
+인덱스는 사용자 전역 캐시가 아닌 현재 Society 컨테이너의 `.society-photos/<container-id>/gallery/`에 항목별로 원자적으로 저장한다. 프리뷰도 컨테이너의 `Photos/.previews/`에 원자적으로 저장한다. 앱 종료·취소·컨테이너 재연결 후 저장된 목록과 프리뷰를 먼저 표시한다. 미완료 OS 항목의 전체 인덱싱은 다음 명시적 Import에서 이어간다. 변경 시점이 같고 정상 프리뷰가 있으면 네이티브 재생성을 생략한다. 명시적 Import에서 발견한 편집은 교체한다. 기본 갱신은 누락·손상된 갤러리 프리뷰를 기존 컨테이너 alias 프리뷰로 복구하며, 네이티브 프리뷰 재생성은 명시적 가져오기에 포함된다. 제한된 접근을 전체 삭제로 간주하지 않는다.
 
 화면에서는 앞뒤 두 화면 높이만큼 타일을 미리 생성·디코딩한다. 디코딩 캐시를 재사용하고 프리뷰 버전이 바뀔 때만 다시 읽으며, 새 이미지 로딩 중에는 기존 이미지를 유지한다. 전체 라이브러리 이미지를 RAM에 올리지는 않는다. Apple 프리뷰 요청은 최대 5초 후 취소하고 다음 항목을 처리하며, 아직 사용할 수 없는 항목은 다음 스캔에서 재시도한다. 최초 인덱스 생성·접근 불가·빠른 미캐시 영역 점프에서는 프리뷰가 준비되기 전 대기 표시가 남을 수 있다.
 

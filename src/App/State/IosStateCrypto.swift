@@ -1,1 +1,1 @@
-// Implementation moved to SDK/iiSocietyClient/IosStateCrypto.swift.
+// Implementation moved to SDK/iiSocietyHelper/src/iiSocietyHelper/IosStateCrypto.swift.

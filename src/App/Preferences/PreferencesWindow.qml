@@ -61,7 +61,7 @@ LV.ApplicationWindow {
         Rectangle {
             Layout.preferredWidth: Math.min(180, preferences.width * 0.3)
             Layout.fillHeight: true
-            color: LV.Theme.panelBackground03
+            color: "transparent"
             ColumnLayout {
                 anchors.fill: parent
                 anchors.margins: LV.Theme.gap12

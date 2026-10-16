@@ -17,6 +17,10 @@ LV.Card {
     objectName: "toolCard-" + tool.key
     Accessible.name: tool.title
     Accessible.description: tool.description
+    background: Rectangle {
+        color: root.effectiveHovered ? root.surfaceColor : "transparent"
+        radius: root.resolvedCornerRadius
+    }
     contentItem: ColumnLayout {
         anchors.fill: parent
         anchors.margins: 18

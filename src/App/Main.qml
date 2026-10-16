@@ -302,7 +302,8 @@ LV.ApplicationWindow {
 
     FolderDialog {
         id: folderDialog
-        title: qsTr("Choose a folder for Society")
+        objectName: "containerCreationDialog"
+        title: qsTr("Choose where to create Society.societycontainer")
         onAccepted: drive.openContainerUrl(selectedFolder)
     }
 
@@ -369,6 +370,8 @@ LV.ApplicationWindow {
             onNoticeRequested: (title, message) => root.showNotice(title, message)
             onPreferencesRequested: root.openPreferences()
             onAccountRequested: root.openAccount()
+            onNotificationsRequested: root.showNotice(qsTr("Notifications"),
+                drive.errorString || networkDrive.authError || qsTr("No new notifications."))
             onChooseContainerRequested: folderDialog.open()
             onImportModelsRequested: modelDialog.open()
             onSectionRequested: function(section) { root.showStorage(section) }

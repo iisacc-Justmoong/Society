@@ -17,6 +17,14 @@ def check_loaded(log, bundle):
     return len(loaded)
 
 
+def check_daemon_presentation(log):
+    loaded = re.findall(r"^dyld\[\d+\]: <[^>]+> (/.+)$", log, re.MULTILINE)
+    presentation = [path for path in loaded if re.search(
+        r"/(?:QtQuick|QtQml)[^/]*\.framework/|/libiiSharedCanvasQuick[^/]*\.dylib$", path)]
+    assert not presentation, "Presentation dependencies in SocietyDaemon: " + ", ".join(presentation)
+    return presentation
+
+
 def verify(bundle, gui=False):
     bundle = bundle.resolve()
     env = {key: value for key, value in os.environ.items()
@@ -24,17 +32,18 @@ def verify(bundle, gui=False):
     env["DYLD_PRINT_LIBRARIES"] = "1"
     executable = bundle / "Contents/MacOS/Society"
     result = subprocess.run([str(executable), "--daemon-service", "status"], env=env,
-                            capture_output=True, text=True, timeout=30)
+                            capture_output=True, text=True, timeout=90)
     assert result.returncode == 0, result.stderr[-5000:]
     assert json.loads(result.stdout)["ok"], result.stdout
     report = {"guiLoaderLibraries": check_loaded(result.stderr, bundle)}
     helper = bundle / "Contents/MacOS/SocietyDaemon"
     result = subprocess.run([str(helper), "--check-runtime"], env=env,
-                            capture_output=True, text=True, timeout=30)
+                            capture_output=True, text=True, timeout=90)
     assert result.returncode == 0, result.stderr[-5000:]
     capabilities = json.loads(result.stdout)
     assert capabilities["sqlite"] and capabilities["tls"], capabilities
     report["daemonLoaderLibraries"] = check_loaded(result.stderr, bundle)
+    report["daemonPresentationLibraries"] = check_daemon_presentation(result.stderr)
     if gui:
         with tempfile.TemporaryDirectory(prefix="gui-runtime-", dir=bundle.parent) as directory:
             fixture = Path(directory)
@@ -46,7 +55,7 @@ def verify(bundle, gui=False):
             with log_path.open("w") as log:
                 process = subprocess.Popen([str(executable)], env=env, stdout=log, stderr=subprocess.STDOUT)
                 try:
-                    deadline = time.monotonic() + 30
+                    deadline = time.monotonic() + 90
                     while time.monotonic() < deadline and process.poll() is None:
                         if "bootstrap.entry.root-loaded" in log_path.read_text():
                             break

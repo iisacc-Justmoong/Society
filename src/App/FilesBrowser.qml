@@ -23,12 +23,19 @@ Item {
     readonly property int count: entries.length
     readonly property int folderCount: entries.filter(function(entry) { return entry.directory }).length
     readonly property var selectedEntry: entries.find(function(entry) { return entry.path === root.selectedPath }) || null
-    readonly property var selectedDetails: selectedEntry && selectedEntry.resident ? location.fileDetails(selectedPath) : ({})
+    readonly property var selectedDetails: location.details
     readonly property bool showInspector: width >= 1000
     readonly property var tableRows: entries.map(function(entry) {
         return [entry.name, root.formatDate(entry.modified), entry.kind, entry.directory ? "—" : root.formatSize(entry.bytes)]
     })
     signal activated(string path, bool isDirectory)
+    Keys.onSpacePressed: togglePreview()
+    onSelectedEntryChanged: location.inspectFile(selectedEntry && selectedEntry.resident && !selectedEntry.directory ? selectedPath : "")
+
+    function togglePreview() {
+        if (!selectedEntry || selectedEntry.directory || !selectedEntry.resident) return
+        filePreview.open = !filePreview.open
+    }
 
     function formatSize(bytes) {
         if (bytes < 1024) return qsTr("%1 B").arg(bytes)
@@ -37,6 +44,35 @@ Item {
         let unit = 0
         while (value >= 1024 && unit < units.length - 1) { value /= 1024; ++unit }
         return value.toFixed(value < 10 ? 1 : 0) + " " + units[unit]
+    }
+    function informationRows() {
+        if (!selectedEntry) return []
+        const details = selectedDetails
+        const rows = [
+            { label: qsTr("Modified"), value: formatDate(selectedEntry.modified), icon: "" },
+            { label: qsTr("Created"), value: formatDate(details.created), icon: "" },
+            { label: qsTr("Contents"), value: details.contents || selectedEntry.kind, icon: "" },
+            { label: qsTr("Location"), value: path, icon: "nodesfolder" },
+            { label: Qt.platform.os === "osx" ? qsTr("Finder access") : qsTr("File manager access"), value: selectedEntry.resident ? qsTr("Available on this device") : qsTr("Download when opened"), icon: "application" }
+        ]
+        function add(label, value) { if (value !== undefined && value !== null && String(value).length) rows.push({ label: label, value: String(value), icon: "" }) }
+        add(qsTr("Title"), details.title)
+        add(qsTr("Description"), details.description)
+        if (details.keywords && details.keywords.length) add(qsTr("Keywords"), details.keywords.join(", "))
+        if (details.rating > 0) add(qsTr("Rating"), qsTr("%1 / 5").arg(details.rating))
+        const colors = { red: qsTr("Red"), orange: qsTr("Orange"), yellow: qsTr("Yellow"), green: qsTr("Green"), blue: qsTr("Blue"), purple: qsTr("Purple"), gray: qsTr("Gray") }
+        if (colors[details.colorLabel]) add(qsTr("Color label"), colors[details.colorLabel])
+        if (details.collections && details.collections.length) add(qsTr("Collections"), details.collections.join(", "))
+        const labels = { mimeType: qsTr("File format"), sampleRate: qsTr("Sample rate (Hz)"), channels: qsTr("Channels"), durationSeconds: qsTr("Duration (seconds)"),
+            bitsPerSample: qsTr("Bits per sample"), cameraMake: qsTr("Camera make"), cameraModel: qsTr("Camera model"), capturedAt: qsTr("Captured"),
+            exposureSeconds: qsTr("Exposure (seconds)"), fNumber: qsTr("Aperture"), iso: qsTr("ISO"), colorModel: qsTr("Color model"), orientation: qsTr("Orientation"), textEncoding: qsTr("Text encoding") }
+        add(labels.mimeType, details.mimeType)
+        const properties = details.properties || {}
+        Object.keys(labels).forEach(function(key) { if (key !== "mimeType") add(labels[key], properties[key]) })
+        const fields = details.fields || {}
+        Object.keys(fields).sort().forEach(function(key) { add(key, fields[key]) })
+        if (details.classificationStatus === "invalid") add(qsTr("Classification"), qsTr("The saved classification could not be read."))
+        return rows
     }
     function formatDate(value) {
         if (!value || !isFinite(new Date(value).getTime())) return "—"
@@ -78,6 +114,7 @@ Item {
         const oldY = tableScroll.contentY
         entries = next
         if (!next.some(function(entry) { return entry.path === root.selectedPath })) selectedPath = ""
+        if (selectedPath.length) location.inspectFile(selectedEntry && selectedEntry.resident && !selectedEntry.directory ? selectedPath : "")
         Qt.callLater(function() {
             if (tableScroll && oldY > 0) tableScroll.contentY = Math.max(0, Math.min(oldY, tableScroll.contentHeight - tableScroll.height))
         })
@@ -118,6 +155,7 @@ Item {
     onQueryChanged: rebuildEntries()
     onPathChanged: {
         entries = []; selectedPath = ""; query = ""; downloadStatus = ""
+        filePreview.open = false
         fileMenu.close(); tableScroll.contentY = 0; tableScroll.contentX = 0
     }
     DirectoryLocation { id: location; path: root.path }
@@ -370,7 +408,7 @@ Item {
                         visible: root.selectedEntry !== null
                         Layout.fillWidth: true
                         type: LV.ListItem.Resource
-                        listBackgroundColor: LV.Theme.panelBackground04
+                        listBackgroundColor: "transparent"
                         label: root.selectedEntry ? root.selectedEntry.name : ""
                         description: root.selectedEntry ? root.selectedEntry.kind : ""
                         previewIconName: root.selectedEntry ? root.selectedEntry.icon : "fileTypestext"
@@ -382,16 +420,20 @@ Item {
                         primaryAction: ({ text: qsTr("Open"), enabled: !!root.selectedEntry, onTriggered: function() { root.openSelected() } })
                         secondaryAction: ({ text: qsTr("Reveal"), tone: LV.AbstractButton.Default, enabled: !!root.selectedEntry, onTriggered: function() { root.revealSelected() } })
                     }
+                    Image {
+                        objectName: "selectedFilePreview"
+                        visible: source.toString().length > 0
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: visible ? width : 0
+                        source: root.selectedDetails.previewSource || ""
+                        fillMode: Image.PreserveAspectFit
+                        asynchronous: true
+                    }
                     Repeater {
-                        model: !root.selectedEntry ? [] : [
-                            { label: qsTr("Modified"), value: root.formatDate(root.selectedEntry.modified), icon: "" },
-                            { label: qsTr("Created"), value: root.formatDate(root.selectedDetails.created), icon: "" },
-                            { label: qsTr("Contents"), value: root.selectedDetails.contents || root.selectedEntry.kind, icon: "" },
-                            { label: qsTr("Location"), value: root.path, icon: "nodesfolder" },
-                            { label: Qt.platform.os === "osx" ? qsTr("Finder access") : qsTr("File manager access"), value: root.selectedEntry.resident ? qsTr("Available on this device") : qsTr("Download when opened"), icon: "application" }
-                        ]
+                        model: root.informationRows()
                         LV.ListItem {
                             required property var modelData
+                            objectName: "fileInformationRow"
                             Layout.fillWidth: true
                             type: LV.ListItem.Navigation
                             label: modelData.label
@@ -419,6 +461,46 @@ Item {
             LV.Label { objectName: "filesStatus"; style: caption; text: qsTr("%1 items · %2 folders · %3 files · %4 selected").arg(root.count).arg(root.folderCount).arg(root.count - root.folderCount).arg(root.selectedEntry ? 1 : 0) }
             Item { Layout.fillWidth: true }
             LV.Label { visible: root.width >= 760; style: caption; text: root.breadcrumbs.map(function(entry) { return entry.name }).join(" / ") || "Society / Files"; elide: Text.ElideMiddle }
+        }
+    }
+    LV.Modal {
+        id: filePreview
+        objectName: "fileQuickPreview"
+        title: root.selectedEntry ? root.selectedEntry.name : ""
+        description: root.selectedDetails.contents || (root.selectedEntry ? root.selectedEntry.kind : "")
+        showIcon: false
+        minWidth: Math.min(520, Math.max(0, root.width - LV.Theme.gap24 * 2))
+        primaryText: qsTr("Close")
+        secondaryText: qsTr("Open")
+        buttonCount: 2
+        onPrimaryClicked: open = false
+        onSecondaryClicked: { open = false; root.openSelected() }
+        onOpenChanged: {
+            if (open) forceActiveFocus()
+            else tableScroll.forceActiveFocus()
+        }
+        Keys.onSpacePressed: open = false
+        Keys.onEscapePressed: open = false
+        contentComponent: Column {
+            width: parent ? parent.width : 0
+            spacing: LV.Theme.gap12
+            Image {
+                objectName: "fileQuickPreviewImage"
+                width: parent.width
+                height: Math.min(512, Math.max(160, root.height * 0.55))
+                source: root.selectedDetails.previewSource || ""
+                fillMode: Image.PreserveAspectFit
+                asynchronous: true
+            }
+            LV.Label {
+                width: parent.width
+                style: description
+                text: location.inspecting ? qsTr("Preparing preview…") : root.selectedDetails.previewKind === "information"
+                    ? qsTr("A content preview is unavailable. Open the file to view its contents.") : root.selectedDetails.previewError || ""
+                visible: text.length > 0
+                wrapMode: Text.Wrap
+                sizeToContentHeight: true
+            }
         }
     }
     LV.ContextMenu {

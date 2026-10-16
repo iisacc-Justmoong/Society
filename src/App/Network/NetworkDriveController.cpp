@@ -1,8 +1,10 @@
+#include <iiFileProviderDevice.h>
 #include "NetworkDriveController.h"
 #include "PairingCredentials.h"
 #include <QCoreApplication>
 #include <QCryptographicHash>
 #include <QDir>
+#include <QFileInfo>
 #include <QGuiApplication>
 #include <QSslKey>
 #include <QSysInfo>
@@ -339,7 +341,7 @@ void NetworkDriveController::updateDiscovery() {
         const auto storage = iiSocietyContainer::SharedStorage::open(m_container, nullptr, true);
         if (storage && QDir(storage->drive().rootPath()).exists(".society-sync")) {
             if (!m_clientLease) {
-                m_clientLease = std::make_unique<QLockFile>(QDir(storage->drive().rootPath()).filePath(".society-sync/client-session.lock"));
+                m_clientLease = std::make_unique<iiFileProvider::LockFile>(QDir(storage->drive().rootPath()).filePath(".society-sync/client-session.lock"));
                 m_clientLease->setStaleLockTime(0);
             }
             if (!m_clientLease->isLocked() && !m_clientLease->tryLock()) {
@@ -540,6 +542,7 @@ void NetworkDriveController::setRuntimeEnabled(bool enabled) {
 void NetworkDriveController::setContainerPath(const QString &path) {
     if (m_container != path) m_namespace = {};
     if (path == m_container) return;
+    m_remote.reset();
 #if !defined(Q_OS_IOS) && !defined(Q_OS_ANDROID) && !defined(Q_OS_WASM)
     m_generationHost.close();
 #endif
@@ -791,7 +794,42 @@ QString NetworkDriveController::request(const QString &host, const QJsonObject &
     return m_localActive ? m_local.request(host, payload) : m_peer.request(host, payload);
 }
 void NetworkDriveController::browse(const QString &host, const QString &path, const QString &cursor) { m_remote.browse(host, path, cursor); }
-void NetworkDriveController::download(const QString &path, const QUrl &destination) { m_remote.download(path, destination); }
+void NetworkDriveController::download(const QString &path, const QUrl &destination) {
+    QString error;
+    const auto storage = m_container.isEmpty() ? std::nullopt
+        : iiSocietyContainer::SharedStorage::open(m_container, &error, true);
+    if (!storage) { fail(tr("Open a Society container before saving files.")); return; }
+    const auto files = storage->filePath(iiSocietyContainer::StoreSection::Files, {}, &error);
+    const auto target = QDir::cleanPath(destination.toLocalFile());
+    const auto relative = QDir(files).relativeFilePath(target);
+    const auto checked = files.isEmpty() ? QString{}
+        : storage->filePath(iiSocietyContainer::StoreSection::Files, relative, &error);
+    if (!destination.isLocalFile() || !QDir::isAbsolutePath(target) || checked.isEmpty()
+        || checked != target || target == files || QFileInfo(target).isDir()) {
+        fail(tr("Save downloaded files inside this container's Files.")); return;
+    }
+    if (QFileInfo::exists(checked)) { fail(tr("Downloaded files cannot replace an existing file.")); return; }
+    m_remote.download(path, QUrl::fromLocalFile(checked));
+}
+void NetworkDriveController::downloadToFiles(const QString &path) {
+    if (m_remote.busy()) return;
+    QString error;
+    const auto storage = m_container.isEmpty() ? std::nullopt
+        : iiSocietyContainer::SharedStorage::open(m_container, &error, true);
+    if (!storage) { fail(tr("Open a Society container before saving files.")); return; }
+    const auto name = QFileInfo(path).fileName();
+    if (name.isEmpty()) { fail(tr("Choose a file to save in Files.")); return; }
+    auto target = storage->filePath(iiSocietyContainer::StoreSection::Files, name, &error);
+    const QFileInfo nameInfo(name);
+    const auto suffix = nameInfo.completeSuffix();
+    for (int copy = 2; !target.isEmpty() && QFileInfo::exists(target); ++copy) {
+        const auto copyName = nameInfo.baseName() + QStringLiteral(" (%1)").arg(copy)
+            + (suffix.isEmpty() ? QString{} : "." + suffix);
+        target = storage->filePath(iiSocietyContainer::StoreSection::Files, copyName, &error);
+    }
+    if (target.isEmpty()) { fail(error); return; }
+    download(path, QUrl::fromLocalFile(target));
+}
 void NetworkDriveController::response(const QString &id, const QJsonObject &result, const QString &transport) {
     m_sync.receive(id, result); m_remote.receive(id, result, transport); m_photos->receive(id, result);
 }

@@ -1,6 +1,6 @@
 #pragma once
-#include <iiSocietyClient/AccountSession.h>
-#include <QtQml/qqmlregistration.h>
+#include <iiSocietyHelper/AccountSession.h>
+#include <QtQmlIntegration/qqmlintegration.h>
 class AccountController : public AccountSession {
     Q_OBJECT
     QML_ELEMENT

@@ -26,12 +26,14 @@ class ContainerFormatTests(unittest.TestCase):
             self.assertEqual(plist["CFBundleURLTypes"][0]["CFBundleURLSchemes"], ["society"])
             exported = plist["UTExportedTypeDeclarations"][0]
             self.assertEqual(exported["UTTypeIdentifier"], "com.iisacc.society.container")
-            self.assertEqual(exported["UTTypeConformsTo"], ["com.apple.package"])
+            self.assertEqual(exported["UTTypeConformsTo"], ["public.directory", "com.apple.package"])
             self.assertEqual(exported["UTTypeTagSpecification"]["public.filename-extension"], ["societycontainer"])
             document = plist["CFBundleDocumentTypes"][0]
             self.assertTrue(document["LSTypeIsPackage"])
             self.assertEqual(document["LSItemContentTypes"], [exported["UTTypeIdentifier"]])
             self.assertEqual(document["CFBundleTypeName"], "Society Container")
+            self.assertEqual(document["CFBundleTypeRole"], "Editor")
+            self.assertEqual(document["LSHandlerRank"], "Owner")
 
 
 if __name__ == "__main__":

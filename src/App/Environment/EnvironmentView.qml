@@ -42,7 +42,7 @@ Rectangle {
     signal browseDeviceRequested(string id, string name, string peerId)
     signal societyRequested()
     signal noticeRequested(string title, string message)
-    color: LV.Theme.panelBackground03
+    color: "transparent"
     onPageChanged: mainScroll.contentItem.contentY = 0
     onVisibleChanged: if (visible) catalogue.refresh()
     function showDevices() { page = "Devices" }
@@ -78,7 +78,7 @@ Rectangle {
             visible: !root.compact
             Layout.preferredWidth: 220
             Layout.fillHeight: true
-            color: LV.Theme.panelBackground04
+            color: "transparent"
             ColumnLayout {
                 anchors { left: parent.left; right: parent.right; top: parent.top; margins: 12 }
                 spacing: 8
@@ -147,7 +147,7 @@ Rectangle {
                         Rectangle {
                             visible: root.page === "Overview"
                             Layout.fillWidth: true
-                            color: LV.Theme.panelBackground04
+                            color: "transparent"
                             radius: 16
                             implicitHeight: launchDock.implicitHeight + 40
                             Flow {
@@ -228,7 +228,7 @@ Rectangle {
                                             width: (cardsGrid.width - 16 * (cardsGrid.columns - 1)) / cardsGrid.columns
                                                 height: 286
                                             Accessible.name: qsTr("Add %1 device").arg(group.modelData.name)
-                                            background: Rectangle { color: LV.Theme.panelBackground04; radius: 12; border.color: LV.Theme.panelBackground10 }
+                                            background: Rectangle { color: "transparent"; radius: 12; border.color: LV.Theme.panelBackground10 }
                                             contentItem: ColumnLayout {
                                                 spacing: 16
                                                 Item { Layout.fillHeight: true }
@@ -326,7 +326,7 @@ Rectangle {
             visible: root.width >= 1200
             Layout.preferredWidth: 320
             Layout.fillHeight: true
-            color: LV.Theme.panelBackground04
+            color: "transparent"
             border.color: LV.Theme.panelBackground10
             Controls.ScrollView {
                 anchors.fill: parent

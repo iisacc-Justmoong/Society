@@ -1,2 +1,2 @@
 #pragma once
-#include <iiSocietyClient/DeviceInfo.h>
+#include <iiSocietyHelper/DeviceInfo.h>

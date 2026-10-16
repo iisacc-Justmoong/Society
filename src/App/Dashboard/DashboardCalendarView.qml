@@ -61,7 +61,7 @@ Item {
             Layout.minimumWidth: 0
             Layout.preferredHeight: 370
             radius: LV.Theme.radiusLg
-            color: LV.Theme.panelBackground04
+            color: "transparent"
             border.color: LV.Theme.panelBackground10
             border.width: 1
             clip: true
@@ -186,7 +186,7 @@ Item {
             Layout.minimumWidth: 0
             Layout.preferredHeight: 370
             radius: LV.Theme.radiusLg
-            color: LV.Theme.panelBackground04
+            color: "transparent"
             border.color: LV.Theme.panelBackground10; border.width: 1
             clip: true
             LV.HStack {

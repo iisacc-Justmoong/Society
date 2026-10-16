@@ -13,7 +13,7 @@ NAS의 SMB/NFS 폴더만 지정하는 것이 이 프로토콜의 서버를 만�
 
 ## 앱에서 연결
 
-1. 같은 iisacc 계정으로 호스트와 클라이언트에 로그인한다.
+1. 같은 iisacc 계정으로 호스트와 클라이언트에 로그인하고, 계정의 기본 호스트 기기와 `.societycontainer`를 등록한다.
 2. Devices → **Your Society server**에 `wss://nas.example.com/society`를 입력한다.
 3. **Connect to server**를 선택한다. 데스크톱·NAS는 호스트, 모바일은 클라이언트로 자동 고정된다.
 4. 최초 전체 미러가 완료되면 변경·삭제를 양방향으로 교환한다. **Disconnect**는 자동 재접속도 중지하고, **Resume automatic sync**로 재개한다. **Use nearby discovery**는 서버 설정을 해제한다.
@@ -48,18 +48,17 @@ reverse proxy를 사용하지 않으면 `ii-server-relay --address 0.0.0.0 --cer
 NAS의 로컬 파일시스템에 컨테이너를 준비한다. 다음은 설치 경로를 PATH에 추가한 환경의 예이다.
 
 ```sh
-mkdir -p /srv/society/container
-iiSocietyContainerDriveTool create /srv/society/container
-SocietyDaemon --sync --container /srv/society/container \
-  --directory /var/lib/society/helper \
+iiSocietyContainerDriveTool create /srv/society/Society.societycontainer
+SocietyDaemon --sync --container /srv/society/Society.societycontainer \
+  --directory /srv/society/Society.societycontainer/.society-runtime/helpers/v1 \
   --server wss://nas.example.com/society \
   --login-file /etc/society/login.json \
-  --status-file /var/lib/society/status.json
+  --status-file /srv/society/Society.societycontainer/.society-runtime/status.json
 ```
 
 `login.json`은 `email`, `password` 문자열을 가진 JSON이며 실행 계정만 읽고 쓸 수 있는 모드 `0600`으로 둔다. 프로그램은 심볼릭 링크·그룹/다른 사용자 권한·16 KiB 초과 파일을 거부한다. 비밀번호를 명령행 인자나 로그에 넣지 않는다. 이 명시적 headless 경로는 파일을 읽어 매 실행마다 로그인하고 인증 정보를 메모리에만 유지한다. OS 보안 저장소에 로그인된 데스크톱에서는 `--login-file`을 생략하여 기존 세션을 복원한다. 메일 코드가 요구되는 계정은 상태 파일의 `codeRequired`로 구분하며 로그인된 앱의 세션을 먼저 준비해야 한다.
 
-데스크톱·NAS 데몬은 `--host` 유무와 관계없이 호스트 역할이다. 기존 배포 스크립트의 `--host`는 호환성을 위해 계속 허용한다. `--container`는 기존 컨테이너를 요구하며 앱이 마지막으로 선택한 컨테이너를 쓸 때는 생략한다. `--directory`는 로컬 Helper·프로세스 소유권 기록 위치이며 데이터 컨테이너와 구분한다. 프로세스 감시는 운영체제의 기존 서비스 관리자를 사용한다. 예제의 전용 실행 계정, 설치 경로, 컨테이너·상태 디렉터리 권한을 실제 배치에 맞춘다. 예제 systemd 단위 파일은 [deploy/self-hosted](../deploy/self-hosted/)에 있다.
+데스크톱·NAS 데몬은 `--host` 유무와 관계없이 호스트 역할이다. 기존 배포 스크립트의 `--host`는 호환성을 위해 계속 허용한다. `--container`는 기존 `.societycontainer`를 요구하며 앱이 마지막으로 선택한 컨테이너를 쓸 때는 생략한다. 계정에 등록된 기본 호스트 기기와 컨테이너 UUID가 이 데몬의 기기·패키지와 일치해야 하며, 파일 기반 로그인 자체가 호스트 등록을 대신하지 않는다. `--directory`와 `--status-file`은 선택한 컨테이너의 `.society-runtime` 안에 둔다. 프로세스 감시는 운영체제의 기존 서비스 관리자를 사용한다. 예제의 전용 실행 계정, 설치 경로와 컨테이너 권한을 실제 배치에 맞춘다. 예제 systemd 단위 파일은 [deploy/self-hosted](../deploy/self-hosted/)에 있다.
 
 호스트에서 `SOCIETY_HOST_CERTIFICATE`와 `SOCIETY_HOST_KEY`를 함께 지정하면 서버 경로에서도 직접 로컬 TLS 리스너를 제공한다. 클라이언트는 인증된 서버 목록의 인증서 지문과 대조하며 연결 실패 시 원격 중계를 사용한다. 이 설정이 없으면 원격 중계만 사용한다. [Qt WebSocket 문서](https://doc.qt.io/qt-6.8/qwebsocket.html)를 따른다.
 
@@ -76,3 +75,7 @@ SocietyDaemon --sync --container /srv/society/container \
 `Society.Account`는 합성 계정 HTTP authority와 실제 WebSocket 중계로 LAN 탐색·LAN 증명 없이 700,000바이트 모델 복제, UUID 일치, 클라이언트 업로드, 호스트 수정, 삭제, 중계 재시작 후 재연결, 로그아웃 정리를 검사한다. 저장된 서버 설정 복원과 안전하지 않은 URL 거부도 확인한다. `Society.ClientOnlyNetwork`는 모바일 서버 입력과 호스트 제어 차단을, `Society.Daemon`은 headless 인자 검증을 포함한다. `Society.Account`는 별도 SocietyDaemon 프로세스의 파일 기반 로그인, `--host` 없는 자동 호스팅, 모델 복제와 상태 파일도 검사한다. 데몬 재시작 후 GUI 수신 검사는 개발 라이브러리 경로를 제거한 패키지 환경에서 수행하며, 외장 스토리지의 초기 Qt/QML 로딩을 포함하여 최대 30초 동안 실제 메시지 수신을 기다린다.
 
 실제 NAS OS/CPU 패키지, 공인 도메인의 TLS, 서로 다른 인터넷 회선의 물리 기기 전송은 별도 배포 검증이다. 로컬 중계 테스트 성공을 해당 배포 완료로 간주하지 않는다.
+
+헤드리스 통합 검사는 합성 계정 authority에 실제 데몬 기기의 호스트 ID와 테스트 패키지 UUID를 먼저 등록한다. 프로세스 시작 뒤 상태 파일의 `hosting`·`connected`가 준비될 때까지 최대 25초 동안 기다린 다음 별도 기기 ID의 메모리 세션 클라이언트를 연결한다. 호스트 등록 없는 세션은 제품의 인증 계약에 따라 연결을 거부하며 테스트에서 이를 우회하지 않는다.
+
+`python3 -B tests/test_self_hosting.py`는 배포 예제의 Helper·진단 경로가 선택한 `.societycontainer/.society-runtime` 안에 있는지 검사하며, systemd가 별도의 앱 데이터 디렉터리를 만드는 설정을 거부한다. 이 정적 검사는 실제 Linux 서비스 설치·기동 검증과 구분한다.

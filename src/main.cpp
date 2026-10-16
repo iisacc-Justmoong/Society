@@ -1,4 +1,6 @@
 #include "App/ApplicationLifetime.h"
+#include "App/ContainerFileOpenHandler.h"
+#include "App/Drive/DriveController.h"
 #include "backend/runtime/appentry.h"
 #include <iiSocietyHelper.h>
 #include <iiSocietyContainer/SocietyApplication.h>
@@ -46,13 +48,18 @@ void qml_register_types_Society();
 
 int main(int argc, char *argv[])
 {
+    qputenv("QML_DISABLE_DISK_CACHE", "1");
+    qputenv("QSG_RHI_DISABLE_DISK_CACHE", "1");
 #ifdef Q_OS_ANDROID
     qputenv("ANDROID_OPENSSL_SUFFIX", "_3");
 #endif
 #ifdef Q_OS_MACOS
-    if (argc >= 2 && QString::fromLocal8Bit(argv[1]) == "--daemon-service") {
+    if (argc >= 2 && (QString::fromLocal8Bit(argv[1]) == "--daemon-service" ||
+                      QString::fromLocal8Bit(argv[1]) == "--container-monitor-service")) {
         QCoreApplication app(argc, argv);
-        const auto result = societyDaemonRegistration(argc > 2 ? QString::fromLocal8Bit(argv[2]) : "status");
+        const auto command = argc > 2 ? QString::fromLocal8Bit(argv[2]) : "status";
+        const auto result = QString::fromLocal8Bit(argv[1]) == "--daemon-service"
+            ? societyDaemonRegistration(command) : societyContainerMonitorRegistration(command);
         QTextStream(stdout) << QJsonDocument(QJsonObject::fromVariantMap(result)).toJson(QJsonDocument::Compact) << Qt::endl;
         return result.value("ok").toBool() ? 0 : 1;
     }
@@ -67,6 +74,20 @@ int main(int argc, char *argv[])
     launchSpec.rootObject = QStringLiteral("Main");
     launchSpec.qmlImportPaths.append(QString::fromUtf8(SOCIETY_LVRS_QML_IMPORT_PATH));
     launchSpec.configureEngine = [](QQmlApplicationEngine &engine) {
+        auto *fileOpen = new ContainerFileOpenHandler(&engine);
+        qGuiApp->installEventFilter(fileOpen);
+        QObject::connect(&engine, &QQmlApplicationEngine::objectCreated, fileOpen,
+            [fileOpen](QObject *root, const QUrl &) {
+                if (!root) return;
+                auto *drive = root->findChild<DriveController *>();
+                if (!drive) return;
+                const QPointer<DriveController> guarded(drive);
+                fileOpen->setOpener([guarded](const QUrl &url) {
+                    if (!guarded || guarded->busy()) return false;
+                    guarded->openContainerImage(url); return true;
+                });
+                QObject::connect(drive, &DriveController::systemChanged, fileOpen, [fileOpen] { fileOpen->flush(); });
+            });
 
         configureApplicationLifetime(engine);
         engine.addImageProvider(QStringLiteral("society-preview"), new iiSocietyContainer::PreviewProvider);
@@ -114,21 +135,38 @@ int main(int argc, char *argv[])
         QObject::connect(&engine, &QQmlApplicationEngine::objectCreated, runtime,
             [helper](QObject *root, const QUrl &) {
                 if (root) {
+                    if (auto *drive = root->findChild<DriveController *>()) {
+                        auto *files = helper->fileSystem();
+                        const auto select = [drive, files] {
+                            if (drive->hasDrive() && (files->rootPath() != drive->rootPath() || files->containerId() != drive->identifier()))
+                                files->open(drive->rootPath());
+                        };
+                        QObject::connect(drive, &DriveController::locationChanged, files, select);
+                        QObject::connect(files, &iiSocietyHelper::FileSystem::containerStateChanged, drive, [drive, files] {
+                            const auto state = files->containerState();
+                            if (drive->hasDrive() && state.value("rootPath").toString() == drive->rootPath()
+                                && state.value("containerId").toString() == drive->identifier()) drive->refreshFromDisk();
+                        });
+                        select();
+                    }
 #if !defined(Q_OS_IOS) && !defined(Q_OS_ANDROID)
-                    if (!qEnvironmentVariableIsSet("SOCIETY_HELPER_DIRECTORY")) {
+                    {
                         if (auto *network = root->findChild<NetworkDriveController *>("networkDriveController")) {
                             network->setRuntimeEnabled(false);
-                            const auto directory = GroupSessionStore::defaultDirectory();
-                            auto *ownership = new SyncOwnership(directory.isEmpty() ? QString() : QDir(directory).filePath("SyncRuntime"), true, network);
+                            auto *ownership = new SyncOwnership({}, true, network);
                             QObject::connect(ownership, &SyncOwnership::ownershipChanged, network, [ownership, network](bool owned) {
                                 network->setRuntimeEnabled(owned);
                                 if (owned && !network->containerPath().isEmpty()) ownership->rememberContainer(network->containerPath());
                             });
-                            QObject::connect(network, &NetworkDriveController::configurationChanged, ownership, [ownership, network] {
+                            const auto selectRuntime = [ownership, network] {
+                                const auto storage = network->containerPath().isEmpty() ? std::optional<iiSocietyContainer::SharedStorage>{}
+                                    : iiSocietyContainer::SharedStorage::open(network->containerPath(), nullptr, true);
+                                ownership->setDirectory(storage ? storage->runtimePath(QStringLiteral("sync")) : QString());
                                 if (ownership->owned() && !network->containerPath().isEmpty()) ownership->rememberContainer(network->containerPath());
-                            });
+                            };
+                            QObject::connect(network, &NetworkDriveController::configurationChanged, ownership, selectRuntime);
                             QObject::connect(qGuiApp, &QCoreApplication::aboutToQuit, ownership, &SyncOwnership::stop);
-                            if (!ownership->start()) qWarning() << "Society synchronization:" << ownership->errorString();
+                            selectRuntime();
                         }
                     }
 #endif
@@ -168,6 +206,8 @@ int main(int argc, char *argv[])
         if (!qEnvironmentVariableIsSet("SOCIETY_HELPER_DIRECTORY")) {
             const auto result = societyDaemonRegistration("register");
             if (!result.value("ok").toBool()) qWarning() << "Society daemon service" << result;
+            const auto monitor = societyContainerMonitorRegistration("register");
+            if (!monitor.value("ok").toBool()) qWarning() << "Society container monitor service" << monitor;
         }
 #endif
     };

@@ -1,1 +1,1 @@
-// Implementation moved to SDK/iiSocietyClient/AutomaticPairing.cpp.
+// Implementation moved to SDK/iiSocietyHelper/src/iiSocietyHelper/AutomaticPairing.cpp.

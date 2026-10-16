@@ -1,6 +1,9 @@
 #include "App/Tools/ModelPackagingController.h"
 #include "backend/runtime/appbootstrap.h"
 #include <QDir>
+#include <SharedStorage.h>
+#include <FileOperations.h>
+#include <QScopeGuard>
 #include <QClipboard>
 #include <QGuiApplication>
 #include <QFile>
@@ -61,7 +64,8 @@ static QQuickItem *visual(QQuickItem *parent, const QString &name)
 class ModelPackagingTest final : public QObject {
     Q_OBJECT
     QTemporaryDir m_root{SOCIETY_TEST_DIRECTORY "/model-packaging-XXXXXX"};
-    QString folder;
+    QString folder, packageRoot;
+    QByteArray previousContainer;
     QStringList warnings;
     void load(QQmlApplicationEngine &engine) {
         engine.addImportPath(QString::fromUtf8(SOCIETY_LVRS_QML_IMPORT_PATH));
@@ -73,6 +77,11 @@ class ModelPackagingTest final : public QObject {
 private slots:
     void initTestCase() {
         QVERIFY(m_root.isValid());
+        previousContainer = qgetenv("SOCIETY_CONTAINER_PATH");
+        const auto drive = iiSocietyContainer::SocietyDrive::createAt(m_root.path()); QVERIFY(drive);
+        packageRoot = drive->sectionPath(iiSocietyContainer::StoreSection::Models);
+        QVERIFY(QDir().mkdir(packageRoot + "/Checkpoint")); packageRoot += "/Checkpoint";
+        qputenv("SOCIETY_CONTAINER_PATH", drive->rootPath().toUtf8());
         qmlRegisterType<ModelPackagingController>("Society", 1, 0, "ModelPackagingController");
         ModelPackagingController controller;
         QVERIFY(controller.supported());
@@ -102,7 +111,7 @@ private slots:
         QVERIFY(controller.setComponentIncluded("spatial_upscaler_x2.safetensors", false));
         QCOMPARE(controller.report().value("included_file_count").toInt(), 2);
         QCOMPARE(controller.report().value("component_count").toInt(), 5);
-        const auto output = controller.outputPathForName("LTX core", m_root.path());
+        const auto output = controller.outputPathForName("LTX core", packageRoot);
         QVERIFY(controller.createPackage(output));
         QTRY_COMPARE_WITH_TIMEOUT(done.count(), 2, 15000);
         QVERIFY2(done.last().at(0).toBool(), qPrintable(controller.errorString()));
@@ -117,6 +126,16 @@ private slots:
         QCOMPARE(copied.value("sha256").toString(), controller.report().value("sha256").toString());
         QVERIFY(!controller.createPackage(output));
         QVERIFY(controller.errorString().contains("already exists"));
+    }
+    void cleanupTestCase() { qputenv("SOCIETY_CONTAINER_PATH", previousContainer); }
+    void externalOutputsAreRejectedBeforeDirectoryCreation() {
+        ModelPackagingController controller; QSignalSpy done(&controller, &ModelPackagingController::finished);
+        QVERIFY(controller.scanFolder(folder)); QTRY_COMPARE(done.count(), 1);
+        const auto outside = m_root.filePath("external.safetensors");
+        QVERIFY(!controller.createPackage(outside)); QVERIFY(!QFileInfo::exists(outside));
+        QVERIFY(controller.errorString().contains("selected .societycontainer"));
+        const auto missing = m_root.filePath("outside/Checkpoint/result.safetensors");
+        QVERIFY(!controller.createPackage(missing)); QVERIFY(!QFileInfo::exists(m_root.filePath("outside")));
     }
     void invalidNamesRemoteUrlsAndMissingComponentsAreBlocked() {
         ModelPackagingController controller;
@@ -140,12 +159,59 @@ private slots:
         ModelPackagingController controller;
         QSignalSpy done(&controller, &ModelPackagingController::finished);
         QVERIFY(controller.scanFolder(large)); QTRY_COMPARE(done.count(), 1);
-        const auto output = m_root.filePath("cancelled.safetensors");
+        const auto output = QDir(packageRoot).filePath("cancelled.safetensors");
         QVERIFY(controller.createPackage(output)); controller.cancel();
         QTRY_COMPARE_WITH_TIMEOUT(done.count(), 2, 15000);
         QVERIFY(!done.last().first().toBool()); QCOMPARE(controller.phase(), QString("cancelled"));
         QVERIFY(!QFileInfo::exists(output)); QVERIFY(QFileInfo::exists(large + "/model.safetensors"));
         QVERIFY(QDir(m_root.path()).entryList({"*.partial-*"}, QDir::Files | QDir::Hidden).isEmpty());
+    }
+    void qmlOutputFolderStaysInsideModelsAndContainerChangeCancelsWork() {
+        warnings.clear(); QQmlApplicationEngine engine; load(engine);
+        QVERIFY2(!engine.rootObjects().isEmpty(), qPrintable(warnings.join('\n')));
+        auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first()); QVERIFY(window);
+        auto *tool = window->findChild<QQuickItem *>("modelPackagingTool"); QVERIFY(tool);
+        auto *controller = window->findChild<ModelPackagingController *>("modelPackagingController"); QVERIFY(controller);
+        const auto models = QFileInfo(packageRoot).absolutePath();
+        QVERIFY(tool->setProperty("modelsDirectory", models));
+        auto *row = visual(window->contentItem(), "packagingOutputFolder"); QVERIFY(row);
+        QVERIFY(QMetaObject::invokeMethod(row, "clicked"));
+        auto *dialog = window->findChild<QObject *>("packagingOutputDialog"); QVERIFY(dialog);
+        QTRY_VERIFY(dialog->property("opened").toBool());
+        auto *input = visual(window->contentItem(), "packagingOutputRelativeFolder"); QVERIFY(input);
+        auto *confirm = visual(window->contentItem(), "packagingOutputConfirm"); QVERIFY(confirm);
+        QCOMPARE(input->property("text").toString(), QString("Checkpoint"));
+        for (const auto &invalid : {"/outside", "../escaped", "C:/outside", "Checkpoint//Invalid", "Checkpoint\\Invalid"}) {
+            QVERIFY(input->setProperty("text", QString::fromLatin1(invalid)));
+            QVERIFY(QMetaObject::invokeMethod(confirm, "clicked"));
+            QVERIFY(dialog->property("visible").toBool()); QVERIFY(tool->property("outputDirectory").toString().isEmpty());
+            QVERIFY(!dialog->property("errorText").toString().isEmpty());
+        }
+        QVERIFY(input->setProperty("text", "Checkpoint/Packages"));
+        QVERIFY(QMetaObject::invokeMethod(confirm, "clicked"));
+        QTRY_VERIFY(!dialog->property("visible").toBool());
+        const auto relative = models + "/Checkpoint/Packages";
+        QCOMPARE(tool->property("outputDirectory").toString(), relative);
+        QVERIFY(!QFileInfo::exists(relative)); // Choosing a relative output creates no folders.
+        const auto large = m_root.filePath("switch source"); QVERIFY(QDir().mkpath(large));
+        QVERIFY(write(large + "/model.safetensors", safetensors({"model.diffusion_model.weight"}, {}, 32 * 1024 * 1024)));
+        QTemporaryDir next(SOCIETY_TEST_DIRECTORY "/packaging-next-XXXXXX.societycontainer");
+        QVERIFY(iiSocietyContainer::SocietyDrive::create(next.path()));
+        QSignalSpy done(controller, &ModelPackagingController::finished);
+        QVERIFY(controller->scanFolder(large)); QTRY_COMPARE(done.size(), 1);
+        const auto output = QDir(relative).filePath("cancelled-on-switch.safetensors");
+        QVERIFY2(controller->createPackage(output), qPrintable(controller->errorString())); QVERIFY(controller->busy());
+        QVERIFY(QFileInfo(relative).isDir()); // Only starting the package prepares its requested Models folder.
+        QVERIFY(tool->setProperty("modelsDirectory", next.filePath("Models")));
+        QTRY_COMPARE(done.size(), 2); QVERIFY(!done.last().first().toBool());
+        QVERIFY(!controller->busy()); QCOMPARE(controller->phase(), QString("cancelled"));
+        QVERIFY(tool->property("outputDirectory").toString().isEmpty());
+        QCOMPARE(tool->property("effectiveOutputDirectory").toString(), next.filePath("Models/Checkpoint"));
+        QVERIFY(!QFileInfo::exists(output)); QVERIFY(QFileInfo::exists(large + "/model.safetensors"));
+        const auto runtime = QFileInfo(models).absolutePath() + "/.society-runtime/tmp";
+        QVERIFY(QDir(runtime).entryList({".society-model-package-*"}, QDir::Dirs | QDir::Hidden | QDir::NoDotAndDotDot).isEmpty());
+        QVERIFY2(warnings.isEmpty(), qPrintable(warnings.join('\n')));
+        window->close();
     }
     void realQmlControlsMatchContractAndRemainResponsive() {
         warnings.clear(); QQmlApplicationEngine engine; load(engine);
@@ -153,7 +219,7 @@ private slots:
         auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first()); QVERIFY(window);
         auto *tool = window->findChild<QQuickItem *>("modelPackagingTool"); QVERIFY(tool);
         auto *controller = window->findChild<ModelPackagingController *>("modelPackagingController"); QVERIFY(controller);
-        tool->setProperty("outputDirectory", m_root.path());
+        tool->setProperty("outputDirectory", packageRoot);
         QSignalSpy done(controller, &ModelPackagingController::finished);
         QVERIFY(controller->scanFolder(folder)); QTRY_COMPARE(done.count(), 1);
         auto *submit = visual(window->contentItem(), "packagingSubmit"); QVERIFY(submit);

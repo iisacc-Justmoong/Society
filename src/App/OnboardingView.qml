@@ -65,7 +65,7 @@ LV.VStack {
                 LV.Label {
                     objectName: "onboardingTitle"
                     Layout.fillWidth: true
-                    text: root.client ? qsTr("Connect to your Society host") : qsTr("Connect your Society folder")
+                    text: root.client ? qsTr("Connect to your Society host") : qsTr("Connect your Society container")
                     style: title
                     wrapMode: Text.WordWrap
                     sizeToContentHeight: true
@@ -74,7 +74,7 @@ LV.VStack {
                     Layout.fillWidth: true
                     text: root.client
                         ? qsTr("Sign in to the same iisacc account as your desktop. Society saves the verified host and reconnects automatically. After the first setup, your saved workspace opens while the connection resumes.")
-                        : qsTr("Create a Society folder in a location you choose, or select an existing Society folder. Keep its storage connected while using Society.")
+                        : qsTr("Create Society.societycontainer in a location you choose, or select an existing .societycontainer. Society keeps your files and its working data inside this container.")
                     style: body
                     color: LV.Theme.descriptionColor
                     wrapMode: Text.WordWrap
@@ -163,7 +163,7 @@ LV.VStack {
                     objectName: "onboardingCreateDisk"
                     Layout.fillWidth: true
                     Layout.minimumHeight: 44
-                    text: qsTr("Create a new folder…")
+                    text: qsTr("Create a new container…")
                     tone: LV.AbstractButton.Primary
                     enabled: !root.working
                     onClicked: folderDialog.open()
@@ -172,7 +172,7 @@ LV.VStack {
                     objectName: "onboardingChooseDisk"
                     Layout.fillWidth: true
                     Layout.minimumHeight: 44
-                    text: qsTr("Choose an existing folder…")
+                    text: qsTr("Choose an existing container…")
                     tone: LV.AbstractButton.Default
                     enabled: !root.working
                     onClicked: diskDialog.open()
@@ -189,7 +189,7 @@ LV.VStack {
                 }
                 LV.Label {
                     Layout.fillWidth: true
-                    text: qsTr("Society creates a regular folder with Files, Photos, Asset Library, Generation History, Models, Thinking Space, Forked, Published, and Deleted. These are the same folders shown in Storage.")
+                    text: qsTr("Society creates one .societycontainer package and connects its Files area as a system drive. Your models, photos and working data stay inside that package.")
                     style: caption
                     color: LV.Theme.descriptionColor
                     wrapMode: Text.WordWrap
@@ -207,16 +207,18 @@ LV.VStack {
         }
     }
 
-    FolderDialog {
+    FileDialog {
         id: diskDialog
         objectName: "onboardingDiskDialog"
-        title: qsTr("Choose your Society folder")
-        onAccepted: root.selectDisk(selectedFolder)
+        title: qsTr("Choose your Society container")
+        nameFilters: [qsTr("Society containers (*.societycontainer)")]
+        fileMode: FileDialog.OpenFile
+        onAccepted: root.selectDisk(selectedFile)
     }
     FolderDialog {
         id: folderDialog
         objectName: "onboardingFolderDialog"
-        title: qsTr("Choose where to create the Society folder")
+        title: qsTr("Choose where to create Society.societycontainer")
         onAccepted: root.createDisk(selectedFolder)
     }
 }

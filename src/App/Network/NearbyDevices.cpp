@@ -1,1 +1,1 @@
-// Implementation moved to SDK/iiSocietyClient/NearbyDevices.cpp.
+// Implementation moved to SDK/iiSocietyHelper/src/iiSocietyHelper/NearbyDevices.cpp.

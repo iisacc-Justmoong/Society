@@ -1,6 +1,6 @@
+#include <iiFileProviderDevice.h>
 #pragma once
 #include <QObject>
-#include <QLockFile>
 #include <QTimer>
 #include <memory>
 
@@ -12,6 +12,8 @@ public:
     SyncOwnership(QString directory, bool foreground, QObject *parent = nullptr);
     ~SyncOwnership() override;
     bool start();
+    bool setDirectory(const QString &directory);
+    QString directory() const { return m_directory; }
     void stop();
     bool owned() const { return m_owned; }
     QString errorString() const { return m_error; }
@@ -25,5 +27,5 @@ private:
     QString m_directory, m_error;
     bool m_foreground, m_owned = false;
     QTimer m_timer;
-    std::unique_ptr<QLockFile> m_priority, m_owner;
+    std::unique_ptr<iiFileProvider::LockFile> m_priority, m_owner;
 };

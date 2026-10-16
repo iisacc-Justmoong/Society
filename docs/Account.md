@@ -162,7 +162,7 @@ Android는 서명되지 않은 Release APK를 생성했고 SDK 가입 API 및 Ac
 
 ## GraphQL 전환
 
-iiAcountManager 0.2.8과 갱신한 iiSocietyClient/iiServerHost를 함께 빌드한다. 계정 모델,
+iiAcountManager 0.2.8과 갱신한 iiSocietyHelper/iiServerHost를 함께 빌드한다. 계정 모델,
 컨테이너 위치, 페어링 증명은 `data.appSession`에서 읽고 릴레이는
 `data.accountSession.account.sub`를 확인한다. HTTP 200의 `errors`를 성공으로 처리하지
 않으며 로그인 만료도 기존 UI/세션 정리 흐름으로 전달한다. 로컬 fixture는 GraphQL POST와

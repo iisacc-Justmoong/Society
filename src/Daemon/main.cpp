@@ -1,5 +1,7 @@
+#include <iiFileProviderDevice.h>
 #include "DaemonService.h"
 #include "App/Services/SyncOwnership.h"
+#include "App/Services/ContainerRuntimePath.h"
 #include "App/State/GroupSessionStore.h"
 #include "App/Account/AccountController.h"
 #include "App/Network/NetworkDriveController.h"
@@ -8,7 +10,6 @@
 #include <QDir>
 #include <QTextStream>
 #include <QJsonDocument>
-#include <QSaveFile>
 #include <QSqlDatabase>
 #include <QSslSocket>
 #include <QTimer>
@@ -53,22 +54,35 @@ int main(int argc, char **argv)
         || (parser.isSet("server") && !NetworkDriveController::validServerUrl(QUrl(parser.value("server"))))) return 2;
     if (parser.isSet("container") && (!QDir::isAbsolutePath(parser.value("container"))
         || !iiSocietyContainer::SharedStorage::open(parser.value("container"), nullptr, true))) return 2;
+    if (parser.isSet("container")) qputenv("SOCIETY_CONTAINER_PATH", parser.value("container").toUtf8());
+    if ((parser.isSet("directory") && !societyContainerRuntimePath(parser.value("directory")))
+        || (parser.isSet("status-file") && !societyContainerRuntimePath(parser.value("status-file")))) return 2;
     const QUrl accountUrl(parser.value("account-url"));
     if (parser.isSet("login-file") && (!accountUrl.isValid() || accountUrl.host().isEmpty() || !accountUrl.userInfo().isEmpty()
         || accountUrl.hasQuery() || accountUrl.hasFragment() || accountUrl.port() == 0
         || (accountUrl.scheme() != "https" && !(accountUrl.scheme() == "http" && QHostAddress(accountUrl.host()).isLoopback())))) return 2;
     const auto readLogin = [&]() {
-        QFile file(parser.value("login-file"));
+        iiFileProvider::FileDevice file(parser.value("login-file"));
         if (QFileInfo(file).isSymLink() || !file.open(QIODevice::ReadOnly) || file.size() > 16384
-            || (file.permissions() & (QFile::ReadGroup | QFile::WriteGroup | QFile::ExeGroup | QFile::ReadOther | QFile::WriteOther | QFile::ExeOther))) return QJsonObject{};
+            || (file.permissions() & (iiFileProvider::FileDevice::ReadGroup | iiFileProvider::FileDevice::WriteGroup | iiFileProvider::FileDevice::ExeGroup | iiFileProvider::FileDevice::ReadOther | iiFileProvider::FileDevice::WriteOther | iiFileProvider::FileDevice::ExeOther))) return QJsonObject{};
         return QJsonDocument::fromJson(file.readAll()).object();
     };
     if (parser.isSet("login-file")) {
         const auto login = readLogin();
         if (login.value("email").toString().isEmpty() || login.value("password").toString().isEmpty()) return 2;
     }
+    // Maintenance stays available while the window is closed and while no
+    // account/network owner is active. SharedStorage rejects saved images.
+    const auto registerMaintenance = [&parser] {
+        iiSocietyContainer::SharedStorage::open(
+            parser.isSet("container") ? parser.value("container") : QString(), nullptr, true);
+    };
+    registerMaintenance();
+    QTimer maintenanceSelection;
+    QObject::connect(&maintenanceSelection, &QTimer::timeout, &app, registerMaintenance);
+    maintenanceSelection.start(5 * 60 * 1000);
     SocietyDaemonService service;
-    if (!service.start(parser.value("directory"))) {
+    if (parser.isSet("directory") && !service.start(parser.value("directory"))) {
         QTextStream(stderr) << service.errorString() << Qt::endl;
         return 1;
     }
@@ -76,12 +90,15 @@ int main(int argc, char **argv)
     std::unique_ptr<NetworkDriveController> network;
     std::unique_ptr<SyncOwnership> ownership;
     if (parser.isSet("sync")) {
-        const auto directory = parser.isSet("directory") ? parser.value("directory") : GroupSessionStore::defaultDirectory();
-        ownership = std::make_unique<SyncOwnership>(directory.isEmpty() ? QString() : QDir(directory).filePath("SyncRuntime"), false);
+        const auto selectedStorage = iiSocietyContainer::SharedStorage::open({}, nullptr, true);
+        const auto directory = selectedStorage ? selectedStorage->runtimePath(QStringLiteral("sync")) : QString();
+        ownership = std::make_unique<SyncOwnership>(directory, false);
         QObject::connect(ownership.get(), &SyncOwnership::ownershipChanged, &app, [&](bool owned) {
             network.reset(); account.reset();
             if (!owned) return;
-            const auto path = parser.isSet("container") ? parser.value("container") : ownership->storedContainer();
+            const auto selected = iiSocietyContainer::SharedStorage::open(
+                parser.isSet("container") ? parser.value("container") : QString(), nullptr, true);
+            const auto path = selected ? selected->drive().rootPath() : ownership->storedContainer();
             if (path.isEmpty() || !iiSocietyContainer::SharedStorage::open(path, nullptr, true)) return;
             account = parser.isSet("login-file") ? std::make_unique<AccountController>(accountUrl) : std::make_unique<AccountController>();
             network = std::make_unique<NetworkDriveController>();
@@ -104,9 +121,22 @@ int main(int argc, char **argv)
                     qWarning() << "Society headless account login could not start.";
             }
         });
-        if (!ownership->start()) qWarning() << "Society background synchronization:" << ownership->errorString();
+        if (parser.isSet("directory") && !ownership->start()) qWarning() << "Society background synchronization:" << ownership->errorString();
         QObject::connect(&app, &QCoreApplication::aboutToQuit, &app, [&] { ownership->stop(); });
     }
+    const auto selectRuntime = [&] {
+        if (parser.isSet("directory")) return;
+        const auto selected = iiSocietyContainer::SharedStorage::open(
+            parser.isSet("container") ? parser.value("container") : QString(), nullptr, true);
+        const auto helperDirectory = selected ? selected->runtimePath(QStringLiteral("helpers/v1")) : QString();
+        if (service.isRunning() && service.directory() != helperDirectory) service.stop();
+        if (!service.isRunning() && !helperDirectory.isEmpty()) service.start(helperDirectory);
+        if (ownership) ownership->setDirectory(selected ? selected->runtimePath(QStringLiteral("sync")) : QString());
+    };
+    QTimer runtimeSelection;
+    QObject::connect(&runtimeSelection, &QTimer::timeout, &app, selectRuntime);
+    runtimeSelection.start(1000);
+    selectRuntime();
     QTimer status;
     if (parser.isSet("status-file")) {
         QObject::connect(&status, &QTimer::timeout, &app, [&] {
@@ -119,8 +149,8 @@ int main(int argc, char **argv)
                 {"codeRequired", account && account->codeRequired()},
                 {"phase", network ? network->localPeer()->phase() : QString()},
                 {"status", network ? network->synchronizationStatus() : QString()}};
-            QSaveFile file(parser.value("status-file"));
-            if (file.open(QIODevice::WriteOnly) && file.setPermissions(QFile::ReadOwner | QFile::WriteOwner)) {
+            iiFileProvider::SaveFile file(parser.value("status-file"));
+            if (file.open(QIODevice::WriteOnly) && file.setPermissions(iiFileProvider::FileDevice::ReadOwner | iiFileProvider::FileDevice::WriteOwner)) {
                 file.write(QJsonDocument(state).toJson(QJsonDocument::Compact)); file.commit();
             }
         });

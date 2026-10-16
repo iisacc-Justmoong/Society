@@ -1,5 +1,5 @@
 #include "App/Network/NetworkDriveController.h"
-#include "AccountServer.h"
+#include "AuthenticatedNetworkFixture.h"
 #include "MemorySessionStore.h"
 #include <QCryptographicHash>
 #include "App/Network/DevicePairing.h"
@@ -7,6 +7,7 @@
 #include "App/Network/QrScanner.h"
 #include "App/Network/MobileSyncActivity.h"
 #include <QFile>
+#include <QFileInfo>
 #include <QJsonDocument>
 #include <QGuiApplication>
 #include <QQmlComponent>
@@ -43,8 +44,8 @@ private slots:
         QCOMPARE(mobile.mode(), NetworkDriveController::ClientMode);
     }
     void openingAMobileContainerUsesAnAsyncSnapshotAndCachedGetters() {
-        QTemporaryDir first(SOCIETY_TEST_DIRECTORY "/mobile-sync-state-XXXXXX");
-        QTemporaryDir second(SOCIETY_TEST_DIRECTORY "/mobile-sync-next-XXXXXX");
+        QTemporaryDir first(SOCIETY_TEST_DIRECTORY "/mobile-sync-state-XXXXXX.societycontainer");
+        QTemporaryDir second(SOCIETY_TEST_DIRECTORY "/mobile-sync-next-XXXXXX.societycontainer");
         const auto drive = iiSocietyContainer::SocietyDrive::create(first.path());
         QVERIFY(drive); QVERIFY(iiSocietyContainer::SocietyDrive::create(second.path()));
         QVERIFY(QDir(first.path()).mkpath(".society-sync"));
@@ -87,17 +88,20 @@ private slots:
     void foregroundOpeningAutomaticallyContinuesAnAuthenticatedSyncAndHonorsCancellation() {
         QFETCH(bool, background);
         AccountServer authority; QVERIFY(authority.server.listen(QHostAddress::LocalHost));
+        QTemporaryDir root(SOCIETY_TEST_DIRECTORY "/automatic-continued-XXXXXX.societycontainer");
+        QVERIFY(iiSocietyContainer::SocietyDrive::create(root.path()));
+        QVERIFY(registerFixtureContainer(authority, root.path(), QString(64, 'a')));
         MemorySessionStore store;
         AccountController account(authority.url(), &store, nullptr);
+        auto device = account.manager()->deviceInfo(); device["id"] = QString(64, 'b');
+        QVERIFY(account.manager()->setDeviceInfo(device));
         QVERIFY(account.login("builder@example.com", "FixtureOnly1!")); QTRY_VERIFY(account.signedIn());
         RelayServer relay([&](const auto &, AuthCompletion done) {
             done({account.manager()->account()->sub(), QDateTime::currentDateTimeUtc().addSecs(60)});
         });
         QVERIFY(relay.listen(QHostAddress::LocalHost));
-        QTemporaryDir root(SOCIETY_TEST_DIRECTORY "/automatic-continued-XXXXXX");
-        QVERIFY(iiSocietyContainer::SocietyDrive::create(root.path()));
         PeerOptions options; options.relayUrl = QUrl(QString("ws://127.0.0.1:%1").arg(relay.port()));
-        options.credential = "fixture"; options.peerId = "desktop"; options.name = "Desktop";
+        options.credential = "fixture"; options.peerId = QString(64, 'a'); options.name = "Desktop";
         options.service = "com.iisacc.society.files"; options.localEnabled = false;
         Peer desktop;
         // A real authenticated peer holds the first manifest response. The
@@ -210,11 +214,13 @@ private slots:
         QVERIFY(!activity.retain()); activity.release(); QCOMPARE(ends, 2);
     }
     void grantedBackgroundTimeKeepsTheClientTransportUntilExpiration() {
-        RelayServer relay([](const auto &, AuthCompletion done) { done({"alice", QDateTime::currentDateTimeUtc().addSecs(60)}); });
+        AuthenticatedNetworkFixture identity; QVERIFY(identity.start());
+        RelayServer relay([&](const auto &, AuthCompletion done) { done({identity.principal(), QDateTime::currentDateTimeUtc().addSecs(60)}); });
         QVERIFY(relay.listen(QHostAddress::LocalHost));
         PeerOptions options; options.relayUrl = QUrl(QString("ws://127.0.0.1:%1").arg(relay.port()));
-        options.credential = "alice"; options.peerId = "mobile"; options.name = "Phone"; options.localEnabled = false;
-        NetworkDriveController mobile; std::function<void()> expire;
+        options.credential = "alice"; options.peerId = QString(64, 'b'); options.name = "Phone"; options.localEnabled = false;
+        std::function<void()> expire;
+        NetworkDriveController mobile; mobile.setAccountSession(identity.clientAccount.get());
         mobile.backgroundActivity()->setBackend([&](auto callback) { expire = callback; return true; }, [] {});
         QVERIFY(mobile.startSession(options)); QTRY_VERIFY(mobile.connected());
         QVERIFY(mobile.backgroundActivity()->retain());
@@ -356,19 +362,20 @@ private slots:
         QVERIFY(QMetaObject::invokeMethod(panel.get(), "close")); QTRY_COMPARE(pairing.phase(), QString("idle"));
     }
     void deviceSelectionWaitsForTransfersAndTracksHostAvailability() {
-        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/sidebar-network-XXXXXX");
+        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/sidebar-network-XXXXXX.societycontainer");
         QFile file(fixture.filePath("shared.txt")); QVERIFY(file.open(QIODevice::WriteOnly));
         file.write("fixture"); file.close();
-        RelayServer relay([](const auto &, AuthCompletion done) { done({"alice", QDateTime::currentDateTimeUtc().addSecs(60)}); });
+        AuthenticatedNetworkFixture identity; QVERIFY(identity.start());
+        RelayServer relay([&](const auto &, AuthCompletion done) { done({identity.principal(), QDateTime::currentDateTimeUtc().addSecs(60)}); });
         QVERIFY(relay.listen(QHostAddress::LocalHost));
         PeerOptions options; options.relayUrl = QUrl(QString("ws://127.0.0.1:%1").arg(relay.port()));
-        options.credential = "alice"; options.peerId = "first-host"; options.name = "First desktop";
+        options.credential = "alice"; options.peerId = QString(64, 'a'); options.name = "First desktop";
         options.service = "com.iisacc.society.files"; options.localEnabled = false;
-        FileShare files(fixture.path()); Peer first, second;
+        FileShare files(fixture.path()); Peer first, second; int secondaryRequests = 0;
         QVERIFY(first.start(options, [&](const auto &, const auto &request) { return files.handle(request); }));
-        options.peerId = "second-host"; options.name = "Second desktop";
-        QVERIFY(second.start(options, [&](const auto &, const auto &request) { return files.handle(request); }));
-        NetworkDriveController network; options.peerId = "client"; QVERIFY(network.startSession(options));
+        options.peerId = QString(64, 'c'); options.name = "Second desktop";
+        QVERIFY(second.start(options, [&](const auto &, const auto &request) { ++secondaryRequests; return files.handle(request); }));
+        NetworkDriveController network; network.setAccountSession(identity.clientAccount.get()); options.peerId = QString(64, 'b'); QVERIFY(network.startSession(options));
         QTRY_VERIFY(network.connected() && first.isReady() && second.isReady());
         QTRY_COMPARE(network.hosts().size(), 2);
         QQmlEngine engine; engine.addImportPath(SOCIETY_LVRS_QML_IMPORT_PATH);
@@ -383,27 +390,76 @@ private slots:
             {"network", QVariant::fromValue(&network)}, {"parent", QVariant::fromValue(window.contentItem())}}));
         QVERIFY2(panel, qPrintable(component.errorString()));
         QVERIFY(QMetaObject::invokeMethod(panel.get(), "open")); QTRY_VERIFY(panel->property("opened").toBool());
-        network.browse("first-host"); QVERIFY(network.busy());
-        QVERIFY(QMetaObject::invokeMethod(panel.get(), "selectDevice", Q_ARG(QVariant, "second-host"),
-            Q_ARG(QVariant, "Second desktop"), Q_ARG(QVariant, "second-host")));
+        network.browse(QString(64, 'a')); QVERIFY(network.busy());
+        QVERIFY(QMetaObject::invokeMethod(panel.get(), "selectDevice", Q_ARG(QVariant, QString(64, 'c')),
+            Q_ARG(QVariant, "Second desktop"), Q_ARG(QVariant, QString(64, 'c'))));
         QVERIFY(!panel->property("selectedFilesVisible").toBool());
-        QTRY_COMPARE(network.currentHost(), QString("second-host")); QTRY_VERIFY(!network.busy());
-        QCOMPARE(network.entries().size(), 1); QVERIFY(panel->property("selectedFilesVisible").toBool());
+        QTRY_COMPARE(network.currentHost(), QString(64, 'c')); QTRY_VERIFY(!network.busy());
+        QVERIFY(network.entries().isEmpty()); QVERIFY(panel->property("selectedFilesVisible").toBool());
+        QCOMPARE(secondaryRequests, 0); // File access stays bound to the account's registered primary host.
         QVERIFY(!panel->property("selectionPending").toBool());
-        second.stop(); QTRY_COMPARE(network.hosts().size(), 1);
+        QVERIFY(QMetaObject::invokeMethod(panel.get(), "selectDevice", Q_ARG(QVariant, QString(64, 'a')),
+            Q_ARG(QVariant, "First desktop"), Q_ARG(QVariant, QString(64, 'a'))));
+        QTRY_VERIFY(!network.busy()); QTRY_COMPARE(network.entries().size(), 1);
+        QVERIFY(panel->property("selectedFilesVisible").toBool());
+        first.stop(); QTRY_COMPARE(network.hosts().size(), 1);
         QTRY_VERIFY(!panel->property("selectedFilesVisible").toBool());
         // A stale list from the disconnected host stays hidden until a fresh request completes.
-        options.peerId = "second-host"; options.name = "Second desktop";
-        QVERIFY(second.start(options, [&](const auto &, const auto &request) { return files.handle(request); }));
+        options.peerId = QString(64, 'a'); options.name = "First desktop";
+        QVERIFY(first.start(options, [&](const auto &, const auto &request) { return files.handle(request); }));
         QTRY_COMPARE(network.hosts().size(), 2); QTRY_VERIFY(!network.busy());
         QTRY_VERIFY(panel->property("selectedFilesVisible").toBool());
         QVERIFY(QMetaObject::invokeMethod(panel.get(), "selectDevice", Q_ARG(QVariant, "offline"),
             Q_ARG(QVariant, "Offline phone"), Q_ARG(QVariant, "")));
         QVERIFY(!panel->property("selectedFilesVisible").toBool());
-        QCOMPARE(network.currentHost(), QString("second-host"));
+        QCOMPARE(network.currentHost(), QString(64, 'a'));
         QVERIFY(QMetaObject::invokeMethod(panel.get(), "clearDeviceSelection"));
         QVERIFY(panel->property("selectedDeviceId").toString().isEmpty());
         QVERIFY2(warnings.isEmpty(), qPrintable(warnings.join('\n')));
+    }
+    void deviceFileActionSavesInSelectedContainerFiles() {
+        QTemporaryDir source(SOCIETY_TEST_DIRECTORY "/mobile-download-source-XXXXXX");
+        QTemporaryDir container(SOCIETY_TEST_DIRECTORY "/mobile-download-files-XXXXXX.societycontainer");
+        QVERIFY(iiSocietyContainer::SocietyDrive::create(container.path()));
+        QFile file(source.filePath("shared.txt")); QVERIFY(file.open(QIODevice::WriteOnly));
+        file.write("downloaded through the device sheet"); file.close();
+        QFile original(container.filePath("Files/shared.txt")); QVERIFY(original.open(QIODevice::WriteOnly));
+        original.write("existing user file"); original.close();
+        AuthenticatedNetworkFixture identity; QVERIFY(identity.start());
+        RelayServer relay([&](const auto &, AuthCompletion done) { done({identity.principal(), QDateTime::currentDateTimeUtc().addSecs(60)}); });
+        QVERIFY(relay.listen(QHostAddress::LocalHost));
+        PeerOptions options; options.relayUrl = QUrl(QString("ws://127.0.0.1:%1").arg(relay.port()));
+        options.credential = "alice"; options.peerId = QString(64, 'a'); options.name = "Desktop";
+        options.service = "com.iisacc.society.files"; options.localEnabled = false;
+        Peer desktop; FileShare files(source.path());
+        QVERIFY(desktop.start(options, [&](const auto &, const auto &request) { return files.handle(request); }));
+        NetworkDriveController network; network.setContainerPath(container.path()); network.setAccountSession(identity.clientAccount.get());
+        options.peerId = QString(64, 'b'); QVERIFY(network.startSession(options));
+        QTRY_VERIFY(network.connected() && desktop.isReady()); QTRY_COMPARE(network.hosts().size(), 1);
+        QQmlEngine engine; engine.addImportPath(SOCIETY_LVRS_QML_IMPORT_PATH);
+        QQuickWindow window; window.resize(680, 800); window.show();
+        QQmlComponent component(&engine, QUrl::fromLocalFile(SOCIETY_NETWORK_QML_FILE));
+        QVERIFY2(component.isReady(), qPrintable(component.errorString()));
+        std::unique_ptr<QObject> panel(component.createWithInitialProperties({
+            {"network", QVariant::fromValue(&network)}, {"parent", QVariant::fromValue(window.contentItem())}}));
+        QVERIFY2(panel, qPrintable(component.errorString()));
+        QVERIFY(QMetaObject::invokeMethod(panel.get(), "open")); QTRY_VERIFY(panel->property("opened").toBool());
+        network.browse(QString(64, 'a')); QTRY_VERIFY(!network.busy()); QTRY_COMPARE(network.entries().size(), 1);
+        QQuickItem *entry = nullptr;
+        const auto findEntry = [](auto &&self, QQuickItem *item) -> QQuickItem * {
+            if (item->objectName() == "networkFileEntry") return item;
+            for (auto *child : item->childItems()) if (auto *found = self(self, child)) return found;
+            return nullptr;
+        };
+        QTRY_VERIFY((entry = findEntry(findEntry, window.contentItem())));
+        QSignalSpy saved(&network, &NetworkDriveController::downloadFinished);
+        QVERIFY(QMetaObject::invokeMethod(entry, "clicked")); QTRY_COMPARE(saved.size(), 1);
+        QCOMPARE(saved.first().first().toUrl(), QUrl::fromLocalFile(container.filePath("Files/shared (2).txt")));
+        QFile downloaded(container.filePath("Files/shared (2).txt")); QVERIFY(downloaded.open(QIODevice::ReadOnly));
+        QCOMPARE(downloaded.readAll(), QByteArray("downloaded through the device sheet"));
+        QVERIFY(original.open(QIODevice::ReadOnly)); QCOMPARE(original.readAll(), QByteArray("existing user file"));
+        QVERIFY(!QFileInfo::exists(container.filePath("shared.txt")));
+        network.disconnectSession();
     }
     void mobileAlwaysRemainsAClient_data() {
         QTest::addColumn<bool>("local");
@@ -412,24 +468,25 @@ private slots:
     }
     void mobileAlwaysRemainsAClient() {
         QFETCH(bool, local);
-        QTemporaryDir sourceRoot(SOCIETY_TEST_DIRECTORY "/mobile-source-XXXXXX");
-        QTemporaryDir container(SOCIETY_TEST_DIRECTORY "/mobile-container-XXXXXX");
+        QTemporaryDir sourceRoot(SOCIETY_TEST_DIRECTORY "/mobile-source-XXXXXX.societycontainer");
+        QTemporaryDir container(SOCIETY_TEST_DIRECTORY "/mobile-container-XXXXXX.societycontainer");
         QVERIFY(iiSocietyContainer::SocietyDrive::create(container.path()));
         QFile source(sourceRoot.filePath("shared.txt")); QVERIFY(source.open(QIODevice::WriteOnly));
         source.write("from desktop"); source.close();
-        RelayServer relay([](const auto &, AuthCompletion done) { done({"alice", QDateTime::currentDateTimeUtc().addSecs(60)}); });
+        AuthenticatedNetworkFixture identity; QVERIFY(identity.start());
+        RelayServer relay([&](const auto &, AuthCompletion done) { done({identity.principal(), QDateTime::currentDateTimeUtc().addSecs(60)}); });
         QVERIFY(relay.listen(QHostAddress::LocalHost));
         PeerOptions options; options.relayUrl = QUrl(QString("ws://127.0.0.1:%1").arg(relay.port()));
-        options.credential = "alice"; options.peerId = "desktop"; options.name = "Desktop";
+        options.credential = "alice"; options.peerId = QString(64, 'a'); options.name = "Desktop";
         options.service = "com.iisacc.society.files";
         options.localEnabled = local; options.listenAddress = QHostAddress::LocalHost;
         Peer desktop; FileShare files(sourceRoot.path());
         QVERIFY(desktop.start(options, [&](const auto &, const auto &request) { return files.handle(request); }));
         QTcpServer occupied; QVERIFY(occupied.listen(QHostAddress::LocalHost));
-        options.peerId = "mobile"; options.name = "Mobile";
+        options.peerId = QString(64, 'b'); options.name = "Mobile";
         options.hostFiles = true; options.localHostingEnabled = true; options.localPort = occupied.serverPort();
         options.metadata = {{"section", "must-not-leak"}};
-        NetworkDriveController mobile;
+        NetworkDriveController mobile; mobile.setAccountSession(identity.clientAccount.get());
         const auto role = mobile.metaObject()->property(mobile.metaObject()->indexOfProperty("mode"));
         QVERIFY(role.isConstant()); QVERIFY(!role.isWritable());
         QVERIFY(!mobile.hostModeAvailable());
@@ -441,7 +498,7 @@ private slots:
         QTRY_VERIFY(mobile.connected() && desktop.isReady());
         QVERIFY(!mobile.hosting());
         QTRY_COMPARE(mobile.hosts().size(), 1);
-        mobile.browse("desktop"); QTRY_VERIFY(!mobile.busy());
+        mobile.browse(QString(64, 'a')); QTRY_VERIFY(!mobile.busy());
         QCOMPARE(mobile.entries().size(), 1);
         QCOMPARE(mobile.transport(), local ? "local" : "remote");
         QSignalSpy saved(&mobile, &NetworkDriveController::downloadFinished);
@@ -450,10 +507,9 @@ private slots:
         QFile downloaded(target); QVERIFY(downloaded.open(QIODevice::ReadOnly));
         QCOMPARE(downloaded.readAll(), QByteArray("from desktop"));
 
-        QSignalSpy state(&mobile, &NetworkDriveController::stateChanged);
         mobile.setContainerPath(container.filePath("missing"));
         QVERIFY(!mobile.setProperty("mode", NetworkDriveController::HostMode));
-        QVERIFY(mobile.connected()); QCOMPARE(state.size(), 0);
+        QVERIFY(mobile.connected()); QVERIFY(mobile.entries().isEmpty()); QVERIFY(mobile.currentHost().isEmpty());
         QVERIFY(QMetaObject::invokeMethod(qGuiApp, "applicationStateChanged", Qt::DirectConnection,
             Q_ARG(Qt::ApplicationState, Qt::ApplicationSuspended)));
         QVERIFY(!mobile.connected());
@@ -466,7 +522,7 @@ private slots:
         QCOMPARE(mobile.mode(), NetworkDriveController::ClientMode);
         QVERIFY(!mobile.hosting());
         QSignalSpy result(&desktop, &Peer::completed);
-        const auto request = desktop.request("mobile", {{"op", "list"}, {"path", ""}});
+        const auto request = desktop.request(QString(64, 'b'), {{"op", "list"}, {"path", ""}});
         QTRY_COMPARE(result.size(), 1);
         QCOMPARE(result[0][0].toString(), request);
         QVERIFY(!result[0][1].toJsonObject().value("ok").toBool());

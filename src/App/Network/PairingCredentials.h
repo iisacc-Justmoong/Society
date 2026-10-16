@@ -1,2 +1,2 @@
 #pragma once
-#include <iiSocietyClient/PairingCredentials.h>
+#include <iiSocietyHelper/PairingCredentials.h>

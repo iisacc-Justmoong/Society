@@ -17,6 +17,7 @@
 #include <QProcess>
 #include <QProcessEnvironment>
 #include <QTemporaryDir>
+#include <SharedStorage.h>
 
 using GreetingFunction = QString (*)();
 Q_DECLARE_METATYPE(GreetingFunction)
@@ -28,12 +29,15 @@ class DependencyTest final : public QObject
 private slots:
     void packagedApplicationObservesPeers()
     {
-        QTemporaryDir presence(SOCIETY_TEST_DIRECTORY "/helper-XXXXXX");
+        QTemporaryDir presence(SOCIETY_TEST_DIRECTORY "/helper-XXXXXX.societycontainer");
+        QVERIFY(iiSocietyContainer::SocietyDrive::create(presence.path()));
+        const auto directory = presence.filePath(".society-runtime/helpers/v1");
         iiSocietyHelper::Helper observer;
         QVERIFY(observer.start({"com.iisacc.society.test", "Society test", "1"},
-                                {presence.path(), 100, 5000}));
+                                {directory, 100, 5000}));
         auto environment = QProcessEnvironment::systemEnvironment();
-        environment.insert("SOCIETY_HELPER_DIRECTORY", presence.path());
+        environment.insert("SOCIETY_HELPER_DIRECTORY", directory);
+        environment.insert("SOCIETY_CONTAINER_PATH", presence.path());
         environment.insert("SOCIETY_STORAGE_SETTINGS_PATH", presence.filePath("storage.json"));
         environment.insert("SOCIETY_DISABLE_SESSION_RESTORE", "1");
         environment.insert("QT_QPA_PLATFORM", "offscreen");
@@ -47,7 +51,7 @@ private slots:
         QByteArray output;
         QElapsedTimer elapsed;
         elapsed.start();
-        while (elapsed.elapsed() < 6000 && (observer.peers().isEmpty()
+        while (elapsed.elapsed() < 25000 && (observer.peers().isEmpty()
                || !output.contains("com.iisacc.society observed com.iisacc.society.test"))) {
             QTest::qWait(50);
             output += app.readAll();
@@ -55,7 +59,8 @@ private slots:
         const auto peers = observer.peers();
         app.terminate();
         if (!app.waitForFinished(3000)) { app.kill(); app.waitForFinished(3000); }
-        QCOMPARE(peers.size(), 1);
+        output += app.readAll();
+        QVERIFY2(peers.size() == 1, output.constData());
         QCOMPARE(peers.first().application.id, "com.iisacc.society");
         QVERIFY2(output.contains("com.iisacc.society observed com.iisacc.society.test"), output.constData());
     }

@@ -2,7 +2,7 @@
 
 [Figma 39:1275](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=39-1275)의 사이드바를 `src/App/Drive/StorageSidebar.qml`로 구성한다. 기존 LVRS Label·ListItem.Navigation·VStack과 Qt Flickable을 사용하며 추가 외부 의존성은 없다.
 
-- 폭 228 px, 안쪽 여백 12 px, 항목 폭 204 px, 행 높이 32 px이다. 그룹 내부의 제목·행 사이 간격은 0 px, 그룹 사이 간격은 8 px이다. 그룹 제목은 Caption 11 px, 항목은 Body 13 px, 아이콘 영역은 18 px이다. 배경은 panelBackground04, 선택 배경은 panelBackground12, 맨 아래 1 px 구분선은 panelBackground08이다.
+- 폭 228 px, 안쪽 여백 12 px, 항목 폭 204 px, 행 높이 32 px이다. 그룹 내부의 제목·행 사이 간격은 0 px, 그룹 사이 간격은 8 px이다. 그룹 제목은 Caption 11 px, 항목은 Body 13 px, 아이콘 영역은 18 px이다. LVRS ListItem의 상단·하단 패딩은 데스크톱·터치 행 모두 0 px이다. 내부 표시 영역은 행 높이 전체를 사용하며, 아이콘과 텍스트는 수직 중앙에 정렬한다. 패널 배경은 투명하며 기본 LV.ApplicationWindow 표면을 노출한다. 선택 배경은 panelBackground12, 맨 아래 1 px 구분선은 panelBackground08이다.
 - Files는 보라색 Database, Generation History는 profileCPU 시계, Published는 흰색 Application 아이콘을 사용한다. 설치된 LVRS 아이콘의 색상·도형·정규화된 뷰포트가 Figma와 다르므로 해당 세 SVG 원본은 `src/App/Drive/icons/`에 보관하고 기존 ListItem의 leadingComponent·iconSource로 표시한다. Files 원본은 18 px 슬롯 안에서 `(2.3125, 1.1875)` 위치에 `13.375 × 15.6659` px로 배치하고, Generation History·Published 원본은 `18 × 18` px이다. 다른 항목은 기존 LVRS 아이콘을 유지한다.
 - My storage → Other devices → Guild → Organization 순서이다. My storage의 순서는 Files, Photos, Asset Library, Generation History, Models, Thinking Space, Forked, Published, Deleted이다.
 - Storage 탭은 데스크톱·모바일 모두 바로 Files 최상위 폴더를 연다. 탭 재선택이나 다른 탭에서 돌아올 때도 Files로 이동하며, 기존 Overview 영역 그리드는 제공하지 않는다. 다른 영역은 사이드바·모바일 탐색 시트로 선택한다. Dashboard의 특정 영역·폴더 바로가기는 지정한 목적지를 유지한다. Storage에서 뒤로 이동해 컨테이너 루트에 도달하거나 초기 동기화가 완료되면 Files를 표시한다.
@@ -26,10 +26,12 @@ Guild·Organization 목록은 `replaceMemberships(accountId, guilds, organizatio
 
 `SocietyDriveTests storageNavigationUsesStableIdentitiesAndAccountScopedMemberships`는 ID 병합·자기 기기 제외·미검증 기기 제외·오프라인 유지·계정 격리·변경 없는 스냅샷·선택 라우팅을 검사한다. `sidebarMatchesFigmaAndRoutesDynamicTargets`는 실제 Main에서 네 그룹의 좌표·크기·아이콘·기기 선택·빈 상태·워크스페이스 선택·짧은 창 스크롤·키보드 초점·모바일 숨김을 확인한다. `SOCIETY_SIDEBAR_SCREENSHOT_PATH`를 설정하면 합성 기기·멤버십을 사용하는 검증 화면을 저장한다. `Society.Account`는 기기 이력의 즉시 알림과 로그아웃 후 빈 목록을 확인한다. `Society.ClientOnlyNetwork`의 `deviceSelectionWaitsForTransfersAndTracksHostAvailability`는 두 테스트 호스트를 사용해 진행 중인 조회 이후 새 기기 선택, 호스트 재연결과 오프라인 기기의 이전 파일 숨김을 확인한다. 기존 Models·Files·동기화 회귀 테스트와 전체 빌드·QML 검사를 함께 실행한다.
 
-사이드바 회귀 검증은 모든 행의 32 px 높이와 연속 좌표, 18 px 아이콘 슬롯, SVG 로딩 완료 및 Files의 원본 배치 크기도 확인한다. 합성 계정·기기 목록이 실제 세션 복원·주변 기기 탐색에 의해 교체되지 않도록 `SOCIETY_DISABLE_SESSION_RESTORE=1`, `SOCIETY_DISABLE_PHOTOS=1`, `IISOCIETYSYNC_DISABLE_BLE=1`을 사용한다. 모바일 클릭 회귀는 CTest와 같은 `QT_QPA_PLATFORM=offscreen`, `QT_QUICK_BACKEND=software`, `QML_DISABLE_DISK_CACHE=1` 환경에서 실행한다.
+사이드바 회귀 검증은 모든 행의 32 px 높이와 연속 좌표, 18 px 아이콘 슬롯, SVG 로딩 완료 및 Files의 원본 배치 크기도 확인한다. 9개 영역 및 기기·Guild·Organization 행의 상단·하단 패딩이 0 px이고 내부 표시 영역이 행 높이 전체를 사용하며, 아이콘 전체 경계가 실제 `listItem_content`의 클리핑 영역 안에 포함되는지도 검사한다. 터치 모드에서는 9개 영역의 44 px 행에도 같은 패딩·아이콘 조건을 검증한다. 합성 계정·기기 목록이 실제 세션 복원·주변 기기 탐색에 의해 교체되지 않도록 `SOCIETY_DISABLE_SESSION_RESTORE=1`, `SOCIETY_DISABLE_PHOTOS=1`, `IISOCIETYSYNC_DISABLE_BLE=1`을 사용한다. 모바일 클릭 회귀는 CTest와 같은 `QT_QPA_PLATFORM=offscreen`, `QT_QUICK_BACKEND=software`, `QML_DISABLE_DISK_CACHE=1` 환경에서 실행한다.
 
-Photos의 안정 키는 `photos`이며 `Society/Photos/`로 직접 이동한다. 모바일 탐색 시트에서도 Files와 같은 계층이다.
+Photos의 안정 키는 `photos`이며 `Society.societycontainer/Photos/`로 직접 이동한다. 모바일 탐색 시트에서도 Files와 같은 계층이다.
 
 9개 My storage 행을 간격 없이 배치하므로 첫 행은 y=23 px, Models는 y=151 px이다. Figma의 예시 목록(기기 3개·Guild 3개·Organization 2개)에서 그룹 제목 y는 12, 319, 434, 549 px이다. 실제 하위 그룹 위치는 동적 항목 수에 따라 달라지며, 짧은 창의 사이드바 스크롤은 유지한다.
 
 모바일에서도 같은 `StorageNavigation`의 9개 영역·기기·Guild·Organization 항목을 사용한다. 760 px 미만에서는 상단 탐색 버튼으로 여는 LVRS 시트에 같은 `StorageSidebar`를 배치하고, 항목을 탭하면 시트를 닫아 본문을 표시한다. 760 px 이상에서는 사이드바를 유지하며 터치 행 높이는 44 px이다. 데스크톱은 32 px 행과 위의 간격·좌표 기준을 사용한다. Up·breadcrumb 표시줄은 모든 Storage 영역에서 제거한다. 모바일 가져오기·컨테이너 선택·OS 연결은 앱 상단 바의 `Storage actions` 버튼이 여는 시트에서 실행한다. 상세 기준과 검증은 [MobileViews.md](MobileViews.md)에 기록한다.
+
+Storage 본문 아래에는 고정 공통 푸터를 배치하지 않는다. 공통 모델 가져오기 줄, 시스템 연결 상태, 섹션 수, Reconnect·Open in Finder 버튼과 구분선을 제거하여 각 영역의 콘텐츠가 화면 하단까지 사용한다. 모델 가져오기·진행 상태·취소는 Models 화면 자체의 UI에서 제공하며, 창으로의 모델 드롭과 모바일 Storage actions 시트도 유지한다. 저장소 오류는 오류가 있을 때만 표시한다. `Society.Drive`는 공통 푸터 객체의 부재와 데스크톱 창 크기별 콘텐츠 하단 정렬을 실제 QML 화면에서 검증한다.

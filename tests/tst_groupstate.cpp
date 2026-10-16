@@ -33,6 +33,25 @@ static bool replace(const QString &path, const QByteArray &data) { QFile f(path)
 class GroupStateTests : public QObject {
     Q_OBJECT
 private slots:
+    void previousEncryptedRecordsAreCopiedWithoutChangingTheSource() {
+        QTemporaryDir dir(QString(SOCIETY_TEST_DIRECTORY) + "/state-migration-XXXXXX"); QVERIFY(dir.isValid());
+        MemorySessionStore keys, legacy;
+        const auto oldRoot = dir.filePath("previous");
+        GroupSessionStore original(oldRoot, &keys, &legacy);
+        QCOMPARE(complete([&](auto done) { original.write("login", "preserved-login", done); }).error, Store::Error::None);
+        const auto oldCipher = bytes(recordPath(oldRoot, "login"));
+        const auto oldEntries = QDir(oldRoot).entryList(QDir::Files | QDir::Hidden | QDir::NoDotAndDotDot);
+        const auto destination = dir.filePath("selected.societycontainer/.society-runtime/state");
+        GroupSessionStore migrated(destination, &keys, nullptr, nullptr, oldRoot);
+        QCOMPARE(complete([&](auto done) { migrated.read("login", done); }).data, QByteArray("preserved-login"));
+        QCOMPARE(bytes(recordPath(destination, "login")), oldCipher);
+        QCOMPARE(bytes(recordPath(oldRoot, "login")), oldCipher);
+        QCOMPARE(QDir(oldRoot).entryList(QDir::Files | QDir::Hidden | QDir::NoDotAndDotDot), oldEntries);
+        QCOMPARE(complete([&](auto done) { migrated.remove("login", done); }).error, Store::Error::None);
+        GroupSessionStore reopened(destination, &keys, nullptr, nullptr, oldRoot);
+        QCOMPARE(complete([&](auto done) { reopened.read("login", done); }).error, Store::Error::Missing);
+        QCOMPARE(bytes(recordPath(oldRoot, "login")), oldCipher);
+    }
     void boundedLargeAccountSnapshotSurvivesAndOversizeDoesNotReplaceIt() {
         QTemporaryDir dir(QString(SOCIETY_TEST_DIRECTORY) + "/group-state-XXXXXX"); QVERIFY(dir.isValid());
         MemorySessionStore keys, legacy;

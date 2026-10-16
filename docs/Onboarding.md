@@ -1,14 +1,16 @@
 # Society 폴더 온보딩
 
-Society의 기본 저장소는 일반 디렉터리이다. **Create a new folder…**에서 선택한 기존 부모 폴더 아래에 `Society/`를 만들고, **Choose an existing folder…**에서는 `.society-drive.json`이 있는 Society 루트를 직접 선택한다. 두 선택 모두 네이티브 `FolderDialog`를 사용한다.
+Society의 원본 저장소는 `Society.societycontainer`라는 디렉터리 패키지이다. **Create a new container…**에서 선택한 기존 부모 폴더 아래에 이 패키지를 만들며, **Choose an existing container…**에서는 네이티브 파일 선택기로 패키지를 선택한다. 생성 위치만 네이티브 폴더 선택기로 고른다. 일반 디렉터리, 패키지 내부의 하위 경로, 과거 sparsebundle 디스크 이미지는 원본으로 선택할 수 없다.
 
 ## 생성과 복원
 
-SDK `SocietyDrive::createAt(parent)`가 일반 폴더와 9개 섹션을 준비한다. 이미 선택한 폴더가 유효한 드라이브라면 컨테이너 UUID를 재사용한다. 무관한 파일, 심볼릭 링크, 다른 드라이브 내부, 기존 디스크 이미지 내부에는 새 저장소를 만들지 않는다. 생성 실패 시 기존 내용을 덮어쓰지 않는다.
+SDK `SocietyDrive::createAt(parent)`는 처음부터 선택한 부모 아래의 `Society.societycontainer` 패키지 경로를 생성하고 그 내부에 매니페스트와 9개 섹션을 준비한다. 일반 `Society` 디렉터리에 저장소를 만든 뒤 이름을 바꾸는 단계는 없다. 선택한 기존 부모 폴더의 이름이 `Society`여도 그 부모를 드라이브로 전환하지 않으며 기존 사용자 파일은 보존한다. `Models/`는 빈 상태로 시작하고 실제 가져오기에서 필요한 유형 폴더만 만든다.
 
-`DriveController`는 준비를 백그라운드에서 실행하고, 유효한 드라이브를 검증한 뒤 `SharedStorage::setDefaultContainer()`로 설정을 저장한다. 일반 디렉터리 설정은 `schemaVersion: 1`, `path`, `containerId`이며 `imagePath`를 포함하지 않는다. 다음 실행은 동일한 폴더와 UUID를 확인하여 복원한다. 폴더가 없어졌으면 온보딩을 표시하고 기존 저장 설정을 보존한다.
+기존 유효 패키지를 선택하거나 같은 부모 아래에 유효한 `Society.societycontainer`가 있으면 컨테이너 UUID를 재사용한다. 패키지 경로에 있는 무관한 파일, 심볼릭 링크, 다른 드라이브 내부, 기존 디스크 이미지 내부에는 새 저장소를 만들지 않는다. 생성 실패 시 기존 내용을 덮어쓰지 않는다.
 
-`Open in Finder`는 Society 루트를 연다. Storage의 Files, Photos, Asset Library, Generation History, Models, Thinking Space, Forked, Published, Deleted가 루트 바로 아래 실제 디렉터리이다. Models의 기존 유형별 하위 폴더와 각 섹션의 원래 콘텐츠 경로를 유지한다. Finder 연결을 위해 디스크 이미지나 File Provider 복제본을 만들지 않는다.
+`DriveController`는 준비를 백그라운드에서 실행하고, 유효한 드라이브를 검증한 뒤 `SharedStorage::setDefaultContainer()`로 설정을 저장한다. 패키지 위치 설정은 `schemaVersion: 1`, `path`, `containerId`이며 `imagePath`를 포함하지 않는다. 다음 실행은 동일한 폴더와 UUID를 확인하여 복원한다. 폴더가 없어졌으면 온보딩을 표시하고 기존 저장 설정을 보존한다.
+
+`Open in Finder`는 네이티브 마운트 검증을 통과한 `Files/` 드라이브를 연다. Storage의 Files, Photos, Asset Library, Generation History, Models, Thinking Space, Forked, Published, Deleted가 루트 바로 아래 실제 디렉터리이다. Models의 기존 유형별 하위 폴더와 각 섹션의 원래 콘텐츠 경로를 유지한다. Finder 연결을 위해 디스크 이미지나 File Provider 복제본을 만들지 않는다.
 
 ## 기존 디스크 이전
 
@@ -16,17 +18,17 @@ SDK `SocietyDrive::createAt(parent)`가 일반 폴더와 9개 섹션을 준비�
 
 도구는 파일별 SHA-256과 복사한 바이트의 읽기 검증을 기록한다. 중간 상태를 숨김 작업 폴더와 검증 로그에 저장하며, 재실행 시 원본 인벤토리와 완료된 파일의 해시를 재검사한다. 전체 검증이 끝나야 최종 이름으로 공개한다. 저장 설정은 복사 도구가 변경하지 않으며, 완성된 폴더를 앱으로 열어 전환한다.
 
-레거시 `DiskImage` API와 이미지 설정 복원은 복구·이전을 위한 호환 경로이다. 새 폴더 생성에서는 호출하지 않는다. iOS·Android는 기존 관리형 디렉터리와 호스트 연결 계약을 유지한다.
+과거 이미지는 앱에서 복원하지 않는다. schema 2 또는 `imagePath`가 포함된 로컬 설정은 SDK가 마운트·경로 보정·설정 변경 없이 거부한다. 과거 디스크 이미지 marker를 가진 `.societycontainer`·`.sparsebundle` 위치도 자동 연결·재시도·선택 시 거부하며, 이미 선택한 유효 패키지와 설정을 보존한다. 수동으로 마운트된 과거 이미지를 기본 저장소로 등록하는 것도 허용하지 않는다. 저수준 `DiskImage` API와 이전 도구는 명시적인 유지보수 API로 남아 있지만 앱 연결 경로에서는 호출하지 않는다. iOS·Android도 `Society.societycontainer` 하나를 관리하며 호스트 연결 계약을 유지한다.
 
 <a id="account-owned-location-and-relocation"></a>
 
 ## 계정 위치
 
-계정의 컨테이너 ID와 소유 장치 ID는 유지한다. 기존 서버 필드 `imagePath`에는 호환성을 위해 일반 디렉터리의 절대 경로를 전달한다. 다른 장치는 이 호스트 경로로 자신의 복제본을 교체하지 않는다. 이동한 폴더는 소유 호스트에서 **Locate moved folder…**로 선택하며 UUID가 다르면 거부한다. 로컬 설정의 변경과 실제 계정 서버 반영은 별도의 결과이다.
+계정의 컨테이너 ID와 소유 장치 ID는 유지한다. 기존 서버 필드 `imagePath`에는 호환성을 위해 `.societycontainer`의 절대 경로를 전달한다. 다른 장치는 이 호스트 경로로 자신의 복제본을 교체하지 않는다. 이동한 폴더는 소유 호스트에서 **Locate moved container…**로 선택하며 UUID가 다르면 거부한다. 로컬 설정의 변경과 실제 계정 서버 반영은 별도의 결과이다.
 
 ## 검증
 
-레이아웃과 버튼은 설치된 LVRS를 사용한다. `Society.Drive`는 네이티브 폴더 선택·취소, 기존 폴더 생성·재사용, 유니코드 경로, 일반 폴더 설정 복원과 Finder 경로를 검사한다. SDK 드라이브 테스트는 9개 실제 섹션과 UUID 재사용, 충돌·리디렉션 거부를 검사한다. `test_directory_migration.py`는 별도 Files 볼륨 병합, 숨김 상태·페이로드·UUID 보존, 원본 유지와 충돌 거부를 검사한다. 레거시 디스크 테스트는 복구 호환성을 검증한다.
+레이아웃과 버튼은 설치된 LVRS를 사용한다. `Society.Drive`는 네이티브 폴더 선택·취소, 기존 부모 아래 패키지 생성·재사용, 유니코드 경로, 패키지 설정 복원과 Finder 경로를 검사한다. 직접 `createContainerAt()`와 URL `openContainerUrl()` 회귀는 이름이 `Society`인 기존 부모의 사용자 파일 보존, 부모의 매니페스트·섹션 생성 금지, 패키지 내부의 9개 섹션·빈 Models, 정확한 설정 경로와 반복 생성의 UUID 재사용을 검사한다. 두 생성 다이얼로그의 제목에도 `Society.societycontainer`가 표시되어야 한다. 계정의 과거 이미지 위치와 schema 2 설정이 일반 폴더 연결·설정을 덮어쓰지 않으며 재시도로도 이미지가 복원되지 않음을 검사한다. SDK 드라이브 테스트는 9개 실제 섹션과 UUID 재사용, 충돌·리디렉션 거부를 검사한다. `test_directory_migration.py`는 별도 Files 볼륨 병합, 숨김 상태·페이로드·UUID 보존, 원본 유지와 충돌 거부를 검사한다. 레거시 디스크 테스트는 설정의 복원 거부와 저수준 유지보수 API를 구분하여 검사한다.
 
 ## 모바일 실행 시 호스트 연결 검증
 
@@ -53,3 +55,7 @@ SDK `SocietyDrive::createAt(parent)`가 일반 폴더와 9개 섹션을 준비�
 못함을 검사한다. `Society.Account`의 실제 로컬 인증·동기화 통합 검사는 최초 진입, 연결 해제,
 재연결 후 재검증을 확인한다. LVRS 모바일 온보딩은 390×844와 320×568에서 버튼 클릭과
 스크롤을 검사한다. 이 테스트는 macOS의 모바일 정책 빌드이며 실제 iOS/Android 기기 검증과는 구분한다.
+
+컨테이너가 준비되면 네이티브 어댑터가 `Files/`를 실제 시스템 드라이브로 마운트한다. 앱의 상태·캐시는 `.society-runtime/`에 보관한다. macOS 27에서는 공개 FSKit API로 OS가 `/Volumes/` 아래의 마운트 이름 공간을 생성·관리하며, 이를 별도 데이터 저장소로 사용하지 않는다. macOS 26의 CLI 마운트 디렉터리는 컨테이너 내부에 있다. 앱은 드라이브 연결이 검증되기 전 원본 패키지 경로를 시스템 드라이브라고 표시하지 않는다. OS에서 컨테이너 위치를 찾기 위한 작은 설정 포인터와 시스템 등록 정보는 사용자 데이터 저장소와 구분한다.
+
+같은 호스트·UUID의 선택 패키지가 존재하고 계정의 이전 원본 경로가 사라진 경우, 선택한 패키지를 유지하면서 새 위치를 계정에 갱신한다. 사라진 일반 디렉터리를 다시 만들지 않으며, 과거 이미지 복원 거부 정책은 그대로 적용한다.

@@ -7,9 +7,8 @@ Wants=network-online.target
 Type=simple
 User=society
 Group=society
-StateDirectory=society
 Environment=IILOCALLLM_DISABLE_APP_MCP=1
-ExecStart=/opt/society/bin/SocietyDaemon --sync --container /srv/society/container --directory /var/lib/society/helper --server ws://127.0.0.1:9443 --host --login-file /etc/society/login.json --status-file /var/lib/society/status.json
+ExecStart=/opt/society/bin/SocietyDaemon --sync --container /srv/society/Society.societycontainer --directory /srv/society/Society.societycontainer/.society-runtime/helpers/v1 --server ws://127.0.0.1:9443 --host --login-file /etc/society/login.json --status-file /srv/society/Society.societycontainer/.society-runtime/status.json
 Restart=on-failure
 RestartSec=5
 NoNewPrivileges=true

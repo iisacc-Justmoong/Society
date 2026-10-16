@@ -1,4 +1,7 @@
 #include "ModelPackagingController.h"
+#include <SharedStorage.h>
+#include <FileOperations.h>
+#include <TemporaryLease.h>
 
 #include <QClipboard>
 #include <QDesktopServices>
@@ -8,6 +11,9 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QRegularExpression>
+#include <QScopeGuard>
+#include <QUuid>
+#include <QFile>
 #include <QtConcurrent/QtConcurrentRun>
 #include <chrono>
 #include <algorithm>
@@ -146,11 +152,21 @@ bool ModelPackagingController::createPackage(const QString &output)
     const QFileInfo target(output);
     if (output.isEmpty() || outputPathForName(target.fileName(), target.absolutePath()) != output)
         return fail(tr("Enter a valid model name and choose an output folder."));
-    // The standard container destination can be created once; arbitrary missing
-    // user-selected destinations are errors rather than silently created paths.
-    if (!target.dir().exists() && target.dir().dirName() == "Checkpoint"
-        && QFileInfo(target.absolutePath() + "/..").isDir()) QDir().mkpath(target.absolutePath());
+    const auto storage = iiSocietyContainer::SharedStorage::open();
+    if (!storage || !iiSocietyContainer::FileOperations(storage->drive()).editable(output))
+        return fail(tr("Choose an output folder inside the selected .societycontainer package."));
+    // Relative output folders selected in the app are prepared lazily inside
+    // Models, after the public package boundary has been checked.
+    const auto models = storage->drive().sectionPath(iiSocietyContainer::StoreSection::Models);
+    if (!target.dir().exists() && target.absolutePath().startsWith(models + '/')) {
+        const auto relative = QDir(models).relativeFilePath(target.absolutePath());
+        QString error;
+        if (storage->ensureDirectory(iiSocietyContainer::StoreSection::Models, relative, &error).isEmpty())
+            return fail(error);
+    }
     if (!target.dir().exists()) return fail(tr("The output folder does not exist."));
+    if (!iiSocietyContainer::FileOperations(storage->drive()).editable(output))
+        return fail(tr("The container output folder is unavailable."));
     if (target.exists() || target.isSymLink()) return fail(tr("A file with this name already exists. Choose another name."));
     return start(true, output);
 }
@@ -171,6 +187,24 @@ bool ModelPackagingController::start(bool packaging, const QString &output)
         QVariantMap result;
 #ifdef SOCIETY_HAS_MODEL_PACKAGING
         try {
+            const auto storage = packaging ? iiSocietyContainer::SharedStorage::open() : std::nullopt;
+            QString staged = output, workspace;
+            std::unique_ptr<iiFileProvider::TemporaryLease> lease;
+            if (packaging) {
+                if (!storage || !iiSocietyContainer::FileOperations(storage->drive()).editable(output))
+                    throw std::runtime_error("Choose an output inside the selected .societycontainer.");
+                const auto parent = storage->ensureRuntimeDirectory("tmp");
+                if (parent.isEmpty()) throw std::runtime_error("The container temporary area is unavailable.");
+                lease = std::make_unique<iiFileProvider::TemporaryLease>(std::filesystem::path(parent.toStdString()), iiFileProvider::TemporaryLease::Mode::Shared);
+                if (!lease->locked()) throw std::runtime_error("The container temporary area is busy.");
+                workspace = storage->ensureRuntimeDirectory("tmp/.society-model-package-" + QUuid::createUuid().toString(QUuid::WithoutBraces));
+                if (workspace.isEmpty()) throw std::runtime_error("The packaging workspace is unavailable.");
+                staged = workspace + "/output.safetensors";
+            }
+            const auto cleanup = qScopeGuard([&] {
+                if (!workspace.isEmpty() && storage && storage->runtimePath(QDir(storage->runtimePath()).relativeFilePath(workspace)) == workspace)
+                    QDir(workspace).removeRecursively();
+            });
             std::vector<std::string> exclusions;
             for (const auto &file : excluded) exclusions.push_back(file.toStdString());
             auto last = std::chrono::steady_clock::time_point{};
@@ -189,13 +223,20 @@ bool ModelPackagingController::start(bool packaging, const QString &output)
                 }, Qt::QueuedConnection);
             };
             const auto json = packaging
-                ? iild::createModelPackage(std::filesystem::path(input.toStdString()), std::filesystem::path(output.toStdString()), exclusions, stop->get_token(), observer)
+                ? iild::createModelPackage(std::filesystem::path(input.toStdString()), std::filesystem::path(staged.toStdString()), exclusions, stop->get_token(), observer)
                 : iild::scanModelFolder(std::filesystem::path(input.toStdString()), exclusions, stop->get_token(), observer);
             QJsonParseError error;
             const auto document = QJsonDocument::fromJson(QByteArray::fromStdString(json), &error);
             if (error.error != QJsonParseError::NoError || !document.isObject())
                 throw std::runtime_error("The SDK returned an invalid packaging report");
             result = document.object().toVariantMap();
+            if (packaging) {
+                if (!result.value("verified").toBool() || stop->stop_requested()
+                    || !iiSocietyContainer::FileOperations(storage->drive()).editable(output)
+                    || !QFile::rename(staged, output))
+                    throw std::runtime_error("The verified package could not be saved without overwriting an existing file.");
+                result["output"] = output;
+            }
         } catch (const std::exception &error) {
             result["error"] = QString::fromUtf8(error.what());
             result["cancelled"] = stop->stop_requested();

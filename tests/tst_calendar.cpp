@@ -14,15 +14,17 @@ private slots:
     void calendarSnapshotAndPersistentCompletion() {
         QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/calendar-XXXXXX");
         QVERIFY(fixture.isValid());
-        qputenv("SOCIETY_CALENDAR_DIRECTORY", fixture.filePath("state").toUtf8());
-        QVERIFY(QDir().mkpath(fixture.filePath("drive")));
-        QVERIFY(iiSocietyContainer::SocietyDrive::create(fixture.filePath("drive")));
+
+        QVERIFY(QDir().mkpath(fixture.filePath("drive.societycontainer")));
+        QVERIFY(iiSocietyContainer::SocietyDrive::create(fixture.filePath("drive.societycontainer")));
         DashboardCalendar model;
         model.setTimeZone("Asia/Seoul");
         model.selectDate("2026-09-19");
-        model.setContainerPath(fixture.filePath("drive"));
+        model.setContainerPath(fixture.filePath("drive.societycontainer"));
         QTRY_VERIFY(!model.loading());
         QVERIFY2(model.errorString().isEmpty(), qPrintable(model.errorString()));
+        QVERIFY(model.databasePath().startsWith(fixture.filePath("drive.societycontainer/.society-runtime/calendar/")));
+        QVERIFY(!QFileInfo::exists(fixture.filePath("state")));
         QCOMPARE(model.days().size(), 42);
         QCOMPARE(model.days().first().toMap()["date"].toString(), "2026-08-31");
         QCOMPARE(model.monthTitle(), "September 2026");
@@ -69,21 +71,21 @@ private slots:
 
     void staleResultsAndTimeZones() {
         QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/calendar-isolation-XXXXXX");
-        qputenv("SOCIETY_CALENDAR_DIRECTORY", fixture.filePath("state").toUtf8());
-        for (auto name : {"one", "two"}) {
+
+        for (auto name : {"one.societycontainer", "two.societycontainer"}) {
             QVERIFY(QDir().mkpath(fixture.filePath(name)));
             QVERIFY(iiSocietyContainer::SocietyDrive::create(fixture.filePath(name)));
         }
         DashboardCalendar model;
         model.setTimeZone("America/New_York"); model.selectDate("2026-03-08");
-        model.setContainerPath(fixture.filePath("one")); QTRY_VERIFY(!model.loading());
+        model.setContainerPath(fixture.filePath("one.societycontainer")); QTRY_VERIFY(!model.loading());
         auto first = model.databasePath();
         { Store store(first.toStdString()); Event event; event.id = "spring"; event.title = "DST day";
           event.schedule = AllDaySchedule{Date(2026, 3, 8), Date(2026, 3, 9), "America/New_York"}; store.put(event); }
         model.refresh(); QTRY_VERIFY(!model.loading());
         QCOMPARE(model.events().size(), 1);
         QCOMPARE(model.events().first().toMap()["time"].toString(), "All day");
-        model.refresh(); model.setContainerPath(fixture.filePath("two"));
+        model.refresh(); model.setContainerPath(fixture.filePath("two.societycontainer"));
         QTRY_VERIFY(!model.loading()); QVERIFY(model.events().isEmpty());
         QVERIFY(first != model.databasePath());
         model.setCalendarSystem("hebrew"); QTRY_VERIFY(!model.loading());
@@ -95,13 +97,13 @@ private slots:
 
     void recurringItemsAndLateContainerRecovery() {
         QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/calendar-recovery-XXXXXX");
-        qputenv("SOCIETY_CALENDAR_DIRECTORY", fixture.filePath("state").toUtf8());
+
         DashboardCalendar model;
         model.setTimeZone("Asia/Seoul"); model.selectDate("2026-09-19");
-        model.setContainerPath(fixture.filePath("later"));
+        model.setContainerPath(fixture.filePath("later.societycontainer"));
         QVERIFY(model.databasePath().isEmpty());
-        QVERIFY(QDir().mkpath(fixture.filePath("later")));
-        QVERIFY(iiSocietyContainer::SocietyDrive::create(fixture.filePath("later")));
+        QVERIFY(QDir().mkpath(fixture.filePath("later.societycontainer")));
+        QVERIFY(iiSocietyContainer::SocietyDrive::create(fixture.filePath("later.societycontainer")));
         model.refresh(); QTRY_VERIFY(!model.loading()); QVERIFY(!model.databasePath().isEmpty());
         {
             Store store(model.databasePath().toStdString());

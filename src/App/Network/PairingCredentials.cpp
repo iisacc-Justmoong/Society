@@ -1,1 +1,1 @@
-// Implementation moved to SDK/iiSocietyClient/PairingCredentials.cpp.
+// Implementation moved to SDK/iiSocietyHelper/src/iiSocietyHelper/PairingCredentials.cpp.

@@ -194,6 +194,10 @@ LV.HStack {
                                         type: LV.Card.File
                                         size: LV.Card.Small
                                         detail: LV.Card.Brief
+                                        background: Rectangle {
+                                            color: "transparent"
+                                            radius: card.resolvedCornerRadius
+                                        }
                                         width: LV.Theme.scaleMetric(140)
                                         height: LV.Theme.scaleMetric(160)
                                         filename: modelData.name

@@ -26,7 +26,11 @@ Metal 픽셀 검사로 별도 검증하며, 호스트의 좁은 창 검사는 �
 
 Society 데스크톱의 기본 화면은 [Figma 18:14](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=18-14)의 대시보드 디자인이다. `Main.qml`의 `LV.ApplicationWindow`가 창과 컨트롤러·대화상자를 소유하고, `SocietyView.qml`을 공개 `content` 슬롯에 전달한다. 창의 프레임·닫기·최소화·최대화와 이동·크기 조절은 LVRS가 소유하며 앱이 창 제어 버튼을 직접 그리지 않는다.
 
-상단 바는 [Figma 39:2296](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=39-2296)의 56 px 한 행이다. 데스크톱 콘텐츠를 창 위쪽에서 바로 시작하고, `nativeTitleBarHeight`를 상단 바 높이에 연결해 macOS의 실제 창 버튼과 탭·검색·계정 버튼의 중심을 맞춘다. `nativeTitleBarControlsRect` 오른쪽에 12 px 여백을 두어 탭과 창 버튼이 겹치지 않도록 한다. 전체 화면에서는 네이티브 버튼 예약 폭을 없애며, 복귀와 크기 변경은 LVRS가 처리한다. `windowDragHandleHeight`는 같은 행 전체를 덮고 `windowDragExclusionItems`로 탭·검색·계정 영역을 제외하여 클릭과 입력을 보존한다. 모바일은 같은 Dashboard·Tools·Storage 화면을 시스템 안전 영역 안에 표시하며, 좁은 화면의 내비게이션은 하단으로 이동한다. [모바일 레이아웃](MobileViews.md)을 참조한다.
+앱 전역 상단 바는 [Figma 135:464](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=135-464)의 56 px 한 행이다. 기본 `LV.ApplicationWindow` 배경을 드러내는 투명 표면, 바깥 여백과 요소 간 간격 12 px, Dashboard·Tools·Storage·Browse·Environment 탭, 300×22 px 검색창, 22×22 px 알림·계정 버튼을 사용한다. 검색은 기존 실제 파일 조회를 유지하며, 알림 버튼은 현재 저장소·계정 오류 또는 빈 상태를 공용 LVRS 안내창에 표시한다. 검색·알림·계정 아이콘은 이 노드의 12×12·18×18·18×18 SVG 원본을 `src/App/Toolbar/icons/`에 저장하고 앱 QML 리소스에 포함한다. LVRS LabelSegmentedControl·InputField·IconButton의 재질·글꼴·상태를 재사용한다.
+
+데스크톱 콘텐츠를 창 위쪽에서 바로 시작하고, `nativeTitleBarHeight`를 상단 바 높이에 연결해 macOS의 실제 창 버튼과 탭·검색·알림·계정 버튼의 중심을 맞춘다. 탭 뷰포트는 행의 가용 높이를 채우고 그 안에서 세그먼트를 세로 중앙에 고정하여, 29 px 세그먼트의 레이아웃 반올림으로 생기는 0.5 px 차이도 방지한다. `nativeTitleBarControlsRect` 오른쪽에 12 px 여백을 두어 탭과 창 버튼이 겹치지 않도록 한다. 전체 화면에서는 네이티브 버튼 예약 폭을 없애며, 복귀와 크기 변경은 LVRS가 처리한다. `windowDragHandleHeight`는 같은 행 전체를 덮고 `windowDragExclusionItems`로 탭·검색·알림·계정·Storage actions 영역을 제외하여 클릭과 입력을 보존한다. 좁은 창에서는 탭 영역이 가로 스크롤되고 검색창이 숨겨진다. 모바일은 기존 안전 영역과 내비게이션 구조를 유지한다. [모바일 레이아웃](MobileViews.md)을 참조한다.
+
+`SocietyDriveTests globalToolbarMatchesFigmaAndRoutesActions toolbarSharesWindowControlsRow`는 1440 px 기준 위치·치수·배경, 세 SVG의 실제 로딩과 아이콘 슬롯 크기, 다섯 탭, 검색 입력·초기화, 알림의 오류·빈 상태, 계정 창과 드래그 충돌을 검증한다. Cocoa에서는 LVRS가 보관한 좌표와 별개로 AppKit의 실제 닫기·최소화·전체 화면 버튼 프레임을 읽어, 초기 표시와 1440/760/360 px 크기 변경 후 탭·계정 버튼의 세로 중심과 0.5 px 이내로 일치하는지 검사한다. LVRS의 네이티브 창 업데이트 처리로 macOS가 버튼 위치를 다시 배치한 뒤에도 56 px 행의 중심인 y=28 px를 유지한다. `SOCIETY_GLOBAL_TOOLBAR_CAPTURE_DIR`로 전체 창과 헤더 캡처를 저장한다. 2026-10-09의 집중 회귀 12건과 앱 빌드는 통과했다. 별도 `mobileViewsShareDesktopContentAndKeepState`의 iOS·Android 모의 레이아웃에서는 검색 닫기 터치가 실패하며, 수정 전 Main·SocietyView로도 동일하게 재현되었다. 이 기존 실패는 `build/global-toolbar/mobile-baseline.log`에 기록한다.
 
 대시보드 콘텐츠는 [Figma 62:2386](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=62-2386)의 카드 구성이다. `SocietyView`는 56 px 상단 도구 모음, 204 px 사이드바, 24 px 콘텐츠 여백, 캘린더와 Recent files·Generate history의 가로 카드 목록을 조합한다. `LV.Card.File`의 Small/Brief를 140×160 논리 px로 배치하며 카드 간격은 8 px, 제목 행은 22 px, 제목과 카드 간격은 12 px, 섹션 간격은 24 px다. 세그먼트, 입력, 버튼, 카드, 메뉴, 안내창은 LVRS 컴포넌트이며 새 아이콘이나 카드 표면을 직접 그리지 않는다. 배경은 LVRS의 공유 창 표면을 그대로 사용하고, 배치는 Item·ListView·ScrollView와 LVRS Stack을 사용한다. `SocietyView`에는 창 플래그나 창 제어 동작이 없으며 사용자 동작은 신호로 `Main.qml`에 전달한다.
 
@@ -105,8 +109,8 @@ revision은 문자열로 전달하여 18자리 초 소수부·64비트 정수가
 일별 총수와 첨부파일은 SDK의 중복 제거 규칙을 사용한다. SDK 조회 한도를 초과하면
 오류를 표시하며 결과를 조용히 잘라내지 않는다.
 
-SQLite 경로는 `QStandardPaths::AppLocalDataLocation/Calendar/<SHA256(containerId)>.sqlite`이다.
-`SOCIETY_CALENDAR_DIRECTORY`는 테스트와 명시적인 로컬 저장 위치 지정에 사용한다.
+SQLite 경로는 선택한 `.societycontainer/.society-runtime/calendar/<SHA256(containerId)>.sqlite`이다.
+외부 AppData 경로나 환경 변수 지정 디렉터리에 새 일정 파일을 생성하지 않는다.
 드라이브 경로 이동 후에도 동일 식별자의 데이터는 유지하고 다른 컨테이너의 일정은 격리한다.
 SQLite/WAL 파일을 일반 파일 동기화에 넣지 않으며 **현재 일정은 기기 로컬 데이터**이다.
 외부 캘린더 공급자, OS 일정 가져오기, 원격 일정 동기화, 일정 생성·편집 폼은 이 뷰 구현에
@@ -151,7 +155,8 @@ Figma 치수, 점·날짜 선택, 전체 목록·뒤로 이동, 작업 완료, �
 
 [Figma 192:4382](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=192-4382)를
 `DashboardSidebar.qml`에 반영했다. 폭 204 px, 바깥 여백 12 px, 그룹 간격과 제목 아래 간격
-8 px, 제목 높이 12 px, 연속 행 높이 32 px를 사용한다. LVRS의 `panelBackground04`,
+8 px, 제목 높이 12 px, 연속 행 높이 32 px를 사용한다. 사이드바는 투명하며 기본
+`LV.ApplicationWindow` 배경을 그대로 노출한다. LVRS의
 Description·Body 텍스트와 Navigation ListItem 및 18 px disclosure 아이콘을 재사용한다.
 행 사이에 추가 간격·구분선·카드를 넣지 않는다. 이전 Locations와 하단 기기 카드는 제거했다.
 

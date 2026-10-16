@@ -2,7 +2,7 @@
 
 # Society 컨테이너 동기화와 SDK 책임
 
-같은 기기의 앱 협업은 iiSocietyHelper, 기기 간 복제는 iiSocietySync, 인증·발견·자동 페어링 세션은 iiSocietyClient가 담당한다. Dreamscapes는 Society 앱이 중단되어도 앱 안의 iiSocietyClient로 호스트에 연결한다. 생성은 로컬 iiLocalDiffusion이 담당한다. [이미지 생성 책임](Generation.md)을 참조한다.
+앱 협업·인증·발견·자동 페어링·호스트 접근은 통합 iiSocietyHelper 0.9.0이 담당하며, 기기 간 복제는 하위 계층 iiSocietySync를 사용한다. Dreamscapes는 Society 앱이 중단되어도 앱 안의 iiSocietyHelper로 호스트에 연결한다. 생성은 로컬 iiLocalDiffusion이 담당한다. [이미지 생성 책임](Generation.md)을 참조한다.
 
 | 계층 | 담당 책임 |
 | --- | --- |
