@@ -1,7 +1,7 @@
 #include <iiFileProviderDevice.h>
 #pragma once
-#include <iiServerHost.h>
-#include <iiSocietySync.h>
+#include <iiWebServer.h>
+#include <iiSocietyHelper/Sync/Sync.h>
 #include "App/Account/AccountController.h"
 #include "NearbyDevices.h"
 #include "AutomaticPairing.h"
@@ -11,7 +11,7 @@
 #include <QPointer>
 #include <QSet>
 #if !defined(Q_OS_IOS) && !defined(Q_OS_ANDROID) && !defined(Q_OS_WASM)
-#include <iiSocietyGeneration/Host.h>
+#include <iiSocietyHelper/Generation/Host.h>
 #endif
 #include <QtQmlIntegration/qqmlintegration.h>
 
@@ -71,8 +71,8 @@ public:
     MobileSyncActivity *backgroundActivity() { return &m_background; }
     QUrl relayUrl() const { return m_relayUrl; }
     QUrl activeRelayUrl() const { return m_session.relayUrl.isEmpty() ? m_relayUrl : m_session.relayUrl; }
-    iiServerHost::Peer *peer() { return &m_peer; }
-    iiServerHost::LanPeer *localPeer() { return &m_local; }
+    iiWebServer::Peer *peer() { return &m_peer; }
+    iiWebServer::LanPeer *localPeer() { return &m_local; }
     NearbyDevices *discovery() { return &m_nearby; }
     QVariantList nearbyDevices() const;
     bool discovering() const { return m_nearby.active(); }
@@ -119,7 +119,7 @@ public:
     Q_INVOKABLE void synchronizeNow();
     // Native integrations may supply an authenticated session. Mode/platform
     // policy overrides host options; the relay still verifies the credential.
-    bool startSession(iiServerHost::PeerOptions options);
+    bool startSession(iiWebServer::PeerOptions options);
     Q_INVOKABLE void connectSession();
     Q_INVOKABLE void disconnectSession();
     Q_INVOKABLE void refresh();
@@ -147,9 +147,9 @@ protected:
 private:
     QJsonObject handleGeneration(const QString &peer, const QJsonObject &request);
 #if !defined(Q_OS_IOS) && !defined(Q_OS_ANDROID) && !defined(Q_OS_WASM)
-    iiSocietyGeneration::Host m_generationHost;
+    iiSocietyHelper::Generation::Host m_generationHost;
 #endif
-    bool startSessionImpl(iiServerHost::PeerOptions options, bool accountSession);
+    bool startSessionImpl(iiWebServer::PeerOptions options, bool accountSession);
     void restartSession();
     void stopTransport();
     void disconnectSessionImpl(bool remember);
@@ -172,10 +172,10 @@ private:
     void suspendForBackground();
     QString request(const QString &host, const QJsonObject &payload);
     QPointer<AccountController> m_account;
-    iiServerHost::Peer m_peer;
-    iiServerHost::LanPeer m_local;
-    iiSocietySync::RemoteFiles m_remote;
-    iiSocietySync::Controller m_sync;
+    iiWebServer::Peer m_peer;
+    iiWebServer::LanPeer m_local;
+    iiSocietyHelper::Sync::RemoteFiles m_remote;
+    iiSocietyHelper::Sync::Controller m_sync;
     iiPhotoLibrary::PhotoController *m_photos;
     QSet<QString> m_verifiedSyncPeers;
     NearbyDevices m_nearby;
@@ -187,7 +187,7 @@ private:
     std::optional<iiSocietyContainer::SharedStorage> m_storage;
     QString m_container, m_status;
     QUrl m_relayUrl;
-    iiServerHost::PeerOptions m_session;
+    iiWebServer::PeerOptions m_session;
     const Mode m_mode;
     bool m_accountSession = false;
     bool m_serverEnabled = false;

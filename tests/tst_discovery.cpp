@@ -2,12 +2,12 @@
 #include "FakeDiscoveryService.h"
 #include "PairingCredentialsFixture.h"
 #include "App/Network/PairingCredentials.h"
-#include <iiServerHost.h>
+#include <iiWebServer.h>
 #include <QSignalSpy>
 #include <QJsonDocument>
 #include <QTest>
 #include <QUuid>
-#include <NearbyBootstrap.h>
+#include <iiSocietyHelper/Sync/NearbyBootstrap.h>
 
 class DiscoveryTests : public QObject {
     Q_OBJECT
@@ -17,10 +17,10 @@ private slots:
         FakeDiscoveryService service; NearbyDevices nearby(&service, QHostAddress::LocalHost);
         nearby.setIdentity(scope, "phone", "Phone", "phone", false);
         nearby.setCredentials(localPairingCredentialsFixture(scope));
-        iiSocietySync::NearbyBootstrap bootstrap{{{"v", "1"}, {"scope", scope}, {"id", "desktop"},
+        iiSocietyHelper::Sync::NearbyBootstrap bootstrap{{{"v", "1"}, {"scope", scope}, {"id", "desktop"},
             {"nonce", "nonce"}, {"name", "Desktop"}, {"kind", "pc"}, {"host", "1"}, {"autoHost", "1"},
             {"epoch", QString::number(QDateTime::currentMSecsSinceEpoch() / 300000)}, {"proof", QString(64, '0')}}, {"192.168.1.10"}, 4444};
-        const auto decoded = iiSocietySync::NearbyBootstrap::decode(bootstrap.encode()); QVERIFY(decoded);
+        const auto decoded = iiSocietyHelper::Sync::NearbyBootstrap::decode(bootstrap.encode()); QVERIFY(decoded);
         emit service.found("ble:desktop", decoded->record, QHostAddress(decoded->addresses.first()), decoded->port);
         QCOMPARE(nearby.devices().size(), 1);
         QVERIFY(!nearby.devices().first().toMap().value("verified").toBool());
@@ -121,10 +121,10 @@ private slots:
         FakeDiscoveryService a, b; NearbyDevices desktop(&a, QHostAddress::LocalHost), phone(&b, QHostAddress::LocalHost);
         desktop.setIdentity(scope, "desktop", "Desktop", "pc", true); phone.setIdentity(scope, "phone", "Phone", "phone", false);
         a.announceTo(b); b.announceTo(a);
-        iiServerHost::LanPeer host, client; int fileReads = 0;
+        iiWebServer::LanPeer host, client; int fileReads = 0;
         QVERIFY(host.startHost("desktop", "Desktop", [&](const auto &, const auto &) {
             ++fileReads; return QJsonObject{{"ok", true}, {"entries", QJsonArray()}};
-        }, {"127.0.0.1"}, QHostAddress::LocalHost));
+        }, {"127.0.0.1"}, iiWebServer::Address::loopback()));
         QVERIFY(desktop.invite("phone", host.createDeviceOffer("phone"))); QTRY_VERIFY(phone.hasIncoming());
         QCOMPARE(phone.incomingName(), "Desktop"); QCOMPARE(fileReads, 0); QVERIFY(!client.connected());
         const auto accepted = phone.accept(); QVERIFY(!accepted.isEmpty()); QVERIFY(!phone.hasIncoming());
@@ -144,10 +144,10 @@ private slots:
         emit b.found("second", record, QHostAddress::LocalHost, second.localPort());
         QCOMPARE(phone.devices().size(), 1);
         auto &sender = phone.devices()[0].toMap().value("name") == "First interface" ? second : first;
-        iiServerHost::LanPeer host;
-        QVERIFY(host.startHost("desktop", "Desktop", [](const auto &, const auto &) { return QJsonObject(); }, {"127.0.0.1"}, QHostAddress::LocalHost));
-        const auto offer = host.createDeviceOffer("phone"); iiServerHost::LanLink link;
-        QVERIFY(iiServerHost::LanLink::decode(offer, &link));
+        iiWebServer::LanPeer host;
+        QVERIFY(host.startHost("desktop", "Desktop", [](const auto &, const auto &) { return QJsonObject(); }, {"127.0.0.1"}, iiWebServer::Address::loopback()));
+        const auto offer = host.createDeviceOffer("phone"); iiWebServer::LanLink link;
+        QVERIFY(iiWebServer::LanLink::decode(offer, &link));
         const QJsonObject invitation{{"v", "1"}, {"op", "invite"}, {"scope", scope}, {"from", "desktop"},
             {"to", "phone"}, {"nonce", b.record.value("nonce")}, {"request", QUuid::createUuid().toString(QUuid::WithoutBraces)},
             {"link", offer}, {"expires", QString::number(link.expiresAt.toMSecsSinceEpoch())}};
@@ -160,8 +160,8 @@ private slots:
         desktop.setIdentity(scope, "desktop", "Desktop", "pc", true); phone.setIdentity(scope, "phone", "Phone", "phone", false);
         a.announceTo(b); b.announceTo(a);
         emit b.found("desktop", a.record, QHostAddress("127.0.0.2"), a.port);
-        iiServerHost::LanPeer host;
-        QVERIFY(host.startHost("desktop", "Desktop", [](const auto &, const auto &) { return QJsonObject(); }, {"127.0.0.1"}, QHostAddress::LocalHost));
+        iiWebServer::LanPeer host;
+        QVERIFY(host.startHost("desktop", "Desktop", [](const auto &, const auto &) { return QJsonObject(); }, {"127.0.0.1"}, iiWebServer::Address::loopback()));
         QVERIFY(desktop.invite("phone", host.createDeviceOffer("phone")));
         QTRY_VERIFY_WITH_TIMEOUT(phone.hasIncoming(), 1000);
         emit b.lost("desktop"); QVERIFY(phone.devices().isEmpty());
@@ -170,8 +170,8 @@ private slots:
         FakeDiscoveryService a, b; NearbyDevices desktop(&a, QHostAddress::LocalHost), phone(&b, QHostAddress::LocalHost);
         desktop.setIdentity(scope, "desktop", "Desktop", "pc", true); phone.setIdentity(scope, "phone", "Phone", "phone", false);
         a.announceTo(b); b.announceTo(a);
-        iiServerHost::LanPeer host;
-        QVERIFY(host.startHost("desktop", "Desktop", [](const auto &, const auto &) { return QJsonObject(); }, {"127.0.0.1"}, QHostAddress::LocalHost));
+        iiWebServer::LanPeer host;
+        QVERIFY(host.startHost("desktop", "Desktop", [](const auto &, const auto &) { return QJsonObject(); }, {"127.0.0.1"}, iiWebServer::Address::loopback()));
         QSignalSpy ended(&desktop, &NearbyDevices::invitationEnded);
         QVERIFY(desktop.invite("phone", host.createDeviceOffer("phone"))); QTRY_VERIFY(phone.hasIncoming());
         phone.decline(); QTRY_COMPARE(ended.size(), 1); QVERIFY(desktop.outgoingName().isEmpty());
@@ -186,8 +186,8 @@ private slots:
         FakeDiscoveryService a, b; NearbyDevices desktop(&a, QHostAddress::LocalHost), phone(&b, QHostAddress::LocalHost);
         desktop.setIdentity(scope, "desktop", "Desktop", "pc", true); phone.setIdentity(scope, "phone", "Phone", "phone", false);
         a.announceTo(b); b.announceTo(a);
-        iiServerHost::LanPeer host;
-        QVERIFY(host.startHost("desktop", "Desktop", [](const auto &, const auto &) { return QJsonObject(); }, {"127.0.0.1"}, QHostAddress::LocalHost));
+        iiWebServer::LanPeer host;
+        QVERIFY(host.startHost("desktop", "Desktop", [](const auto &, const auto &) { return QJsonObject(); }, {"127.0.0.1"}, iiWebServer::Address::loopback()));
         auto record = b.record; record.insert("nonce", "old-instance"); emit a.found("phone", record, QHostAddress::LocalHost, b.port);
         QSignalSpy invitations(&phone, &NearbyDevices::invitationReceived);
         QVERIFY(desktop.invite("phone", host.createDeviceOffer("phone"))); QTest::qWait(100);
@@ -206,7 +206,7 @@ private slots:
         QVERIFY(desktop.devices()[0].toMap().value("verified").toBool());
         QVERIFY(phone.devices()[0].toMap().value("verified").toBool());
         QCOMPARE(phone.devices()[0].toMap().value("primary").toString(), QString("fixture-desktop"));
-        iiServerHost::LanPeer host;
+        iiWebServer::LanPeer host;
         QVERIFY(host.startHost("fixture-desktop", "Discovery fixture", [](const auto &, const auto &) { return QJsonObject(); }));
         QVERIFY(desktop.invite("fixture-phone", host.createDeviceOffer("fixture-phone"), true));
         QTRY_VERIFY2_WITH_TIMEOUT(phone.hasIncoming(), qPrintable(phone.status()), 10000);

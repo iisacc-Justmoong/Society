@@ -24,17 +24,18 @@ void SocietyRuntime::setApplicationState(Qt::ApplicationState state)
 }
 void SocietyRuntime::reconcile()
 {
-    const auto directory = m_options.directory.isEmpty() ? iiSocietyHelper::Helper::defaultDirectory() : m_options.directory;
-    if (!societyContainerRuntimePath(directory)) {
-        m_helper.stop(); m_inbox.stop(); m_receiver.stop(); return;
-    }
-    if (m_options.directory.isEmpty() && m_helper.isRunning()
-        && m_helper.directory() != iiSocietyHelper::Helper::defaultDirectory()) {
-        m_helper.stop();
-        m_inbox.stop();
-        m_receiver.stop();
+    if (m_validation.valid()
+        && m_validation.wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
+        const auto [directory, valid] = m_validation.get();
+        if (m_validationGeneration == m_generation && (!valid || directory != m_helper.directory())) {
+            m_helper.stop(); m_inbox.stop(); m_receiver.stop();
+        }
     }
     if (!m_helper.isRunning()) {
+        const auto directory = m_options.directory.isEmpty() ? iiSocietyHelper::Helper::defaultDirectory() : m_options.directory;
+        if (!societyContainerRuntimePath(directory)) {
+            m_inbox.stop(); m_receiver.stop(); return;
+        }
         m_inbox.stop();
         m_receiver.stop();
         if (!m_helper.start({"com.iisacc.society", "Society", SOCIETY_APP_VERSION}, m_options)) return;
@@ -44,9 +45,17 @@ void SocietyRuntime::reconcile()
     if (m_embeddedReceiver && !m_receiver.isRunning())
         m_receiver.start(m_helper.directory(), m_options.heartbeatIntervalMs, m_options.peerTimeoutMs);
     if (!m_inbox.connected()) m_inbox.start(m_helper.directory());
+    if (!m_validation.valid()) {
+        m_validationGeneration = m_generation;
+        m_validation = std::async(std::launch::async, [requested = m_options.directory] {
+            const auto directory = requested.isEmpty() ? iiSocietyHelper::Helper::defaultDirectory() : requested;
+            return std::pair{directory, societyContainerRuntimePath(directory)};
+        });
+    }
 }
 void SocietyRuntime::stop()
 {
+    ++m_generation;
     m_retry.stop();
     // Commit the final Helper event before the receiver's last bounded drain.
     m_helper.stop();

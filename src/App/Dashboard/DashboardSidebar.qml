@@ -73,7 +73,7 @@ Rectangle {
                     description: ""
                     showDescription: false
                     showValue: false
-                    showTrailingIcon: true
+                    showTrailingIcon: false
                     iconSize: 18
                     iconSource: Qt.resolvedUrl("icons/" + (group.key === "workspace" ? modelData.icon : group.key) + ".svg")
                     leadingComponent: Component {

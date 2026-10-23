@@ -1,6 +1,6 @@
 # 호스트 우선 이미지 생성
 
-클라이언트가 모델 원본을 아직 보유하지 않았으면 `society.generation` 요청을 기존 인증 연결에서 처리한다. NetworkDriveController는 계정·페어링·호스트 역할을 확인하고 iiSocietyGeneration::Host에 위임한다. 실제 큐·모델 참조 검증·iiLocalDiffusion 실행·결과 청크 전송은 SDK 책임이다. 모바일 Society는 호스트 추론을 제공하지 않는다.
+클라이언트가 모델 원본을 아직 보유하지 않았으면 `society.generation` 요청을 기존 인증 연결에서 처리한다. NetworkDriveController는 계정·페어링·호스트 역할을 확인하고 iiSocietyHelper::Generation::Host에 위임한다. 실제 큐·모델 참조 검증·iiLocalDiffusion 실행·결과 청크 전송은 SDK 책임이다. 모바일 Society는 호스트 추론을 제공하지 않는다.
 
 요청 접수와 모델 복제는 독립적이다. Dreamscapes가 접수 확인 후 StorageMap 다운로드 요청을 남기므로 복제 완료 전에도 결과를 받을 수 있다. 복제 요청은 생성 취소나 실패 후에도 유지한다. 호스트 임시 결과는 `Models/.society-runtime/iiSocietyGeneration/`에 두며 이 경로는 동기화 대상에서 제외된다. 클라이언트가 최종 이미지를 Generation History에 공개한 뒤 기존 Society 복제가 처리한다.
 

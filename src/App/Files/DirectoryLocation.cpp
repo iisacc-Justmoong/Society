@@ -66,6 +66,10 @@ QVariantMap describe(const QString &folder, const QString &path, bool prepare)
             result.insert("previewKind", preview.value("kind").toString());
             result.insert("embedded", document.value("embedded").toBool());
             result.insert("sourceVersion", document.value("sourceVersion").toString());
+            const auto managed = document.value("managed").toObject();
+            result.insert("managedStatus", managed.value("status").toString());
+            for (const auto *key : {"objectKey", "rawKey", "version", "rawVersion", "sessionKey", "sessionDescription", "sessionStartedAtNs", "application", "originalName", "originalSha256", "ontologyRevision"})
+                result.insert(QString::fromLatin1(key), managed.value(QString::fromLatin1(key)).toVariant());
             result.insert("previewSource", QUrl("data:" + preview.value("mimeType").toString() + ";base64," + preview.value("data").toString()));
             const auto properties = details.value("properties").toObject().toVariantMap();
             result.insert("properties", properties);
@@ -93,14 +97,17 @@ QVariantMap describe(const QString &folder, const QString &path, bool prepare)
 }
 }
 QVariantMap DirectoryLocation::fileDetails(const QString &path) const { return describe(m_folderUrl.toLocalFile(), path, false); }
-void DirectoryLocation::inspectFile(const QString &path)
+void DirectoryLocation::inspectFile(const QString &path, const QString &revision)
 {
+    if (!revision.isEmpty() && path == m_requestedPath && revision == m_requestedRevision)
+        return;
     ++m_inspection;
     m_details.clear(); m_inspecting = false;
     m_requestedPath.clear();
+    m_requestedRevision.clear();
     const auto folder = m_folderUrl.toLocalFile();
     if (folder.isEmpty() || path.isEmpty() || QFileInfo(path).absolutePath() != folder) { emit detailsChanged(); return; }
-    m_requestedPath = path; m_inspecting = true; emit detailsChanged();
+    m_requestedPath = path; m_requestedRevision = revision; m_inspecting = true; emit detailsChanged();
     if (!m_inspectionWatcher) startInspection();
 }
 void DirectoryLocation::startInspection()
@@ -126,7 +133,7 @@ void DirectoryLocation::setPath(const QString &path)
     m_path = path;
     m_folderUrl.clear();
     m_errorString.clear();
-    ++m_inspection; m_requestedPath.clear(); m_details.clear(); m_inspecting = false; emit detailsChanged();
+    ++m_inspection; m_requestedPath.clear(); m_requestedRevision.clear(); m_details.clear(); m_inspecting = false; emit detailsChanged();
 
     if (!path.isEmpty()) {
         const QFileInfo info(path);

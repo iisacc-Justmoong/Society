@@ -11,7 +11,7 @@
 #include <QTest>
 #include <QMetaProperty>
 
-using namespace iiServerHost;
+using namespace iiWebServer;
 class NetworkDriveTests : public QObject {
     Q_OBJECT
 private slots:
@@ -131,12 +131,12 @@ private slots:
         source.write("shared"); source.close();
         AuthenticatedNetworkFixture identity; QVERIFY(identity.start(root.path()));
         RelayServer relay([&](const auto &, AuthCompletion done) { done({identity.principal(), QDateTime::currentDateTimeUtc().addSecs(60)}); });
-        QVERIFY(relay.listen(QHostAddress::LocalHost));
+        QVERIFY(relay.listen(iiWebServer::Address::loopback()));
         PeerOptions o; o.relayUrl = QUrl(QString("ws://127.0.0.1:%1").arg(relay.port()));
         o.credential = "alice"; o.peerId = QString(64, 'a'); o.name = "Desktop";
         o.localEnabled = local; o.localHostingEnabled = local;
         o.hostFiles = false; // Caller options cannot demote the desktop role.
-        o.listenAddress = QHostAddress::LocalHost;
+        o.listenAddress = iiWebServer::Address::loopback();
         NetworkDriveController desktop; MobileNetworkDevice client;
         desktop.setAccountSession(identity.hostAccount.get()); client.setAccountSession(identity.clientAccount.get());
         QCOMPARE(desktop.mode(), NetworkDriveController::HostMode);
@@ -168,7 +168,7 @@ private slots:
         const auto target = root.filePath("Files/downloaded");
         AuthenticatedNetworkFixture identity; QVERIFY(identity.start());
         RelayServer relay([&](const auto &, AuthCompletion done) { done({identity.principal(), QDateTime::currentDateTimeUtc().addSecs(60)}); });
-        QVERIFY(relay.listen(QHostAddress::LocalHost));
+        QVERIFY(relay.listen(iiWebServer::Address::loopback()));
         PeerOptions o; o.relayUrl = QUrl(QString("ws://127.0.0.1:%1").arg(relay.port()));
         o.credential = "alice"; o.peerId = QString(64, 'a'); o.name = "host"; o.localEnabled = false; o.service = "com.iisacc.society.files";
         Peer host; FileShare files(root.filePath("Files")); int reads = 0;
@@ -206,7 +206,7 @@ private slots:
         const auto target = root.filePath("Files/downloaded");
         AuthenticatedNetworkFixture identity; QVERIFY(identity.start(root.path()));
         RelayServer relay([&](const auto &, AuthCompletion done) { done({identity.principal(), QDateTime::currentDateTimeUtc().addSecs(60)}); });
-        QVERIFY(relay.listen(QHostAddress::LocalHost));
+        QVERIFY(relay.listen(iiWebServer::Address::loopback()));
         PeerOptions o; o.relayUrl = QUrl(QString("ws://127.0.0.1:%1").arg(relay.port()));
         o.credential = "alice"; o.peerId = QString(64, 'a'); o.name = "host"; o.localEnabled = false;
         o.service = "com.iisacc.society.files";
@@ -237,7 +237,7 @@ private slots:
         for (bool local : {true, false}) {
             AuthenticatedNetworkFixture identity;
             RelayServer relay([&](const auto &credential, AuthCompletion done) { done({credential == "alice" ? identity.principal() : "bob", QDateTime::currentDateTimeUtc().addSecs(60)}); });
-            QVERIFY(relay.listen(QHostAddress::LocalHost));
+            QVERIFY(relay.listen(iiWebServer::Address::loopback()));
             QTemporaryDir root(SOCIETY_TEST_DIRECTORY "/network-drive-XXXXXX.societycontainer"), destination(SOCIETY_TEST_DIRECTORY "/network-download-XXXXXX.societycontainer");
             QVERIFY(iiSocietyContainer::SocietyDrive::create(root.path()));
             QVERIFY(iiSocietyContainer::SocietyDrive::create(destination.path()));
@@ -247,7 +247,7 @@ private slots:
             QFile privateFile(root.filePath("Models/private.bin")); QVERIFY(privateFile.open(QIODevice::WriteOnly)); privateFile.write("private"); privateFile.close();
             PeerOptions o; o.relayUrl = QUrl(QString("ws://127.0.0.1:%1").arg(relay.port()));
             o.credential = "alice"; o.peerId = QString(64, 'a'); o.name = "My Society";
-            o.localEnabled = local; o.listenAddress = QHostAddress::LocalHost;
+            o.localEnabled = local; o.listenAddress = iiWebServer::Address::loopback();
             NetworkDriveController host; MobileNetworkDevice client;
             client.setContainerPath(destination.path());
             host.setAccountSession(identity.hostAccount.get()); client.setAccountSession(identity.clientAccount.get());
@@ -287,7 +287,7 @@ private slots:
         const auto drive = iiSocietyContainer::SocietyDrive::create(root.path()); QVERIFY(drive);
         AuthenticatedNetworkFixture identity; QVERIFY(identity.start(root.path()));
         RelayServer relay([&](const auto &, AuthCompletion done) { done({identity.principal(), QDateTime::currentDateTimeUtc().addSecs(60)}); });
-        QVERIFY(relay.listen(QHostAddress::LocalHost));
+        QVERIFY(relay.listen(iiWebServer::Address::loopback()));
         PeerOptions o; o.relayUrl = QUrl(QString("ws://127.0.0.1:%1").arg(relay.port()));
         o.credential = "alice"; o.peerId = QString(64, 'a'); o.name = "host"; o.localEnabled = false;
         NetworkDriveController host; MobileNetworkDevice client;

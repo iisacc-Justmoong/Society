@@ -23,7 +23,7 @@ bool SyncOwnership::start() {
     m_priority = std::make_unique<iiFileProvider::LockFile>(iiFileProvider::Directory(m_directory).filePath("foreground.lock"));
     m_owner = std::make_unique<iiFileProvider::LockFile>(iiFileProvider::Directory(m_directory).filePath("owner.lock"));
     m_priority->setStaleLockTime(0); m_owner->setStaleLockTime(0);
-    m_timer.start(); reconcile(); return true;
+    m_timer.start(); updateOwnership(); reconcile(); return true;
 }
 void SyncOwnership::release() {
     if (!m_owned) return;
@@ -32,10 +32,24 @@ void SyncOwnership::release() {
     emit ownershipChanged(false); m_owner->unlock();
 }
 void SyncOwnership::stop() {
+    ++m_generation;
     m_timer.stop(); release(); m_owner.reset(); m_priority.reset();
 }
 void SyncOwnership::reconcile() {
-    if (!societyContainerRuntimePath(m_directory)) { stop(); return; }
+    if (m_validation.valid()) {
+        if (m_validation.wait_for(std::chrono::seconds(0)) != std::future_status::ready) return;
+        const bool valid = m_validation.get();
+        if (m_validationGeneration == m_generation) {
+            if (!valid) { stop(); return; }
+            updateOwnership();
+        }
+    }
+    m_validationGeneration = m_generation;
+    m_validation = std::async(std::launch::async, [directory = m_directory] {
+        return societyContainerRuntimePath(directory);
+    });
+}
+void SyncOwnership::updateOwnership() {
     if (m_foreground) {
         if (!m_priority->isLocked() && !m_priority->tryLock()) return;
     } else if (QFileInfo::exists(iiFileProvider::Directory(m_directory).filePath("foreground.lock"))) {

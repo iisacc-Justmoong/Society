@@ -9,6 +9,21 @@
 class RuntimeTests : public QObject {
     Q_OBJECT
 private slots:
+    void changingDefaultContainerRejectsOldValidationAndRebindsTheHelper() {
+        QTemporaryDir parent(SOCIETY_TEST_DIRECTORY "/runtime-swap-XXXXXX"); QVERIFY(parent.isValid());
+        const auto a=parent.filePath("a.societycontainer"), b=parent.filePath("b.societycontainer");
+        QVERIFY(QDir().mkdir(a)); QVERIFY(QDir().mkdir(b));
+        QVERIFY(iiSocietyContainer::SocietyDrive::create(a)); QVERIFY(iiSocietyContainer::SocietyDrive::create(b));
+        qputenv("SOCIETY_CONTAINER_PATH",a.toUtf8());
+        SocietyRuntime runtime(false); runtime.setApplicationState(Qt::ApplicationActive);
+        QVERIFY(runtime.helper()->isRunning()); QVERIFY(runtime.helper()->directory().startsWith(a));
+        runtime.stop();
+        qputenv("SOCIETY_CONTAINER_PATH",b.toUtf8());
+        runtime.setApplicationState(Qt::ApplicationActive);
+        QTRY_VERIFY_WITH_TIMEOUT(runtime.helper()->isRunning() && runtime.helper()->directory().startsWith(b),4000);
+        QTest::qWait(1200);
+        QVERIFY(runtime.helper()->isRunning()); QVERIFY(runtime.helper()->directory().startsWith(b));
+    }
     void outsideRuntimeOverridesNeverCreateAppState() {
         QTemporaryDir root(SOCIETY_TEST_DIRECTORY "/runtime-scope-XXXXXX.societycontainer");
         QVERIFY(iiSocietyContainer::SocietyDrive::create(root.path()));

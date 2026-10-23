@@ -84,7 +84,7 @@ private slots:
         QVERIFY(!host.connected()); QVERIFY(!host.synchronizationAvailable());
         QCOMPARE(host.namespaceState().value("namespace").toString(), drive->identifier());
         const auto state = host.namespaceState(); host.setRuntimeEnabled(false);
-        iiSocietySync::Replica replica; QVERIFY(replica.open(root.path(), scope));
+        iiSocietyHelper::Sync::Replica replica; QVERIFY(replica.open(root.path(), scope));
         QCOMPARE(replica.namespaceState().value("namespace").toString(), state.value("namespace").toString());
         QVERIFY(!replica.revision(state.value("head").toString()).isEmpty());
         QCOMPARE(replica.objectMetadata("files/offline.txt").value("kind"), "file");
@@ -96,9 +96,9 @@ private slots:
     }
     void headlessNasHostsThroughTheAccountServer() {
         AccountServer authority; QVERIFY(authority.server.listen(QHostAddress::LocalHost));
-        iiServerHost::SessionAuthenticator verifier(authority.url().resolved(QUrl("/Account/GraphQL")));
-        iiServerHost::RelayServer relay([&](const auto &credential, auto done) { verifier.authenticate(credential, std::move(done)); });
-        QVERIFY(relay.listen(QHostAddress::LocalHost));
+        iiWebServer::SessionAuthenticator verifier(authority.url().resolved(QUrl("/Account/GraphQL")));
+        iiWebServer::RelayServer relay([&](const auto &credential, auto done) { verifier.authenticate(credential, std::move(done)); });
+        QVERIFY(relay.listen(iiWebServer::Address::loopback()));
         const QString endpoint = QString("ws://127.0.0.1:%1/society").arg(relay.port());
         QTemporaryDir root(QString(QT_TESTCASE_BUILDDIR) + "/headless-server-XXXXXX");
         QVERIFY(QDir().mkpath(root.filePath("host.societycontainer"))); QVERIFY(QDir().mkpath(root.filePath("client.societycontainer")));
@@ -133,7 +133,7 @@ private slots:
         QVERIFY(account.login("builder@example.com", "FixtureOnly1!")); QTRY_VERIFY(account.signedIn() && !account.busy());
         MobileNetworkDevice client; client.setContainerPath(root.filePath("client.societycontainer")); client.setAccountSession(&account);
         QVERIFY(client.configureServer(QUrl(endpoint)));
-        QTRY_VERIFY_WITH_TIMEOUT(iiSocietySync::Replica::binding(root.filePath("client.societycontainer")).value("complete").toBool(), 20000);
+        QTRY_VERIFY_WITH_TIMEOUT(iiSocietyHelper::Sync::Replica::binding(root.filePath("client.societycontainer")).value("complete").toBool(), 20000);
         QCOMPARE(iiSocietyContainer::SocietyDrive::open(root.filePath("client.societycontainer"))->identifier(), original->identifier());
         QVERIFY(!QFileInfo::exists(root.filePath("client.societycontainer/Models/headless.bin")));
         download(root.filePath("client.societycontainer"), "models/headless.bin");
@@ -150,10 +150,10 @@ private slots:
         MemorySessionStore store; AccountController account(authority.url(), &store, nullptr);
         QVERIFY(account.login("builder@example.com", "FixtureOnly1!")); QTRY_VERIFY(account.signedIn());
         int attempts = 0;
-        iiServerHost::RelayServer wrongAuthority([&](const auto &, auto done) {
+        iiWebServer::RelayServer wrongAuthority([&](const auto &, auto done) {
             ++attempts; done({"another-account", QDateTime::currentDateTimeUtc().addSecs(60)});
         });
-        QVERIFY(wrongAuthority.listen(QHostAddress::LocalHost));
+        QVERIFY(wrongAuthority.listen(iiWebServer::Address::loopback()));
         QTemporaryDir root(QString(QT_TESTCASE_BUILDDIR) + "/server-wrong-account-XXXXXX.societycontainer");
         QVERIFY(iiSocietyContainer::SocietyDrive::create(root.path()));
         QVERIFY(registerFixtureContainer(authority, root.path(), account.manager()->deviceInfo().value("id").toString()));
@@ -180,9 +180,9 @@ private slots:
         QVERIFY(clientAccount.login("builder@example.com", "FixtureOnly1!"));
         QTRY_VERIFY(hostAccount.signedIn() && clientAccount.signedIn());
         QVERIFY(hostAccount.pairingCredentials().isEmpty()); QVERIFY(clientAccount.pairingCredentials().isEmpty());
-        iiServerHost::SessionAuthenticator verifier(authority.url().resolved(QUrl("/Account/GraphQL")));
-        iiServerHost::RelayServer relay([&](const auto &credential, auto done) { verifier.authenticate(credential, std::move(done)); });
-        QVERIFY(relay.listen(QHostAddress::LocalHost));
+        iiWebServer::SessionAuthenticator verifier(authority.url().resolved(QUrl("/Account/GraphQL")));
+        iiWebServer::RelayServer relay([&](const auto &credential, auto done) { verifier.authenticate(credential, std::move(done)); });
+        QVERIFY(relay.listen(iiWebServer::Address::loopback()));
         const QUrl endpoint(QString("ws://127.0.0.1:%1/society").arg(relay.port()));
         QTemporaryDir hostRoot(QString(QT_TESTCASE_BUILDDIR) + "/server-host-XXXXXX.societycontainer");
         QTemporaryDir clientRoot(QString(QT_TESTCASE_BUILDDIR) + "/server-client-XXXXXX.societycontainer");
@@ -209,7 +209,7 @@ private slots:
         QTRY_VERIFY(host.connected() && client.connected());
         QVERIFY(host.hosting()); QVERIFY(!client.hosting());
         QVERIFY(!host.discovering() && !client.discovering());
-        QSignalSpy generationReplies(client.peer(), &iiServerHost::Peer::completed);
+        QSignalSpy generationReplies(client.peer(), &iiWebServer::Peer::completed);
         const auto generationId = client.peer()->request(QString(64, '1'), {{"op", "society.generation"},
             {"schema", 1}, {"action", "status"}, {"id", "6d1f39f8-a22d-4e44-a846-d6823be23018"}});
         QTRY_VERIFY(std::any_of(generationReplies.cbegin(), generationReplies.cend(), [&](const auto &reply) {
@@ -221,9 +221,9 @@ private slots:
         // An authenticated host reaches the SDK queue; an unknown job must not
         // turn into inference or a local model download.
         QCOMPARE((*generationReply)[1].toJsonObject().value("error").toString(), QString("generation_job_not_found"));
-        QTRY_VERIFY_WITH_TIMEOUT(iiSocietySync::Replica::binding(clientRoot.path()).value("complete").toBool(), 20000);
-        const auto scope = iiSocietySync::Replica::binding(clientRoot.path()).value("scope").toString();
-        QCOMPARE(iiSocietySync::Replica::primaryHost(hostRoot.path(), scope), hostAccount.manager()->deviceInfo().value("id").toString());
+        QTRY_VERIFY_WITH_TIMEOUT(iiSocietyHelper::Sync::Replica::binding(clientRoot.path()).value("complete").toBool(), 20000);
+        const auto scope = iiSocietyHelper::Sync::Replica::binding(clientRoot.path()).value("scope").toString();
+        QCOMPARE(iiSocietyHelper::Sync::Replica::primaryHost(hostRoot.path(), scope), hostAccount.manager()->deviceInfo().value("id").toString());
         QVERIFY(!QFileInfo::exists(clientRoot.filePath("Models/remote-model.bin")));
         download(clientRoot.path(), "models/remote-model.bin");
         QCOMPARE(read(clientRoot.filePath("Models/remote-model.bin")), contents);
@@ -250,7 +250,7 @@ private slots:
         // Reconnect to the same server and resume queued changes without discovery.
         const auto port = relay.port(); relay.stop(); QTRY_VERIFY(!client.connected());
         QVERIFY(write(hostRoot.filePath("Files/offline.txt"), "reconnected"));
-        QVERIFY(relay.listen(QHostAddress::LocalHost, port));
+        QVERIFY(relay.listen(iiWebServer::Address::loopback(), port));
         QTRY_VERIFY_WITH_TIMEOUT(client.connected() && host.connected(), 10000);
         download(clientRoot.path(), "files/offline.txt");
         QTRY_COMPARE_WITH_TIMEOUT(read(clientRoot.filePath("Files/offline.txt")), QByteArray("reconnected"), 15000);
@@ -600,7 +600,7 @@ private slots:
         QTRY_VERIFY2_WITH_TIMEOUT(synced.size() > 0, qPrintable(client.synchronizationStatus()), 30000);
         const QJsonObject generationStatus{{"op", "society.generation"}, {"schema", 1}, {"action", "status"},
             {"id", "71084591-ccad-4de5-a29c-0fc08200ce24"}};
-        QSignalSpy generationReplies(client.localPeer(), &iiServerHost::LanPeer::completed);
+        QSignalSpy generationReplies(client.localPeer(), &iiWebServer::LanPeer::completed);
         const auto generationId = client.localPeer()->request(one.value("id").toString(), generationStatus);
         QTRY_VERIFY(std::any_of(generationReplies.cbegin(), generationReplies.cend(), [&](const auto &reply) {
             return reply[0].toString() == generationId;
@@ -617,7 +617,7 @@ private slots:
         QTRY_VERIFY(client.hostConnectionReady());
         QVERIFY(!QFileInfo::exists(a.filePath("Files/client.txt")));
         QVERIFY(!QFileInfo::exists(b.filePath("Files/client.txt")));
-        const auto mirror = iiSocietySync::Replica::binding(b.path());
+        const auto mirror = iiSocietyHelper::Sync::Replica::binding(b.path());
         QFile retained(b.filePath(mirror.value("recovery").toString() + "/Files/client.txt"));
         QVERIFY(retained.open(QIODevice::ReadOnly)); QCOMPARE(retained.readAll(), QByteArray("client bytes"));
         QVERIFY(fromClient.open(QIODevice::WriteOnly)); fromClient.write("client bytes"); fromClient.close();
@@ -631,7 +631,7 @@ private slots:
         client.disconnectSession();
         QVERIFY(client.containerReady()); // Keep the replica while the UI asks for a host connection.
         QVERIFY(!client.hostConnectionReady());
-        QCOMPARE(iiSocietySync::Replica::primaryHost(a.path(), first.pairingCredentials().value("scope").toString()), one.value("id").toString());
+        QCOMPARE(iiSocietyHelper::Sync::Replica::primaryHost(a.path(), first.pairingCredentials().value("scope").toString()), one.value("id").toString());
         QTRY_VERIFY(host.localPeer()->pairedDeviceIds().isEmpty());
         QTRY_VERIFY(!host.synchronizationAvailable());
         QVERIFY(host.hosting()); // A listener alone grants no replication access.
@@ -654,7 +654,7 @@ private slots:
         // Match the manual pairing flow: automatic discovery must not cancel
         // the single-use offer while the unauthenticated probe is connecting.
         host.pauseAutomaticPairing();
-        iiServerHost::LanPeer unverified;
+        iiWebServer::LanPeer unverified;
         QVERIFY(unverified.join(host.localPeer()->createOffer(), QString(64, 'c'), "Manual client"));
         QTRY_COMPARE(unverified.phase(), QString("error"));
         QVERIFY(!unverified.connected()); QVERIFY(host.localPeer()->pairedDeviceIds().isEmpty());

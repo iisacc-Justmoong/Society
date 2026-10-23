@@ -24,13 +24,18 @@ Item {
     readonly property int folderCount: entries.filter(function(entry) { return entry.directory }).length
     readonly property var selectedEntry: entries.find(function(entry) { return entry.path === root.selectedPath }) || null
     readonly property var selectedDetails: location.details
+    readonly property url selectedPreviewSource: selectedEntry && selectedEntry.resident && !selectedEntry.directory
+        ? (selectedEntry.thumbnail || selectedDetails.previewSource || "") : ""
     readonly property bool showInspector: width >= 1000
     readonly property var tableRows: entries.map(function(entry) {
-        return [entry.name, root.formatDate(entry.modified), entry.kind, entry.directory ? "—" : root.formatSize(entry.bytes)]
+        // Only visible delegates format dates and sizes.
+        return [entry.name, entry.modified, entry.kind, entry.directory ? null : entry.bytes]
     })
     signal activated(string path, bool isDirectory)
     Keys.onSpacePressed: togglePreview()
-    onSelectedEntryChanged: location.inspectFile(selectedEntry && selectedEntry.resident && !selectedEntry.directory ? selectedPath : "")
+    onSelectedEntryChanged: location.inspectFile(
+        selectedEntry && selectedEntry.resident && !selectedEntry.directory ? selectedPath : "",
+        selectedEntry ? String(selectedEntry.thumbnail || "") + ":" + selectedEntry.bytes + ":" + new Date(selectedEntry.modified).getTime() : "")
 
     function togglePreview() {
         if (!selectedEntry || selectedEntry.directory || !selectedEntry.resident) return
@@ -72,6 +77,13 @@ Item {
         const fields = details.fields || {}
         Object.keys(fields).sort().forEach(function(key) { add(key, fields[key]) })
         if (details.classificationStatus === "invalid") add(qsTr("Classification"), qsTr("The saved classification could not be read."))
+        if (details.managedStatus === "ready") {
+            add(qsTr("Revision"), details.version)
+            add(qsTr("Original file"), details.originalName)
+            add(qsTr("Original checksum"), details.originalSha256)
+            if (details.sessionDescription) add(qsTr("Work session"), details.sessionDescription)
+            if (details.application) add(qsTr("Application"), details.application)
+        }
         return rows
     }
     function formatDate(value) {
@@ -91,17 +103,20 @@ Item {
         const next = []
         const needle = query.trim().toLocaleLowerCase()
         for (let i = 0; i < directoryModel.count; ++i) {
-            const name = String(directoryModel.get(i, "fileName"))
+            const metadata = directoryModel.entry(i)
+            const name = String(metadata.fileName)
             if (needle && name.toLocaleLowerCase().indexOf(needle) < 0) continue
-            const directory = directoryModel.get(i, "fileIsDir") === true
-            const suffix = String(directoryModel.get(i, "fileSuffix")).toLowerCase()
-            next.push({ name: name, path: directoryModel.get(i, "filePath"), sourceIndex: i,
-                directory: directory, bytes: Number(directoryModel.get(i, "fileSize")),
-                modified: directoryModel.get(i, "fileModified"), resident: directoryModel.get(i, "fileResident") === true,
+            const directory = metadata.fileIsDir === true
+            const suffix = String(metadata.fileSuffix).toLowerCase()
+            next.push({ name: name, path: metadata.filePath, sourceIndex: i,
+                directory: directory, bytes: Number(metadata.fileSize),
+                modified: metadata.fileModified, resident: metadata.fileResident === true,
+                thumbnail: metadata.fileInformationProvider ? metadata.fileThumbnailUrl : "",
                 kind: fileKind(suffix, directory),
                 icon: directory ? "nodesfolder" : ["png", "jpg", "jpeg", "webp", "svg", "gif"].indexOf(suffix) >= 0 ? "fileTypesimage" : "fileTypestext" })
         }
-        next.sort(function(a, b) {
+        // StorageDirectoryModel already supplies the default folders-first name order.
+        if (sortColumn !== 0 || descending) next.sort(function(a, b) {
             if (a.directory !== b.directory) return a.directory ? -1 : 1
             let order = 0
             if (root.sortColumn === 1) order = (new Date(a.modified).getTime() || 0) - (new Date(b.modified).getTime() || 0)
@@ -114,7 +129,6 @@ Item {
         const oldY = tableScroll.contentY
         entries = next
         if (!next.some(function(entry) { return entry.path === root.selectedPath })) selectedPath = ""
-        if (selectedPath.length) location.inspectFile(selectedEntry && selectedEntry.resident && !selectedEntry.directory ? selectedPath : "")
         Qt.callLater(function() {
             if (tableScroll && oldY > 0) tableScroll.contentY = Math.max(0, Math.min(oldY, tableScroll.contentHeight - tableScroll.height))
         })
@@ -177,7 +191,6 @@ Item {
     Connections {
         target: root.directoryModel
         function onContentsChanged() { root.rebuildEntries() }
-        function onStatusChanged() { if (!root.loading) root.rebuildEntries() }
         function onActivated(path, directory) { root.downloadStatus = ""; root.activated(path, directory) }
         function onDownloadFailed(error) { root.downloadStatus = error }
     }
@@ -259,7 +272,9 @@ Item {
                             objectName: "filesTable"
                             width: Math.max(728, tableScroll.width)
                             columns: [qsTr("Name"), qsTr("Date modified"), qsTr("Kind"), qsTr("Size")]
-                            rows: root.tableRows
+                            rows: root.listMode ? root.tableRows : []
+                            viewportY: tableScroll.contentY
+                            viewportHeight: tableScroll.height
                             // Table owns a mutable geometry model; reapply widths when
                             // the viewport changes instead of relying on its write-back binding.
                             function fitColumns() { columnWidths = [width - 504, 196, 188, 120] }
@@ -299,16 +314,14 @@ Item {
                                 }
                             }
                             cellDelegate: Component {
-                                LV.TableCellItem {
+                                Rectangle {
                                     id: cell
                                     required property var modelData
                                     readonly property var entry: root.entries[modelData.rowIndex] || ({})
                                     objectName: "filesCell_" + modelData.rowIndex + "_" + modelData.columnIndex
-                                    text: ""
-                                    showDivider: false
-                                    selected: entry.path === root.selectedPath
-                                    selectionColor: LV.Theme.accent
-                                    Rectangle { anchors.fill: parent; z: -1; color: cell.modelData.rowIndex % 2 ? LV.Theme.panelBackground04 : "transparent" }
+                                    readonly property bool selected: entry.path === root.selectedPath
+                                    color: selected ? LV.Theme.accent
+                                        : modelData.rowIndex % 2 ? LV.Theme.panelBackground04 : "transparent"
                                     RowLayout {
                                         anchors.fill: parent
                                         anchors.leftMargin: LV.Theme.gap12
@@ -318,12 +331,14 @@ Item {
                                             visible: cell.modelData.columnIndex === 0
                                             Layout.preferredWidth: LV.Theme.iconSm
                                             Layout.preferredHeight: LV.Theme.iconSm
-                                            source: LV.Theme.iconPath(cell.entry.icon || "fileTypestext")
+                                            source: cell.modelData.columnIndex === 0 ? LV.Theme.iconPath(cell.entry.icon || "fileTypestext") : ""
                                         }
                                         LV.Label {
                                             Layout.fillWidth: true
                                             style: body
-                                            text: cell.modelData.text || ""
+                                            text: cell.modelData.columnIndex === 1 ? root.formatDate(cell.entry.modified)
+                                                : cell.modelData.columnIndex === 3 ? (cell.entry.directory ? "—" : root.formatSize(cell.entry.bytes || 0))
+                                                : cell.modelData.text || ""
                                             textFormat: Text.PlainText
                                             color: cell.selected || cell.modelData.columnIndex === 0 ? LV.Theme.bodyColor : LV.Theme.descriptionColor
                                             horizontalAlignment: cell.modelData.columnIndex === 3 ? Text.AlignRight : Text.AlignLeft
@@ -358,7 +373,7 @@ Item {
                         anchors.fill: parent
                         visible: !root.listMode
                         clip: true
-                        model: root.entries
+                        model: root.listMode ? null : root.entries
                         cellWidth: width / Math.max(1, Math.floor(width / 160))
                         cellHeight: cellWidth
                         Controls.ScrollBar.vertical: Controls.ScrollBar {}
@@ -372,7 +387,27 @@ Item {
                             cornerRadius: 0
                             background: Rectangle { color: tile.modelData.directory ? "transparent" : LV.Theme.panelBackground04; radius: 0 }
                             contentItem: ColumnLayout {
-                                Image { Layout.alignment: Qt.AlignHCenter; Layout.preferredWidth: 48; Layout.preferredHeight: 48; source: LV.Theme.iconPath(tile.modelData.icon) }
+                                Item {
+                                    Layout.alignment: Qt.AlignHCenter
+                                    Layout.preferredWidth: 72
+                                    Layout.preferredHeight: 72
+                                    Image {
+                                        anchors.centerIn: parent
+                                        width: 48; height: 48
+                                        source: LV.Theme.iconPath(tile.modelData.icon)
+                                        visible: thumbnail.status !== Image.Ready
+                                    }
+                                    Image {
+                                        id: thumbnail
+                                        objectName: "filesGridThumbnail"
+                                        anchors.fill: parent
+                                        source: root.listMode || tile.modelData.directory ? "" : tile.modelData.thumbnail || ""
+                                        sourceSize: Qt.size(144, 144)
+                                        asynchronous: true
+                                        fillMode: Image.PreserveAspectFit
+                                        visible: status === Image.Ready
+                                    }
+                                }
                                 LV.Label { Layout.fillWidth: true; text: tile.modelData.name; textFormat: Text.PlainText; horizontalAlignment: Text.AlignHCenter; elide: Text.ElideRight; color: tile.modelData.path === root.selectedPath ? LV.Theme.accent : LV.Theme.bodyColor }
                             }
                             onClicked: root.selectEntry(index)
@@ -425,7 +460,8 @@ Item {
                         visible: source.toString().length > 0
                         Layout.fillWidth: true
                         Layout.preferredHeight: visible ? width : 0
-                        source: root.selectedDetails.previewSource || ""
+                        source: root.selectedPreviewSource
+                        sourceSize: Qt.size(512, 512)
                         fillMode: Image.PreserveAspectFit
                         asynchronous: true
                     }
@@ -488,7 +524,8 @@ Item {
                 objectName: "fileQuickPreviewImage"
                 width: parent.width
                 height: Math.min(512, Math.max(160, root.height * 0.55))
-                source: root.selectedDetails.previewSource || ""
+                source: root.selectedPreviewSource
+                sourceSize: Qt.size(512, 512)
                 fillMode: Image.PreserveAspectFit
                 asynchronous: true
             }

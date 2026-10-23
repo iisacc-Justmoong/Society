@@ -37,10 +37,16 @@ private slots:
         QTemporaryDir dir(QString(SOCIETY_TEST_DIRECTORY) + "/state-migration-XXXXXX"); QVERIFY(dir.isValid());
         MemorySessionStore keys, legacy;
         const auto oldRoot = dir.filePath("previous");
-        GroupSessionStore original(oldRoot, &keys, &legacy);
+        // Prior versions stored only ciphertext. Produce it privately, then copy
+        // the raw legacy fixture without scheduling current asset enrichment.
+        const auto seedRoot = dir.filePath(".encrypted-seed");
+        GroupSessionStore original(seedRoot, &keys, &legacy);
         QCOMPARE(complete([&](auto done) { original.write("login", "preserved-login", done); }).error, Store::Error::None);
+        QVERIFY(QDir().mkpath(oldRoot));
+        QVERIFY(QFile::copy(recordPath(seedRoot, "login"), recordPath(oldRoot, "login")));
         const auto oldCipher = bytes(recordPath(oldRoot, "login"));
         const auto oldEntries = QDir(oldRoot).entryList(QDir::Files | QDir::Hidden | QDir::NoDotAndDotDot);
+        QCOMPARE(oldEntries.size(), 1);
         const auto destination = dir.filePath("selected.societycontainer/.society-runtime/state");
         GroupSessionStore migrated(destination, &keys, nullptr, nullptr, oldRoot);
         QCOMPARE(complete([&](auto done) { migrated.read("login", done); }).data, QByteArray("preserved-login"));

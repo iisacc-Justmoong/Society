@@ -179,12 +179,30 @@ void DashboardCalendar::refresh() {
             const auto start = zone.dayRange(view.days.front().date).start;
             const auto end = zone.dayRange(view.days.back().date).end;
             const auto scheduled = store.scheduled({start, end});
+            std::vector<Instant> starts, ends;
+            starts.reserve(view.days.size()); ends.reserve(view.days.size());
+            for (const auto &day : view.days) {
+                const auto range = zone.dayRange(day.date);
+                range.validate(); starts.push_back(range.start); ends.push_back(range.end);
+            }
+            std::vector<int> changes(view.days.size() + 1);
+            for (const auto &item : scheduled) {
+                const auto range = item.occurrence.range;
+                range.validate();
+                const auto first = std::upper_bound(ends.begin(), ends.end(), range.start) - ends.begin();
+                // A point event belongs to the day containing that instant;
+                // nonempty ranges exclude the day starting at their end.
+                const auto last = (range.start == range.end
+                    ? std::upper_bound(starts.begin(), starts.end(), range.end)
+                    : std::lower_bound(starts.begin(), starts.end(), range.end)) - starts.begin();
+                if (first < last) { ++changes[first]; --changes[last]; }
+            }
+            int count = 0;
             for (qsizetype i = 0; i < result.days.size(); ++i) {
-                const auto range = zone.dayRange(view.days[static_cast<std::size_t>(i)].date);
-                int count = 0;
-                if (range.start != range.end)
-                    for (const auto &item : scheduled) if (item.occurrence.range.overlaps(range)) ++count;
-                auto cell = result.days[i].toMap(); cell["count"] = count; result.days[i] = cell;
+                count += changes[i];
+                auto cell = result.days[i].toMap();
+                cell["count"] = starts[i] == ends[i] ? 0 : count;
+                result.days[i] = cell;
             }
             const auto details = dayDetails(store, date, zone, 10000);
             result.events = rows(details.events, zone); result.tasks = rows(details.tasks, zone);

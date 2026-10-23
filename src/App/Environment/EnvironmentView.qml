@@ -110,7 +110,10 @@ Rectangle {
                 objectName: "environmentCompactNavigation"
                 visible: root.compact
                 Layout.fillWidth: true
-                model: [qsTr("Overview"), qsTr("Devices"), qsTr("Apps")]
+                model: [qsTr("Overview"), qsTr("Devices"), qsTr("Apps")].map((text, index) => ({
+                    text: text,
+                    iconName: Qt.resolvedUrl("icons/" + ["home", "device", "application"][index] + ".svg").toString()
+                }))
                 currentIndex: ["Overview", "Devices", "Apps"].indexOf(root.page)
                 autoSelect: false
                 onActivated: index => root.page = ["Overview", "Devices", "Apps"][index]

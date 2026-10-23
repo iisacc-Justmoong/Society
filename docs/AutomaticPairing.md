@@ -46,7 +46,7 @@ Retry 버튼은 파일 동기화의 busy 펄스가 아닌 안정된 `reconnectin
 
 Society를 같은 계정으로 로그인하고 같은 사설 IPv4 LAN에서 실행하면 검증된 기기를 자동 대기열에 넣고 순서대로 연결한다. 패널 열기, 초대 수락, 수동 코드 비교가 필요하지 않다. 모바일은 전경과 OS가 허용한 백그라운드 실행 시간에 동작하며 Files 호스트가 되지 않는다.
 
-iiSocietySync 0.6부터 발견은 SDK `BleDiscovery`의 BLE 광고/GATT bootstrap과 OS Bonjour/NSD를 함께 사용한다. BLE에는 연결 정보만 전달하고 파일은 인증된 TCP/TLS로 전송한다. Bluetooth 권한 거부나 하드웨어 부재에서도 LAN 발견을 계속한다. `NearbyDevices`는 BLE에서 받은 레코드에도 같은 scope/HMAC/nonce 검증을 적용한다. 새 버전끼리는 바이너리 파일 본문과 최대 4개 동시 조각 요청을 사용한다. [SDK 상세 계약](../../../SDK/iiSocietySync/NearbySync.md)을 참고한다. AP 없는 AWDL/Wi-Fi Direct 그룹 생성과 QUIC는 현재 구현에 포함되지 않는다.
+iiSocietyHelper Sync 0.6부터 발견은 SDK `BleDiscovery`의 BLE 광고/GATT bootstrap과 OS Bonjour/NSD를 함께 사용한다. BLE에는 연결 정보만 전달하고 파일은 인증된 TCP/TLS로 전송한다. Bluetooth 권한 거부나 하드웨어 부재에서도 LAN 발견을 계속한다. `NearbyDevices`는 BLE에서 받은 레코드에도 같은 scope/HMAC/nonce 검증을 적용한다. 새 버전끼리는 바이너리 파일 본문과 최대 4개 동시 조각 요청을 사용한다. [SDK 상세 계약](../../../SDK/iiSocietyHelper/docs/Sync/NearbySync.md)을 참고한다. AP 없는 AWDL/Wi-Fi Direct 그룹 생성과 QUIC는 현재 구현에 포함되지 않는다.
 
 ## 연결 정책
 
@@ -58,7 +58,7 @@ iiSocietySync 0.6부터 발견은 SDK `BleDiscovery`의 BLE 광고/GATT bootstra
 
 **Disconnect**, 명시적인 모드 변경, 수동 QR/초대 시작은 자동 작업을 일시 중지한다. **Resume automatic pairing**으로 재개한다. 패널 닫기는 자동 작업에 영향을 주지 않는다. 상태는 **Queued**, **Connecting…**, **Retrying…**, **Connected**로 표시한다.
 
-연결 형태는 한 호스트와 여러 클라이언트이다. 계정 증명을 검증하고 연결되면 iiSocietySync가 각 기기의 8개 컨테이너 영역을 양방향으로 동기화한다. 모바일도 업로드·다운로드에 참여하되 클라이언트 전용이다. Files 공개 루트는 계속 `Files/`이다. 복제와 같은 기기 내 Helper 협업의 경계는 [Synchronization.md](Synchronization.md)를 따른다.
+연결 형태는 한 호스트와 여러 클라이언트이다. 계정 증명을 검증하고 연결되면 iiSocietyHelper Sync가 각 기기의 8개 컨테이너 영역을 양방향으로 동기화한다. 모바일도 업로드·다운로드에 참여하되 클라이언트 전용이다. Files 공개 루트는 계속 `Files/`이다. 복제와 같은 기기 내 Helper 협업의 경계는 [Synchronization.md](Synchronization.md)를 따른다.
 
 ## 인증
 
@@ -84,9 +84,9 @@ seed·연결 기기 이력·자동 연결 설정과 계정 스냅샷은 모바�
 
 ## 구현·의존성·검증
 
-`AutomaticPairing`은 대기열·호스트 선택·재시도를, `NetworkDriveController`는 계정·컨테이너·앱 수명과 인증된 전송의 연결을, `iiSocietySync`는 다른 기기의 Society와 Files 전송·컨테이너 복제를, `NearbyDevices`는 발견·서명·초대·연결 확인을 담당한다. `DevicePairing`은 수동 UI를 담당한다.
+`AutomaticPairing`은 대기열·호스트 선택·재시도를, `NetworkDriveController`는 계정·컨테이너·앱 수명과 인증된 전송의 연결을, `iiSocietyHelper Sync`는 다른 기기의 Society와 Files 전송·컨테이너 복제를, `NearbyDevices`는 발견·서명·초대·연결 확인을 담당한다. `DevicePairing`은 수동 UI를 담당한다.
 
-기존 Qt 6.8 [QMessageAuthenticationCode](https://doc.qt.io/qt-6.8/qmessageauthenticationcode.html), Ruby [OpenSSL::HMAC](https://ruby-doc.org/3.2.4/exts/openssl/OpenSSL/HMAC.html), OS Bonjour/Android NSD 및 iiServerHost 0.4.1 TLS를 재사용한다. 새 암호 라이브러리·유료 서비스·자체 암호 알고리즘은 추가하지 않으며 기존 유지보수·라이선스 범위를 따른다.
+기존 Qt 6.8 [QMessageAuthenticationCode](https://doc.qt.io/qt-6.8/qmessageauthenticationcode.html), Ruby [OpenSSL::HMAC](https://ruby-doc.org/3.2.4/exts/openssl/OpenSSL/HMAC.html), OS Bonjour/Android NSD 및 iiWebServer 0.4.1 TLS를 재사용한다. 새 암호 라이브러리·유료 서비스·자체 암호 알고리즘은 추가하지 않으며 기존 유지보수·라이선스 범위를 따른다.
 
 `Society.Discovery`는 로컬 구간·날짜 변경, 서버의 호환 키와 로컬 seed의 상호 인증, 서로 다른 키, 무서명·변조 레코드와 만료를 검사한다. `Society.Pairing`은 실제 로컬 TLS 다중 연결, 목록·다운로드 바이트, 중복 발견, 패널 종료, 연결 해제·재개, 호스트 선택과 재시도를 검사한다. `Society.Account`는 캐시 복원 후 HTTP 0회, 서버 장애 중 로컬 인증, 반복 발견 시 추가 호출 없음, 구형 권한의 즉시 전환·구형 서버 응답의 중복 억제와 실패 후 새 트리거 대기, 서버 철회 후 캐시 제거를 검사한다. 식별자와 키는 합성 값이며 물리 기기 검증은 별도로 기록한다. 이번 실행·배포 결과는 `build/local-autopairing/REPORT.md`에 기록한다.
 

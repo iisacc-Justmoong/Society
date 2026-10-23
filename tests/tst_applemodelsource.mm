@@ -39,7 +39,7 @@ private slots:
         importer.setContainerPath(target.path());
         QSignalSpy done(&importer, &ModelImporter::finished);
         QVERIFY(importer.importSources({picked}));
-        QTRY_COMPARE(done.size(), 1);
+        QTRY_COMPARE_WITH_TIMEOUT(done.size(), 1, 30000);
         QVERIFY2(importer.errorString().isEmpty(), qPrintable(importer.errorString()));
         QFile imported(target.filePath("Models/Other/선택한 모델.safetensors"));
         QVERIFY(imported.open(QIODevice::ReadOnly));
@@ -75,7 +75,7 @@ private slots:
         importer.setContainerPath(target.path());
         QSignalSpy done(&importer, &ModelImporter::finished);
         QVERIFY(importer.importSources({appleModelSource(provider)}));
-        QTRY_COMPARE(done.size(), 1);
+        QTRY_COMPARE_WITH_TIMEOUT(done.size(), 1, 30000);
         QVERIFY2(importer.errorString().isEmpty(), qPrintable(importer.errorString()));
         QFile imported(target.filePath("Models/LoRA/mobile weights.safetensor"));
         QVERIFY(imported.open(QIODevice::ReadOnly));

@@ -61,9 +61,9 @@ python3 -B tools/build_ios.py --platform ios-simulator
 python3 -B tools/build_ios.py --platform ios-device --team <Apple-team-id>
 ```
 
-스크립트는 Workspace의 SDK 소스에서 LVRS(static), iiAcountManager(static), iiServerHost, iiSocietyContainer, iiSocietyHelper를 각각 `build/ios-device` 또는 `build/ios-simulator`에 빌드하고, `Workspace/build/<대상>/install`에 설치한 뒤 Society와 확장을 Xcode로 빌드한다. `--qt`로 Qt 6.8.3 경로를 지정할 수 있다. 사전 점검 결과와 명령은 `Society/build/<대상>/preflight.json`에 기록한다. 개발자 경로 선택은 `DEVELOPER_DIR` 또는 기존 `xcode-select` 설정을 따른다.
+스크립트는 Workspace의 SDK 소스에서 LVRS(static), iiAcountManager(static), iiWebServer, iiSocietyContainer, iiSocietyHelper를 각각 `build/ios-device` 또는 `build/ios-simulator`에 빌드하고, `Workspace/build/<대상>/install`에 설치한 뒤 Society와 확장을 Xcode로 빌드한다. `--qt`로 Qt 6.8.3 경로를 지정할 수 있다. 사전 점검 결과와 명령은 `Society/build/<대상>/preflight.json`에 기록한다. 개발자 경로 선택은 `DEVELOPER_DIR` 또는 기존 `xcode-select` 설정을 따른다.
 
-현재 앱이 호출하는 계정·네트워크·저장소 SDK는 iiAcountManager, iiServerHost, iiSocietyContainer와 iiSocietyHelper이다. iOS는 이들과 LVRS를 필수로 연결한다. 나머지 SDK는 데스크톱의 기존 의존성·호환성 테스트로 유지한다. 설치 후 직접 `cmake --preset ios-device` 또는 `ios-simulator`를 사용해도 같은 설치 위치를 참조한다.
+현재 앱이 호출하는 계정·네트워크·저장소 SDK는 iiAcountManager, iiWebServer, iiSocietyContainer와 iiSocietyHelper이다. iOS는 이들과 LVRS를 필수로 연결한다. 나머지 SDK는 데스크톱의 기존 의존성·호환성 테스트로 유지한다. 설치 후 직접 `cmake --preset ios-device` 또는 `ios-simulator`를 사용해도 같은 설치 위치를 참조한다.
 
 앱 ID `com.iisacc.society`와 확장 ID `com.iisacc.society.fileprovider`는 동일 개발자 팀의 `group.com.iisacc.society` 권한으로 프로비저닝해야 한다. 스크립트는 Apple 계정의 식별자나 프로필을 임의 생성하지 않는다. [App Group 설정](https://developer.apple.com/documentation/xcode/configuring-app-groups)
 
@@ -109,7 +109,7 @@ iOS 26 이상에서 앱을 열거나 전경으로 돌아오면 한 번의 동기
 
 SDK는 열기·SQLite·감시·해시·매니페스트·전송을 작업 스레드에서 실행한다. 원격 Files 다운로드의 목적지 열기·청크 검사·쓰기·최종 저장도 별도 작업 스레드에서 처리한다. UI에는 queued 결과와 진행 상태를 전달하며 완료 파일을 저장한 뒤 완료를 알린다. 모바일 실행권 반납은 비동기 `close`, 객체 소멸은 `shutdownAsync`를 사용한다. 데스크톱의 프로세스 실행권 인계는 기존 `closeAndWait`를 유지한다. OS가 부여하는 백그라운드 시간은 기존 정책을 따른다.
 
-Society는 이 계약을 가진 iiSocietySync 0.5.0 이상을 요구한다. `Society.ClientOnlyNetwork`는 앱 진입의 비동기 반환, 파일을 다시 열지 않는 getter, 전경 복귀 시 재확인과 오래된 컨테이너 결과의 폐기를 검사한다. SDK 테스트는 다운로드 원자성과 실제 TLS 동기화도 함께 검증한다.
+Society는 이 계약을 가진 iiSocietyHelper Sync 0.5.0 이상을 요구한다. `Society.ClientOnlyNetwork`는 앱 진입의 비동기 반환, 파일을 다시 열지 않는 getter, 전경 복귀 시 재확인과 오래된 컨테이너 결과의 폐기를 검사한다. SDK 테스트는 다운로드 원자성과 실제 TLS 동기화도 함께 검증한다.
 
 ## 터치 탐색과 실기기 검증
 
@@ -125,7 +125,7 @@ Photos는 Files와 같은 최상위 영역이다. Photos/Generation History 타�
 
 ### 지속 실행 중 조기 종료 방지
 
-파일 한 회차 완료만으로 연결을 해제하지 않는다. 사진 원본 수신 후의 목록 갱신까지 busy 상태에 포함하고, 파일·사진 작업의 공통 완료 검사에서 실행 허가를 반환한다. SHA-256 검사 중에도 iiSocietySync의 실제 처리 바이트를 Live Activity에 전달한다. 파일 전송과 무결성 검사의 진행량은 별도로 합산한다. 지속 실행 허가를 받으면 짧은 UIKit assertion을 해제한다. 허가 만료는 백그라운드 연결을 정리하지만 전경의 현재 동기화를 중단하지 않으며, 백그라운드에서 자동으로 새 지속 실행 작업을 만들지 않는다. iOS의 최종 실행 허용 시간과 프로세스 생존은 별도 실기기 검증 대상이다.
+파일 한 회차 완료만으로 연결을 해제하지 않는다. 사진 원본 수신 후의 목록 갱신까지 busy 상태에 포함하고, 파일·사진 작업의 공통 완료 검사에서 실행 허가를 반환한다. SHA-256 검사 중에도 iiSocietyHelper Sync의 실제 처리 바이트를 Live Activity에 전달한다. 파일 전송과 무결성 검사의 진행량은 별도로 합산한다. 지속 실행 허가를 받으면 짧은 UIKit assertion을 해제한다. 허가 만료는 백그라운드 연결을 정리하지만 전경의 현재 동기화를 중단하지 않으며, 백그라운드에서 자동으로 새 지속 실행 작업을 만들지 않는다. iOS의 최종 실행 허용 시간과 프로세스 생존은 별도 실기기 검증 대상이다.
 
 실기기 `RUNNINGBOARD 0xdead10cc` 종료를 막기 위해 만료 신호는 실행 허가가 살아 있는 동안 작업 취소를 먼저 전달한다. 사진·파일 worker가 정리되어 파일 잠금을 놓은 다음 허가를 반환한다. 사진 목록·참조·임시 파일 순회와 원본 SHA-256 해시는 취소를 확인하며, 해시는 1 MiB 경계에서 멈추고 부분 digest를 공개하지 않는다. 사진 처리 중간 게시에는 새로 확정한 레코드와 미리보기만 합쳐 사용한다. 매 게시마다 전체 보관함을 디스크에서 다시 읽지 않으므로 큰 목록에서도 실제 진행 보고를 막지 않는다. 회귀 테스트는 게시 배치 간 기존 항목 보존, 해시 중단, worker 종료 후 파일 잠금 반환, 허가 반환 순서를 검사한다.
 
@@ -147,7 +147,7 @@ iOS 16.2 이상에서 `SocietyLiveActivity.appex`는 ActivityKit/WidgetKit으로
 
 현재 로그인한 상태에서 기존 데스크톱 디스크를 여는 것은 계정에 호스트가 없는 경우 초기 호스트를 자동으로 등록합니다. 다른 등록된 호스트는 절대 자동으로 대체되지 않습니다. 선택적 QR 페어링은 패널이 열려 있는 동안만 발견을 일시 중지하며, 닫으면 이전 자동 설정을 재개하고 영구적인 일시 중지를 저장하지 않습니다. 명시적 연결 해제 (Explicit Disconnect) 는 일시 중지를 계속 유지합니다.
 
-초기 온보딩은 인증된 호스트 목록과 모델 인덱스를 준비한 뒤 해제한다. 사진 식별 파일 및 미리보기는 iiSocietySync의 후속 16개 단위 전송으로 채우므로 대규모 사진 보관함이 첫 연결을 막지 않는다. 읽기 전용 `mirror-inspect` 진단에는 실제 루트 화면의 `onboardingRequired`도 포함된다.
+초기 온보딩은 인증된 호스트 목록과 모델 인덱스를 준비한 뒤 해제한다. 사진 식별 파일 및 미리보기는 iiSocietyHelper Sync의 후속 16개 단위 전송으로 채우므로 대규모 사진 보관함이 첫 연결을 막지 않는다. 읽기 전용 `mirror-inspect` 진단에는 실제 루트 화면의 `onboardingRequired`도 포함된다.
 
 준비된 미러의 재연결은 현재 인증 채널에서 등록 호스트와 컨테이너를 다시 확인한 `hostValidated` 시점에 온보딩을 해제한다. 첫 연결은 미러 준비 완료까지 기다리되, 아이폰의 사진 업로드 전체 완료를 기다리지는 않는다. 계정/컨테이너 불일치 및 연결 종료 시에는 기존 준비 상태 무효화 규칙을 유지한다.
 

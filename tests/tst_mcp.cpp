@@ -1,9 +1,9 @@
-#include <mcp/LocalApplications.h>
-#include <mcp/HttpClient.h>
-#include <agent/McpTools.h>
+#include <iiMultimodalAgent/mcp/LocalApplications.h>
+#include <iiMultimodalAgent/mcp/HttpClient.h>
+#include <iiMultimodalAgent/agent/McpTools.h>
 #include <atomic>
 #include <future>
-#include <agent/McpConnections.h>
+#include <iiMultimodalAgent/agent/McpConnections.h>
 #include <SocietyDrive.h>
 #include <QtTest/QtTest>
 #include <QProcess>
@@ -13,12 +13,12 @@
 #include <QJsonDocument>
 #include <QSet>
 #ifdef SOCIETY_MCP_TEST_GGUF
-#include <agent/Engine.h>
+#include <iiMultimodalAgent/agent/Engine.h>
 #include <filesystem>
 #endif
 
-namespace m = iiLocalLLM::mcp;
-namespace a = iiLocalLLM::agent;
+namespace m = iiMultimodalAgent::mcp;
+namespace a = iiMultimodalAgent::agent;
 namespace {
 // The real executable owns the controllers; the test uses only its public MCP API.
 struct AppProcess : QProcess {
@@ -37,6 +37,7 @@ struct AppProcess : QProcess {
         env.insert("SOCIETY_CONTAINER_PATH", base + "/container.societycontainer");
         env.insert("SOCIETY_DISABLE_SESSION_RESTORE", "1");
         env.insert("SOCIETY_DISABLE_NATIVE_DRIVE", "1");
+        env.insert("SOCIETY_DISABLE_PHOTOS", "1");
         env.insert("IILOCALLLM_APP_ENDPOINTS", base + "/apps");
         env.insert("IILOCALLLM_DISABLE_APP_MCP", enabled ? "0" : "1");
         env.insert("QT_QPA_PLATFORM", "offscreen"); env.insert("QT_QUICK_BACKEND", "software");
@@ -135,7 +136,7 @@ private slots:
         auto client=std::make_shared<m::HttpClient>(clientOptions(discovered.applications.first()));
         QCOMPARE(client->serverCapabilities()["experimental"].toObject()["iisacc/userQuestions"].toObject()["responseChannel"],"local-ui");
         bool marked=false;
-        for(const auto& tool:iiLocalLLM::agent::mcpTools(client,{"app",{}}))
+        for(const auto& tool:iiMultimodalAgent::agent::mcpTools(client,{"app",{}}))
             if(tool.definition.name=="mcp__app__AskUserQuestion")marked=tool.definition.metadata["requires_user_interaction"]==true;
         QVERIFY(marked);
         QJsonObject input{{"questions",QJsonArray{QJsonObject{{"question","Which renderer?"},{"header","Renderer"},

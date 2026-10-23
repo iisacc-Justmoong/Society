@@ -6,7 +6,6 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QGuiApplication>
-#include <QSslKey>
 #include <QSysInfo>
 #include <QUuid>
 #include <utility>
@@ -40,24 +39,24 @@ NetworkDriveController::NetworkDriveController(Mode deviceMode, DiscoveryService
         [this](const QByteArray &context) { return pairingAuthenticated() ? SocietyPairingCredentials::sign(m_account->pairingCredentials(), context) : QJsonObject{}; },
         [this](const QByteArray &context, const QJsonObject &proof) { return pairingAuthenticated() && SocietyPairingCredentials::verify(m_account->pairingCredentials(), context, proof); });
     connect(m_photos, &iiPhotoLibrary::PhotoController::progress, &m_background, &MobileSyncActivity::update);
-    connect(&m_sync, &iiSocietySync::Controller::verificationProgress, this,
+    connect(&m_sync, &iiSocietyHelper::Sync::Controller::verificationProgress, this,
         [this](const QString &path, qint64 done, qint64 total) {
             m_background.update("verification/" + path, done, total);
         });
-    connect(m_photos, &iiPhotoLibrary::PhotoController::contentsChanged, &m_sync, &iiSocietySync::Controller::synchronizeNow);
+    connect(m_photos, &iiPhotoLibrary::PhotoController::contentsChanged, &m_sync, &iiSocietyHelper::Sync::Controller::synchronizeNow);
     connect(m_photos, &iiPhotoLibrary::PhotoController::changed, this, [this] {
         updateBackgroundActivity();
         // The photo catalog emits contentsChanged and starts its remote cycle
         // after changed. Let those operations start before finishing the batch.
         QTimer::singleShot(0, this, &NetworkDriveController::finishBackgroundActivityIfIdle);
     });
-    connect(&m_remote, &iiSocietySync::RemoteFiles::stateChanged, this, [this] {
+    connect(&m_remote, &iiSocietyHelper::Sync::RemoteFiles::stateChanged, this, [this] {
         if (!m_remote.status().isEmpty()) m_status = m_remote.status();
         emit stateChanged();
     });
-    connect(&m_remote, &iiSocietySync::RemoteFiles::entriesChanged, this, &NetworkDriveController::entriesChanged);
-    connect(&m_remote, &iiSocietySync::RemoteFiles::downloadFinished, this, &NetworkDriveController::downloadFinished);
-    connect(&m_sync, &iiSocietySync::Controller::changed, this, [this] {
+    connect(&m_remote, &iiSocietyHelper::Sync::RemoteFiles::entriesChanged, this, &NetworkDriveController::entriesChanged);
+    connect(&m_remote, &iiSocietyHelper::Sync::RemoteFiles::downloadFinished, this, &NetworkDriveController::downloadFinished);
+    connect(&m_sync, &iiSocietyHelper::Sync::Controller::changed, this, [this] {
         // Content retries do not revoke an authenticated, ready host. Only
         // authority/protocol mismatches invalidate this connection milestone;
         // transport and account changes are invalidated by updateSynchronization.
@@ -74,11 +73,11 @@ NetworkDriveController::NetworkDriveController(Mode deviceMode, DiscoveryService
         updateBackgroundActivity();
         emit synchronizationChanged();
     });
-    connect(&m_sync, &iiSocietySync::Controller::namespaceChanged, this, [this](const QJsonObject &state) {
+    connect(&m_sync, &iiSocietyHelper::Sync::Controller::namespaceChanged, this, [this](const QJsonObject &state) {
         if (m_namespace == state) return;
         m_namespace = state; emit synchronizationChanged();
     });
-    connect(&m_sync, &iiSocietySync::Controller::hostValidated, this, [this](const QString &peer) {
+    connect(&m_sync, &iiSocietyHelper::Sync::Controller::hostValidated, this, [this](const QString &peer) {
         // Ready cached metadata still needs a fresh authenticated host check.
         // Uploading the phone's photo backlog must not keep onboarding open.
         if (!hostModeAvailable() && signedIn() && connected() && m_syncHosts.contains(peer)) {
@@ -88,7 +87,7 @@ NetworkDriveController::NetworkDriveController(Mode deviceMode, DiscoveryService
             emit synchronizationChanged();
         }
     });
-    connect(&m_sync, &iiSocietySync::Controller::synchronized, this, [this](const QString &peer) {
+    connect(&m_sync, &iiSocietyHelper::Sync::Controller::synchronized, this, [this](const QString &peer) {
         // A completed round also refreshes the authenticated host milestone.
         if (!hostModeAvailable() && signedIn() && connected() && m_syncHosts.contains(peer))
             m_validatedHost = peer;
@@ -101,19 +100,19 @@ NetworkDriveController::NetworkDriveController(Mode deviceMode, DiscoveryService
         // Only the common idle check may finish the grant. A peer completion
         // can enqueue another file pass or the next photo transfer.
     });
-    connect(&m_sync, &iiSocietySync::Controller::progress, this, [this](const QString &path, qint64 done, qint64 total) {
+    connect(&m_sync, &iiSocietyHelper::Sync::Controller::progress, this, [this](const QString &path, qint64 done, qint64 total) {
         m_syncPath = path; m_syncDone = done; m_syncTotal = total;
         m_background.update(path, done, total);
         emit synchronizationChanged(); emit synchronizationProgress(path, done, total);
     });
-    connect(&m_sync, &iiSocietySync::Controller::mirrorChanged, this, [this](const QJsonObject &binding) {
+    connect(&m_sync, &iiSocietyHelper::Sync::Controller::mirrorChanged, this, [this](const QJsonObject &binding) {
         if (m_mirror == binding) return;
         m_mirror = binding;
         if (!hostModeAvailable()) { m_containerStateKnown = false; refreshContainerState(); }
         emit mirrorChanged(); emit synchronizationChanged();
         QTimer::singleShot(0, this, &NetworkDriveController::updateDiscovery);
     });
-    connect(&m_sync, &iiSocietySync::Controller::containerInspected, this,
+    connect(&m_sync, &iiSocietyHelper::Sync::Controller::containerInspected, this,
         [this](const QString &path, const QString &scope, const QJsonObject &binding, const QString &identifier, const QString &primary) {
             if (hostModeAvailable() || path != m_container || scope != m_inspectionScope) return;
             const bool mirrorUpdated = m_mirror != binding;
@@ -126,10 +125,10 @@ NetworkDriveController::NetworkDriveController(Mode deviceMode, DiscoveryService
     connect(&m_automatic, &AutomaticPairing::changed, this, &NetworkDriveController::discoveryChanged);
     connect(&m_automatic, &AutomaticPairing::changed, this, &NetworkDriveController::updateDiscovery, Qt::QueuedConnection);
     connect(&m_nearby, &NearbyDevices::changed, this, &NetworkDriveController::discoveryChanged);
-    connect(&m_nearby, &NearbyDevices::identityEnding, &m_local, &iiServerHost::LanPeer::stop);
-    connect(&m_nearby, &NearbyDevices::authenticationEnding, &m_local, &iiServerHost::LanPeer::stop);
-    connect(&m_local, &iiServerHost::LanPeer::paired, &m_nearby, &NearbyDevices::complete);
-    connect(&m_local, &iiServerHost::LanPeer::paired, this, [this](const QString &id) {
+    connect(&m_nearby, &NearbyDevices::identityEnding, &m_local, &iiWebServer::LanPeer::stop);
+    connect(&m_nearby, &NearbyDevices::authenticationEnding, &m_local, &iiWebServer::LanPeer::stop);
+    connect(&m_local, &iiWebServer::LanPeer::paired, &m_nearby, &NearbyDevices::complete);
+    connect(&m_local, &iiWebServer::LanPeer::paired, this, [this](const QString &id) {
         if (!pairingAuthenticated() || (!m_local.hosting() && id != accountHost())) { m_local.stop(); return; }
         m_verifiedSyncPeers.insert(id);
         if (m_account && signedIn()) {
@@ -151,7 +150,7 @@ NetworkDriveController::NetworkDriveController(Mode deviceMode, DiscoveryService
         updateDiscovery();
     });
     m_status = tr("Connect on your local network or through your own Society server.");
-    connect(&m_local, &iiServerHost::LanPeer::changed, this, [this] {
+    connect(&m_local, &iiWebServer::LanPeer::changed, this, [this] {
         emit discoveryChanged();
         emit synchronizationChanged();
         if (m_localActive) {
@@ -166,8 +165,8 @@ NetworkDriveController::NetworkDriveController(Mode deviceMode, DiscoveryService
         }
         updateSynchronization();
     });
-    connect(&m_local, &iiServerHost::LanPeer::completed, this, &NetworkDriveController::response);
-    connect(&m_peer, &iiServerHost::Peer::stateChanged, this, [this] {
+    connect(&m_local, &iiWebServer::LanPeer::completed, this, &NetworkDriveController::response);
+    connect(&m_peer, &iiWebServer::Peer::stateChanged, this, [this] {
         if (m_peer.isReady() && (!signedIn() || m_peer.accountId() != m_account->manager()->account()->sub())) {
             m_peer.stop(); fail(tr("The server verified a different account. Check its account authority."));
             emit discoveryChanged(); return;
@@ -179,9 +178,9 @@ NetworkDriveController::NetworkDriveController(Mode deviceMode, DiscoveryService
         emit stateChanged();
         emit discoveryChanged();
     });
-    connect(&m_peer, &iiServerHost::Peer::peersChanged, this, &NetworkDriveController::hostsChanged);
-    connect(&m_peer, &iiServerHost::Peer::peersChanged, this, &NetworkDriveController::updateSynchronization);
-    connect(&m_peer, &iiServerHost::Peer::completed, this, &NetworkDriveController::response);
+    connect(&m_peer, &iiWebServer::Peer::peersChanged, this, &NetworkDriveController::hostsChanged);
+    connect(&m_peer, &iiWebServer::Peer::peersChanged, this, &NetworkDriveController::updateSynchronization);
+    connect(&m_peer, &iiWebServer::Peer::completed, this, &NetworkDriveController::response);
     if (!hostModeAvailable()) {
         connect(&m_background, &MobileSyncActivity::expired, this, [this] {
             m_backgroundExpired = true;
@@ -550,7 +549,7 @@ void NetworkDriveController::setContainerPath(const QString &path) {
     const bool automatic = m_automatic.enabled();
     m_container = path;
     m_syncHosts.clear(); invalidateHostConnection();
-    if (hostModeAvailable()) m_mirror = iiSocietySync::Replica::binding(path);
+    if (hostModeAvailable()) m_mirror = iiSocietyHelper::Sync::Replica::binding(path);
     else {
         m_mirror = {}; m_containerIdentifier.clear(); m_primaryHost.clear();
         m_containerStateKnown = false; refreshContainerState();
@@ -612,7 +611,7 @@ void NetworkDriveController::updateServerSession() {
     const auto device = m_account->manager()->deviceInfo();
     const auto id = device.value("id").toString();
     if (m_accountSession && m_session.relayUrl == m_relayUrl && m_session.credential == credential && m_session.peerId == id) return;
-    iiServerHost::PeerOptions options;
+    iiWebServer::PeerOptions options;
     options.relayUrl = m_relayUrl; options.credential = credential; options.peerId = id;
     options.name = device.value("name").toString().left(128);
     if (options.name.isEmpty()) options.name = QSysInfo::machineHostName().left(128);
@@ -636,7 +635,9 @@ bool NetworkDriveController::startLocalHost(bool automatic) {
     else disconnectSessionImpl(false);
     QString error; m_storage = iiSocietyContainer::SharedStorage::open(m_container, &error);
     if (!m_storage) { fail(error.isEmpty() ? tr("Open a Society container before pairing.") : error); return false; }
-    const auto files = iiSocietySync::filesHandler(m_storage->drive().rootPath());
+    const auto files = iiSocietyHelper::Sync::filesHandler(m_storage->drive().rootPath());
+    const auto bindAddress = iiWebServer::Address::parse(m_localBindAddress.toString().toStdString());
+    if (!bindAddress) { fail(tr("The local listen address is invalid.")); return false; }
     m_localActive = true;
     const auto id = m_nearby.active() ? m_nearby.deviceId() : m_account ? m_account->manager()->deviceInfo().value("id").toString() : QUuid::createUuid().toString(QUuid::WithoutBraces);
     return m_local.startHost(id, m_nearby.active() ? m_nearby.deviceName() : QSysInfo::machineHostName(),
@@ -647,12 +648,12 @@ bool NetworkDriveController::startLocalHost(bool automatic) {
             if (payload.value("op") == "society.photos") return m_photos->handle(peer, payload);
             return files(peer, payload);
         },
-        m_localBindAddress.isLoopback() ? QStringList{m_localBindAddress.toString()} : QStringList{}, m_localBindAddress);
+        m_localBindAddress.isLoopback() ? QStringList{m_localBindAddress.toString()} : QStringList{}, *bindAddress);
 }
 bool NetworkDriveController::joinLocalHost(const QString &qr, bool automatic) {
-    iiServerHost::LanLink link;
+    iiWebServer::LanLink link;
     if (!pairingAuthenticated() || accountHost().isEmpty() || accountContainer().isEmpty()
-        || !iiServerHost::LanLink::decode(qr, &link) || link.hostId != accountHost()) {
+        || !iiWebServer::LanLink::decode(qr, &link) || link.hostId != accountHost()) {
         stopTransport(); fail(tr("This QR code is not the host registered to your signed-in account.")); return false;
     }
     if (!m_runtimeEnabled || m_suspended) return false;
@@ -663,10 +664,10 @@ bool NetworkDriveController::joinLocalHost(const QString &qr, bool automatic) {
     const auto id = m_nearby.active() ? m_nearby.deviceId() : m_account ? m_account->manager()->deviceInfo().value("id").toString() : QUuid::createUuid().toString(QUuid::WithoutBraces);
     return m_local.join(qr, id, m_nearby.active() ? m_nearby.deviceName() : QSysInfo::machineHostName());
 }
-bool NetworkDriveController::startSession(iiServerHost::PeerOptions options) {
+bool NetworkDriveController::startSession(iiWebServer::PeerOptions options) {
     return startSessionImpl(std::move(options), false);
 }
-bool NetworkDriveController::startSessionImpl(iiServerHost::PeerOptions options, bool accountSession) {
+bool NetworkDriveController::startSessionImpl(iiWebServer::PeerOptions options, bool accountSession) {
     stopTransport();
     if (!signedIn() || accountHost().isEmpty() || accountContainer().isEmpty()) { fail(tr("Register a Society host drive with your account before connecting.")); return false; }
     // Retain transport settings for reconnects. The fixed platform role
@@ -688,12 +689,10 @@ bool NetworkDriveController::startSessionImpl(iiServerHost::PeerOptions options,
             const auto keyPath = qEnvironmentVariable("SOCIETY_HOST_KEY");
             options.localHostingEnabled = !certificatePath.isEmpty() || !keyPath.isEmpty();
             if (options.localHostingEnabled) {
-                const auto certificates = QSslCertificate::fromPath(certificatePath); QFile file(keyPath);
-                if (certificates.isEmpty() || !file.open(QIODevice::ReadOnly)) { fail(tr("The host TLS identity is unavailable.")); return false; }
-                const auto pem = file.readAll(); QSslKey key(pem, QSsl::Rsa); if (key.isNull()) key = QSslKey(pem, QSsl::Ec);
-                if (key.isNull()) { fail(tr("The host TLS key is invalid.")); return false; }
-                options.localTls = QSslConfiguration::defaultConfiguration();
-                options.localTls.setLocalCertificateChain(certificates); options.localTls.setPrivateKey(key);
+                options.localTls.policy.identity.certificate_chain_file = certificatePath.toStdString();
+                options.localTls.policy.identity.private_key_file = keyPath.toStdString();
+                const auto identity = ii::network::TlsContext::server(options.localTls);
+                if (!identity) { fail(tr("The host TLS identity is unavailable or invalid.")); return false; }
             }
         }
     }
@@ -702,7 +701,7 @@ bool NetworkDriveController::startSessionImpl(iiServerHost::PeerOptions options,
     if (!host) options.localHostingEnabled = false;
     options.metadata = m_storage ? QJsonObject{{"containerId", m_storage->drive().identifier()}, {"section", "files"}} : QJsonObject();
     options.metadata.insert("deviceId", options.peerId);
-    const auto files = m_storage ? iiSocietySync::filesHandler(m_storage->drive().rootPath()) : iiServerHost::RequestHandler();
+    const auto files = m_storage ? iiSocietyHelper::Sync::filesHandler(m_storage->drive().rootPath()) : iiWebServer::RequestHandler();
     m_status = tr("Connecting to your devices…"); emit entriesChanged();
     const bool ok = m_peer.start(options, [this, files](const QString &peer, const QJsonObject &request) {
         if (!signedIn() || m_peer.accountId() != m_account->manager()->account()->sub()

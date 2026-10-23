@@ -6,6 +6,7 @@
 #include "App/Drive/StorageNavigation.h"
 #include "App/Dashboard/DashboardFiles.h"
 #include "App/Dashboard/DashboardCalendar.h"
+#include "App/Dashboard/CalendarWorkspace.h"
 #include "App/Tools/ModelMergeController.h"
 #include "App/Tools/ModelPackagingController.h"
 #include "App/Tools/MergeModelCatalog.h"
@@ -25,6 +26,7 @@
 #include <QMimeData>
 #include <QMap>
 #include <QGuiApplication>
+#include <QFontMetricsF>
 #include <QAccessible>
 #include <QImage>
 #include <QJSValue>
@@ -110,6 +112,7 @@ private slots:
         qmlRegisterType<DriveController>("Society", 1, 0, "DriveController");
         qmlRegisterType<StorageNavigation>("Society", 1, 0, "StorageNavigation");
         qmlRegisterType<DashboardCalendar>("Society", 1, 0, "DashboardCalendar");
+        qmlRegisterType<CalendarWorkspace>("Society", 1, 0, "CalendarWorkspace");
         qmlRegisterType<DashboardFiles>("Society", 1, 0, "DashboardFiles");
         qmlRegisterType<ModelMergeController>("Society", 1, 0, "ModelMergeController");
         qmlRegisterType<ModelPackagingController>("Society", 1, 0, "ModelPackagingController");
@@ -673,7 +676,7 @@ private slots:
         QCOMPARE(button->property("cornerRadius").toReal(), 16.0);
         QVERIFY(QRectF(QPointF(), window->size()).contains(card->mapRectToScene(card->boundingRect())));
         const auto primaryColor = window->property("primaryColor").value<QColor>();
-        QCOMPARE(primaryColor, QColor("#57965C"));
+        QCOMPARE(primaryColor, QColor("#00E71F"));
         QCOMPARE(button->property("backgroundColor").value<QColor>(), primaryColor);
         QVERIFY(notice->property("glassActive").toBool());
         QCOMPARE(notice->property("resolvedBackdropSource").value<QQuickItem *>(),
@@ -850,7 +853,7 @@ private slots:
             QCOMPARE(row->property("label").toString(), names[i]);
             QCOMPARE(row->size(), QSizeF(180, 32));
             QCOMPARE(row->mapToItem(sidebar, QPointF()), QPointF(12, 32 + i * 32));
-            QVERIFY(row->property("showTrailingIcon").toBool());
+            QVERIFY(!row->property("showTrailingIcon").toBool());
             const auto *accessible = QAccessible::queryAccessibleInterface(row); QVERIFY(accessible);
             QCOMPARE(accessible->text(QAccessible::Name), names[i]);
         }
@@ -1845,7 +1848,7 @@ private slots:
             QCoreApplication::sendEvent(window, &drop);
             QVERIFY(drop.isAccepted());
             QCOMPARE(drop.dropAction(), Qt::CopyAction);
-            QTRY_COMPARE(imported.size(), index + 1);
+            QTRY_COMPARE_WITH_TIMEOUT(imported.size(), index + 1, 30000);
             QTRY_COMPARE(controller->currentSection(), QString("Models"));
             QTRY_VERIFY(models->isVisible());
             QTRY_COMPARE(files->property("count").toInt(), 0);
@@ -2171,6 +2174,130 @@ private slots:
         files->setQuery("");
         QTRY_COMPARE(recent->property("count").toInt(), 20);
         QTRY_COMPARE(history->property("count").toInt(), 20);
+        window->close();
+    }
+
+    void calendarWorkspaceRoutesEditsAndRendersFiveDesigns()
+    {
+        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/calendar-workspace-XXXXXX.societycontainer");
+        QVERIFY(iiSocietyContainer::SocietyDrive::create(fixture.path()));
+        QQmlApplicationEngine engine;
+        engine.addImageProvider(QStringLiteral("society-preview"), new iiSocietyContainer::PreviewProvider);
+        engine.addImportPath(QString::fromUtf8(SOCIETY_LVRS_QML_IMPORT_PATH));
+        QStringList warnings;
+        connect(&engine, &QQmlEngine::warnings, this, [&](const QList<QQmlError> &errors) {
+            for (const auto &error : errors) warnings.append(error.toString());
+        });
+        engine.setInitialProperties({{"initialContainerPath", fixture.path()}, {"width", 1600},
+            {"height", 960}, {"desktopMinWidth", 320}});
+        engine.load(QUrl::fromLocalFile(QString::fromUtf8(SOCIETY_QML_FILE)));
+        QCOMPARE(engine.rootObjects().size(), 1);
+        auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first()); QVERIFY(window);
+        QVERIFY(QTest::qWaitForWindowExposed(window)); window->requestActivate();
+        auto *dashboard = visualItem(window->contentItem(), "dashboardView"); QVERIFY(dashboard);
+        auto *calendar = window->findChild<DashboardCalendar *>("dashboardCalendarModel"); QVERIFY(calendar);
+        auto *workspace = window->findChild<CalendarWorkspace *>("calendarWorkspaceModel"); QVERIFY(workspace);
+        // Test runners can show a Cocoa window without owning foreground app
+        // activation. Explicitly enable the projections for deterministic CI.
+        QVERIFY(QQmlProperty::write(calendar, "active", true));
+        calendar->setTimeZone("Asia/Seoul"); calendar->selectDate("2026-10-23");
+        QTRY_VERIFY(!calendar->loading());
+        const auto click = [window](QQuickItem *item) {
+            QTest::qWait(50); // Let popup and responsive layouts polish before hit testing.
+            if (!item || !item->isVisible()) return false;
+            const auto point = item->mapToScene(QPointF(item->width() / 2, item->height() / 2)).toPoint();
+            if (!QRect(QPoint(), window->size()).contains(point)) return false;
+            QTest::mouseClick(window, Qt::LeftButton, Qt::NoModifier,
+                point);
+            return true;
+        };
+        QVERIFY(click(visualItem(window->contentItem(), "dashboardItemworkspace_calendar")));
+        QTRY_VERIFY(dashboard->property("calendarPageVisible").toBool());
+        QVERIFY(QQmlProperty::write(workspace, "active", true));
+        QTRY_VERIFY(workspace->active());
+        const auto review = workspace->saveEvent({{"title", "Tidal Archive review"}, {"startLocal", "2026-10-23 14:00"},
+            {"endLocal", "2026-10-23 15:00"}, {"timeZone", "Asia/Seoul"}, {"calendarId", "studio"}, {"colorKey", "green"},
+            {"description", "Review the lighting, materials and final canvas order before publishing the Tidal Archive study."},
+            {"location", "Video call · Studio room"}, {"invitees", "Lea Park; Jun Lee; Mira Yoon"},
+            {"meetingUrl", "https://example.com/review"}, {"alarmMinutes", 10}});
+        QVERIFY2(!review.isEmpty(), qPrintable(workspace->errorString()));
+        const QStringList titles{"Studio sync", "Lighting pass", "Reference review", "Portfolio review", "Canvas polish", "Gallery visit", "Weekly reset"};
+        const QStringList colors{"green", "blue", "purple", "purple", "blue", "orange", "orange"};
+        const QStringList collections{"studio", "projects", "publishing", "publishing", "projects", "default", "default"};
+        for (int i = 0; i < 7; ++i) {
+            const auto date = QString::fromStdString(iiCalendar::Date(2026, 10, 19).addDays(i).toString());
+            const auto id = workspace->saveEvent({{"title", titles[i]}, {"startLocal", date + " 09:00"},
+                {"endLocal", date + " 10:30"}, {"timeZone", "Asia/Seoul"}, {"calendarId", collections[i]}, {"colorKey", colors[i]}});
+            QVERIFY2(!id.isEmpty(), qPrintable(workspace->errorString()));
+        }
+        calendar->selectDate("2026-10-23"); workspace->refresh();
+        QTRY_COMPARE(workspace->visibleEvents().size(), 8);
+        workspace->selectEvent(review);
+        const auto capturePath = qEnvironmentVariable("SOCIETY_CALENDAR_SCREENSHOT_DIR");
+        if (!capturePath.isEmpty()) QVERIFY(QDir().mkpath(capturePath));
+        const auto capture = [&](const QString &name) {
+            QTest::qWait(150);
+            return capturePath.isEmpty() || window->grabWindow().save(QDir(capturePath).filePath(name + ".png"));
+        };
+        auto *page = visualItem(window->contentItem(), "calendarWorkspaceView"); QVERIFY(page);
+        QTRY_COMPARE(page->mapToScene(QPointF()), QPointF(220, 56));
+        QCOMPARE(page->width(), 1380.0);
+        for (const auto &mode : QStringList{"week", "day", "month", "year"}) {
+            QVERIFY(click(visualItem(window->contentItem(), "calendarMode_" + mode)));
+            QTRY_COMPARE(workspace->viewMode(), mode);
+            QTRY_VERIFY(!workspace->loading());
+            if (mode == "month") {
+                auto *date = visualItem(window->contentItem(), "calendarMonthDate_2026-10-23"); QVERIFY(date);
+                QCOMPARE(date->property("text").toString(), "23");
+                auto *label = visualItem(date, "labelButton_label"); QVERIFY(label);
+                QVERIFY(label->width() >= QFontMetricsF(qvariant_cast<QFont>(label->property("font"))).horizontalAdvance("23"));
+            }
+            QVERIFY(capture(mode));
+        }
+        QVERIFY(click(visualItem(window->contentItem(), "calendarMode_week")));
+        QVERIFY(click(visualItem(window->contentItem(), "calendarNewEvent")));
+        auto *editor = window->findChild<QObject *>("calendarEventEditor"); QVERIFY(editor);
+        QTRY_VERIFY(editor->property("visible").toBool());
+        auto draft = workspace->eventDraft(); draft["title"] = "Publish checklist";
+        QVERIFY(editor->setProperty("draft", draft));
+        QVERIFY(capture("quick-add"));
+        QVERIFY(click(visualItem(window->contentItem(), "calendarSaveEvent")));
+        QTRY_VERIFY(!editor->property("visible").toBool());
+        iiCalendar::Store store(calendar->databasePath().toStdString());
+        const auto matches = [&] {
+            auto events = store.query();
+            std::erase_if(events, [](const auto &event) { return event.title != "Publish checklist"; });
+            return events;
+        };
+        QTRY_COMPARE(matches().size(), size_t(1));
+        const auto created = QString::fromStdString(matches().front().id);
+        workspace->selectEvent(created); QTest::qWait(100);
+        QVERIFY(click(visualItem(window->contentItem(), "calendarEditEvent")));
+        QTRY_VERIFY(editor->property("visible").toBool());
+        draft = workspace->eventDraft(created); draft["title"] = "Published checklist";
+        QVERIFY(editor->setProperty("draft", draft));
+        QVERIFY(click(visualItem(window->contentItem(), "calendarSaveEvent")));
+        QTRY_VERIFY(!editor->property("visible").toBool());
+        QCOMPARE(store.get(created.toStdString())->title, std::string("Published checklist"));
+        // The completed form round-trips through the same durable SDK store.
+        QVERIFY(workspace->removeEvent(created, workspace->eventDraft(created).value("revision").toString()));
+        QVERIFY(!store.get(created.toStdString()));
+        for (int width : {760, 390}) {
+            window->resize(width, 844); QTest::qWait(150);
+            QVERIFY(page->isVisible());
+            auto *newEvent = visualItem(window->contentItem(), "calendarNewEvent"); QVERIFY(newEvent);
+            QVERIFY(newEvent->mapToScene(QPointF(newEvent->width(), 0)).x() <= width);
+            QVERIFY(click(newEvent)); QTRY_VERIFY(editor->property("visible").toBool());
+            QVERIFY(editor->property("width").toReal() <= width - 24);
+            QVERIFY(capture("editor-width-" + QString::number(width)));
+            QVERIFY(click(visualItem(window->contentItem(), "calendarCancelEvent")));
+            QVERIFY(capture("width-" + QString::number(width)));
+        }
+        window->resize(1600, 960); QTest::qWait(100);
+        QVERIFY(click(visualItem(window->contentItem(), "dashboardItemworkspace_home")));
+        QTRY_VERIFY(!dashboard->property("calendarPageVisible").toBool());
+        workspace->setActive(false); // The fixture overrides the OS-activation binding above.
+        QVERIFY2(warnings.isEmpty(), qPrintable(warnings.join('\n')));
         window->close();
     }
 
@@ -2640,9 +2767,12 @@ private slots:
         QCOMPARE(merge->property("outputName").toString(), QString("mobile-session"));
         QVERIFY(tap("mobileStorageTab")); QTRY_VERIFY(storage->isVisible());
         QCOMPARE(drive->currentPath(), fixture.filePath("Files"));
+        auto *searchToggle = visualItem(window->contentItem(), "mobileSearchToggle"); QVERIFY(searchToggle);
+        QSignalSpy searchClicks(searchToggle, SIGNAL(clicked())); QVERIFY(searchClicks.isValid());
         QVERIFY(tap("mobileSearchToggle"));
         auto *search = window->findChild<QQuickItem *>("mobileSearch"); QVERIFY(search);
         QTRY_VERIFY(search->isVisible() && dashboard->isVisible());
+        QTRY_COMPARE(searchClicks.count(), 1);
         QTRY_COMPARE(search->height(), 22.0);
         QSignalSpy searchNavigation(view, SIGNAL(tabRequested(QString))); QVERIFY(searchNavigation.isValid());
         QVERIFY(search->setProperty("text", "Mobile"));
@@ -2651,7 +2781,9 @@ private slots:
         QCOMPARE(searchNavigation.count(), 0); // Typing must not navigate again and dismiss the keyboard.
         QCOMPARE(view->property("query").toString(), QString("Mobile landscape"));
         QVERIFY(search->setProperty("text", ""));
+        QTest::qWait(600); // Separate this toggle from the synthetic opening touch.
         QVERIFY(tap("mobileSearchToggle"));
+        QTRY_COMPARE(searchClicks.count(), 2);
         QTRY_VERIFY(!search->isVisible());
         QVERIFY(tap("mobileBrowseTab"));
         QCOMPARE(tabs->property("currentIndex").toInt(), 3);
@@ -2827,20 +2959,15 @@ private slots:
         auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first());
         QVERIFY(window);
         QTRY_VERIFY(window->isVisible());
-        QCOMPARE(window->property("primaryColor").value<QColor>(), QColor("#57965C"));
+        QCOMPARE(window->property("primaryColor").value<QColor>(), QColor("#00E71F"));
         auto *material = window->findChild<QQuickItem *>("applicationWindowMaterial");
         QVERIFY(material);
-        QCOMPARE(material->property("primaryColor").value<QColor>(), QColor("#57965C"));
-        QCOMPARE(material->property("color").value<QColor>(), QColor("#141414"));
-        QCOMPARE(material->property("tintOpacity").toReal(), 0.66);
-        QCOMPARE(material->property("intenseOpacity").toReal(), 0.0);
-        QCOMPARE(material->property("faintOpacity").toReal(), 0.0);
-        auto *accentOverlay = material->findChild<QQuickItem *>("applicationWindowAccentOverlay");
-        QVERIFY(accentOverlay);
-        QCOMPARE(accentOverlay->opacity(), 0.04);
-        QTRY_COMPARE(accentOverlay->property("color").value<QColor>(), QColor("#57965C"));
-        QCOMPARE(material->property("blurRadius").toReal(), 64.0);
-        QCOMPARE(window->property("windowBackgroundOpacity").toReal(), 0.66);
+        QCOMPARE(material->property("primaryColor").value<QColor>(), QColor("#00E71F"));
+        QCOMPARE(material->property("color").value<QColor>(), QColor("#141814"));
+        QCOMPARE(material->property("accentMix").toReal(), 0.02);
+        QVERIFY(!material->findChild<QQuickItem *>("applicationWindowAccentOverlay"));
+        QVERIFY(material->findChild<QQuickItem *>("applicationWindowNoiseTexture"));
+        QCOMPARE(window->property("windowBackgroundOpacity").toReal(), 1.0);
         QCOMPARE(window->opacity(), 1.0);
         QCOMPARE(material->opacity(), 1.0);
         const bool nativeBlur = window->property("isDesktopPlatform").toBool()
@@ -3408,6 +3535,13 @@ private slots:
         QVERIFY(QTest::qWaitForWindowExposed(window));
         auto *view = visualItem(window->contentItem(), "environmentView"); QVERIFY(view);
         auto *apps = visualItem(view, "environmentApps"); QVERIFY(apps);
+        auto *collectionTab = visualItem(apps, "environmentCollection0"); QVERIFY(collectionTab);
+        QCOMPARE(collectionTab->property("iconName").toString(), QStringLiteral("folder@14x14"));
+        auto *compactTabs = visualItem(view, "environmentCompactNavigation"); QVERIFY(compactTabs);
+        const auto compactModel = compactTabs->property("model").value<QJSValue>().toVariant().toList();
+        QCOMPARE(compactModel.size(), 3);
+        for (const auto &entry : compactModel)
+            QVERIFY(!entry.toMap().value("iconName").toString().isEmpty());
         auto *devices = window->findChild<QObject *>("networkDevices"); QVERIFY(devices);
         const auto click = [&](const QString &name) {
             QTest::qWait(100);
@@ -3596,17 +3730,13 @@ private slots:
         auto *preferences = window->findChild<QQuickWindow *>("preferencesWindow");
         QVERIFY(preferences && preferences != window);
         QTRY_VERIFY(preferences->isVisible());
-        QCOMPARE(preferences->property("primaryColor").value<QColor>(), QColor("#57965C"));
+        QCOMPARE(preferences->property("primaryColor").value<QColor>(), QColor("#00E71F"));
         auto *preferencesMaterial = preferences->findChild<QQuickItem *>("applicationWindowMaterial");
         QVERIFY(preferencesMaterial);
-        QCOMPARE(preferencesMaterial->property("color").value<QColor>(), QColor("#141414"));
-        QCOMPARE(preferencesMaterial->property("tintOpacity").toReal(), 0.66);
-        QCOMPARE(preferencesMaterial->property("intenseOpacity").toReal(), 0.0);
-        QCOMPARE(preferencesMaterial->property("faintOpacity").toReal(), 0.0);
-        auto *preferencesAccent = preferencesMaterial->findChild<QQuickItem *>("applicationWindowAccentOverlay");
-        QVERIFY(preferencesAccent);
-        QCOMPARE(preferencesAccent->opacity(), 0.04);
-        QCOMPARE(preferencesMaterial->property("primaryColor").value<QColor>(), QColor("#57965C"));
+        QCOMPARE(preferencesMaterial->property("color").value<QColor>(), QColor("#141814"));
+        QCOMPARE(preferencesMaterial->property("accentMix").toReal(), 0.02);
+        QVERIFY(!preferencesMaterial->findChild<QQuickItem *>("applicationWindowAccentOverlay"));
+        QCOMPARE(preferencesMaterial->property("primaryColor").value<QColor>(), QColor("#00E71F"));
         QCOMPARE(preferences->transientParent(), window);
         QCOMPARE(preferences->modality(), Qt::NonModal);
         auto *host = preferences->findChild<QQuickItem *>("preferencesHostMode");

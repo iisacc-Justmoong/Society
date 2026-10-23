@@ -25,7 +25,8 @@ class PhotoLibraryIntegrationTests(unittest.TestCase):
         presets = json.loads((ROOT / 'CMakePresets.json').read_text())
         for preset in presets['configurePresets']:
             variables = preset.get('cacheVariables', {})
-            if 'iiSocietySync_DIR' in variables:
+            self.assertNotIn('iiSocietySync_DIR', variables)
+            if 'iiSocietyHelper_DIR' in variables:
                 self.assertIn('iiPhotoLibrary_DIR', variables)
 
     def test_android_packages_sdk_bridge_and_replaces_old_generated_copy(self):

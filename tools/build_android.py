@@ -51,7 +51,7 @@ def main():
             raise SystemExit(result.returncode)
 
     packages = {}
-    for name in ('iiAcountManager', 'iiServerHost', 'iiSocietyContainer', 'iiSocietyHelper', 'iiSocietySync', 'iiPhotoLibrary'):
+    for name in ('iiAcountManager', 'iiWebServer', 'iiSocietyContainer', 'iiSocietyHelper', 'iiPhotoLibrary'):
         directory = workspace / 'SDK' / name / 'build/society-android'
         prefix = build / 'installed' / name
         definitions = [f'-D{key}_DIR={value}' for key, value in packages.items()]

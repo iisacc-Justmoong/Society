@@ -31,7 +31,7 @@ LV.ContextMenu {
         { label: qsTr("Duplicate"), enabled: actions.editable && !actions.busy },
         { label: qsTr("Rename…"), enabled: actions.editable && !actions.busy },
         { label: qsTr("Share…"), enabled: actions.canShare && actions.editable && !actions.busy },
-        { label: actions.inDeleted ? qsTr("Delete permanently…") : qsTr("Delete"), enabled: actions.editable && !actions.busy }
+        { label: actions.inDeleted ? qsTr("Remove from Deleted…") : qsTr("Delete"), enabled: actions.editable && !actions.busy }
     ]
     onItemTriggered: function(index) {
         if (backgroundOnly) { actions.paste(folderPath); return }
@@ -82,14 +82,14 @@ LV.ContextMenu {
         id: deleteSheet
         objectName: "deleteFileSheet"
         property string selectedPath: ""
-        title: qsTr("Delete permanently?")
+        title: qsTr("Remove from Deleted?")
         preferredHeight: 260
         LV.VStack {
             width: parent.width
             spacing: 16
             LV.Label {
                 Layout.fillWidth: true
-                text: qsTr("“%1” will be permanently deleted. This cannot be undone.").arg(deleteSheet.selectedPath.substring(deleteSheet.selectedPath.lastIndexOf("/") + 1))
+                text: qsTr("“%1” will be removed from Deleted. Any managed originals and recorded history are retained.").arg(deleteSheet.selectedPath.substring(deleteSheet.selectedPath.lastIndexOf("/") + 1))
                 textFormat: Text.PlainText
                 wrapMode: Text.Wrap
                 sizeToContentHeight: true
@@ -100,7 +100,7 @@ LV.ContextMenu {
                 LV.LabelButton { text: qsTr("Cancel"); onClicked: deleteSheet.close() }
                 LV.LabelButton {
                     objectName: "confirmPermanentDelete"
-                    text: qsTr("Delete permanently")
+                    text: qsTr("Remove from Deleted")
                     enabled: !actions.busy
                     onClicked: { actions.remove(); deleteSheet.close() }
                 }

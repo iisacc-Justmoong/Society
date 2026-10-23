@@ -18,6 +18,38 @@
 class DaemonTests : public QObject {
     Q_OBJECT
 private slots:
+    void inboxPollingIsDeferredAndStoppedResultsCannotCrossAConnection()
+    {
+        QTemporaryDir root(SOCIETY_TEST_DIRECTORY "/inbox-worker-XXXXXX.societycontainer");
+        QVERIFY(iiSocietyContainer::SocietyDrive::create(root.path()));
+        qputenv("SOCIETY_CONTAINER_PATH", root.path().toUtf8());
+        const auto directory = root.filePath(".society-runtime/helpers/v1");
+        {
+            iiSocietyHelper::DeliveryStore sender;
+            QVERIFY(sender.open(directory));
+            const iiSocietyHelper::Peer peer{{"com.iisacc.test", "Test", "1"},
+                QUuid::createUuid().toString(QUuid::WithoutBraces)};
+            QVERIFY2(!sender.enqueue(peer, "files.changed", {{"file", "fixture"}}).isEmpty(),
+                qPrintable(sender.errorString()));
+            QCOMPARE(sender.receivePending(), 1);
+        }
+        SocietyInbox inbox;
+        QSignalSpy received(&inbox, &SocietyInbox::dataReceived);
+        QVERIFY(inbox.start(directory));
+        QCOMPARE(received.count(), 0); // start/poll does not dispatch disk results inline.
+        QCOMPARE(inbox.readAfter(0).size(), 1); // Explicit commands share the same SQL owner.
+        inbox.stop();
+        QCoreApplication::sendPostedEvents(&inbox);
+        QCOMPARE(received.count(), 0);
+        QVERIFY(!inbox.connected());
+        QVERIFY(inbox.start(directory));
+        QTRY_COMPARE(received.count(), 1);
+        QVERIFY(inbox.acknowledge(inbox.lastSequence()));
+        inbox.stop();
+        QVERIFY(inbox.start(directory));
+        QTest::qWait(300);
+        QCOMPARE(received.count(), 1); // Acknowledged messages remain acknowledged after reopen.
+    }
     void explicitPathsOutsideTheSelectedRuntimeAreRejectedBeforeWriting() {
         QTemporaryDir root(SOCIETY_TEST_DIRECTORY "/daemon-scope-XXXXXX.societycontainer");
         QVERIFY(iiSocietyContainer::SocietyDrive::create(root.path()));

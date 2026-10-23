@@ -1,18 +1,18 @@
 #include "SocietyMcp.h"
 #include "App/Drive/DriveController.h"
-#include <agent/ObjectTools.h>
-#include <agent/McpServer.h>
-#include <agent/QuestionInbox.h>
-#include <agent/UserQuestions.h>
-#include <mcp/LocalApplications.h>
+#include <iiMultimodalAgent/agent/ObjectTools.h>
+#include <iiMultimodalAgent/agent/McpServer.h>
+#include <iiMultimodalAgent/agent/QuestionInbox.h>
+#include <iiMultimodalAgent/agent/UserQuestions.h>
+#include <iiMultimodalAgent/mcp/LocalApplications.h>
 #include <QCoreApplication>
 #include <QDir>
 #include <QDirIterator>
 #include <QJsonArray>
 #include <QDebug>
 
-namespace a = iiLocalLLM::agent;
-namespace m = iiLocalLLM::mcp;
+namespace a = iiMultimodalAgent::agent;
+namespace m = iiMultimodalAgent::mcp;
 namespace {
 QJsonObject input(QJsonObject properties = {}, QJsonArray required = {}) {
     return {{"type", "object"}, {"properties", properties}, {"required", required}, {"additionalProperties", false}};

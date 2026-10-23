@@ -74,7 +74,7 @@ def verify(app, device):
     sync_binary = (app / 'Society').read_bytes()
     assert b'society-lan-account-v1' in sync_binary, 'Missing mandatory LAN account proof'
     assert b'account_host_mismatch' in sync_binary, 'Missing registered host/container validation'
-    assert b'iiSocietySync-worker' in sync_binary and b'iiSocietySync-download' in sync_binary, \
+    assert b'iiSocietyHelper::Sync-worker' in sync_binary and b'iiSocietyHelper::Sync-download' in sync_binary, \
         'Missing background sync metadata and download workers'
     assert 'DNSServiceBrowse' in symbols and 'DNSServiceRegister' in symbols, 'Missing native device discovery'
     # The iOS client strips host-only offer creation during Release linking.

@@ -11,18 +11,25 @@ LV.HStack {
     objectName: "dashboardView"
     property bool touchNavigation: false
     readonly property int contentInset: touchNavigation && width < 760 ? 16 : 24
-    function goHome() { dashboardScroll.contentItem.contentY = 0 }
+    property bool calendarPageVisible: false
+    function goHome() { calendarPageVisible = false; dashboardScroll.contentItem.contentY = 0 }
     required property DashboardFiles viewModel
     property StorageNavigation navigation: null
     function showCalendar(section: string): void {
         goHome()
         calendarView.resetDetails()
         calendarView.expandedSection = section
+        calendarPageVisible = section.length === 0
     }
     property DashboardCalendar calendarModel: DashboardCalendar {
         objectName: "dashboardCalendarModel"
         containerPath: root.viewModel.containerPath
         active: root.visible && Qt.application.state === Qt.ApplicationActive
+    }
+    property CalendarWorkspace calendarWorkspace: CalendarWorkspace {
+        objectName: "calendarWorkspaceModel"
+        calendar: root.calendarModel
+        active: root.visible && root.calendarPageVisible && Qt.application.state === Qt.ApplicationActive
     }
     Connections {
         target: root.viewModel
@@ -81,10 +88,22 @@ LV.HStack {
     Item {
         Layout.fillWidth: true
         Layout.fillHeight: true
+        Layout.leftMargin: root.calendarPageVisible && root.width >= 760 ? 16 : 0
+        Loader {
+            anchors.fill: parent
+            active: root.calendarPageVisible
+            visible: active
+            sourceComponent: CalendarWorkspaceView {
+                workspace: root.calendarWorkspace
+                calendar: root.calendarModel
+                onFileRequested: function(path) { root.fileRequested(path) }
+            }
+        }
         Controls.ScrollView {
             id: dashboardScroll
             objectName: "dashboardScroll"
             anchors.fill: parent
+            visible: !root.calendarPageVisible
             contentWidth: availableWidth
             clip: true
             Controls.ScrollBar.horizontal.policy: Controls.ScrollBar.AlwaysOff

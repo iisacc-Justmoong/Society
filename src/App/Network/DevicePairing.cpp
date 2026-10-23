@@ -23,8 +23,8 @@ void DevicePairing::setNetwork(NetworkDriveController *network) {
                 m_network->localPeer()->cancelPairing(); m_error = message; emit changed();
             }
         });
-        connect(network->localPeer(), &iiServerHost::LanPeer::changed, this, &DevicePairing::changed);
-        connect(network->localPeer(), &iiServerHost::LanPeer::paired, this, [this](const QString &id) {
+        connect(network->localPeer(), &iiWebServer::LanPeer::changed, this, &DevicePairing::changed);
+        connect(network->localPeer(), &iiWebServer::LanPeer::paired, this, [this](const QString &id) {
             if (!m_active || !m_network) return;
             if (!m_network->localPeer()->hosting()) m_network->browse(id);
             emit paired(id); emit changed();
@@ -114,8 +114,8 @@ void DevicePairing::showHostQr() {
 }
 void DevicePairing::scanCode(const QString &text) {
     takeManualControl();
-    iiServerHost::LanLink link;
-    if (!iiServerHost::LanLink::decode(text, &link)) m_error = tr("Scan a local-network QR code from the updated desktop Society app.");
+    iiWebServer::LanLink link;
+    if (!iiWebServer::LanLink::decode(text, &link)) m_error = tr("Scan a local-network QR code from the updated desktop Society app.");
     else if (!m_network) m_error = tr("The device connection is unavailable.");
     else if (!m_network->joinLocalHost(text)) m_error = m_network->localPeer()->errorString().isEmpty() ? m_network->status() : m_network->localPeer()->errorString();
     emit changed();

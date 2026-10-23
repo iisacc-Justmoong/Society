@@ -22,7 +22,7 @@
 #include <QMetaProperty>
 #include "backend/runtime/appbootstrap.h"
 
-using namespace iiServerHost;
+using namespace iiWebServer;
 class ClientOnlyNetworkTests : public QObject {
     Q_OBJECT
 private slots:
@@ -99,7 +99,7 @@ private slots:
         RelayServer relay([&](const auto &, AuthCompletion done) {
             done({account.manager()->account()->sub(), QDateTime::currentDateTimeUtc().addSecs(60)});
         });
-        QVERIFY(relay.listen(QHostAddress::LocalHost));
+        QVERIFY(relay.listen(iiWebServer::Address::loopback()));
         PeerOptions options; options.relayUrl = QUrl(QString("ws://127.0.0.1:%1").arg(relay.port()));
         options.credential = "fixture"; options.peerId = QString(64, 'a'); options.name = "Desktop";
         options.service = "com.iisacc.society.files"; options.localEnabled = false;
@@ -216,7 +216,7 @@ private slots:
     void grantedBackgroundTimeKeepsTheClientTransportUntilExpiration() {
         AuthenticatedNetworkFixture identity; QVERIFY(identity.start());
         RelayServer relay([&](const auto &, AuthCompletion done) { done({identity.principal(), QDateTime::currentDateTimeUtc().addSecs(60)}); });
-        QVERIFY(relay.listen(QHostAddress::LocalHost));
+        QVERIFY(relay.listen(iiWebServer::Address::loopback()));
         PeerOptions options; options.relayUrl = QUrl(QString("ws://127.0.0.1:%1").arg(relay.port()));
         options.credential = "alice"; options.peerId = QString(64, 'b'); options.name = "Phone"; options.localEnabled = false;
         std::function<void()> expire;
@@ -367,7 +367,7 @@ private slots:
         file.write("fixture"); file.close();
         AuthenticatedNetworkFixture identity; QVERIFY(identity.start());
         RelayServer relay([&](const auto &, AuthCompletion done) { done({identity.principal(), QDateTime::currentDateTimeUtc().addSecs(60)}); });
-        QVERIFY(relay.listen(QHostAddress::LocalHost));
+        QVERIFY(relay.listen(iiWebServer::Address::loopback()));
         PeerOptions options; options.relayUrl = QUrl(QString("ws://127.0.0.1:%1").arg(relay.port()));
         options.credential = "alice"; options.peerId = QString(64, 'a'); options.name = "First desktop";
         options.service = "com.iisacc.society.files"; options.localEnabled = false;
@@ -427,7 +427,7 @@ private slots:
         original.write("existing user file"); original.close();
         AuthenticatedNetworkFixture identity; QVERIFY(identity.start());
         RelayServer relay([&](const auto &, AuthCompletion done) { done({identity.principal(), QDateTime::currentDateTimeUtc().addSecs(60)}); });
-        QVERIFY(relay.listen(QHostAddress::LocalHost));
+        QVERIFY(relay.listen(iiWebServer::Address::loopback()));
         PeerOptions options; options.relayUrl = QUrl(QString("ws://127.0.0.1:%1").arg(relay.port()));
         options.credential = "alice"; options.peerId = QString(64, 'a'); options.name = "Desktop";
         options.service = "com.iisacc.society.files"; options.localEnabled = false;
@@ -475,11 +475,11 @@ private slots:
         source.write("from desktop"); source.close();
         AuthenticatedNetworkFixture identity; QVERIFY(identity.start());
         RelayServer relay([&](const auto &, AuthCompletion done) { done({identity.principal(), QDateTime::currentDateTimeUtc().addSecs(60)}); });
-        QVERIFY(relay.listen(QHostAddress::LocalHost));
+        QVERIFY(relay.listen(iiWebServer::Address::loopback()));
         PeerOptions options; options.relayUrl = QUrl(QString("ws://127.0.0.1:%1").arg(relay.port()));
         options.credential = "alice"; options.peerId = QString(64, 'a'); options.name = "Desktop";
         options.service = "com.iisacc.society.files";
-        options.localEnabled = local; options.listenAddress = QHostAddress::LocalHost;
+        options.localEnabled = local; options.listenAddress = iiWebServer::Address::loopback();
         Peer desktop; FileShare files(sourceRoot.path());
         QVERIFY(desktop.start(options, [&](const auto &, const auto &request) { return files.handle(request); }));
         QTcpServer occupied; QVERIFY(occupied.listen(QHostAddress::LocalHost));

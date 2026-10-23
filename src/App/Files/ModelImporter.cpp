@@ -2,6 +2,7 @@
 #include "ModelImporter.h"
 
 #include <SocietyDrive.h>
+#include <SharedStorage.h>
 #include <ModelStore.h>
 #include <TemporaryLease.h>
 #include <QDateTime>
@@ -232,10 +233,12 @@ bool ModelImporter::importSources(const QList<ModelImportSource> &sources)
     const auto result = std::make_shared<ImportResult>();
     const auto cancelled = std::make_shared<std::atomic_bool>(false);
     m_cancelled = cancelled;
+    m_recordingCancellation = std::stop_source{};
+    const auto recordingStop = m_recordingCancellation.get_token();
     m_progress = 0;
     m_error.clear();
     m_status = tr("Preparing models…");
-    m_worker = QThread::create([this, root, sources, result, cancelled, organizeFirst] {
+    m_worker = QThread::create([this, root, sources, result, cancelled, organizeFirst, recordingStop] {
         QString driveError;
         const auto drive = SocietyDrive::open(root, &driveError);
         if (!drive) {
@@ -243,6 +246,8 @@ bool ModelImporter::importSources(const QList<ModelImportSource> &sources)
             return;
         }
         const auto models = drive->sectionPath(StoreSection::Models);
+        const auto storage = iiSocietyContainer::SharedStorage::open(root, &driveError);
+        if (!storage) { result->errors.append(driveError); return; }
         const auto store = iiSocietyContainer::ModelStore::open(root, &driveError);
         if (!store || !store->ensureLayout(&driveError)) { result->errors.append(driveError); return; }
         if (organizeFirst) {
@@ -313,6 +318,7 @@ bool ModelImporter::importSources(const QList<ModelImportSource> &sources)
                     QString error;
                     const auto placed = store->place(canonical, {}, &error);
                     if (placed.isEmpty()) result->errors.append(error);
+                    else if (!storage->recordFile(StoreSection::Models, QDir(models).relativeFilePath(placed), &error, {}, recordingStop)) result->errors.append(error);
                     else { result->paths.append(placed); ++result->existing; }
                     return;
                 }
@@ -373,6 +379,10 @@ bool ModelImporter::importSources(const QList<ModelImportSource> &sources)
                     if (destination.isEmpty())
                         error = tr("Could not save a complete model without replacing an existing item: %1").arg(copy.errorString());
                     else {
+                        if (!storage->recordFile(StoreSection::Models, QDir(models).relativeFilePath(destination), &error, {}, recordingStop)) {
+                            result->errors.append(tr("%1 was saved; its managed index needs retry: %2").arg(name, error));
+                            return;
+                        }
                         result->paths.append(destination);
                         result->lastCopiedPath = destination;
                         ++result->copied;
@@ -412,6 +422,7 @@ bool ModelImporter::importSources(const QList<ModelImportSource> &sources)
 
 void ModelImporter::cancel()
 {
+    m_recordingCancellation.request_stop();
     if (m_cancelled)
         m_cancelled->store(true);
 }

@@ -2,6 +2,8 @@
 #include "App/Files/ModelImporter.h"
 #include <SocietyDrive.h>
 #include <ModelStore.h>
+#include <SharedStorage.h>
+#include <iiFileProviderPresentation.h>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -35,7 +37,9 @@ QByteArray readFile(const QString &path)
 }
 QStringList entries(const QString &path)
 {
-    return QDir(path).entryList(QDir::AllEntries | QDir::Hidden | QDir::NoDotAndDotDot);
+    auto names = QDir(path).entryList(QDir::AllEntries | QDir::Hidden | QDir::NoDotAndDotDot);
+    names.removeIf([](const QString &name) { return iiFileProvider::native::Presentation::isControlFile(std::filesystem::path(name.toStdU16String())); });
+    return names;
 }
 }
 
@@ -57,7 +61,7 @@ private slots:
         importer.setContainerPath(target.path());
         QSignalSpy done(&importer, &ModelImporter::finished);
         QVERIFY(importer.importFiles({QUrl::fromLocalFile(path)}));
-        QTRY_COMPARE(done.size(), 1);
+        QTRY_COMPARE_WITH_TIMEOUT(done.size(), 1, 30000);
         QVERIFY(!importer.errorString().isEmpty());
         QCOMPARE(readFile(path), bytes);
         QCOMPARE(entries(target.filePath("Models/Other")), QStringList{});
@@ -84,7 +88,7 @@ private slots:
         QVERIFY(importer.importFiles(urls));
         QVERIFY(importer.busy());
         QVERIFY(!importer.importFiles(urls));
-        QTRY_COMPARE(done.size(), 1);
+        QTRY_COMPARE_WITH_TIMEOUT(done.size(), 1, 30000);
         QVERIFY(!importer.busy());
         QVERIFY2(importer.errorString().isEmpty(), qPrintable(importer.errorString()));
         QCOMPARE(importer.progress(), 1.0);
@@ -92,6 +96,15 @@ private slots:
         for (const auto &name : names) {
             QCOMPARE(readFile(target.filePath("Models/Other/" + name)), bytes);
             QCOMPARE(readFile(source.filePath(name)), bytes);
+            const auto storage = iiSocietyContainer::SharedStorage::open(target.path()); QVERIFY(storage);
+            const auto tracking = storage->fileTracking(iiSocietyContainer::StoreSection::Models, "Other/" + name);
+            QCOMPARE(tracking.value("status").toString(), "ready");
+            QVERIFY(!tracking.value("rawKey").toString().isEmpty());
+            QVERIFY(!tracking.value("sessionKey").toString().isEmpty());
+            auto repository = storage->fileRepository({}, iiSocietyContainer::FileRepository::Access::ReadOnly);
+            const auto key = tracking.value("objectKey").toString().toStdString();
+            QVERIFY(repository->objects().validate(key, 1));
+            QCOMPARE(repository->original(key).record.size, std::uint64_t(bytes.size()));
         }
         QCOMPARE(entries(target.filePath("Models/Other")).size(), 2);
         QCOMPARE(entries(target.filePath("Files")), QStringList{});
@@ -111,13 +124,13 @@ private slots:
         importer.setContainerPath(target.path());
         QSignalSpy done(&importer, &ModelImporter::finished);
         QVERIFY(importer.importFiles({QUrl::fromLocalFile(path), QUrl::fromLocalFile(path)}));
-        QTRY_COMPARE(done.size(), 1);
+        QTRY_COMPARE_WITH_TIMEOUT(done.size(), 1, 30000);
         QVERIFY2(importer.errorString().isEmpty(), qPrintable(importer.errorString()));
         QCOMPARE(readFile(target.filePath("Models/Other/weights.safetensor")), QByteArray("existing weights"));
         QCOMPARE(readFile(target.filePath("Models/Other/weights (2).safetensor")), validModel("new weights"));
         QCOMPARE(entries(target.filePath("Models/Other")).size(), 3);
         QVERIFY(importer.importFiles({QUrl::fromLocalFile(target.filePath("Models/Other/weights (2).safetensor"))}));
-        QTRY_COMPARE(done.size(), 2);
+        QTRY_COMPARE_WITH_TIMEOUT(done.size(), 2, 30000);
         QCOMPARE(entries(target.filePath("Models/Other")).size(), 3);
         QVERIFY(importer.status().contains("already"));
     }
@@ -156,8 +169,8 @@ private slots:
         QSignalSpy secondDone(&second, &ModelImporter::finished);
         QVERIFY(first.importFiles({QUrl::fromLocalFile(path)}));
         QVERIFY(second.importFiles({QUrl::fromLocalFile(path)}));
-        QTRY_COMPARE(firstDone.size(), 1);
-        QTRY_COMPARE(secondDone.size(), 1);
+        QTRY_COMPARE_WITH_TIMEOUT(firstDone.size(), 1, 30000);
+        QTRY_COMPARE_WITH_TIMEOUT(secondDone.size(), 1, 30000);
         QVERIFY2(first.errorString().isEmpty(), qPrintable(first.errorString()));
         QVERIFY2(second.errorString().isEmpty(), qPrintable(second.errorString()));
         const auto firstPath = firstDone.first().at(1).toStringList().first();
@@ -280,7 +293,7 @@ private slots:
         QVERIFY(!QFileInfo::exists(target.filePath("Models/old.safetensors")));
         writeFile(source.filePath("new.safetensors"), bytesFor("LoRA"));
         QVERIFY(importer.importFiles({QUrl::fromLocalFile(source.filePath("new.safetensors"))}));
-        QTRY_COMPARE(imported.size(), 1);
+        QTRY_COMPARE_WITH_TIMEOUT(imported.size(), 1, 30000);
         QCOMPARE(imported.first().at(1).toStringList(), QStringList{target.filePath("Models/LoRA/new.safetensors")});
         QCOMPARE(readFile(target.filePath("Models/LoRA/new.safetensors")), readFile(source.filePath("new.safetensors")));
         QVERIFY(importer.organizeModels());
@@ -323,7 +336,7 @@ private slots:
         QVERIFY(!QFileInfo::exists(target.filePath("Models/Other/old.safetensors")));
         writeFile(source.filePath("no-model-name.safetensors"), bytes);
         QVERIFY(importer.importFiles({QUrl::fromLocalFile(source.filePath("no-model-name.safetensors"))}));
-        QTRY_COMPARE(imported.size(), 1);
+        QTRY_COMPARE_WITH_TIMEOUT(imported.size(), 1, 30000);
         QCOMPARE(imported.first().at(1).toStringList(), QStringList{target.filePath("Models/Checkpoint/no-model-name.safetensors")});
         QCOMPARE(readFile(source.filePath("no-model-name.safetensors")), bytes);
         QCOMPARE(readFile(target.filePath("Models/Checkpoint/no-model-name.safetensors")), bytes);

@@ -9,6 +9,7 @@
 #include <QtQml/qqmlregistration.h>
 #include <atomic>
 #include <memory>
+#include <stop_token>
 
 class ModelImporter : public QObject
 {
@@ -62,4 +63,5 @@ private:
     QPointer<QWindow> m_window;
     QThread *m_worker = nullptr;
     std::shared_ptr<std::atomic_bool> m_cancelled;
+    std::stop_source m_recordingCancellation;
 };

@@ -1,8 +1,10 @@
 #pragma once
 
-#include <DeliveryStore.h>
 #include <QObject>
 #include <QTimer>
+#include <QVariantList>
+#include <QVariantMap>
+#include <memory>
 
 class SocietyInbox final : public QObject {
     Q_OBJECT
@@ -13,11 +15,12 @@ class SocietyInbox final : public QObject {
     Q_PROPERTY(qint64 lastSequence READ lastSequence NOTIFY messagesChanged)
 public:
     explicit SocietyInbox(QObject *parent = nullptr);
+    ~SocietyInbox() override;
     bool start(const QString &directory);
     Q_INVOKABLE void stop();
     Q_INVOKABLE bool acknowledge(qint64 sequence);
     Q_INVOKABLE QVariantList readAfter(qint64 sequence, int limit = 128);
-    bool connected() const { return m_store.isOpen() && m_error.isEmpty(); }
+    bool connected() const { return m_connected && m_error.isEmpty(); }
     QString errorString() const { return m_error; }
     QVariantList messages() const { return m_messages; }
     QVariantMap lastDaemonSnapshot() const { return m_snapshot; }
@@ -30,7 +33,11 @@ signals:
 private:
     void refresh();
     void setError(const QString &message);
-    iiSocietyHelper::DeliveryStore m_store;
+    class Worker;
+    std::unique_ptr<Worker> m_worker;
+    bool m_connected = false;
+    bool m_polling = false;
+    quint64 m_epoch = 0;
     QTimer m_timer;
     QString m_error;
     QVariantList m_messages;

@@ -42,7 +42,7 @@ iPhone 스캐너는 AVFoundation의 QR 메타데이터 인식과 실제 카메�
 
 계정 범위 태그는 일반 Society 앱 사이에서 다른 계정의 후보를 제외하는 필터이며 원격 기기의 서버 인증을 증명하는 서명이 아니다. DNS-SD 메타데이터나 초대 수신만으로 Files 권한을 주지 않는다. 최종 권한에는 양쪽 TLS 연결에 바인딩된 서버 발급 계정 증명과 등록된 호스트·컨테이너의 일치가 반드시 필요하다. 수동 초대는 이에 더해 코드 비교와 데스크톱 확인을 요구한다. 로컬 탐색·초대에는 외부 서버 조회, 로그인 정보 재전송, 클라우드 relay가 없다. 계정 로그인·세션 갱신 자체는 기존 iiAccountManager가 담당한다.
 
-`NearbyDevices`는 계정 범위·목록·초대·수명을, `DiscoveryService`의 플랫폼 구현은 발견·재확인·이탈 통지를 담당한다. `NetworkDriveController`가 앱 계정 수명과 연결하고 `DevicePairing`과 LVRS 기반 `PairingPanel.qml`이 선택·수신·코드 확인 UI를 소유한다. `iiServerHost::LanPeer::createDeviceOffer()`와 `confirmDevice()`는 최종 확인 전 파일 접근을 차단한다.
+`NearbyDevices`는 계정 범위·목록·초대·수명을, `DiscoveryService`의 플랫폼 구현은 발견·재확인·이탈 통지를 담당한다. `NetworkDriveController`가 앱 계정 수명과 연결하고 `DevicePairing`과 LVRS 기반 `PairingPanel.qml`이 선택·수신·코드 확인 UI를 소유한다. `iiWebServer::LanPeer::createDeviceOffer()`와 `confirmDevice()`는 최종 확인 전 파일 접근을 차단한다.
 
 외부 의존성은 OS의 DNS-SD API를 재사용한다. Apple은 시스템 Bonjour의 dns_sd C API, Android는 API 28 이상에서 사용 가능한 NsdManager를 사용한다. 별도 discovery 라이브러리·암호 구현·서버는 추가하지 않는다. Apple Info.plist에 서비스 유형과 로컬 네트워크 목적을 선언하며 앱 자체는 멀티캐스트 패킷을 만들지 않는다. Windows 빌드에는 Bonjour SDK/런타임, Linux에는 dns_sd 호환 Avahi 개발 패키지가 필요하다. API·유지보수는 각 OS 배포에 따른다. [Apple 로컬 네트워크 문서](https://developer.apple.com/documentation/technotes/tn3179-understanding-local-network-privacy), [Android NSD 문서](https://developer.android.com/develop/connectivity/wifi/use-nsd)를 따른다.
 
@@ -72,8 +72,8 @@ QR 수명은 60초이고 한 번만 소비한다. 재발급·창 닫기·취소�
 | `PairingPanel.qml` | 플랫폼 역할에 따른 QR·스캔 버튼·진행·만료·완료 표시 |
 | `DevicePairing` | UI 상태와 `NetworkDriveController.localPeer()` 연결 |
 | `NetworkDriveController` | 플랫폼 역할·컨테이너 수명·Files 공개·다운로드 관리 |
-| `iiServerHost::LanPeer` | 직접 TLS 리스너/클라이언트, 일회용 키, Files 확인, 연결 수명, 요청·응답 |
-| `iiServerHost::LanLink` | 버전 2 QR의 사설 IPv4 주소·포트·인증서 지문·코드·만료 정보 검증 |
+| `iiWebServer::LanPeer` | 직접 TLS 리스너/클라이언트, 일회용 키, Files 확인, 연결 수명, 요청·응답 |
+| `iiWebServer::LanLink` | 버전 2 QR의 사설 IPv4 주소·포트·인증서 지문·코드·만료 정보 검증 |
 | `PairingQr` | 고정된 Nayuki C++ 라이브러리로 QR 행렬 생성·정수 배율 렌더링 |
 | `IosQrScanner.mm` / `AppleQrDecoder` | AVFoundation 메타데이터·실제 프레임의 Vision QR 해독, 초점·안내·권한·중단·취소 |
 | `AndroidQrScanner.cpp` / `SocietyActivity.java` | JNI 콜백과 앱 내부 QR 카메라, 권한·중단·취소 |
@@ -88,7 +88,7 @@ Qt 6.8.3 Core/Network/WebSockets를 재사용한다. 데스크탑 인증서 생�
 
 Android 카메라는 [ZXing Android Embedded 4.3.0](https://github.com/journeyapps/zxing-android-embedded)의 공개 안정 버전을 고정한다. Apache 2.0이며 카메라·프레임 수명 관리는 해당 라이브러리에 맡긴다. AndroidX 및 ZXing decoder 전이 의존성이 있고 서버나 별도 설치 앱은 필요하지 않다. 배포 간격이 긴 라이브러리이므로 target SDK를 변경할 때 실제 카메라 회귀 검증이 필요하다. QR만 해독하며 이미지 저장·업로드·마이크 접근·소리를 사용하지 않는다.
 
-`iiServerHost.lan` 는 실제 TLS, 상호 계정 증명, 파일 접근 전 거부, 재방송, 만료 및 인증서 불일치를 확인합니다. Society QR 픽스처 는 이제 로컬 계정 서버에 대해 인증하고 예상 호스트를 등록합니다. Society 입니다. 계정이 수동 및 자동 동기화, 등록되지 않은 계정 거부 및 계정-호스트 변경 후 회수를 확인합니다. 물리적 카메라/장치 인증은 별도로 보고되어야 합니다.
+`iiWebServer.lan` 는 실제 TLS, 상호 계정 증명, 파일 접근 전 거부, 재방송, 만료 및 인증서 불일치를 확인합니다. Society QR 픽스처 는 이제 로컬 계정 서버에 대해 인증하고 예상 호스트를 등록합니다. Society 입니다. 계정이 수동 및 자동 동기화, 등록되지 않은 계정 거부 및 계정-호스트 변경 후 회수를 확인합니다. 물리적 카메라/장치 인증은 별도로 보고되어야 합니다.
 
 ## 2026-09-09 검증 기록
 

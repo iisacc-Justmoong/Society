@@ -113,9 +113,56 @@ SQLite 경로는 선택한 `.societycontainer/.society-runtime/calendar/<SHA256(
 외부 AppData 경로나 환경 변수 지정 디렉터리에 새 일정 파일을 생성하지 않는다.
 드라이브 경로 이동 후에도 동일 식별자의 데이터는 유지하고 다른 컨테이너의 일정은 격리한다.
 SQLite/WAL 파일을 일반 파일 동기화에 넣지 않으며 **현재 일정은 기기 로컬 데이터**이다.
-외부 캘린더 공급자, OS 일정 가져오기, 원격 일정 동기화, 일정 생성·편집 폼은 이 뷰 구현에
-포함되지 않는다. 기존 SDK 소비자는 `databasePath`의 `iiCalendar::Store::put`으로 이벤트·
+외부 캘린더 공급자, OS 일정 가져오기, 원격 일정 동기화는 이 구현에 포함되지 않는다.
+일정 생성·편집은 아래 독립 Calendar 작업 화면에서 제공한다.
+기존 SDK 소비자는 `databasePath`의 `iiCalendar::Store::put`으로 이벤트·
 할 일·활동·메모·알림·첨부를 기록하고 `refresh()`로 화면에 반영할 수 있다.
+
+### 독립 Calendar 작업 화면
+
+Dashboard 사이드바의 **Calendar**는 홈의 작은 월간 위젯과 별개인 작업 화면을 연다.
+Home으로 돌아가면 기존 파일·생성 기록과 작은 위젯을 그대로 사용할 수 있다. Activity는
+기존 활동 목록을 연다. 사이드바 아이템의 trailing chevron은 표시하지 않는다.
+
+기준 Figma는 Week `623:4007`, Day `623:4008`, Month `623:4009`, Year `623:4010`,
+Quick add `623:4011`이다. 1600×960 창에서 전역 툴바 56, 사이드바 204, 간격 16을
+유지하며 작업 영역은 1380 폭이다. 작업 헤더는 64 높이이며 왼쪽 컨텍스트 248,
+중앙 가변 영역, 오른쪽 상세 288을 사용한다. 배경 패널을 추가하지 않고
+LVRS ApplicationWindow 및 Theme 토큰과 LVRS 입력·버튼·체크박스·세그먼트를 사용한다.
+창이 좁아지면 캘린더·작업 목록과 이벤트 상세를 Drawer로 열고, 편집 폼은 창 안에서 스크롤한다.
+
+- Day/Week는 24시간 스크롤 시간표이며 최초 위치는 08:00이다. 시간 중첩 일정은 열을
+  나누고 여러 날짜에 걸친 일정은 날짜별 구간으로 표시한다. 종일 일정은 별도 줄이다.
+  빈 시간표를 두 번 누르면 해당 날짜·시각의 새 일정 폼이 열린다.
+- Month는 월요일 시작 42칸이다. 셀에서 보이지 않는 일정은 `+N more`로 Day에 접근한다.
+  Year는 12개 월을 3열로 배치하며 날짜를 누르면 Day로 전환한다.
+- 왼쪽 미니 달력, 이전/다음/Today, 캘린더 표시 필터, 향후 7일 일정, 선택일 작업 완료를
+  연결한다. 표시 필터와 보기 전환은 일정을 수정하지 않는 세션 상태이다.
+- 일정 선택 시 시간·위치·주최자·참여자·알림·반복·바쁨 여부·메모·기존 첨부를 표시한다.
+  Join call은 HTTP(S) 링크만 열며 기존 첨부는 현재 컨테이너 내부의 유효한 파일만 연다.
+- New event와 Edit event는 같은 폼을 사용한다. Event/Task, 제목, 시작/종료, IANA 시간대,
+  종일 여부, 캘린더, Busy/Free, 위치, 통화 URL, 참가자, 알림, 반복, 여러 줄 메모를 편집한다.
+  날짜는 `yyyy-mm-dd`, 시각은 24시간 `hh:mm`이다. 종일 일정의 종료일 입력은 포함 날짜이며
+  저장 시 SDK의 배타적 종료일로 변환한다. 반복 일정 편집·삭제는 전체 시리즈에 적용한다.
+  다른 시간대의 일정을 저장하면 캘린더의 표시 시간대에서 해당 일정이 시작하는 날짜로 이동한다.
+- Describe your event의 Apply는 영어 요일·today·tomorrow 또는 ISO 날짜,
+  `14:00–15:00`/`2–3pm`, `/기존캘린더명`을 편집 가능한 초안으로 해석한다.
+  예: `Review Fri 2–3pm /Personal`. 해석만으로 저장하지 않으며 모든 항목은 직접 수정할 수 있다.
+  완전한 자연어 처리나 외부 AI 호출은 사용하지 않는다.
+- 저장·삭제는 revision 조건을 검사한다. 다른 창·소비자의 변경이 있으면 오류를 표시하며
+  기존 내용을 덮어쓰지 않는다. 컨테이너 식별자도 쓰기 직전에 재확인한다.
+  열린 초안에 저장소 식별값을 함께 두어 컨테이너가 바뀌면 이전 초안을 저장하지 못하게 한다.
+  시간 입력을 바꾸지 않은 제목·메모 편집은 기존 초 이하 시각, DST의 중복 시각 및 복수 알림을 보존한다.
+  참가자는 로컬 일정 정보로 기록하며 초대 메일을 발송하지 않는다. 알림 설정은 저장되는
+  일정 속성이며 이 화면에서 OS 알림 예약·외부 캘린더 동기화를 새로 제공하지 않는다.
+
+`CalendarWorkspace`는 `DashboardCalendar`와 iiCalendar Store를 조합하는 GUI 표현 계층이다.
+날짜·시간대·반복·저장 검증은 SDK가 처리하며 QML에는 날짜 문자열·분 단위 배치 자료를 전달한다.
+비동기 조회는 비활성 화면에서 중단하고 세대 번호로 이전 요청의 결과를 폐기한다.
+Home에서는 작업 화면을 생성하지 않으며 날짜·보기·시간대가 같으면 그리드 자료를 재사용한다.
+월간 조회는 앞뒤 달의 42칸 전체를 포함하고, 일정 투영은 실제 일정과 겹치는 날짜로 계산 범위를 제한한다.
+캘린더 목록은 저장소의 실제 calendarId에서 구성하며 최초 Personal만 빈 기본 목록으로 제공한다.
+Figma 예시 일정·가짜 참여자·캘린더는 실제 사용자 저장소에 넣지 않는다.
 
 ### 빌드와 검증
 
@@ -137,6 +184,22 @@ revision 충돌, 잘못된 날짜·시간대, DST 전환일, 컨테이너별 격
 Figma 치수, 점·날짜 선택, 전체 목록·뒤로 이동, 작업 완료, 첨부 경계, 월·일·오늘 이동,
 390/760 px 세로 배치를 검사한다. `build/calendar-dashboard.png`와
 `build/calendar-dashboard-mobile.png`에 테스트 창을 캡처한다.
+
+`Society.CalendarWorkspace`는 실제 Main/Dashboard를 열어 Calendar 진입, Day/Week/Month/Year
+전환, 새 일정 생성·재편집·삭제, Home 복귀 및 760/390 폭의 편집 창을 검증한다.
+macOS Cocoa에서 실행하고 `SOCIETY_CALENDAR_SCREENSHOT_DIR`를 `build/` 내부 경로로 지정하면
+각 보기와 Quick add, 좁은 창의 실제 렌더링을 저장한다. 자동 실행기가 앱 활성 권한을 갖지 않는 경우를
+위해 테스트에서 표현 계층을 명시적으로 활성화하며 실제 앱의 비활성 시 갱신 중단 정책은 유지한다.
+실행 예시는 다음과 같다.
+
+```sh
+ctest --test-dir build -R '^Society.Calendar(Workspace)?$' --output-on-failure
+SOCIETY_CALENDAR_SCREENSHOT_DIR="$PWD/build/calendar-implementation/runtime" \
+  QT_QPA_PLATFORM=cocoa build/bin/SocietyDriveTests calendarWorkspaceRoutesEditsAndRendersFiveDesigns
+```
+
+서로 다른 SDK 설치본을 개발 중인 셸에서는 빌드에 선택한 iiFileProvider::Native 라이브러리 디렉터리를
+`DYLD_LIBRARY_PATH`에 지정한 후 직접 테스트를 실행한다. CTest는 선택된 패키지 경로를 자동으로 지정한다.
 
 
 2026-09-19 검증에서 SDK CTest 9/9, Society Calendar 데이터 통합 테스트,
@@ -184,3 +247,26 @@ Guilds·Organization은 `StorageNavigation`의 계정별 실제 목록을 사용
 이 검증은 소스 기반 UI와 빌드 대상에 대한 것이며 앱 번들 재패키징을 포함하지 않는다.
 
 QuickGenerate 복원 회귀 테스트는 `ctest --test-dir build -R "^Society.QuickGenerate$" --output-on-failure`로 실행한다.
+
+macOS 배포 도중 서명이 중단되어 생긴 `*.cstemp` 파일은 생성된 앱 번들 안에서만 정리한다.
+배포 잠금 획득 후 helper·라이브러리를 수집하기 전과 서명 직전에 정리하여 임시 실행파일이
+배포 대상으로 다시 들어가지 않도록 한다. `tests/test_macos_runtime.py`는 남은 임시 파일을
+포함한 실제 Mach-O 픽스처의 서명·실행 성공과 번들 외부 파일 보존을 검사한다.
+
+### 2026-10-23 Calendar 구현 검증
+
+Day·Week·Month·Year·Quick add를 실제 Calendar 작업 화면으로 연결하였다.
+`Society.Calendar`의 데이터 통합 검사 14항목과 `Society.CalendarWorkspace`가 통과하였다.
+네이티브 Cocoa 창에서 5개 보기·생성·재편집·삭제·Home 복귀·760/390 폭을 확인하였다.
+기존 사이드바 2개 및 작은 캘린더 회귀도 통과하였다. 기존 Home 상태 유지 검사는
+Cocoa 자동 실행기의 전면 활성화 조건을 만족하지 못해 별도 offscreen 실행으로 통과를 확인하였다.
+이 환경에서는 기존 Qt Labs 메뉴·글꼴 경고가 발생하며 Calendar 추가 QML의 정적 검사 경고는 0개이다.
+
+배포 회귀 10개, 앱 서명, 개발용 경로를 제거한 GUI·QML·데몬 실행 및 번들 구성을 검증하였다.
+최종 번들은 310,297,224바이트이며 버전은 `0.1.0`으로 유지하였다.
+이전 설치본을 `build/calendar-implementation/previous/Society.app`에 보존한 뒤
+`/Applications/Society.app`을 원자적으로 교체하였다. 설치 앱에서도 각 보기와 새 일정 창을
+직접 열어 확인하고 편집 창은 저장하지 않고 닫았다. 예시 일정은 임시 테스트 컨테이너에만 기록하였다.
+
+실행 캡처·로그·설치 해시 및 검증 목록은 `build/calendar-implementation/`에 있다.
+`verification.json`은 소스 해시와 각 검증의 환경·결과를, `installation.json`은 설치본과 백업 경로를 기록한다.

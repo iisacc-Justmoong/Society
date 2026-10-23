@@ -55,6 +55,21 @@ class RuntimeDeploymentTests(unittest.TestCase):
             plistlib.dump({}, file)
         deployment.sign(self.app, "-", entitlements)
 
+    def test_stale_signing_temporaries_are_removed_before_binary_discovery(self):
+        self.link(self.library(self.root / "vendor", "choice", 3), 3)
+        stale = self.executable.with_name("Fixture.cstemp")
+        stale.write_bytes(bytes.fromhex("cffaedfe"))
+        resource = self.app / "Contents/Resources/old.cstemp"
+        resource.parent.mkdir(); resource.write_text("interrupted signature")
+        outside = self.root / "preserved.cstemp"; outside.write_text("outside bundle")
+        entitlements = self.root / "entitlements.plist"
+        entitlements.write_bytes(plistlib.dumps({}))
+        deployment.sign(self.app, "-", entitlements)
+        self.assertFalse(stale.exists())
+        self.assertFalse(resource.exists())
+        self.assertEqual(outside.read_text(), "outside bundle")
+        self.assertEqual(self.execute().returncode, 0)
+
     def test_plugin_framework_is_copied_without_redeploying_the_app(self):
         qt = self.root / "qt"
         source = self.library(qt / "lib/QtFixture.framework/Versions/A", "choice", 5,
@@ -71,10 +86,23 @@ class RuntimeDeploymentTests(unittest.TestCase):
             plistlib.dump({"CFBundleIdentifier": "com.iisacc.fixture.framework",
                           "CFBundleExecutable": "QtFixture", "CFBundlePackageType": "FMWK",
                           "CFBundleVersion": "1"}, file)
+        for name in ("Headers", "PrivateHeaders", "Modules"):
+            directory = framework / "Versions/A" / name
+            directory.mkdir()
+            (directory / "development.txt").write_text("build-time metadata")
+            (framework / name).symlink_to("Versions/Current/" + name)
+        (resources / "LICENSE.txt").write_text("Runtime license fixture")
         self.link(framework_binary, 5)
         deployment.complete_frameworks(self.app, qt)
+        deployment.prune_framework_development_files(self.app)
         destination = self.app / "Contents/Frameworks/QtFixture.framework/Versions/A/QtFixture"
         self.assertTrue(destination.is_file())
+        deployed = destination.parents[2]
+        for name in ("Headers", "PrivateHeaders", "Modules"):
+            self.assertFalse((deployed / name).is_symlink())
+            self.assertFalse((deployed / "Versions/A" / name).exists())
+            self.assertTrue((framework / "Versions/A" / name / "development.txt").is_file())
+        self.assertEqual((deployed / "Resources/LICENSE.txt").read_text(), "Runtime license fixture")
         deployment.localize(self.app)
         self.seal()
         framework_binary.unlink()

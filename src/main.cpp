@@ -1,6 +1,7 @@
 #include "App/ApplicationLifetime.h"
 #include "App/ContainerFileOpenHandler.h"
 #include "App/Drive/DriveController.h"
+#include "App/Files/CanvasFilePreview.h"
 #include "backend/runtime/appentry.h"
 #include <iiSocietyHelper.h>
 #include <iiSocietyContainer/SocietyApplication.h>
@@ -35,6 +36,9 @@ void societyGroupStateRuntimeProbe(QObject *root);
 #ifdef SOCIETY_DASHBOARD_RUNTIME_PROBE
 void societyDashboardRuntimeProbe(QObject *root);
 #endif
+#ifdef SOCIETY_FILES_RUNTIME_PROBE
+void societyFilesRuntimeProbe(QObject *root);
+#endif
 #ifdef SOCIETY_IOS_FILES_INTEGRATION_TEST
 #include <QTimer>
 extern "C" void society_ios_files_integration_test();
@@ -48,8 +52,6 @@ void qml_register_types_Society();
 
 int main(int argc, char *argv[])
 {
-    qputenv("QML_DISABLE_DISK_CACHE", "1");
-    qputenv("QSG_RHI_DISABLE_DISK_CACHE", "1");
 #ifdef Q_OS_ANDROID
     qputenv("ANDROID_OPENSSL_SUFFIX", "_3");
 #endif
@@ -90,6 +92,7 @@ int main(int argc, char *argv[])
             });
 
         configureApplicationLifetime(engine);
+        registerSocietyCanvasFilePreview();
         engine.addImageProvider(QStringLiteral("society-preview"), new iiSocietyContainer::PreviewProvider);
 #ifdef Q_OS_MACOS
         const auto bundledQml = QDir(QCoreApplication::applicationDirPath()).filePath("../Resources/qml");
@@ -193,6 +196,9 @@ int main(int argc, char *argv[])
 #endif
 #ifdef SOCIETY_DASHBOARD_RUNTIME_PROBE
                     societyDashboardRuntimeProbe(root);
+#endif
+#ifdef SOCIETY_FILES_RUNTIME_PROBE
+                    societyFilesRuntimeProbe(root);
 #endif
                 }
             });

@@ -1,5 +1,10 @@
 # Society
 
+File import, file actions and Helper storage use iiFileProvider managed originals
+and revision history. Dashboard search supports indexed metadata and semantic
+directories; file information exposes the working identity, RAW original and
+work session. See [managed storage](docs/ManagedStorage.md).
+
 Society connects existing Files storage to the system file manager: a signed FSKit volume on macOS 26+, an identity-checked Dokan 2 removable drive on Windows, and a verified DocumentsProvider root on Android. Startup and Reconnect preserve the source directory and shared storage configuration. See [system drive behavior](docs/SystemDrive.md) and [Finder setup](docs/FinderDrive.md).
 
 `Files/`  does not provide default files or folders. `Documents` , `Audios` , `3D objects`  are also standard user folders and do not apply automatic creation, recovery, or name reservation. One-time cleanup of existing empty default folders and preservation of user content follow [Files management documentation](docs/Files.md).
@@ -56,7 +61,7 @@ The start screen displays Asset Library, Deleted, Files, Forked, Generation Hist
 
 Generation History displays all completed generated images from all apps as a single list. Image files are automatically saved directly below the area without creating app-specific or task-specific folders. This screen displays only PNG · JPEG · WebP and does not allow subfolder navigation. Since generated images are not Assets, they are not added to the Asset Library merely by generation. Queue and execution status are managed in each app's memory and are not saved to Society. Generated data that requires file paths, such as task materials and cache used outside Society, is cleaned up after use. Generated data permanently saved to Society is only the completed image file. In `Society.Drive`, image filtering and denial of subfolder navigation are verified for both desktop and mobile widths. If the path and filter change, FolderListModel is regenerated together to ensure no asynchronous list from the previous area remains. `Society.Gui` also checks for recursive switching between the image list and the regular folder list. No separate trash, publish, or archive policies are assigned to other areas.
 
-On macOS 26 and later, a directory-based Society store connects through FSKit as a Society volume. The app confirms the actual `societyfs` mount before reporting a mounted drive, and `Open in Finder` opens its public Files root. The selected package and UUID are preserved across reconnect and restart. Windows uses a Dokan removable volume; Android uses a verified DocumentsProvider root in system Files. Mobile managed storage also uses a `.societycontainer` package. The application does not automatically recover or reopen past disk images. Container synchronization within authenticated Society is handled by iiSocietySync.
+On macOS 26 and later, a directory-based Society store connects through FSKit as a Society volume. The app confirms the actual `societyfs` mount before reporting a mounted drive, and `Open in Finder` opens its public Files root. The selected package and UUID are preserved across reconnect and restart. Windows uses a Dokan removable volume; Android uses a verified DocumentsProvider root in system Files. Mobile managed storage also uses a `.societycontainer` package. The application does not automatically recover or reopen past disk images. Container synchronization within authenticated Society is handled by iiSocietyHelper Sync.
 
 <a id="모델-파일-드래그-앤-드롭"></a>
 
@@ -110,7 +115,7 @@ An empty string is unspecified and does not create a file list model or open the
 - CMake  3.31 or more, Ninja, C++23 compiler
 - Qt 6.8.3: Quick, QuickControls2, Qt .labs.folderlistmodel, test Test module
 - Installed LVRS CMake package and QML module
-- iiSocietyHelper 0.7.1, iiSocietySync 0.7.0, iiServerHost 0.6.0 or above
+- iiSocietyHelper 0.10.0 (including Sync/Remote and native Monitoring), iiWebServer 0.6.0 or above
 - iiSocietyContainer 0.14.0's `DiskImage` API; macOS's APFS disk image tool
 
 Reuses existing Qt /LVRS's window, font, theme, app bootstrap. File listing, sorting, folder change detection is included in Qt
@@ -119,27 +124,37 @@ Follow [Qt Quick's license notice](https://doc.qt.io/qt-6.8/qtquick-index.html#l
 
 macOS's `Society` build copies Qt · LVRS · SDK ·native library of GUI and embedded daemon to the app bundle respectively, links them via relative paths, and signs them. `build/bin/Society.app` must be runnable directly from Finder, and post-build checks remove development library environment variables and run the main body and daemon in actual execution. `Society.MacRuntimeLaunch` also validates QML window loading in the container unset state. Runtime such as OpenSSL installed in a separate location can specify a directory list to `SOCIETY_MAC_RUNTIME_SEARCH_PATHS`. Missing libraries are treated as build errors
 
-On desktop, the following 13 SDKs are found via `find_package(... CONFIG REQUIRED)`, and the `PackageName::PackageName` CMake target of the corresponding SDK is linked directly to `Society`. The default search path is `~/.local/SDK/<package name>`, and if even one is missing, configuration fails
+The product links the SDK capabilities used by its current features. Package discovery
+uses explicit package directories or `~/.local/SDK/<package name>`.
 
-|Required SDK|Public API checked in consumer tests|
+| Required capability | Owning SDK |
 | --- | --- |
-| iiFileProvider | `helloWorld()` |
-| iiGeneralDocument |Document generation and metadata access|
-| iiLicenseManager |`LicenseClient` Meta object and status enum|
-| iiLocalDiffusion |Query operation device name|
-| iiLocalLLM | `helloWorld()` |
-| iiServerHost |LAN   TLS ·Account-based self-server connection·Remote  WebSocket  request/response|
-| iiSharedCanvas |Query vector asset ID and type|
-| iiSocietyContainer |`helloWorld()` ,  `SocietyDrive`  create·area·persistence  ID|
-| iiSocietyHelper |`Helper`  Actual app cross-observation and existing  `helloWorld()`  compatibility|
-| iiSocietySync |`Controller` ,  `RemoteFiles` , actual bidirectional container transfer|
-| iiUpdateManager |`UpdateManager` Meta object and status enum|
-| iiVoiceOver | `helloWorld()` |
-| iiWhatsNew | `helloWorld()` |
+| Account UI and authentication | iiAcountManager Quick |
+| Persistent calendar, events and tasks | iiCalendar |
+| File creation, temporary leases and native presentation | iiFileProvider |
+| Device pairing and authenticated LAN hosting | iiWebServer |
+| Native container, previews and system-drive presentation | iiSocietyContainer Gui |
+| Shared application presence and file mirror | iiSocietyHelper 0.9.3 or later |
+| Bidirectional container replication | iiSocietyHelper Sync |
+| Photo library and gallery | iiPhotoLibrary |
+| Model packaging and desktop inference hosting | iiLocalDiffusion ModelPackaging and iiSocietyHelper Generation Host |
+| Local desktop MCP endpoint and agent harness on supported Unix platforms | iiMultimodalAgent 0.1 (iiLocalLLM 0.56 inference dependency) |
 
-The `iiLisenceManager`  of the request is connected to the actual installed name `iiLicenseManager` . Some SDKs require Qt 6.8.3  exactly, so Society also uses the same Qt  version.  `iiXml` , `iiHtmlBlock` , `iiPaintEngine`  and other indirect dependencies are declared by each SDK  package.
+The desktop links the installed agent SDK and packages its native runtime.
+See [agent integration](docs/AgentIntegration.md) for package selection and checks.
 
-File grid uses Qt's local file list and image loader. For  Society  connections verified by account, it executes  iiSocietySync   0.7.0  host permission-based Namespace replication. Host finalizes revision·change journal and client submits changes then receives finalization result. Mac Storage· NAS · S3  providers fall under this permission and Mac's local record is maintained even offline. Responsibility separation·conflict·recovery contract follows  [sync document](docs/Synchronization.md).  iiSocietyContainer 's new drive API is used in app and  `Society.Drive`  tests.
+`iiGeneralDocument`, `iiLicenseManager`, `iiUpdateManager`, `iiVoiceOver` and
+`iiWhatsNew` are not direct product dependencies. Canvas codecs belong to the
+storage/helper SDK dependency graph. The app does not link the broad inference
+facade directly; its model-packaging component and generation host retain the
+capabilities they call. Transitive dependencies required by these SDKs remain.
+
+`Society.Dependencies` checks the generated application's direct target list and
+launches the real packaged application in an isolated container to verify Helper
+peer observation. Product tests cover the actual account, calendar, photo,
+packaging, pairing and storage behavior. See [runtime efficiency](docs/Performance.md).
+
+File grid uses Qt's local file list and image loader. For  Society  connections verified by account, it executes  iiSocietyHelper Sync   0.7.0  host permission-based Namespace replication. Host finalizes revision·change journal and client submits changes then receives finalization result. Mac Storage· NAS · S3  providers fall under this permission and Mac's local record is maintained even offline. Responsibility separation·conflict·recovery contract follows  [sync document](docs/Synchronization.md).  iiSocietyContainer 's new drive API is used in app and  `Society.Drive`  tests.
 
 <a id="빌드-및-실행"></a>
 
@@ -187,7 +202,7 @@ CLion also specifies the CMake build directory as `build/`. The execution target
 - `tests/tst_modelimporter.cpp` : two model extensions, preserve original, name conflict, duplicate input, prevent overwrite during simultaneous import, invalid input, reject region redirect, cancel and temporary file cleanup
 - `tests/tst_applemodelsource.mm`: Copy and delayed callback cancellation check through actual Foundation file providers
 - `Society.IosDropSyntax` : If the host SDK has a UIKit header, compile-check the iOS drop delegate's API ·type at iOS target. It is not app link or execution check.
-- `tests/tst_dependencies.cpp`: Share actual app link settings to check headers·symbols·load at runtime for 13 SDKs
+- `tests/tst_dependencies.cpp`: Check the final product link dependencies and real packaged Helper peer observation
 
 AI class source and header are registered in `SocietyDependencyTests` and included in the build. Since the current class has no API or execution behavior and is not connected to the app, no separate feature assertions are added. Existing dependencies, GUI tests, and the full build are used to verify this skeleton addition.
 
@@ -197,7 +212,7 @@ AI class source and header are registered in `SocietyDependencyTests` and includ
 
 iOS 16 and above automatically open the Society of the shared App Group when the app is opened and register it with the Files app. The app's home maintains all 9 areas. Opening Society from the Files app immediately shows the content of `Files/` and does not expose the remaining 8 areas. iOS `Open in Files` opens a system document navigator starting from this public root.
 
-`ios-device`, `ios-simulator` CMake preset, and built-in `SocietyFileProvider.appex` are used. Full Xcode 16 and above, Qt 6.8.3 iOS, LVRS · iiSocietyContainer · iiSocietyHelper · iiSocietySync and their corresponding iOS target package of dependencies are required. `python3 -B tools/build_ios.py --platform ios-simulator` performs SDK build and installation through to app and extension build. Device package uses `build/ios-device/install`, simulator package uses `build/ios-simulator/install`. iOS configuration does not replace missing packages with desktop installation.
+`ios-device`, `ios-simulator` CMake preset, and built-in `SocietyFileProvider.appex` are used. Full Xcode 16 and above, Qt 6.8.3 iOS, LVRS · iiSocietyContainer · iiSocietyHelper 0.10.0 and their corresponding iOS target package of dependencies are required. `python3 -B tools/build_ios.py --platform ios-simulator` performs SDK build and installation through to app and extension build. Device package uses `build/ios-device/install`, simulator package uses `build/ios-simulator/install`. iOS configuration does not replace missing packages with desktop installation.
 
 ```sh
 cmake --preset ios-device -DSOCIETY_IOS_TEAM=<development-team-id>
@@ -221,7 +236,7 @@ python3 tools/build_android.py --qt <Qt-6.8.3-Android-ABI> --qt-host <Qt-6.8.3-h
   --sdk <Android-SDK> --ndk <NDK-r27c> --lvrs <same-ABI-LVRS-prefix> --package
 ```
 
-Build order is Container installation → Helper installation → Society APK. Output and SDK installation are placed under `build/android/`. Android and Windows /Linux depend only on the Container and Helper actually invoked by the current app, maintaining existing full SDK compatibility check of macOS. Device-specific signature APK deployment is a separate step.
+Build order is Container installation → Helper installation → Society APK. Output and SDK installation are placed under `build/android/`. Each platform discovers the SDK capabilities called by its current product code; macOS no longer requires unrelated SDK compatibility probes. Device-specific signed APK deployment is a separate step.
 
 Regression tests are in SDK's `files_view`, `mount_service`, `tests/native_mount.py`, `tests/android/run_device.py`, and Helper's `tests/android/`. Actual platform execution results are recorded with build logs, distinguishing cross-compilation and actual OS drive verification.
 <a id="ios-files-실행-회귀-검사"></a>
@@ -256,10 +271,10 @@ iOS   26  or higher, synchronization started via Devices → **Sync now**is conn
 
 ## Local MCP control
 
-The desktop POSIX build provides Society's controller running on the iiLocalLLM 0.36 family as an authenticated local MCP tool. Following the SDK's same minor version compatibility policy, use 0.36.0 or higher patch versions, and verify connection with the installer via `Society.Mcp` integration tests. Automatic discovery, input/permission/cancellation contracts, and actual app execution tests are recorded in [Mcp.md](docs/Mcp.md). It can be disabled via `IILOCALLLM_DISABLE_APP_MCP=1`.
+The desktop POSIX build exposes Society's controller through iiMultimodalAgent 0.1 as an authenticated local MCP tool. Inference remains in its iiLocalLLM 0.56 dependency. Verify the installed SDK connection with the packaged application through `Society.Mcp`; package selection and runtime bundling are described in [AgentIntegration.md](docs/AgentIntegration.md). Automatic discovery, input/permission/cancellation contracts, and actual app execution tests are recorded in [Mcp.md](docs/Mcp.md). It can be disabled via `IILOCALLLM_DISABLE_APP_MCP=1`.
 
 
-When entering mobile, the container status lookup of iiSocietySync and file processing are performed in the work thread. The screen reads only cached states and receives the lookup, download, and synchronization results asynchronously. Mobile exit does not wait for work cleanup and maintains the desktop execution right handover wait. iiSocietySync 0.5.0 and [asynchronous execution contract](docs/Synchronization.md#모바일-시작과-화면-응답성)are followed.
+When entering mobile, the container status lookup of iiSocietyHelper Sync and file processing are performed in the work thread. The screen reads only cached states and receives the lookup, download, and synchronization results asynchronously. Mobile exit does not wait for work cleanup and maintains the desktop execution right handover wait. iiSocietyHelper Sync 0.5.0 and [asynchronous execution contract](docs/Synchronization.md#모바일-시작과-화면-응답성)are followed.
 
 Photos are stored in the `Society.societycontainer/Photos/` hierarchy, similar to Files. Photos and Generation History are a square gallery with 2 px spacing, and zoom in/out by horizontal drag and pinch, and clicking or touching opens file information. [gallery operation and verification](docs/Gallery.md)are referenced.
 
@@ -274,7 +289,7 @@ The file grid and photo gallery test harnesses import their views from `src/App`
 
 ### Dashboard calendar
 
-The monthly calendar and daily schedule details of the dashboard use C++23 `iiCalendar::iiCalendar`. Before building, prepare iiCalendar 0.1 and ICU ·SQLite. The installation path and local data storage and verification contract are recorded in [Dashboard — iiCalendar](docs/Dashboard.md#iicalendar-대시보드).
+The dashboard calendar uses C++23 `iiCalendar::iiCalendar`. The Calendar sidebar entry opens a dedicated Day, Week, Month and Year workspace with calendar filters, upcoming events, tasks and an event inspector. New event and Edit event support durable event/task creation, revision-safe editing and deletion, time zones, all-day ranges, recurrence, alerts, participants and notes. Calendar data stays local to the selected Society container; participant records do not send invitations. The compact Home calendar remains available. Prepare iiCalendar, ICU and SQLite before building. See [Dashboard — iiCalendar](docs/Dashboard.md#iicalendar-대시보드) for storage, UI and verification details.
 
 <a id="macos에서-library-missing으로-실행되지-않을-때"></a>
 

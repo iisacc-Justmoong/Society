@@ -2,6 +2,7 @@
 
 #include "SocietyInbox.h"
 #include "Daemon/DaemonService.h"
+#include <future>
 
 // One owner for the app's Helper, inbox, and mobile receiver. The desktop
 // launchd service remains independent of this object's lifetime.
@@ -23,5 +24,7 @@ private:
     SocietyInbox m_inbox;
     SocietyDaemonService m_receiver;
     QTimer m_retry;
+    std::future<std::pair<QString, bool>> m_validation;
+    quint64 m_generation = 0, m_validationGeneration = 0;
     Qt::ApplicationState m_state = Qt::ApplicationSuspended;
 };

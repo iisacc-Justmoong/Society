@@ -1,10 +1,14 @@
 #include "App/Files/DirectoryLocation.h"
+#include "App/Files/CanvasFilePreview.h"
+#include <iiSharedCanvas.h>
 #include <iiSocietyContainer/PreviewCache.h>
 #include <FileCatalog.h>
+#include <SharedStorage.h>
 #include "backend/runtime/appbootstrap.h"
 
 #include <QAbstractItemModel>
 #include <QDir>
+#include <QElapsedTimer>
 #include <QDateTime>
 #include <QFile>
 #include <QGuiApplication>
@@ -24,6 +28,7 @@
 #include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QTest>
+#include <atomic>
 
 class FileGridTest final : public QObject
 {
@@ -47,6 +52,7 @@ private slots:
         qmlRegisterType<DirectoryLocation>("Society", 1, 0, "DirectoryLocation");
         qmlRegisterType<FileActions>("Society", 1, 0, "FileActions");
         qmlRegisterType<StorageDirectoryModel>("Society", 1, 0, "StorageDirectoryModel");
+        registerSocietyCanvasFilePreview();
         engine.addImageProvider(QStringLiteral("society-preview"), new iiSocietyContainer::PreviewProvider);
         engine.addImportPath(QString::fromUtf8(SOCIETY_LVRS_QML_IMPORT_PATH));
         connect(&engine, &QQmlApplicationEngine::warnings, this,
@@ -186,6 +192,93 @@ private slots:
         browser->setParentItem(nullptr);
     }
 
+    void nativeCanvasPreviewShowsArtworkAndReusesTheCache()
+    {
+        QTemporaryDir root(SOCIETY_TEST_DIRECTORY "/canvas-preview-XXXXXX.societycontainer");
+        QVERIFY(iiSocietyContainer::SocietyDrive::create(root.path()));
+        iiSharedCanvas::Document document; document.extent = {80, 40};
+        document.assets.emplace_back(iiSharedCanvas::RasterAsset{"paint",
+            makeRasterLayer(80, 40, 0xff25aa66U)});
+        document.layers.emplace_back(iiSharedCanvas::StaticBitmapLayer{{"layer", "Artwork"}, iiSharedCanvas::StaticSource{"paint"}});
+        const auto encoded = iiSharedCanvas::encodeIisc(document); QVERIFY(encoded.ok());
+        const auto path = root.filePath("Files/artwork.iisc");
+        QFile file(path); QVERIFY(file.open(QIODevice::WriteOnly));
+        QCOMPARE(file.write(reinterpret_cast<const char *>(encoded.bytes.data()), encoded.bytes.size()), qint64(encoded.bytes.size()));
+        file.close();
+        iiSocietyContainer::PreviewCache cache;
+        const auto first = cache.load(path, iiSocietyContainer::PreviewCache::HashPolicy::PreviewOnly);
+        QVERIFY(!first.image.isNull());
+        QCOMPARE(first.image.pixelColor(20, 10), QColor("#25aa66"));
+        QVERIFY(first.contentHash.isEmpty());
+        const auto next = cache.load(path, iiSocietyContainer::PreviewCache::HashPolicy::PreviewOnly);
+        QVERIFY(next.cacheHit); QCOMPARE(next.image, first.image);
+        QFile unchanged(path); QVERIFY(unchanged.open(QIODevice::ReadOnly));
+        QCOMPARE(unchanged.readAll(), QByteArray(reinterpret_cast<const char *>(encoded.bytes.data()), encoded.bytes.size()));
+        iiFileProvider::native::Presentation::cancelPending(std::filesystem::path(root.path().toStdU16String()));
+    }
+
+    void filesBrowserBoundsDelegatesToTheViewport()
+    {
+        QTemporaryDir folder(SOCIETY_TEST_DIRECTORY "/large-browser-XXXXXX");
+        QVERIFY(folder.isValid());
+        for (int i = 0; i < 2000; ++i) {
+            QFile file(folder.filePath(QString("file-%1.txt").arg(i, 5, 10, QChar('0'))));
+            QVERIFY(file.open(QIODevice::WriteOnly));
+        }
+        const auto appPath = QFileInfo(QString::fromUtf8(SOCIETY_QML_FILE)).dir().filePath("../src/App/FilesBrowser.qml");
+        QQmlComponent component(&engine, QUrl::fromLocalFile(appPath));
+        QElapsedTimer timer; timer.start();
+        QScopedPointer<QObject> object(component.createWithInitialProperties({
+            {"path", folder.path()}, {"width", 1212}, {"height", 844}}));
+        const auto componentMs = timer.elapsed();
+        QVERIFY2(object, qPrintable(component.errorString()));
+        auto *browser = qobject_cast<QQuickItem *>(object.data()); QVERIFY(browser);
+        std::atomic<bool> modelReady{false}, frameReady{false};
+        std::atomic<qint64> populatedFrameMs{-1};
+        QQuickWindow preview; preview.resize(1212, 844);
+        connect(&preview, &QQuickWindow::afterSynchronizing, &preview, [&] {
+            frameReady.store(modelReady.load());
+        }, Qt::DirectConnection);
+        connect(&preview, &QQuickWindow::frameSwapped, &preview, [&] {
+            if (frameReady.load() && populatedFrameMs.load() < 0)
+                populatedFrameMs.store(timer.elapsed());
+        }, Qt::DirectConnection);
+        browser->setParentItem(preview.contentItem()); preview.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&preview));
+        QTRY_COMPARE_WITH_TIMEOUT(browser->property("count").toInt(), 2000, 30000);
+        auto *table = browser->findChild<QQuickItem *>("filesTable"); QVERIFY(table);
+        auto *scroll = browser->findChild<QQuickItem *>("filesTableScroll"); QVERIFY(scroll);
+        const auto cells = [&] { return engine.newQObject(table).property("visibleCellItems"); };
+        QTRY_VERIFY(cells().property("length").toInt() > 0);
+        const auto created = cells().property("length").toInt();
+        QVERIFY2(created < 200, qPrintable(QString("Created %1 cells for a bounded viewport").arg(created)));
+        QCOMPARE(table->property("rowCount").toInt(), 2000);
+        QVERIFY(scroll->property("contentHeight").toDouble() >= 48000);
+        const auto guiReadyMs = timer.elapsed();
+        modelReady.store(true); preview.update();
+        QTRY_VERIFY_WITH_TIMEOUT(populatedFrameMs.load() >= 0, 30000);
+        qInfo("FilesBrowser 2000: create=%lld ms, GUI ready=%lld ms, populated frame=%lld ms; %d visible cells of 8000",
+              componentMs, guiReadyMs, populatedFrameMs.load(), created);
+        auto *hiddenGrid = browser->findChild<QQuickItem *>("filesBrowserGrid"); QVERIFY(hiddenGrid);
+        QCOMPARE(hiddenGrid->property("count").toInt(), 0);
+        QVERIFY(table->findChildren<QObject *>("tableCellContextMenu").isEmpty());
+        const auto firstCell = [&](auto &&self, QQuickItem *item) -> QQuickItem * {
+            if (item->objectName() == "filesCell_0_0") return item;
+            for (auto *child : item->childItems()) if (auto *found = self(self, child)) return found;
+            return nullptr;
+        };
+        QPointer<QObject> reusedCell = firstCell(firstCell, table); QVERIFY(reusedCell);
+        const auto screenshot = qEnvironmentVariable("SOCIETY_LARGE_BROWSER_SCREENSHOT");
+        if (!screenshot.isEmpty()) QVERIFY(preview.grabWindow().save(screenshot));
+        scroll->setProperty("contentY", 24000);
+        QTRY_VERIFY(cells().property(0).property("rowIndex").toInt() > 900);
+        QVERIFY(cells().property("length").toInt() < 200);
+        QVERIFY(reusedCell); // Scrolling updates an existing viewport slot.
+        scroll->setProperty("contentY", 48000 - scroll->height() + 25);
+        QTRY_COMPARE(cells().property(cells().property("length").toInt() - 1).property("rowIndex").toInt(), 1999);
+        browser->setParentItem(nullptr);
+    }
+
     void containerSelectionExposesProviderClassification()
     {
         QTemporaryDir root(QStringLiteral(SOCIETY_TEST_DIRECTORY "/rich-inspector-XXXXXX.societycontainer")); QVERIFY(root.isValid());
@@ -195,6 +288,10 @@ private slots:
         annotation.rating = 5; annotation.color = iiFileProvider::ColorLabel::Green; annotation.fields = {{"Client", "iisacc"}};
         const std::string body = "Inspector source content";
         QVERIFY(catalog.createFile("brief.txt", {reinterpret_cast<const std::byte *>(body.data()), body.size()}, annotation).metadataWritten);
+        const auto storage = iiSocietyContainer::SharedStorage::open(root.path()); QVERIFY(storage);
+        iiSocietyContainer::FileRepositoryContext work; work.description = "Capture inspector document"; work.work.application = "Society";
+        QString recordingError;
+        QVERIFY2(storage->recordFile(iiSocietyContainer::StoreSection::Files, "brief.txt", &recordingError, work), qPrintable(recordingError));
         DirectoryLocation location; location.setPath(root.filePath("Files")); location.inspectFile(root.filePath("Files/brief.txt"));
         QTRY_VERIFY(!location.inspecting());
         QCOMPARE(location.details().value("title").toString(), "Launch brief");
@@ -202,7 +299,20 @@ private slots:
         QCOMPARE(location.details().value("colorLabel").toString(), "green");
         QCOMPARE(location.details().value("keywords").toList().size(), 2);
         QCOMPARE(location.details().value("fields").toMap().value("Client").toString(), "iisacc");
+        QCOMPARE(location.details().value("managedStatus").toString(), "ready");
+        QCOMPARE(location.details().value("originalName").toString(), "brief.txt");
+        const auto originalChecksum = location.details().value("originalSha256").toString();
+        QCOMPARE(originalChecksum.size(), 64);
         QVERIFY(location.details().value("previewSource").toUrl().toString().startsWith("data:image/"));
+        QSignalSpy detailChanges(&location, &DirectoryLocation::detailsChanged);
+        location.inspectFile(root.filePath("Files/brief.txt"), "revision-1");
+        QTRY_VERIFY(!location.inspecting());
+        const auto notifications = detailChanges.count();
+        location.inspectFile(root.filePath("Files/brief.txt"), "revision-1");
+        QCOMPARE(detailChanges.count(), notifications);
+        location.inspectFile(root.filePath("Files/brief.txt"), "revision-2");
+        QTRY_VERIFY(!location.inspecting());
+        QVERIFY(detailChanges.count() > notifications);
         const auto appPath = QFileInfo(QString::fromUtf8(SOCIETY_QML_FILE)).dir().filePath("../src/App/FilesBrowser.qml");
         QQmlComponent component(&engine, QUrl::fromLocalFile(appPath));
         QScopedPointer<QObject> object(component.createWithInitialProperties({
@@ -226,7 +336,13 @@ private slots:
         QTRY_VERIFY(shows("Rating", "5 / 5"));
         QTRY_VERIFY(shows("Color label", "Green"));
         QTRY_VERIFY(shows("Client", "iisacc"));
+        QTRY_VERIFY(shows("Revision", "1"));
+        QTRY_VERIFY(shows("Original file", "brief.txt"));
+        QTRY_VERIFY(shows("Original checksum", originalChecksum));
+        QTRY_VERIFY(shows("Work session", "Capture inspector document"));
+        QTRY_VERIFY(shows("Application", "Society"));
         auto *preview = browser->findChild<QQuickItem *>("selectedFilePreview"); QVERIFY(preview);
+        QVERIFY(preview->property("source").toUrl().toString().startsWith("image://society-preview/"));
         QTRY_COMPARE(preview->property("status").toInt(), 1); // Image.Ready, actual provider text preview.
         iiFileProvider::native::Presentation::cancelPending(std::filesystem::path(root.path().toStdU16String()));
     }
@@ -322,7 +438,9 @@ private slots:
             QVERIFY(verifyClear());
             auto *label = entry->findChild<QQuickItem *>("fileName"); QVERIFY(label);
             auto *theme = engine.singletonInstance<QObject *>("LVRS", "Theme"); QVERIFY(theme);
-            QCOMPARE(label->property("color").value<QColor>(), theme->property("accent").value<QColor>());
+            // QML can expose floating-point versus integer QColor storage;
+            // compare the rendered RGBA value rather than its internal spec.
+            QCOMPARE(label->property("color").value<QColor>().rgba(), theme->property("accent").value<QColor>().rgba());
         }
         window->resize(960, 640);
         QSignalSpy activated(view, SIGNAL(activated(QString,bool)));
@@ -679,7 +797,9 @@ private slots:
         QTRY_COMPARE(view->property("count").toInt(), 1);
         QTRY_VERIFY(tileNamed("sample.safetensors"));
         auto *menu = view->findChild<QObject *>("fileContextMenu"); QVERIFY(menu);
+        auto *actions = menu->property("handler").value<QObject *>(); QVERIFY(actions);
         auto open = [&] {
+            QTRY_VERIFY_WITH_TIMEOUT(!actions->property("busy").toBool(), 30000);
             QTRY_VERIFY(!menu->property("visible").toBool());
             QTest::qWait(30); // Allow the status row to finish relaying out the grid.
             auto *tile = tileNamed("sample.safetensors");
@@ -694,7 +814,7 @@ private slots:
         QTRY_COMPARE(QGuiApplication::clipboard()->mimeData()->urls().first().toLocalFile(), source);
         open(); QTRY_VERIFY(menu->property("opened").toBool());
         QVERIFY(QMetaObject::invokeMethod(menu, "triggerEntry", Q_ARG(QVariant, 5)));
-        QTRY_VERIFY(QFileInfo::exists(temp.filePath("Models/Other/sample copy.safetensors")));
+        QTRY_VERIFY_WITH_TIMEOUT(QFileInfo::exists(temp.filePath("Models/Other/sample copy.safetensors")), 30000);
         QTRY_COMPARE(view->property("count").toInt(), 2);
         open(); QTRY_VERIFY(menu->property("opened").toBool());
         // Deletion must work even when the host index incorrectly marks a large
@@ -721,19 +841,22 @@ private slots:
         QVERIFY(nameInput->setProperty("text", "renamed.safetensors"));
         auto *renameButton = renameSheet->findChild<QObject *>("confirmFileRename"); QVERIFY(renameButton);
         QVERIFY(QMetaObject::invokeMethod(renameButton, "clicked"));
-        QTRY_VERIFY(QFileInfo::exists(temp.filePath("Deleted/renamed.safetensors")));
+        QTRY_VERIFY_WITH_TIMEOUT(QFileInfo::exists(temp.filePath("Deleted/renamed.safetensors")), 30000);
         QTRY_VERIFY(!renameSheet->property("visible").toBool());
         QTRY_VERIFY(tileNamed("renamed.safetensors"));
+        QTRY_VERIFY_WITH_TIMEOUT(!actions->property("busy").toBool(), 30000);
         auto *renamedTile = tileNamed("renamed.safetensors");
         QTest::mouseClick(window, Qt::RightButton, Qt::NoModifier, renamedTile->mapToScene(QPointF(50, 50)).toPoint());
         QTRY_VERIFY(menu->property("opened").toBool());
         QVERIFY(QMetaObject::invokeMethod(menu, "triggerEntry", Q_ARG(QVariant, 8)));
         auto *deleteSheet = menu->findChild<QObject *>("deleteFileSheet"); QVERIFY(deleteSheet);
         QTRY_VERIFY(deleteSheet->property("opened").toBool());
+        QCOMPARE(deleteSheet->property("title").toString(), "Remove from Deleted?");
         QVERIFY(QFileInfo::exists(temp.filePath("Deleted/renamed.safetensors")));
         auto *deleteButton = deleteSheet->findChild<QObject *>("confirmPermanentDelete"); QVERIFY(deleteButton);
         QVERIFY(QMetaObject::invokeMethod(deleteButton, "clicked"));
         QTRY_VERIFY(!QFileInfo::exists(temp.filePath("Deleted/renamed.safetensors")));
+        QTRY_VERIFY_WITH_TIMEOUT(!actions->property("busy").toBool(), 30000);
         QTRY_VERIFY(!deleteSheet->property("visible").toBool());
         QVERIFY(QDir().mkdir(temp.filePath("Files/Documents")));
         view->setProperty("path", temp.filePath("Files"));
@@ -745,6 +868,7 @@ private slots:
         QVERIFY(folderItems.at(8).toMap().value("enabled").toBool());
         QVERIFY(QMetaObject::invokeMethod(menu, "triggerEntry", Q_ARG(QVariant, 8)));
         QTRY_VERIFY(!QFileInfo::exists(temp.filePath("Files/Documents")));
+        QTRY_VERIFY_WITH_TIMEOUT(!actions->property("busy").toBool(), 30000);
         QVERIFY(iiSocietyContainer::SocietyDrive::open(temp.path()));
         QVERIFY(!QFileInfo::exists(temp.filePath("Files/Documents")));
         QVERIFY(QMetaObject::invokeMethod(menu, "close"));

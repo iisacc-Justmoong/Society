@@ -31,7 +31,7 @@ flowchart LR
 
 ## macOS 백그라운드 등록
 
-`tools/deploy_macos_runtime.py`는 본체와 데몬의 Mach-O 의존성을 분석하고 CMake에서 선택한 SDK 버전을 우선하여 배포한다. iiServerHost의 libcurl과 Brotli 같은 간접 의존성도 포함하며, 특정 패키지 관리자의 설치 위치를 하드코딩하지 않는다. 패키지 검증은 외부 라이브러리 로딩·누락된 간접 dylib·번들 밖을 가리키는 라이브러리 심볼릭 링크를 거부한다.
+`tools/deploy_macos_runtime.py`는 본체와 데몬의 Mach-O 의존성을 분석하고 CMake에서 선택한 SDK 버전을 우선하여 배포한다. iiWebServer의 libcurl과 Brotli 같은 간접 의존성도 포함하며, 특정 패키지 관리자의 설치 위치를 하드코딩하지 않는다. 패키지 검증은 외부 라이브러리 로딩·누락된 간접 dylib·번들 밖을 가리키는 라이브러리 심볼릭 링크를 거부한다.
 
 Society.app 안에 다음 두 파일을 포함한다.
 
@@ -110,7 +110,7 @@ iOS는 독립 상주 데몬을 지원하지 않는다. 선택한 `.societycontai
 
 ## 기기 간 동기화 런타임
 
-로그인 서비스는 --sync로 시작하며, Helper 수신과 함께 같은 계정의 Society 자동 연결·iiSocietySync 0.4.0을 실행한다. 창이 열려 있는 동안 GUI가 기기 실행 소유권을 갖고 데몬은 수신함 처리만 계속한다. 창이 종료되면 최대 다음 250ms 소유권 검사에서 데몬이 선택 경로·암호화된 계정 상태를 복원하고 재연결한다. GUI 재실행 시 데몬의 네트워크 객체·작업 스레드를 먼저 종료한 다음 소유권을 넘긴다. 로그인 서비스의 실행·서명·App Group 권한과 실제 기기 동기화 완료는 별도 검증한다.
+로그인 서비스는 --sync로 시작하며, Helper 수신과 함께 같은 계정의 Society 자동 연결·iiSocietyHelper Sync 0.4.0을 실행한다. 창이 열려 있는 동안 GUI가 기기 실행 소유권을 갖고 데몬은 수신함 처리만 계속한다. 창이 종료되면 최대 다음 250ms 소유권 검사에서 데몬이 선택 경로·암호화된 계정 상태를 복원하고 재연결한다. GUI 재실행 시 데몬의 네트워크 객체·작업 스레드를 먼저 종료한 다음 소유권을 넘긴다. 로그인 서비스의 실행·서명·App Group 권한과 실제 기기 동기화 완료는 별도 검증한다.
 
 데몬 번들은 본체와 같은 SocietyAppGroup·App Group entitlement와 Bonjour/로컬 네트워크 설명을 갖는다. 계정의 Qt Quick 화면 등록은 헤드리스 데몬에 포함하지 않는다. 기존 Qt Core/Gui/Qml/Network/Sql 및 SDK를 재사용하며 새 외부 의존성은 없다. --sync 없는 격리 수신함 검사는 기존처럼 로컬 Helper 수신만 수행한다. iOS·Android에서는 별도 데몬 대신 [동기화 수명](Synchronization.md)의 OS 백그라운드 작업을 사용한다. Windows/Linux는 같은 데몬 실행 파일을 직접 사용할 수 있으나 로그인 서비스 자동 등록은 macOS 전용이다.
 
@@ -140,7 +140,7 @@ The packaged helper discovery regression allows up to 25 seconds for the cold ap
 ## Container monitoring and app state delivery
 
 `SocietyContainerDaemon` is a separate, Qt-free C++23 service provided by
-`iiSocietyMonitor`. The existing `SocietyDaemon` retains synchronization,
+`iiSocietyHelper::Monitoring` from the iiSocietyHelper package. The existing `SocietyDaemon` retains synchronization,
 account restoration and delivery-queue responsibilities. Both plain executables
 ship inside the single `Society.app/Contents/MacOS` directory.
 
@@ -177,3 +177,12 @@ loader and legacy daemon. A freshly signed bundle includes large model/Qt
 runtimes, and its first filesystem/signature validation can exceed 30 seconds.
 This deadline does not change the native monitor's one-second scan interval or
 five-second heartbeat expiry.
+
+
+## GUI 수신 폴링의 스레드 소유권
+
+SocietyInbox의 250ms 타이머는 디스크·SQLite 조회를 직접 실행하지 않는다. 단일 표준 C++23 작업자가 DeliveryStore와 SQL 연결의 생성·열기·읽기·닫기를 모두 소유한다. 주기 조회는 한 번에 하나만 실행하고 결과를 GUI에 전달한다. 명시적인 시작·승인·조회 API는 같은 작업자에 직렬화한다.
+
+중지와 재연결은 세대 번호를 바꿔 이전 연결의 대기 결과를 폐기한다. 객체 종료 시 작업자를 회수한다. 컨테이너 경계 검증과 메시지 승인 영속성은 유지한다. `inboxPollingIsDeferredAndStoppedResultsCannotCrossAConnection`은 비동기 수신·중지·재연결·승인 복원을 검사한다.
+
+런타임 조정은 한 번 확인한 Helper 디렉터리를 재사용하여 같은 타이머 안에서 기본 컨테이너 경로를 중복 해석하지 않는다.

@@ -2,24 +2,24 @@
 
 # Society 컨테이너 동기화와 SDK 책임
 
-앱 협업·인증·발견·자동 페어링·호스트 접근은 통합 iiSocietyHelper 0.9.0이 담당하며, 기기 간 복제는 하위 계층 iiSocietySync를 사용한다. Dreamscapes는 Society 앱이 중단되어도 앱 안의 iiSocietyHelper로 호스트에 연결한다. 생성은 로컬 iiLocalDiffusion이 담당한다. [이미지 생성 책임](Generation.md)을 참조한다.
+앱 협업·인증·발견·자동 페어링·호스트 접근은 통합 iiSocietyHelper 0.10.0이 담당하며, 기기 간 복제는 같은 Core 라이브러리의 Sync 구현을 사용한다. Dreamscapes는 Society 앱이 중단되어도 앱 안의 iiSocietyHelper로 호스트에 연결한다. 생성은 로컬 iiLocalDiffusion이 담당한다. [이미지 생성 책임](Generation.md)을 참조한다.
 
 | 계층 | 담당 책임 |
 | --- | --- |
 | iiAccountManager 0.2.6 | 계정 검증·인증 상태·세션 바인딩·이벤트 기반 갱신·캐시 수명 |
 | Society 앱 | 보안 그룹 저장소 제공, LAN 발견·자동 페어링, 계정 기반 자체 서버 연결·NAS 호스팅, 호스트 선택, 데몬·모바일 백그라운드 수명과 사용자 화면 |
-| iiSocietyHelper 0.7.1 | 기기 내 관측·메시지/ACK·객체 스냅샷·계정 참조·로컬 Container 접근 |
-| iiSocietySync 0.8.0 | Namespace authority·리비전 그래프·변경 저널·저장 공급자·청크 복제·원격 Files 탐색 |
+| iiSocietyHelper 0.10.0 | 기기 내 관측·메시지/ACK·객체 스냅샷·계정 참조·로컬 Container 접근 |
+| iiSocietyHelper Core의 Sync | Namespace authority·리비전 그래프·변경 저널·저장 공급자·청크 복제·원격 Files 탐색 |
 | iiSocietyContainer 0.14.0 | 드라이브 UUID·9개 영역·로컬 공유 및 Files 전용 OS 투영 |
-| iiServerHost 0.6.0 | 계정으로 인증된 일반 연결과 TLS, 요청·응답·Files 전용 전송 원시 기능 |
+| iiWebServer 0.6.0 | 계정으로 인증된 일반 연결과 TLS, 요청·응답·Files 전용 전송 원시 기능 |
 
-Helper와 Sync는 서로 링크하지 않는다. 하위 SDK는 Society 앱을 참조하지 않는다. 새 외부 의존성은 없으며 기존 Qt/SQLite·Container·ServerHost를 재사용한다. 파일 시스템·버전·충돌의 상세 계약과 외부 문서는 [Sync README](../../../SDK/iiSocietySync/README.md)에 있다.
+Sync는 Helper Core의 내부 기능이며 별도 SDK를 링크하지 않는다. Monitoring은 같은 패키지의 독립 네이티브 구성요소이다. 하위 SDK는 Society 앱을 참조하지 않는다. 새 외부 의존성은 없으며 기존 Qt/SQLite·Container·ServerHost를 재사용한다. 파일 시스템·버전·충돌의 상세 계약과 외부 문서는 [Sync README](../../../SDK/iiSocietyHelper/docs/Sync/README.md)에 있다.
 
 ## Namespace와 저장 공급자
 
 자체 호스팅과 클라우드 호스팅은 동일한 authority 모델이다. 고정 호스트가 진실 소스이며, 논리 Namespace 아래의 Revision Graph → Change Journal → Object Metadata가 상태를 결정한다. Mac Storage·NAS·S3는 호스트 권한 아래의 저장 공급자이다. 제공자 변경과 연결 장애가 다른 primary host를 만들지 않는다. Mac 호스트는 연결된 peer가 없어도 로컬 변경을 확정하며, 클라이언트의 오프라인 편집은 제출 대기 상태로 남는다. 서버 relay와 LAN/TLS는 같은 저널을 복제한다.
 
-SDK의 `objectMetadata()`는 확정 상태, `record()`는 작업 상태를 반환한다. 공급자 배치/복구는 `Controller::placeObject`/`restoreObject`와 `ObjectProvider`를 사용한다. 외부 공급자의 endpoint·자격 증명은 호스트 설정이며 다른 기기에 복제하지 않는다. 현재 배치는 명시적 파일 단위이며 앱의 로컬 투영을 유지한다. [SDK Namespace 계약과 검증 범위](../../../SDK/iiSocietySync/Namespace.md)를 따른다.
+SDK의 `objectMetadata()`는 확정 상태, `record()`는 작업 상태를 반환한다. 공급자 배치/복구는 `Controller::placeObject`/`restoreObject`와 `ObjectProvider`를 사용한다. 외부 공급자의 endpoint·자격 증명은 호스트 설정이며 다른 기기에 복제하지 않는다. 현재 배치는 명시적 파일 단위이며 앱의 로컬 투영을 유지한다. [SDK Namespace 계약과 검증 범위](../../../SDK/iiSocietyHelper/docs/Sync/Namespace.md)를 따른다.
 
 호스트의 로컬 저널은 캐시된 계정 세션의 안정적인 scope로 열린다. LAN 페어링 증명을 갱신할 수 없거나 증명이 만료돼도 로컬 변경 확정은 계속된다. 이 scope는 원격 접근 권한이 아니며 다른 기기와의 연결은 유효한 계정 증명·TLS 검사를 계속 요구한다. 로그아웃하거나 런타임을 중지하면 해당 계정의 저널 작업도 닫는다. `Society.Account`는 페어링 증명이 있는 경우와 없는 경우 모두 인터넷·peer 없이 확정·재열기를 검사한다.
 
@@ -63,7 +63,7 @@ SDK의 실제 파일/SQLite 검사와 loopback TLS 검사는 손실 ACK·재시�
 
 Society.Account 통합 검사는 합성 계정 두 개 세션으로 자동 발견→페어링→TLS 연결→Models 700,000바이트 내려받기와 Files 올리기까지 실행하고 실제 바이트를 비교한다. HTTP 요청은 2회의 로그인과 2회의 권한 발급에서 증가하지 않는다. 기존 수동 QR·Files 탐색·모바일 호스트 거부 검사를 유지한다.
 
-`tools/build_ios.py`, iOS presets, `tools/build_android.py`는 각 ABI에서 Container/ServerHost 뒤에 Sync를 설치한다. iOS는 정적 링크하고 Android는 Sync 공유 라이브러리를 APK에 포함한다. 빌드·설치·실행 결과는 `build/responsibility-boundary/REPORT.md`에 기록한다.
+`tools/build_ios.py`, iOS presets, `tools/build_android.py`는 각 ABI에서 Container/ServerHost 뒤에 통합 Helper를 설치한다. iOS는 정적 링크하고 Android는 Helper 공유 라이브러리를 APK에 포함한다. Sync와 Remote를 별도 패키지로 빌드하지 않는다. 빌드·설치·실행 결과는 `build/responsibility-boundary/REPORT.md`에 기록한다.
 
 2026-09-10 실제 Mac 호스트와 iPhone 클라이언트에서 같은 UUID 채택, 32% 중단 후 이어받기, 초기 미러 완료, 양쪽의 생성·수정·삭제 및 호스트 종료 후 재실행·자동 재연결을 검증했다. iPhone의 8개 영역을 직접 복사해 독립적으로 SHA-256을 계산한 결과 17개 파일 6,941,660,775바이트가 Mac 원본과 일치했다. 인터넷 연결을 차단한 검사는 아니며, Android는 빌드 검증 범위이다. 실기기 증거와 산출물은 로컬 `build/host-mirror/REPORT.md` 및 `evidence.json`에 기록했다.
 
@@ -102,7 +102,7 @@ Apple 기기의 파일 해시는 CommonCrypto SHA-256을 사용한다. 같은 Ma
 
 SDK는 열기·SQLite·감시·해시·매니페스트·전송을 작업 스레드에서 실행한다. 원격 Files 다운로드의 목적지 열기·청크 검사·쓰기·최종 저장도 별도 작업 스레드에서 처리한다. UI에는 queued 결과와 진행 상태를 전달하며 완료 파일을 저장한 뒤 완료를 알린다. 모바일 실행권 반납은 비동기 `close`, 객체 소멸은 `shutdownAsync`를 사용한다. 데스크톱의 프로세스 실행권 인계는 기존 `closeAndWait`를 유지한다. OS가 부여하는 백그라운드 시간은 기존 정책을 따른다.
 
-Society는 Namespace 계약을 포함하는 iiSocietySync 0.8.0 이상을 요구한다. `Society.ClientOnlyNetwork`는 앱 진입의 비동기 반환, 파일을 다시 열지 않는 getter, 전경 복귀 시 재확인과 오래된 컨테이너 결과의 폐기를 검사한다. SDK 테스트는 다운로드 원자성과 실제 TLS 동기화도 함께 검증한다.
+Society는 Namespace 계약을 포함하는 iiSocietyHelper Sync 0.8.0 이상을 요구한다. `Society.ClientOnlyNetwork`는 앱 진입의 비동기 반환, 파일을 다시 열지 않는 getter, 전경 복귀 시 재확인과 오래된 컨테이너 결과의 폐기를 검사한다. SDK 테스트는 다운로드 원자성과 실제 TLS 동기화도 함께 검증한다.
 
 iOS 에서 전경 앱 열기 추월은 실제 파일 및 사진 작업에 대한 계속 처리 권한을 자동으로 요청합니다. 두 큐가 모두 완료되면 종료되며 취소/만료에 따르고 다음 활성화 시 재개됩니다. [iOS 수명 주기 및 제스처](iOS.md#app-opening-sync-and-touch-navigation)를 참조하세요.
 

@@ -142,7 +142,7 @@ private slots:
         QVERIFY2(!image.isNull(), qPrintable(reader.errorString()));
         const auto payload = decodePairingQrCameraFrame(image);
         QVERIFY2(!payload.isEmpty(), "The camera frame decoder could not read the photographed Society QR.");
-        iiServerHost::LanLink link; QVERIFY(iiServerHost::LanLink::decode(payload, &link));
+        iiWebServer::LanLink link; QVERIFY(iiWebServer::LanLink::decode(payload, &link));
         // Inspect the expired photograph only. Never connect using a user's captured offer.
         QVERIFY(link.expiresAt < QDateTime::currentDateTimeUtc());
         qInfo("Photographed Society QR decoded: %lld characters; no connection attempted.", qlonglong(payload.size()));
@@ -234,7 +234,7 @@ private slots:
         QTRY_VERIFY(desktop.discovery()->authenticated() && phone.discovery()->authenticated() && tablet.discovery()->authenticated());
         QCOMPARE(hostAccount->pairingCredentials().value("issuedAt").toString(), accounts.authority.pairingIssuedAt.toString(Qt::ISODate));
         const auto requestsBeforePairing = accounts.authority.sessionRequests().size();
-        QSignalSpy paired(desktop.localPeer(), &iiServerHost::LanPeer::paired);
+        QSignalSpy paired(desktop.localPeer(), &iiWebServer::LanPeer::paired);
         a.announceTo(b); a.announceTo(c); b.announceTo(a); c.announceTo(a);
         QTRY_VERIFY(!desktop.pairingQueue().isEmpty());
         { DevicePairing panel; panel.setNetwork(&desktop); panel.cancel(); }
@@ -276,9 +276,10 @@ private slots:
     }
     void registeredHostOutranksANewLowerIdDesktop() {
         RegisteredAccounts accounts;
+        // The host's indexer must stop before its backing fixture is removed.
+        QTemporaryDir root(SOCIETY_TEST_DIRECTORY "/primary-election-XXXXXX.societycontainer"), other(SOCIETY_TEST_DIRECTORY "/newcomer-election-XXXXXX.societycontainer");
         FakeDiscoveryService a, b;
         NetworkDriveController established(&a, QHostAddress::LocalHost), newcomer(&b, QHostAddress::LocalHost);
-        QTemporaryDir root(SOCIETY_TEST_DIRECTORY "/primary-election-XXXXXX.societycontainer"), other(SOCIETY_TEST_DIRECTORY "/newcomer-election-XXXXXX.societycontainer");
         QVERIFY(iiSocietyContainer::SocietyDrive::create(root.path())); QVERIFY(iiSocietyContainer::SocietyDrive::create(other.path()));
         established.setContainerPath(root.path()); newcomer.setContainerPath(other.path());
         const QString primaryId(64, 'f'), newcomerId(64, '0');
@@ -297,12 +298,12 @@ private slots:
         QVERIFY(!newcomer.hosting());
     }
     void registeredHostAndFailedPeerDoNotBlockOtherDevices() {
-        RegisteredAccounts accounts;
-        FakeDiscoveryService a, b, c;
-        NetworkDriveController first(&a, QHostAddress::LocalHost), second(&b, QHostAddress::LocalHost), unavailable(&c, QHostAddress::LocalHost);
         QTemporaryDir root(SOCIETY_TEST_DIRECTORY "/automatic-election-XXXXXX.societycontainer"),
             secondRoot(SOCIETY_TEST_DIRECTORY "/automatic-second-XXXXXX.societycontainer"),
             unavailableRoot(SOCIETY_TEST_DIRECTORY "/automatic-unavailable-XXXXXX.societycontainer");
+        RegisteredAccounts accounts;
+        FakeDiscoveryService a, b, c;
+        NetworkDriveController first(&a, QHostAddress::LocalHost), second(&b, QHostAddress::LocalHost), unavailable(&c, QHostAddress::LocalHost);
         QVERIFY(iiSocietyContainer::SocietyDrive::create(root.path()));
         QVERIFY(iiSocietyContainer::SocietyDrive::create(secondRoot.path()));
         QVERIFY(iiSocietyContainer::SocietyDrive::create(unavailableRoot.path()));
@@ -325,10 +326,10 @@ private slots:
         QTRY_VERIFY(first.pairingQueue().isEmpty());
     }
     void discoverySelectionAcceptAndCodeConfirmationExposeFiles() {
+        QTemporaryDir root(SOCIETY_TEST_DIRECTORY "/discovered-files-XXXXXX.societycontainer");
         RegisteredAccounts accounts;
         FakeDiscoveryService a, b;
         NetworkDriveController desktop(&a, QHostAddress::LocalHost); MobileNetworkDevice phone(&b, QHostAddress::LocalHost);
-        QTemporaryDir root(SOCIETY_TEST_DIRECTORY "/discovered-files-XXXXXX.societycontainer");
         QVERIFY(iiSocietyContainer::SocietyDrive::create(root.path())); desktop.setContainerPath(root.path());
         QVERIFY(accounts.start(root.path(), QString(64, 'a')));
         auto *desktopAccount = accounts.add(QString(64, 'a'), "Desktop", "pc", false);
@@ -350,6 +351,7 @@ private slots:
         };
         auto hostPanel = makePanel(&host, &hostScanner, &hostWindow), clientPanel = makePanel(&client, &clientScanner, &clientWindow);
         QVERIFY(hostPanel && clientPanel); QVERIFY(QMetaObject::invokeMethod(hostPanel.get(), "open"));
+        QTRY_VERIFY(hostPanel->property("opened").toBool());
         // The manual panel opens its QR tab. Choose the visible Nearby tab
         // through the same interaction as a user before selecting a device.
         auto *nearbyTab = hostPanel->findChild<QQuickItem *>("pairingNearbyTab");
@@ -370,6 +372,7 @@ private slots:
         QVERIFY(QMetaObject::invokeMethod(pairButton, "clicked")); QCOMPARE(host.phase(), "inviting"); QVERIFY(host.qrText().isEmpty());
         QTRY_COMPARE(received.size(), 1); QCOMPARE(client.phase(), "invited");
         QVERIFY(QMetaObject::invokeMethod(clientPanel.get(), "open"));
+        QTRY_VERIFY(clientPanel->property("opened").toBool());
         auto *acceptButton = clientPanel->findChild<QQuickItem *>("pairingAcceptInvitation");
         QVERIFY(acceptButton); QTRY_VERIFY(acceptButton->isVisible());
         QVERIFY(!phone.connected()); QVERIFY(QMetaObject::invokeMethod(acceptButton, "clicked"));
@@ -392,10 +395,10 @@ private slots:
         host.cancel(); QVERIFY(desktop.hosting()); QVERIFY(phone.connected());
     }
     void endingDiscoveryIdentityCancelsUnconfirmedConnection() {
+        QTemporaryDir root(SOCIETY_TEST_DIRECTORY "/ending-discovery-XXXXXX.societycontainer");
         RegisteredAccounts accounts;
         FakeDiscoveryService a, b;
         NetworkDriveController desktop(&a, QHostAddress::LocalHost); MobileNetworkDevice phone(&b, QHostAddress::LocalHost);
-        QTemporaryDir root(SOCIETY_TEST_DIRECTORY "/ending-discovery-XXXXXX.societycontainer");
         QVERIFY(iiSocietyContainer::SocietyDrive::create(root.path())); desktop.setContainerPath(root.path());
         QVERIFY(accounts.start(root.path(), QString(64, 'a')));
         auto *desktopAccount = accounts.add(QString(64, 'a'), "Desktop", "pc", false);
@@ -433,7 +436,7 @@ private slots:
         QTRY_COMPARE(client.phase(), QString("paired")); QTRY_COMPARE(host.phase(), QString("paired"));
         QCOMPARE(c.size(), 1); QCOMPARE(h.size(), 1);
         QVERIFY(host.qrText().isEmpty());
-        iiServerHost::LanLink link; QVERIFY(iiServerHost::LanLink::decode(qr, &link));
+        iiWebServer::LanLink link; QVERIFY(iiWebServer::LanLink::decode(qr, &link));
         QCOMPARE(client.peerName(), link.name);
         QTRY_VERIFY(!fixture.client.busy()); QCOMPARE(fixture.client.currentHost(), link.hostId);
         QCOMPARE(fixture.client.entries().size(), 1); // Only the public Files root is exposed.
@@ -494,7 +497,7 @@ private slots:
         Fixture fixture; QVERIFY(fixture.start());
         DevicePairing client; client.setNetwork(&fixture.client);
         const auto relay = fixture.client.activeRelayUrl();
-        iiServerHost::PairingLink link{QUrl("wss://attacker.example/relay"), "desktop", QString(64, 'a')};
+        iiWebServer::PairingLink link{QUrl("wss://attacker.example/relay"), "desktop", QString(64, 'a')};
         client.scanCode(link.encode()); QCOMPARE(client.phase(), QString("error"));
         QCOMPARE(fixture.client.activeRelayUrl(), relay); QVERIFY(!fixture.client.connected());
         client.scanCode("https://example.com"); QCOMPARE(client.phase(), QString("error"));

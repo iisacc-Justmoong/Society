@@ -22,7 +22,7 @@
 #include <QQuickWindow>
 #include <QQuickItem>
 #include "backend/runtime/appbootstrap.h"
-#include <iiSocietySync.h>
+#include <iiSocietyHelper/Sync/Sync.h>
 
 using namespace iiPhotoLibrary;
 namespace {
@@ -1025,25 +1025,25 @@ private slots:
         QVERIFY(desktop.store->importLibrary()); QVERIFY(phone.store->importLibrary());
         const auto phoneRecord = phone.store->catalog().first().toObject();
         const auto desktopRecord = desktop.store->catalog().first().toObject();
-        iiServerHost::LanPeer host, client;
-        iiSocietySync::Controller hosting({}), syncing([&](const auto &peer, const auto &packet) { return client.request(peer, packet); });
+        iiWebServer::LanPeer host, client;
+        iiSocietyHelper::Sync::Controller hosting({}), syncing([&](const auto &peer, const auto &packet) { return client.request(peer, packet); });
         PhotoController hostPhotos({}, nullptr, desktop.library);
         PhotoController phonePhotos([&](const auto &peer, const auto &packet) { return client.request(peer, packet); }, nullptr, phone.library);
-        const auto files = iiSocietySync::filesHandler(desktop.temporary.path() + "/drive.societycontainer");
-        connect(&client, &iiServerHost::LanPeer::completed, this, [&](const auto &id, const auto &result, const auto &transport) {
+        const auto files = iiSocietyHelper::Sync::filesHandler(desktop.temporary.path() + "/drive.societycontainer");
+        connect(&client, &iiWebServer::LanPeer::completed, this, [&](const auto &id, const auto &result, const auto &transport) {
             QCOMPARE(transport, QString("local")); syncing.receive(id, result); phonePhotos.receive(id, result);
         });
         QVERIFY(host.startHost("desktop", "Desktop", [&](const auto &peer, const auto &packet) {
             if (packet.value("op") == "society.photos") return hostPhotos.handle(peer, packet);
             return packet.value("op") == "society.sync" ? hosting.handle(peer, packet) : files(peer, packet);
-        }, {"127.0.0.1"}, QHostAddress::LocalHost));
+        }, {"127.0.0.1"}, iiWebServer::Address::loopback()));
         QVERIFY(client.join(host.createOffer(), "phone", "Phone")); QTRY_VERIFY2(client.connected(), qPrintable(client.errorString()));
         hosting.open(desktop.temporary.path() + "/drive.societycontainer", QString(64, 'a'));
         syncing.open(phone.temporary.path() + "/drive.societycontainer", QString(64, 'a'));
         // Opening the fixture stores can exceed the default 5 s on external storage.
         QTRY_VERIFY_WITH_TIMEOUT(hosting.available() && syncing.available(), 15000);
         hosting.setPeers({"phone"}, {});
-        QSignalSpy mirrored(&syncing, &iiSocietySync::Controller::synchronized);
+        QSignalSpy mirrored(&syncing, &iiSocietyHelper::Sync::Controller::synchronized);
         syncing.setPeers({"desktop"}, {"desktop"});
         QTRY_VERIFY2_WITH_TIMEOUT(!mirrored.isEmpty(), qPrintable(syncing.errorString()), 15000);
         const auto desktopId = desktopRecord.value("id").toString();
@@ -1052,9 +1052,9 @@ private slots:
         QTRY_VERIFY_WITH_TIMEOUT(QFile::exists(phone.photos() + '/' + desktopId + ".societyphoto"), 15000);
         phone.store = std::make_unique<PhotoStore>(phone.temporary.path() + "/drive.societycontainer", phone.library); QVERIFY(phone.store->open());
         QTRY_COMPARE_WITH_TIMEOUT(PhotoStore::digestFile(phone.store->previewPath(desktopId)), PhotoStore::digestFile(desktop.store->previewPath(desktopId)), 15000);
-        connect(&hostPhotos, &PhotoController::contentsChanged, &hosting, &iiSocietySync::Controller::synchronizeNow);
-        connect(&phonePhotos, &PhotoController::contentsChanged, &syncing, &iiSocietySync::Controller::synchronizeNow);
-        connect(&syncing, &iiSocietySync::Controller::synchronized, &phonePhotos, &PhotoController::refresh);
+        connect(&hostPhotos, &PhotoController::contentsChanged, &hosting, &iiSocietyHelper::Sync::Controller::synchronizeNow);
+        connect(&phonePhotos, &PhotoController::contentsChanged, &syncing, &iiSocietyHelper::Sync::Controller::synchronizeNow);
+        connect(&syncing, &iiSocietyHelper::Sync::Controller::synchronized, &phonePhotos, &PhotoController::refresh);
         hostPhotos.configure(desktop.temporary.path() + "/drive.societycontainer", true, {"phone"});
         QTRY_VERIFY_WITH_TIMEOUT(!hostPhotos.busy(), 5000);
         const auto phoneScansBeforeConfigure = phone.library->scans.load();

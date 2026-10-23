@@ -55,7 +55,7 @@ def expand(path, loader, executable):
                 .replace("@executable_path", str(executable.parent)))
 
 
-def native_sources(executable, libraries, search_paths):
+def native_sources(executable, libraries, search_paths, runtime_plugins=()):
     """Resolve before rewriting; explicitly selected SDK versions take precedence."""
     preferred = {}
     for library in libraries:
@@ -65,8 +65,12 @@ def native_sources(executable, libraries, search_paths):
         for name in identities(library):
             preferred[Path(name).name] = library
     result = {}
+    for plugin in runtime_plugins:
+        if not plugin.is_file():
+            raise RuntimeError(f"Missing native runtime plugin: {plugin}")
+        result[plugin.name] = plugin.resolve()
     inherited = rpaths(executable)
-    queue = [executable]
+    queue = [executable] + list(result.values())
     for binary in queue:
         for link in dependencies(binary):
             if link.startswith(SYSTEM_PREFIXES) or not link.endswith(".dylib"):
@@ -89,10 +93,10 @@ def native_sources(executable, libraries, search_paths):
     return result
 
 
-def prepare_native(app, libraries, search_paths, executable=None):
+def prepare_native(app, libraries, search_paths, executable=None, runtime_plugins=()):
     executable = executable or app / "Contents/MacOS" / app.stem
     frameworks = app / "Contents/Frameworks"
-    sources = native_sources(executable, libraries, search_paths)
+    sources = native_sources(executable, libraries, search_paths, runtime_plugins)
     frameworks.mkdir(parents=True, exist_ok=True)
     for name, source in sources.items():
         target = frameworks / name
@@ -193,11 +197,12 @@ def deploy_qml_modules(destination, modules, compact=False, quick_style=None, em
     return copied
 
 
-def prune_native(app):
+def prune_native(app, runtime_plugins=()):
     """Remove stale Frameworks entries outside the executable and plugin dependency closure."""
     frameworks = app / "Contents/Frameworks"
     native = set(binaries(app))
     roots = {binary for binary in native if not binary.is_relative_to(frameworks)}
+    roots.update((frameworks / plugin.name).resolve() for plugin in runtime_plugins)
     reachable = set()
     queue = list(roots)
     for binary in queue:
@@ -226,6 +231,29 @@ def prune_native(app):
                 path.unlink()
             else:
                 shutil.rmtree(path)
+    return removed
+
+
+def prune_framework_development_files(app):
+    """Keep Qt framework runtime resources without SDK headers or module maps."""
+    removed = []
+    for framework in sorted((app / "Contents/Frameworks").glob("Qt*.framework")):
+        if framework.is_symlink():
+            continue
+        roots = [framework]
+        versions = framework / "Versions"
+        if versions.is_dir() and not versions.is_symlink():
+            roots.extend(path for path in versions.iterdir() if path.is_dir() and not path.is_symlink())
+        for root in roots:
+            for name in ("Headers", "PrivateHeaders", "Modules"):
+                path = root / name
+                if path.is_symlink():
+                    path.unlink()
+                elif path.is_dir():
+                    shutil.rmtree(path)
+                else:
+                    continue
+                removed.append(str(path.relative_to(app)))
     return removed
 
 
@@ -331,7 +359,18 @@ def localize(app):
             run("install_name_tool", *changes, binary)
 
 
+def remove_signing_temporaries(app):
+    """Discard incomplete codesign output inside the generated bundle only."""
+    removed = []
+    for path in app.rglob("*.cstemp"):
+        if path.is_file() or path.is_symlink():
+            removed.append(str(path.relative_to(app)))
+            path.unlink()
+    return removed
+
+
 def sign(app, identity, entitlements):
+    remove_signing_temporaries(app)
     for binary in binaries(app):
         if binary == app / "Contents/MacOS" / app.stem:
             continue  # The main executable is sealed with its bundle.
@@ -368,12 +407,14 @@ def deploy(args):
 
 
 def _deploy_locked(args, app):
+    removed_signing_temporaries = remove_signing_temporaries(app)
     helpers = [path for path in (app / "Contents/MacOS").iterdir()
                if path.is_file() and path.name != app.stem]
     qt = args.macdeployqt.resolve().parent.parent
     search = args.search_path + [app / "Contents/Frameworks"]
     args.log.parent.mkdir(parents=True, exist_ok=True)
-    sources = prepare_native(app, args.library, search)
+    runtime_plugins = getattr(args, "runtime_plugin", [])
+    sources = prepare_native(app, args.library, search, runtime_plugins=runtime_plugins)
     for helper in helpers:
         sources.update(prepare_native(app, args.library, search, helper))
     plugins = qt_plugins(qt,args.library)
@@ -393,11 +434,13 @@ def _deploy_locked(args, app):
     config.parent.mkdir(parents=True, exist_ok=True)
     config.write_text("[Paths]\nPlugins = PlugIns\nQmlImports = Resources/qml\nQml2Imports = Resources/qml\n")
     report = {"qmlModules": copied_modules if args.qml_dir else [],
+              "removedSigningTemporaries": removed_signing_temporaries,
               "compact": args.compact, "quickStyle": args.quick_style,
-              "embeddedResourceModules": args.embedded_resources_module}
+              "embeddedResourceModules": args.embedded_resources_module,
+              "runtimePlugins": [plugin.name for plugin in runtime_plugins]}
     complete_frameworks(app, qt)
     if args.compact:
-        report["removedNativeEntries"] = prune_native(app)
+        report["removedNativeEntries"] = prune_native(app, runtime_plugins)
     # Stage plugin/framework-specific non-Qt libraries too. Each executable's
     # dependency graph is resolved before relocation, with selected SDKs first.
     extra_sources = {}
@@ -412,6 +455,8 @@ def _deploy_locked(args, app):
                 target.chmod(target.stat().st_mode | 0o200)
             shutil.copy2(source, target)
     complete_frameworks(app, qt)
+    if args.compact:
+        report["removedFrameworkDevelopmentEntries"] = prune_framework_development_files(app)
     localize(app)
     if args.compact and args.configuration in ("Release", "MinSizeRel"):
         report["thinnedBytes"] = thin_native(app)
@@ -429,6 +474,8 @@ if __name__ == "__main__":
     parser.add_argument("--qml-dir", type=Path)
     parser.add_argument("--qml-import", type=Path, action="append", default=[])
     parser.add_argument("--library", type=Path, action="append", default=[])
+    parser.add_argument("--runtime-plugin", type=Path, action="append", default=[],
+                        help="SDK-selected lazy native plugin to bundle with its dependency closure")
     parser.add_argument("--search-path", type=Path, action="append", default=[])
     parser.add_argument("--identity", default="-")
     parser.add_argument("--entitlements", type=Path)

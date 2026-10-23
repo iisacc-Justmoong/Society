@@ -27,7 +27,7 @@ public:
     QUrl folderUrl() const;
     QString errorString() const;
     Q_INVOKABLE QVariantMap fileDetails(const QString &path) const;
-    Q_INVOKABLE void inspectFile(const QString &path);
+    Q_INVOKABLE void inspectFile(const QString &path, const QString &revision = {});
     QVariantMap details() const { return m_details; }
     bool inspecting() const { return m_inspecting; }
 
@@ -43,6 +43,7 @@ private:
     quint64 m_inspection = 0;
     bool m_inspecting = false;
     QString m_requestedPath;
+    QString m_requestedRevision;
     QFutureWatcher<QVariantMap> *m_inspectionWatcher = nullptr;
     void startInspection();
 };

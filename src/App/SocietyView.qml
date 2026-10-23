@@ -158,6 +158,7 @@ LV.VStack {
                 placeholder: qsTr("Search")
                 placeholderColor: LV.Theme.titleHeaderColor
                 Accessible.name: qsTr("Search Society files")
+                Accessible.description: qsTr("Search names, titles and keywords. Use keyword:approved, rating:5, class:ProjectAsset or in:Projects/Launch.")
                 text: root.query
                 onTextChanged: if (root.query !== text) root.query = text
             }
@@ -254,6 +255,7 @@ LV.VStack {
             mode: searchMode
             placeholder: qsTr("Search")
             Accessible.name: qsTr("Search Society files")
+            Accessible.description: qsTr("Search names, titles and keywords. Use keyword:approved, rating:5, class:ProjectAsset or in:Projects/Launch.")
             text: root.query
             onTextChanged: if (root.query !== text) root.query = text
         }

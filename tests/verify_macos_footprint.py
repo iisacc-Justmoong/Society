@@ -10,7 +10,11 @@ def inspect(bundle, max_mib=512):
     for current, directories, names in os.walk(bundle, followlinks=False):
         current = Path(current)
         for name in directories:
-            if name.endswith('.dSYM') or name == 'designer':
+            parts = current.relative_to(bundle).parts
+            qt_framework_metadata = (len(parts) >= 3 and parts[:2] == ('Contents', 'Frameworks')
+                and parts[2].startswith('Qt') and parts[2].endswith('.framework')
+                and name in ('Headers', 'PrivateHeaders', 'Modules'))
+            if name.endswith('.dSYM') or name == 'designer' or qt_framework_metadata:
                 artifacts.append(str((current / name).relative_to(bundle)))
         directories[:] = [name for name in directories if not (current / name).is_symlink()]
         for name in names:

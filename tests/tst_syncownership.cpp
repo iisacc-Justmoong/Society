@@ -23,6 +23,7 @@ private slots:
         SyncOwnership gui(first, true); QVERIFY(gui.start()); QVERIFY(gui.owned());
         qputenv("SOCIETY_CONTAINER_PATH", secondRoot.toUtf8());
         QVERIFY(gui.setDirectory(second)); QCOMPARE(gui.directory(), second); QVERIFY(gui.owned());
+        QTest::qWait(600); QVERIFY(gui.owned()); // Stale validation must not release the new root.
         QLockFile oldLease(first + "/owner.lock"); QVERIFY(oldLease.tryLock());
         QVERIFY(!gui.setDirectory({})); QVERIFY(!gui.owned());
         SyncOwnership secondDaemon(second, false); QVERIFY(secondDaemon.start()); QVERIFY(secondDaemon.owned());

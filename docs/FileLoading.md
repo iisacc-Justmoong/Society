@@ -10,4 +10,58 @@ Society 는 엔진 시작 시 SDK `society-preview` 비동기 이미지 제공�
 [SDK 계약](../../../SDK/iiSocietyContainer/FileLoading.md). 소스/SDK 테스트 결과, 설치된 애플리케이션 검증 및 실제 장치 동작은 별도로 보고되어야 합니다. 웜 캐시 적중의 벤치마크는 콜드 스타트 ​​증거가 아닙니다.
 
 동기화 SDK 도 한계가 설정된 스트리밍 감시 발견을 사용합니다. 이는 섹션 루트를 우선순위로 하고, 설명자/검사 예산에서 멈추며, 큰 미리보기 폴더의 모든 파일을 즉시 정렬하는 대신 항목 간 취소 확인을 수행합니다. 이는 배경 파일 시스템 경쟁을 줄입니다; 지연된 물리적 저장소를 빠르게 만들거나 호스트 소유권 종료 장벽을 제거하지 않습니다. 참조
-[시계 발견](../../../SDK/iiSocietySync/NearbySync.md#bounded-filesystem-watch-discovery).
+[시계 발견](../../../SDK/iiSocietyHelper/docs/Sync/NearbySync.md#bounded-filesystem-watch-discovery).
+
+
+## 2026-10-21 파일 표시 경로
+
+FilesBrowser는 `StorageDirectoryModel.entry(index)`로 역할 맵을 한 번에 받아 검색·정렬한다. 상태 변경과 행 변경에서 같은 목록을 중복 구성하지 않는다. 선택 경로와 프리뷰 리비전이 같으면 상세 조회도 재실행하지 않는다. 프리뷰 URL·크기·수정 시각이 바뀌면 상세 정보를 새로 읽는다.
+
+`LV.Table.viewportY/viewportHeight`를 스크롤 영역에 바인딩하여 보이는 본문 셀과 앞뒤 두 행만 생성한다. 전체 행 수·스크롤 높이·키보드 탐색 좌표는 유지한다. Grid는 이미지뿐 아니라 iiFileProvider가 제공하는 문서·캔버스 프리뷰도 비동기로 표시한다. Inspector와 Space 미리보기는 상세 메타데이터를 기다리기 전에 캐시 URL을 사용한다.
+
+프리뷰 요청은 원본 전체 SHA-256 계산을 생략하고 작은 PNG의 SHA-256과 파일 리비전으로 캐시를 확인한다. 원본 전체 해시는 SDK의 명시적 `PreviewCache::load(path)` 요청에서 계산한다. 원격 파일의 타일 표시가 원본 다운로드를 유발하지 않는다.
+
+검증: `Society.Gui`의 `filesBrowserBoundsDelegatesToTheViewport`, `containerSelectionExposesProviderClassification`과 SDK의 `preview_cache`, `shared_storage`, `file_tree`를 사용한다. 2,000행 검증은 8,000개 전체 셀 대신 보이는 셀 수를 제한하고 중간·마지막 행 스크롤을 확인한다.
+
+
+Society는 iiFileProvider에 `.iisc` 렌더러를 등록하고 iiSharedCanvas의 읽기 전용 `readIiscPreview`로 실제 합성 작품을 표시한다. 저장 파일을 저작용으로 열거나 수정하지 않는다. 첫 프리뷰에는 512픽셀 출력·32 MiB 컨테이너·총 16 Mi 픽셀의 래스터 자산 한계를 적용하며, 한계를 넘는 문서는 정보 카드로 폴백한다. PNG 인코딩은 GUI 어댑터에만 두고 문서 디코딩·합성은 네이티브 SDK를 사용한다. `nativeCanvasPreviewShowsArtworkAndReusesTheCache`는 작품 색상·영속 캐시·원본 바이트 불변을 확인한다. 대시보드의 Canvas·Document 카드에도 같은 리비전 기반 프리뷰 URL을 제공한다.
+
+측정 조건과 수치는 [파일 로딩 성능 검증](FileLoadingPerformance.md)에 기록한다.
+
+## 목록 렌더링 재사용과 실제 프레임 측정
+
+실행 중 컨테이너 경계의 주기적 재검증은 표준 C++ 작업자에서 수행한다.
+시작과 실제 저장 작업은 기존 검증을 유지한다. 소유권 반환은 검증 결과를 받은
+이벤트 루프에서 전송 중지 신호를 방출한 후 잠금을 푸는 순서를 따른다. 중지·재시작과
+컨테이너 전환은 세대 번호로 이전 검증 결과를 무시한다. SDK 컨테이너 미러는 동일한
+스냅샷의 정렬을 생략하여 파일 표와 무관한 메타데이터 갱신이 프레임을 지연하지 않게 한다.
+
+기본 이름 정렬은 StorageDirectoryModel의 결과를 그대로 사용한다. 날짜와 크기 표시는
+전체 행 배열에서 미리 만들지 않고 화면의 대표자에서 계산한다. 목록 모드의 숨겨진
+GridView에는 모델을 전달하지 않으며 그리드 모드에서는 표의 행 모델을 비운다.
+LVRS Table은 읽기 전용 셀 슬롯을 재사용하고 삭제 메뉴를 처음 사용할 때 하나만 만든다.
+Society 셀 대표자는 LVRS Theme·Label을 사용하며, 편집기·빈 기본 라벨·사용하지 않는
+편집 상태 애니메이션을 생성하지 않는다.
+검색·사용자 정렬·선택 경로 유지·중간 및 마지막 행 접근은 기존 계약을 따른다.
+
+`SOCIETY_FILES_RUNTIME_PROBE=ON` 빌드는 설치 앱의 실제 Storage 화면에서 프레임을
+측정할 수 있다. 기본 실행에서는 측정기를 시작하지 않는다. 검증에는 별도 컨테이너,
+설정 경로와 helper 경로, 비활성 세션 복원이 모두 필요하다. 출력 파일과 이 경로들은
+같은 검증 디렉터리 안에 있어야 하므로 실사용 컨테이너로 자동 이동하지 않는다.
+
+```sh
+python3 tests/verify_files_runtime.py /Applications/Society.app \
+  build/file-rendering-20261021/loading-fixture.societycontainer \
+  build/file-rendering-20261021 --runs 3 --keep-last
+```
+
+픽스처는 SDK의 `iiSocietyContainerLoadingBenchmark`를 검증 디렉터리에서 실행하여
+준비한다. 측정기는 원본 파일을 작성하지 않는다. 첫 표시 시간은 컨테이너 준비 후
+Storage/Files 이동부터 내용이 동기화되어 `frameSwapped`된 시점까지이다. 화면에 들어온
+시점만 검사하는 메타데이터 시간과 구분한다. 화면 캡처와 검증 로그 저장은 표시 시간
+기록 뒤에 수행한다. 중간·마지막 행 스크롤도 새 위치가 포함된 프레임을 각각 확인한다.
+
+격리 픽스처의 GUI 검사는 일반 회귀 검사와 같이 `SOCIETY_DISABLE_NATIVE_DRIVE=1`로
+새 FSKit/Finder 마운트 생성을 제외한다. Files 진입은 컨테이너 준비 작업이 끝난 후
+측정한다. 실제 파일 읽기·스냅샷·LVRS·Metal 렌더링은 설치 앱의 경로를 사용한다.
+일반 실행의 Finder 연결과 앱 프로세스 전체 시작 시간은 이 GUI 수치에 포함되지 않는다.

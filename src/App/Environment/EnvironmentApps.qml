@@ -34,6 +34,7 @@ ColumnLayout {
             required property var modelData
             objectName: modelData.objectName
             text: modelData.text
+            iconName: modelData.iconName
             badge: modelData.badge
             iconSource: Qt.resolvedUrl("icons/folder.svg")
             selected: index === root.collection
