@@ -1,5 +1,5 @@
 #pragma once
-#include "App/Network/NetworkDriveController.h"
+#include "Society/Network/NetworkDriveController.h"
 
 // Multi-device fixtures run both native roles in one desktop test process.
 // The separately compiled ClientOnlyNetwork target verifies the mobile default.

@@ -1,5 +1,6 @@
 #pragma once
 #include "PairingCredentialsFixture.h"
+#include "LicenseTokenFixture.h"
 #include <QCryptographicHash>
 #include <QFile>
 #include <QUuid>
@@ -7,6 +8,7 @@
 #include <QJsonArray>
 #include <QTcpServer>
 #include <QTcpSocket>
+#include <functional>
 
 class AccountServer : public QObject {
 public:
@@ -19,6 +21,8 @@ public:
     QDateTime pairingIssuedAt;
     bool hang = false;
     QJsonObject profile;
+    std::function<QJsonObject(const QJsonObject&)> cloudFiles;
+    QList<QJsonObject> cloudRequests;
     QList<QJsonObject> sessionRequests() const {
         QList<QJsonObject> result;
         for (const auto& request : requests) if (request.value("intent") != "container") result.append(request);
@@ -49,11 +53,47 @@ public:
                     if (bytes.size() < offset + 4 + length) return;
                     socket->setProperty("handled", true);
                     const auto wire = QJsonDocument::fromJson(bytes.mid(offset + 4, length)).object();
+                    if (bytes.startsWith("POST /Account/GraphQL ") && wire.value("query").toString().contains("societyFiles(input: $input)")) {
+                        const auto input = wire.value("variables").toObject().value("input").toObject();
+                        cloudRequests.append(input);
+                        const auto payload = cloudFiles ? cloudFiles(input) : QJsonObject{};
+                        const auto body = QJsonDocument(QJsonObject{{"data", QJsonObject{{"societyFiles", payload}}}}).toJson(QJsonDocument::Compact);
+                        socket->write("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nConnection: close\r\nContent-Length: " + QByteArray::number(body.size()) + "\r\n\r\n" + body);
+                        socket->disconnectFromHost(); return;
+                    }
                     if (bytes.startsWith("POST /Account/GraphQL ") && wire.value("query").toString().contains("accountSession {")) {
                         const auto account = status == 200 && bytes.contains("iisacc_auth_id=fixture-id") ? QJsonValue(profile) : QJsonValue(QJsonValue::Null);
                         const auto body = QJsonDocument(QJsonObject{{"data", QJsonObject{{"accountSession", QJsonObject{{"account", account}}}}}}).toJson();
                         socket->write("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nConnection: close\r\nContent-Length: " + QByteArray::number(body.size()) + "\r\n\r\n" + body);
                         socket->disconnectFromHost(); return;
+                    }
+                    if(bytes.startsWith("POST /Account/GraphQL ")&&wire.value("query").toString().contains("accountConnections(input: $input)")) {
+                        const auto input=wire.value("variables").toObject().value("input").toObject();QJsonObject payload;
+                        if(input.value("operation")=="revoke") {revokedSession=input.value("sessionId").toString();payload={{"revoked",1},{"currentRevoked",false}};}
+                        else {
+                            QJsonArray sessions{QJsonObject{{"id",QString(32,'a')},{"current",true},{"client","app"},
+                                {"device",QJsonObject{{"name","Society Mac"},{"appId","com.iisacc.society"}}},{"expiresAt","2100-01-01T00:00:00Z"}}};
+                            if(revokedSession.isEmpty())sessions.append(QJsonObject{{"id",QString(32,'b')},{"current",false},{"client","app"},
+                                {"device",QJsonObject{{"name","Fixture iPad"},{"appId","com.iisacc.congregation.painter"}}},{"expiresAt","2100-01-01T00:00:00Z"}});
+                            payload={{"subject",profile.value("sub")},{"sessions",sessions}};
+                        }
+                        const auto body=QJsonDocument(QJsonObject{{"data",QJsonObject{{"accountConnections",payload}}}}).toJson(QJsonDocument::Compact);
+                        socket->write("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nConnection: close\r\nContent-Length: "+QByteArray::number(body.size())+"\r\n\r\n"+body);
+                        socket->disconnectFromHost();return;
+                    }
+                    if(bytes.startsWith("POST /Account/GraphQL ")&&wire.value("query").toString().contains("accountLicenses(input: $input)")) {
+                        ++licenseRequests;if(licenseHang)return;const auto input=wire.value("variables").toObject().value("input").toObject();
+                        const auto checked=QDateTime::currentSecsSinceEpoch();QJsonArray rows;
+                        for(const auto& product:input.value("products").toArray()) rows.append(QJsonObject{{"productId",product},{"licensed",licenseOwned},
+                            {"subject",profile.value("sub")},{"checkedAt",checked},{"expiresAt",QJsonValue::Null},{"manager","society"}});
+                        QJsonArray claims;for(const auto&r:rows){auto o=r.toObject();claims.append(QJsonObject{{"productId",o.value("productId")},{"licensed",o.value("licensed")},{"expiresAt",QJsonValue::Null}});}
+                        const QJsonObject payload{{"v",1},{"iss","https://iisacc.com"},{"aud","society"},{"sub",licenseForeign?QJsonValue("foreign"):profile.value("sub")},
+                            {"deviceId",input.value("deviceId")},{"issuedAt",checked},{"expiresAt",checked+86400},{"licenses",claims}};
+                        const auto token=license_fixture::sign(QJsonDocument(payload).toJson(QJsonDocument::Compact).toStdString());
+                        const auto body=QJsonDocument(QJsonObject{{"data",QJsonObject{{"accountLicenses",QJsonObject{{"subject",profile.value("sub")},
+                            {"licenses",rows},{"checkedAt",checked},{"licenseToken",QString::fromStdString(token)}}}}}}).toJson(QJsonDocument::Compact);
+                        socket->write("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nConnection: close\r\nContent-Length: "+QByteArray::number(body.size())+"\r\n\r\n"+body);
+                        socket->disconnectFromHost();return;
                     }
                     if (!bytes.startsWith("POST /Account/GraphQL ") || !wire.value("query").toString().contains("appSession(input: $input)")) {
                         socket->write("HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
@@ -108,6 +148,9 @@ public:
             }
         });
     }
+    QString revokedSession;
+    bool licenseOwned=true,licenseHang=false,licenseForeign=false;
+    int licenseRequests=0;
     QUrl url() const { return QUrl(QString("http://127.0.0.1:%1").arg(server.serverPort())); }
     QString scope() const {
         return QString::fromLatin1(QCryptographicHash::hash("society-auto-pair-v1\n" + url().toEncoded() + '\n'

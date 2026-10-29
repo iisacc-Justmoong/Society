@@ -1,0 +1,771 @@
+{
+  "format": "iisacc.agent-document",
+  "schema_version": 1,
+  "document_id": "urn:iisacc:document:9ad147a8e82682d172a14c49263e9479dd9f38c4c410a5b37a3d996a54d08580",
+  "project": {
+    "id": "urn:iisacc:project:Product%2FSociety",
+    "name": "Society",
+    "root": "Product/Society",
+    "kind": "application"
+  },
+  "source": {
+    "path": "docs/FileLoadingPerformance.md",
+    "sha256": "fc0681bbc7f59c27e1807635e2c32a5cba7487dc1714fcbd5d4382cd237941c4",
+    "bytes": 10640,
+    "line_count": 114,
+    "encoding": "utf-8",
+    "language": "ko"
+  },
+  "document": {
+    "title": "파일 목록과 프리뷰 성능 검증",
+    "role": "guide",
+    "authority": "markdown_source"
+  },
+  "blocks": [
+    {
+      "id": "b000001",
+      "kind": "heading",
+      "start_line": 1,
+      "end_line": 1,
+      "raw": "# 파일 목록과 프리뷰 성능 검증\n",
+      "level": 1,
+      "title": "파일 목록과 프리뷰 성능 검증"
+    },
+    {
+      "id": "b000002",
+      "kind": "blank",
+      "start_line": 2,
+      "end_line": 2,
+      "raw": "\n"
+    },
+    {
+      "id": "b000003",
+      "kind": "paragraph",
+      "start_line": 3,
+      "end_line": 3,
+      "raw": "측정일은 2026-10-21이며 macOS arm64 Release 빌드 기준이다. 픽스처와 기록은 각 저장소의 `build/` 아래에 둔다. 외장 볼륨에서 다른 빌드가 함께 진행되었으므로 이 수치는 보편적인 지연 보장이 아니다.\n"
+    },
+    {
+      "id": "b000004",
+      "kind": "blank",
+      "start_line": 4,
+      "end_line": 4,
+      "raw": "\n"
+    },
+    {
+      "id": "b000005",
+      "kind": "heading",
+      "start_line": 5,
+      "end_line": 5,
+      "raw": "## 확인된 병목과 변경\n",
+      "level": 2,
+      "title": "확인된 병목과 변경"
+    },
+    {
+      "id": "b000006",
+      "kind": "blank",
+      "start_line": 6,
+      "end_line": 6,
+      "raw": "\n"
+    },
+    {
+      "id": "b000007",
+      "kind": "list",
+      "start_line": 7,
+      "end_line": 11,
+      "raw": "- 실행 중인 기존 앱의 3초 샘플에서 메인 스레드의 1,814회 관측 중 537회가 SocietyInbox의 동기 디스크·SQLite 조회 경로였다. 250ms 주기 조회를 단일 표준 C++ 작업자로 옮겼다. SQL 연결의 전체 수명도 해당 작업자가 소유한다.\n- 기존 프리뷰는 캐시를 읽기 전에 원본의 프리뷰를 준비하고 원본 전체 해시를 계산하였다. UI 요청은 캐시 PNG 무결성과 파일 리비전만 확인한다. 원본 SHA-256은 명시적 요청에서 계산한다.\n- 파일 표는 전체 셀을 생성하였다. 이제 화면과 앞뒤 두 행의 셀만 생성한다. QML은 행 역할을 한 번에 받고 같은 파일 리비전의 상세 정보를 반복 조회하지 않는다.\n- 네이티브 FileTree는 검증한 부모 아래의 이터레이터 메타데이터를 직접 수집하며, 항목마다 조상 경로를 다시 열지 않는다. 열거 후 부모 경계를 재검사한다.\n- `.iisc` 프리뷰는 iiSharedCanvas의 읽기 전용 문서 합성 API를 사용한다. 원본 바이트를 다시 쓰지 않는다.\n",
+      "items": [
+        {
+          "marker": "-",
+          "text": "실행 중인 기존 앱의 3초 샘플에서 메인 스레드의 1,814회 관측 중 537회가 SocietyInbox의 동기 디스크·SQLite 조회 경로였다. 250ms 주기 조회를 단일 표준 C++ 작업자로 옮겼다. SQL 연결의 전체 수명도 해당 작업자가 소유한다.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "기존 프리뷰는 캐시를 읽기 전에 원본의 프리뷰를 준비하고 원본 전체 해시를 계산하였다. UI 요청은 캐시 PNG 무결성과 파일 리비전만 확인한다. 원본 SHA-256은 명시적 요청에서 계산한다.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "파일 표는 전체 셀을 생성하였다. 이제 화면과 앞뒤 두 행의 셀만 생성한다. QML은 행 역할을 한 번에 받고 같은 파일 리비전의 상세 정보를 반복 조회하지 않는다.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "네이티브 FileTree는 검증한 부모 아래의 이터레이터 메타데이터를 직접 수집하며, 항목마다 조상 경로를 다시 열지 않는다. 열거 후 부모 경계를 재검사한다.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "`.iisc` 프리뷰는 iiSharedCanvas의 읽기 전용 문서 합성 API를 사용한다. 원본 바이트를 다시 쓰지 않는다.",
+          "checked": null
+        }
+      ]
+    },
+    {
+      "id": "b000008",
+      "kind": "blank",
+      "start_line": 12,
+      "end_line": 12,
+      "raw": "\n"
+    },
+    {
+      "id": "b000009",
+      "kind": "heading",
+      "start_line": 13,
+      "end_line": 13,
+      "raw": "## 측정값\n",
+      "level": 2,
+      "title": "측정값"
+    },
+    {
+      "id": "b000010",
+      "kind": "blank",
+      "start_line": 14,
+      "end_line": 14,
+      "raw": "\n"
+    },
+    {
+      "id": "b000011",
+      "kind": "table",
+      "start_line": 15,
+      "end_line": 23,
+      "raw": "| 조건 | 결과 | 해석 |\n| --- | --- | --- |\n| 실제 Generation History 23행, 변경 전 메타데이터 모델 | 14~25ms | 작은 목록의 메타데이터 조회 자체보다 GUI·폴링·프리뷰 경로를 우선 수정한 근거 |\n| 테스트 컨테이너 2,000행, 스냅샷 없음 | 최초 행 147ms | OS 캐시까지 비운 콜드 스타트는 아님 |\n| 같은 컨테이너, 저장된 스냅샷 복원 | 최초 행 34~35ms, 최신 스캔 완료 207~259ms | 임시 표시와 최신 상태 확정을 분리 |\n| Qt 비활성 네이티브 설치 소비자, 2,000행 | 16.751ms | FileTree 메타데이터 열거; 원본 내용은 읽지 않음 |\n| FilesBrowser 2,000행 × 4열 | 8,000개 중 120개 셀 생성 | 중간·마지막 행 탐색과 전체 스크롤 높이 유지 검증 |\n| 16 MiB 네이티브 프리뷰 픽스처 | 첫 프리뷰 15.638ms, 영속 캐시 6.347ms | 등록된 경량 렌더러로 표시 경로 검증 |\n| 같은 픽스처의 명시적 원본 전체 SHA-256 | 207.078ms | UI 프리뷰가 기다리지 않는 별도 작업 |\n",
+      "columns": [
+        "조건",
+        "결과",
+        "해석"
+      ],
+      "rows": [
+        [
+          "실제 Generation History 23행, 변경 전 메타데이터 모델",
+          "14~25ms",
+          "작은 목록의 메타데이터 조회 자체보다 GUI·폴링·프리뷰 경로를 우선 수정한 근거"
+        ],
+        [
+          "테스트 컨테이너 2,000행, 스냅샷 없음",
+          "최초 행 147ms",
+          "OS 캐시까지 비운 콜드 스타트는 아님"
+        ],
+        [
+          "같은 컨테이너, 저장된 스냅샷 복원",
+          "최초 행 34~35ms, 최신 스캔 완료 207~259ms",
+          "임시 표시와 최신 상태 확정을 분리"
+        ],
+        [
+          "Qt 비활성 네이티브 설치 소비자, 2,000행",
+          "16.751ms",
+          "FileTree 메타데이터 열거; 원본 내용은 읽지 않음"
+        ],
+        [
+          "FilesBrowser 2,000행 × 4열",
+          "8,000개 중 120개 셀 생성",
+          "중간·마지막 행 탐색과 전체 스크롤 높이 유지 검증"
+        ],
+        [
+          "16 MiB 네이티브 프리뷰 픽스처",
+          "첫 프리뷰 15.638ms, 영속 캐시 6.347ms",
+          "등록된 경량 렌더러로 표시 경로 검증"
+        ],
+        [
+          "같은 픽스처의 명시적 원본 전체 SHA-256",
+          "207.078ms",
+          "UI 프리뷰가 기다리지 않는 별도 작업"
+        ]
+      ]
+    },
+    {
+      "id": "b000012",
+      "kind": "blank",
+      "start_line": 24,
+      "end_line": 24,
+      "raw": "\n"
+    },
+    {
+      "id": "b000013",
+      "kind": "paragraph",
+      "start_line": 25,
+      "end_line": 25,
+      "raw": "16 MiB 픽스처의 렌더러는 일정한 이미지를 반환한다. 이 수치를 임의의 실제 16 MiB 캔버스 합성 시간으로 해석하면 안 된다. 실제 캔버스 색상·캐시 재사용·원본 불변은 별도 GUI 회귀 검사에서 확인한다.\n"
+    },
+    {
+      "id": "b000014",
+      "kind": "blank",
+      "start_line": 26,
+      "end_line": 26,
+      "raw": "\n"
+    },
+    {
+      "id": "b000015",
+      "kind": "heading",
+      "start_line": 27,
+      "end_line": 27,
+      "raw": "## 검증 기록\n",
+      "level": 2,
+      "title": "검증 기록"
+    },
+    {
+      "id": "b000016",
+      "kind": "blank",
+      "start_line": 28,
+      "end_line": 28,
+      "raw": "\n"
+    },
+    {
+      "id": "b000017",
+      "kind": "paragraph",
+      "start_line": 29,
+      "end_line": 29,
+      "raw": "SDK의 파일 트리·프리뷰·작업자 종료·공유 저장소·대시보드 회귀와 앱의 파일 GUI·수신 폴링·런타임 검사를 수행한다. 캐시 경계·링크 거부·유효 PNG의 해시 불일치·손상 복구·원본 변경·취소·스냅샷 조정을 포함한다. 설치 소비자는 Qt 탐색을 비활성화한 구성에서 빌드하고 실행 파일의 링크 의존성도 검사한다.\n"
+    },
+    {
+      "id": "b000018",
+      "kind": "blank",
+      "start_line": 30,
+      "end_line": 30,
+      "raw": "\n"
+    },
+    {
+      "id": "b000019",
+      "kind": "heading",
+      "start_line": 31,
+      "end_line": 31,
+      "raw": "## 설치본 실행 확인\n",
+      "level": 2,
+      "title": "설치본 실행 확인"
+    },
+    {
+      "id": "b000020",
+      "kind": "blank",
+      "start_line": 32,
+      "end_line": 32,
+      "raw": "\n"
+    },
+    {
+      "id": "b000021",
+      "kind": "paragraph",
+      "start_line": 33,
+      "end_line": 33,
+      "raw": "최종 Release 빌드를 `/Applications/Society.app`에 설치하고 재시작하였다. 앱 버전과 번들 버전은 모두 `0.1.0`을 유지하였다. 설치 전 번들은 `build/file-loading-20261021/Society-before.zip`으로 보관하고 압축 파일 무결성을 확인하였다.\n"
+    },
+    {
+      "id": "b000022",
+      "kind": "blank",
+      "start_line": 34,
+      "end_line": 34,
+      "raw": "\n"
+    },
+    {
+      "id": "b000023",
+      "kind": "paragraph",
+      "start_line": 35,
+      "end_line": 35,
+      "raw": "실제 선택된 컨테이너의 Files 25개가 목록에 나타나고, `.iisc` 작품이 그리드와 우측 큰 프리뷰에 표시됨을 실행 화면에서 확인하였다. 해당 컨테이너에는 원본 전체 SHA-256이 비어 있고 PNG 무결성 SHA-256을 가진 v2 캐시 25개가 생성되었다. 실행 중인 프로세스는 설치 앱 내부의 LVRS와 iiSocietyContainerGui를 로드한다.\n"
+    },
+    {
+      "id": "b000024",
+      "kind": "blank",
+      "start_line": 36,
+      "end_line": 36,
+      "raw": "\n"
+    },
+    {
+      "id": "b000025",
+      "kind": "paragraph",
+      "start_line": 37,
+      "end_line": 37,
+      "raw": "재시작 후 3초 샘플에서 메인 스레드의 SocietyInbox 동기 조회와 DeliveryStore 호출은 관측되지 않았다. 같은 샘플의 백그라운드 스레드에서는 readAfter·daemonSnapshot 호출이 관측되어, 폴링을 유지하면서 UI 스레드에서 분리되었음을 확인하였다. 이는 전체 앱 CPU 사용률 개선 비율을 측정한 결과는 아니다.\n"
+    },
+    {
+      "id": "b000026",
+      "kind": "blank",
+      "start_line": 38,
+      "end_line": 38,
+      "raw": "\n"
+    },
+    {
+      "id": "b000027",
+      "kind": "paragraph",
+      "start_line": 39,
+      "end_line": 39,
+      "raw": "검증 결과는 파일 GUI 23개, 전체 대몬 10개, 앱 런타임 6개 모두 통과이다. 자체 포함 앱 실행과 번들 검사는 2/2 통과이며, SDK의 프리뷰 10개·대시보드 7개 및 파일 트리·공유 저장소·작업자 종료 검사도 통과하였다. LVRS의 범위 투영과 기존 병합 셀 투영 검사도 통과하였다. 번들은 276,063,375바이트이며 Product 빌드 디렉터리에는 정식 Society.app 하나만 존재한다.\n"
+    },
+    {
+      "id": "b000028",
+      "kind": "blank",
+      "start_line": 40,
+      "end_line": 40,
+      "raw": "\n"
+    },
+    {
+      "id": "b000029",
+      "kind": "paragraph",
+      "start_line": 41,
+      "end_line": 41,
+      "raw": "실행·테스트·프로파일 기록은 `build/file-loading-20261021/`에 있으며, SDK의 측정 로그는 `SDK/iiSocietyContainer/build/`에 보관한다. 실제 기기 검증 범위는 이 macOS 설치본이다.\n"
+    },
+    {
+      "id": "b000030",
+      "kind": "blank",
+      "start_line": 42,
+      "end_line": 42,
+      "raw": "\n"
+    },
+    {
+      "id": "b000031",
+      "kind": "paragraph",
+      "start_line": 43,
+      "end_line": 43,
+      "raw": "32 MiB 네이티브 제공자 한도를 넘더라도 기존 이미지 디코더의 256 MiB·32 Mi 픽셀 한도 안에서는 실제 이미지를 우선 표시한다. 33 MiB PNG 픽스처로 이 경계를 검증하였다. 이 변경은 정보 카드 지원을 추가하면서 기존 대형 이미지 프리뷰를 유지하기 위한 것이다.\n"
+    },
+    {
+      "id": "b000032",
+      "kind": "blank",
+      "start_line": 44,
+      "end_line": 44,
+      "raw": "\n"
+    },
+    {
+      "id": "b000033",
+      "kind": "heading",
+      "start_line": 45,
+      "end_line": 45,
+      "raw": "## 2,000행 GUI 추가 최적화와 설치본 재검증\n",
+      "level": 2,
+      "title": "2,000행 GUI 추가 최적화와 설치본 재검증"
+    },
+    {
+      "id": "b000034",
+      "kind": "blank",
+      "start_line": 46,
+      "end_line": 46,
+      "raw": "\n"
+    },
+    {
+      "id": "b000035",
+      "kind": "paragraph",
+      "start_line": 47,
+      "end_line": 50,
+      "raw": "같은 날 추가 검증을 수행하였다. 기존 2,000행 GUI 검사에서 재현한 구성 시간은\n1,239ms였으며, 최종 전체 GUI 검사에서는 262ms였다. 약 78.9% 감소이며 컴포넌트\n생성은 38ms였다. 이는 offscreen 검사 조건의 구성 시각이다. 중간 버전의 독립 실행은\n934/290/276ms로 편차가 있었으므로 모든 최초 실행을 262ms로 보장하는 수치가 아니다.\n"
+    },
+    {
+      "id": "b000036",
+      "kind": "blank",
+      "start_line": 51,
+      "end_line": 51,
+      "raw": "\n"
+    },
+    {
+      "id": "b000037",
+      "kind": "paragraph",
+      "start_line": 52,
+      "end_line": 52,
+      "raw": "변경은 다음과 같다.\n"
+    },
+    {
+      "id": "b000038",
+      "kind": "blank",
+      "start_line": 53,
+      "end_line": 53,
+      "raw": "\n"
+    },
+    {
+      "id": "b000039",
+      "kind": "list",
+      "start_line": 54,
+      "end_line": 67,
+      "raw": "- LVRS Table의 읽기 전용 셀은 슬롯을 재사용한다. 모델 항목이 바뀔 때 셀을 두 번\n  생성하거나 스크롤마다 전부 다시 생성하지 않는다. 편집 셀의 로컬 입력 상태는\n  다른 행에 넘어가지 않도록 기존 재생성 경로를 유지한다.\n- 삭제 메뉴는 테이블마다 필요할 때 하나만 생성한다. 열 수 계산은 리비전 동안\n  캐시하며, 행·헤더·구조 변경 및 실행 취소에서 무효화한다.\n- Society는 전체 행의 날짜·크기 사전 포맷팅과 기본 이름 중복 정렬을 생략한다.\n  숨겨진 그리드에는 모델을 주지 않는다. 읽기 전용 셀에서 불필요한 편집기 준비\n  객체와 빈 기본 라벨도 생성하지 않는다.\n- 컨테이너 미러는 같은 입력의 재정렬을 생략한다. 바뀐 입력의 수정 시각과 키도\n  정렬 비교마다 변환하지 않고 한 번 계산한다. 캐시 복원은 상한 안에서 메모리로\n  읽고 역직렬화한다.\n- SyncOwnership과 SocietyRuntime의 주기적 경계 재검증을 표준 C++ 작업자로 옮겼다.\n  한 번에 한 작업만 실행하고 세대 번호로 중지·재시작 전의 결과를 무시한다.\n  시작·실제 저장의 검증과 전송 중지 후 소유권 잠금 반환 순서는 유지한다.\n",
+      "items": [
+        {
+          "marker": "-",
+          "text": "LVRS Table의 읽기 전용 셀은 슬롯을 재사용한다. 모델 항목이 바뀔 때 셀을 두 번",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "삭제 메뉴는 테이블마다 필요할 때 하나만 생성한다. 열 수 계산은 리비전 동안",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Society는 전체 행의 날짜·크기 사전 포맷팅과 기본 이름 중복 정렬을 생략한다.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "컨테이너 미러는 같은 입력의 재정렬을 생략한다. 바뀐 입력의 수정 시각과 키도",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "SyncOwnership과 SocietyRuntime의 주기적 경계 재검증을 표준 C++ 작업자로 옮겼다.",
+          "checked": null
+        }
+      ]
+    },
+    {
+      "id": "b000040",
+      "kind": "blank",
+      "start_line": 68,
+      "end_line": 68,
+      "raw": "\n"
+    },
+    {
+      "id": "b000041",
+      "kind": "heading",
+      "start_line": 69,
+      "end_line": 69,
+      "raw": "### 설치 앱의 실제 Metal 프레임\n",
+      "level": 3,
+      "title": "설치 앱의 실제 Metal 프레임"
+    },
+    {
+      "id": "b000042",
+      "kind": "blank",
+      "start_line": 70,
+      "end_line": 70,
+      "raw": "\n"
+    },
+    {
+      "id": "b000043",
+      "kind": "paragraph",
+      "start_line": 71,
+      "end_line": 74,
+      "raw": "`/Applications/Society.app`의 실제 Main/Storage/Files 화면을 사용하였다. 앱 버전과\n번들 버전은 모두 0.1.0이다. 뷰 크기는 논리 픽셀 1,212 × 844이며, 2,000개 실제\n텍스트 파일을 가진 별도 컨테이너로 세 번 실행하였다. 저장된 디렉터리 스냅샷이\n있는 조건이며 OS 페이지 캐시를 비우지 않았다.\n"
+    },
+    {
+      "id": "b000044",
+      "kind": "blank",
+      "start_line": 75,
+      "end_line": 75,
+      "raw": "\n"
+    },
+    {
+      "id": "b000045",
+      "kind": "table",
+      "start_line": 76,
+      "end_line": 81,
+      "raw": "| 측정 | 1회 | 2회 | 3회 |\n| --- | ---: | ---: | ---: |\n| Files 진입 → 확인된 첫 내용 프레임 | 494.969ms | 327.596ms | 309.965ms |\n| 중간 행 위치 → 해당 위치 프레임 | 20.999ms | 22.874ms | 24.232ms |\n| 마지막 행 위치 → 해당 위치 프레임 | 22.853ms | 32.469ms | 20.864ms |\n| Files 진입 → 최신 스캔 Ready 관측 | 1,062.076ms | 998.247ms | 898.566ms |\n",
+      "columns": [
+        "측정",
+        "1회",
+        "2회",
+        "3회"
+      ],
+      "rows": [
+        [
+          "Files 진입 → 확인된 첫 내용 프레임",
+          "494.969ms",
+          "327.596ms",
+          "309.965ms"
+        ],
+        [
+          "중간 행 위치 → 해당 위치 프레임",
+          "20.999ms",
+          "22.874ms",
+          "24.232ms"
+        ],
+        [
+          "마지막 행 위치 → 해당 위치 프레임",
+          "22.853ms",
+          "32.469ms",
+          "20.864ms"
+        ],
+        [
+          "Files 진입 → 최신 스캔 Ready 관측",
+          "1,062.076ms",
+          "998.247ms",
+          "898.566ms"
+        ]
+      ]
+    },
+    {
+      "id": "b000046",
+      "kind": "blank",
+      "start_line": 82,
+      "end_line": 82,
+      "raw": "\n"
+    },
+    {
+      "id": "b000047",
+      "kind": "paragraph",
+      "start_line": 83,
+      "end_line": 86,
+      "raw": "첫 표시 중앙값은 327.596ms이다. 최초 표시와 최신 상태 확정을 구분하며, 세 실행의\n첫 프레임은 모두 잠정 캐시 상태였다. 열기 권한은 Ready 이후에 활성화한다. 전체\n8,000개 셀 중 이 실행 화면에서는 112개를 표시하였다. 중간·마지막 행 도달과 실제\n마우스 휠 스크롤 후 파일명·날짜·크기·행 배경이 갱신됨도 확인하였다.\n"
+    },
+    {
+      "id": "b000048",
+      "kind": "blank",
+      "start_line": 87,
+      "end_line": 87,
+      "raw": "\n"
+    },
+    {
+      "id": "b000049",
+      "kind": "paragraph",
+      "start_line": 88,
+      "end_line": 93,
+      "raw": "프레임 측정은 준비 작업이 끝난 컨테이너에서 Files로 이동하는 시점부터 시작한다.\n`afterSynchronizing`과 `frameSwapped`로 내용이 포함된 프레임을 확인하며 스크린샷\n저장은 시간 기록 후에 수행한다. 일반 회귀 검사와 같이 격리 픽스처의 새 FSKit\n마운트는 비활성화하였다. 앱 프로세스 전체 시작 시간, 새 Finder 연결 시간이나\n지속 스크롤 FPS를 측정한 값은 아니다. 초기 실험에서는 Finder 연결·다른 초기화와\n겹쳐 0.61~1.23초와 일부 190~285ms 스크롤 지연이 관측되었으며, 이 기록도 보존하였다.\n"
+    },
+    {
+      "id": "b000050",
+      "kind": "blank",
+      "start_line": 94,
+      "end_line": 94,
+      "raw": "\n"
+    },
+    {
+      "id": "b000051",
+      "kind": "paragraph",
+      "start_line": 95,
+      "end_line": 98,
+      "raw": "최종 5초 실행 샘플의 메인 스레드 2,600회 관측에서 SharedStorage::open,\nHelper::defaultDirectory와 런타임 경계 검사 호출은 관측되지 않았다. 소유권\n재검증 디스패치는 1회, 컨테이너 미러 동기화는 11회 관측되었다. 이는 CPU 사용률\n감소 비율이나 모든 파일 시스템 호출 제거를 의미하지 않는다.\n"
+    },
+    {
+      "id": "b000052",
+      "kind": "blank",
+      "start_line": 99,
+      "end_line": 99,
+      "raw": "\n"
+    },
+    {
+      "id": "b000053",
+      "kind": "heading",
+      "start_line": 100,
+      "end_line": 100,
+      "raw": "### 최종 검증과 복귀\n",
+      "level": 3,
+      "title": "최종 검증과 복귀"
+    },
+    {
+      "id": "b000054",
+      "kind": "blank",
+      "start_line": 101,
+      "end_line": 101,
+      "raw": "\n"
+    },
+    {
+      "id": "b000055",
+      "kind": "paragraph",
+      "start_line": 102,
+      "end_line": 104,
+      "raw": "파일 GUI 23/23, LVRS QML 계약 9/9·모델 투영 5/5, 런타임 7/7, 소유권 6/6,\nSDK 별칭 7/7·스냅샷 3/3, 자체 포함 앱 실행·용량 검사 2/2를 통과하였다. 수치는\nQtTest 초기화·정리 항목을 포함한다. 최종 번들은 276,102,891바이트, 567개 파일이다.\n"
+    },
+    {
+      "id": "b000056",
+      "kind": "blank",
+      "start_line": 105,
+      "end_line": 105,
+      "raw": "\n"
+    },
+    {
+      "id": "b000057",
+      "kind": "paragraph",
+      "start_line": 106,
+      "end_line": 110,
+      "raw": "실행 프로세스가 설치 번들 안의 LVRS, iiSocietyContainer와 Gui를 로드함을 확인하였다.\n실사용 컨테이너의 Files 25개와 캔버스 캐시 프리뷰도 다시 확인하였다. 저장소 선택\n설정의 SHA-256과 기존 `/Volumes/Society` 마운트를 유지하였다. 실험용 `/Volumes/Society 1`\n마운트는 해제하였다. 일반 실행은 Environment → Devices 화면으로 복귀시켰다.\n재실행된 계정 패널은 로그인 화면으로 나타났으므로 자동 로그인 복원은 확인되지 않았다.\n"
+    },
+    {
+      "id": "b000058",
+      "kind": "blank",
+      "start_line": 111,
+      "end_line": 111,
+      "raw": "\n"
+    },
+    {
+      "id": "b000059",
+      "kind": "paragraph",
+      "start_line": 112,
+      "end_line": 114,
+      "raw": "최종 결과는 `build/file-rendering-20261021/performance-summary.json`, 개별 실행 JSON과\nPNG, 테스트 로그 및 샘플 파일에 보관하였다. `intermediate-*`와 `controlled-before-*`\n기록은 중간 실험이며 최종 결과와 구분한다.\n"
+    }
+  ],
+  "outline": [
+    {
+      "block_id": "b000001",
+      "parent_id": null,
+      "level": 1,
+      "title": "파일 목록과 프리뷰 성능 검증",
+      "anchor": "파일-목록과-프리뷰-성능-검증",
+      "start_line": 1
+    },
+    {
+      "block_id": "b000005",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "확인된 병목과 변경",
+      "anchor": "확인된-병목과-변경",
+      "start_line": 5
+    },
+    {
+      "block_id": "b000009",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "측정값",
+      "anchor": "측정값",
+      "start_line": 13
+    },
+    {
+      "block_id": "b000015",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "검증 기록",
+      "anchor": "검증-기록",
+      "start_line": 27
+    },
+    {
+      "block_id": "b000019",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "설치본 실행 확인",
+      "anchor": "설치본-실행-확인",
+      "start_line": 31
+    },
+    {
+      "block_id": "b000033",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "2,000행 GUI 추가 최적화와 설치본 재검증",
+      "anchor": "2000행-gui-추가-최적화와-설치본-재검증",
+      "start_line": 45
+    },
+    {
+      "block_id": "b000041",
+      "parent_id": "b000033",
+      "level": 3,
+      "title": "설치 앱의 실제 Metal 프레임",
+      "anchor": "설치-앱의-실제-metal-프레임",
+      "start_line": 69
+    },
+    {
+      "block_id": "b000053",
+      "parent_id": "b000033",
+      "level": 3,
+      "title": "최종 검증과 복귀",
+      "anchor": "최종-검증과-복귀",
+      "start_line": 100
+    }
+  ],
+  "indexes": {
+    "directive_candidates": [
+      {
+        "block_id": "b000007",
+        "line": 9,
+        "text": "- 파일 표는 전체 셀을 생성하였다. 이제 화면과 앞뒤 두 행의 셀만 생성한다. QML은 행 역할을 한 번에 받고 같은 파일 리비전의 상세 정보를 반복 조회하지 않는다.",
+        "basis": "lexical_match",
+        "context": "list"
+      },
+      {
+        "block_id": "b000039",
+        "line": 55,
+        "text": "생성하거나 스크롤마다 전부 다시 생성하지 않는다. 편집 셀의 로컬 입력 상태는",
+        "basis": "lexical_match",
+        "context": "list"
+      },
+      {
+        "block_id": "b000039",
+        "line": 61,
+        "text": "객체와 빈 기본 라벨도 생성하지 않는다.",
+        "basis": "lexical_match",
+        "context": "list"
+      },
+      {
+        "block_id": "b000051",
+        "line": 98,
+        "text": "감소 비율이나 모든 파일 시스템 호출 제거를 의미하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      }
+    ],
+    "commands": [],
+    "links": [],
+    "tables": [
+      {
+        "block_id": "b000011",
+        "columns": [
+          "조건",
+          "결과",
+          "해석"
+        ],
+        "rows": [
+          [
+            "실제 Generation History 23행, 변경 전 메타데이터 모델",
+            "14~25ms",
+            "작은 목록의 메타데이터 조회 자체보다 GUI·폴링·프리뷰 경로를 우선 수정한 근거"
+          ],
+          [
+            "테스트 컨테이너 2,000행, 스냅샷 없음",
+            "최초 행 147ms",
+            "OS 캐시까지 비운 콜드 스타트는 아님"
+          ],
+          [
+            "같은 컨테이너, 저장된 스냅샷 복원",
+            "최초 행 34~35ms, 최신 스캔 완료 207~259ms",
+            "임시 표시와 최신 상태 확정을 분리"
+          ],
+          [
+            "Qt 비활성 네이티브 설치 소비자, 2,000행",
+            "16.751ms",
+            "FileTree 메타데이터 열거; 원본 내용은 읽지 않음"
+          ],
+          [
+            "FilesBrowser 2,000행 × 4열",
+            "8,000개 중 120개 셀 생성",
+            "중간·마지막 행 탐색과 전체 스크롤 높이 유지 검증"
+          ],
+          [
+            "16 MiB 네이티브 프리뷰 픽스처",
+            "첫 프리뷰 15.638ms, 영속 캐시 6.347ms",
+            "등록된 경량 렌더러로 표시 경로 검증"
+          ],
+          [
+            "같은 픽스처의 명시적 원본 전체 SHA-256",
+            "207.078ms",
+            "UI 프리뷰가 기다리지 않는 별도 작업"
+          ]
+        ]
+      },
+      {
+        "block_id": "b000045",
+        "columns": [
+          "측정",
+          "1회",
+          "2회",
+          "3회"
+        ],
+        "rows": [
+          [
+            "Files 진입 → 확인된 첫 내용 프레임",
+            "494.969ms",
+            "327.596ms",
+            "309.965ms"
+          ],
+          [
+            "중간 행 위치 → 해당 위치 프레임",
+            "20.999ms",
+            "22.874ms",
+            "24.232ms"
+          ],
+          [
+            "마지막 행 위치 → 해당 위치 프레임",
+            "22.853ms",
+            "32.469ms",
+            "20.864ms"
+          ],
+          [
+            "Files 진입 → 최신 스캔 Ready 관측",
+            "1,062.076ms",
+            "998.247ms",
+            "898.566ms"
+          ]
+        ]
+      }
+    ]
+  },
+  "provenance": {
+    "generator": "workspace-docs",
+    "version": "1.0.0",
+    "profile": "lossless-blocks-v1",
+    "derived": true
+  }
+}

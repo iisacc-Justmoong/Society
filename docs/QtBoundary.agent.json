@@ -1,0 +1,303 @@
+{
+  "format": "iisacc.agent-document",
+  "schema_version": 1,
+  "document_id": "urn:iisacc:document:75e1d312a7a94c0cd87a9700b906fe18c5fc738329e971458f37952cfc8a74ee",
+  "project": {
+    "id": "urn:iisacc:project:Product%2FSociety",
+    "name": "Society",
+    "root": "Product/Society",
+    "kind": "application"
+  },
+  "source": {
+    "path": "docs/QtBoundary.md",
+    "sha256": "a1818ad840d040c7ba144ccb41471e73cfcf561dce865ccf0a6016db61f0316b",
+    "bytes": 4451,
+    "line_count": 73,
+    "encoding": "utf-8",
+    "language": "en"
+  },
+  "document": {
+    "title": "Qt dependency boundary",
+    "role": "guide",
+    "authority": "markdown_source"
+  },
+  "blocks": [
+    {
+      "id": "b000001",
+      "kind": "heading",
+      "start_line": 1,
+      "end_line": 1,
+      "raw": "# Qt dependency boundary\n",
+      "level": 1,
+      "title": "Qt dependency boundary"
+    },
+    {
+      "id": "b000002",
+      "kind": "blank",
+      "start_line": 2,
+      "end_line": 2,
+      "raw": "\n"
+    },
+    {
+      "id": "b000003",
+      "kind": "paragraph",
+      "start_line": 3,
+      "end_line": 4,
+      "raw": "Society retains LVRS/Qt Quick for its GUI. Backend packages consume narrower\nSDK targets rather than presentation facades:\n"
+    },
+    {
+      "id": "b000004",
+      "kind": "blank",
+      "start_line": 5,
+      "end_line": 5,
+      "raw": "\n"
+    },
+    {
+      "id": "b000005",
+      "kind": "table",
+      "start_line": 6,
+      "end_line": 12,
+      "raw": "| Consumer | SDK target | Boundary |\n| --- | --- | --- |\n| Native container monitor | `iiSocietyContainer::FileTree` | C++23, no Qt discovery/linkage |\n| Native storage maintenance | `iiSocietyContainer::Maintenance` | C++23 and temporary leases, no Qt |\n| Helper canvas storage and media I/O | `iiSharedCanvas::Core` | No QML or Quick items |\n| Photo controller clipboard/sharing | `iiSocietyContainer::Sharing` | Qt Gui actions, no Quick image provider or application/window helpers |\n| Society GUI | LVRS, Qt Quick, container `Gui` | Presentation and platform GUI integration |\n",
+      "columns": [
+        "Consumer",
+        "SDK target",
+        "Boundary"
+      ],
+      "rows": [
+        [
+          "Native container monitor",
+          "`iiSocietyContainer::FileTree`",
+          "C++23, no Qt discovery/linkage"
+        ],
+        [
+          "Native storage maintenance",
+          "`iiSocietyContainer::Maintenance`",
+          "C++23 and temporary leases, no Qt"
+        ],
+        [
+          "Helper canvas storage and media I/O",
+          "`iiSharedCanvas::Core`",
+          "No QML or Quick items"
+        ],
+        [
+          "Photo controller clipboard/sharing",
+          "`iiSocietyContainer::Sharing`",
+          "Qt Gui actions, no Quick image provider or application/window helpers"
+        ],
+        [
+          "Society GUI",
+          "LVRS, Qt Quick, container `Gui`",
+          "Presentation and platform GUI integration"
+        ]
+      ]
+    },
+    {
+      "id": "b000006",
+      "kind": "blank",
+      "start_line": 13,
+      "end_line": 13,
+      "raw": "\n"
+    },
+    {
+      "id": "b000007",
+      "kind": "paragraph",
+      "start_line": 14,
+      "end_line": 18,
+      "raw": "The daemon's QML registration annotations use the header-only QmlIntegration\ntarget. It does not link the QML runtime. The runtime verifier records the\nlibraries loaded by the actual packaged `SocietyDaemon --check-runtime` process\nand rejects Qt QML, Qt Quick and the canvas Quick adapter, including transitive\nloads. This assertion is also part of post-build package validation.\n"
+    },
+    {
+      "id": "b000008",
+      "kind": "blank",
+      "start_line": 19,
+      "end_line": 19,
+      "raw": "\n"
+    },
+    {
+      "id": "b000009",
+      "kind": "paragraph",
+      "start_line": 20,
+      "end_line": 22,
+      "raw": "Directory-wide `link_libraries` calls previously propagated Qt file adapters\ninto unrelated targets. Society, the affected canvas/helper/photo SDKs and\ncontainer targets now declare their dependencies on the owning target.\n"
+    },
+    {
+      "id": "b000010",
+      "kind": "blank",
+      "start_line": 23,
+      "end_line": 23,
+      "raw": "\n"
+    },
+    {
+      "id": "b000011",
+      "kind": "paragraph",
+      "start_line": 24,
+      "end_line": 28,
+      "raw": "This is a dependency reduction, not a claim that every existing backend has\nbeen rewritten. Account/network/IPC adapters still use Qt Core, Network, Sql,\nBluetooth and Concurrent; image/vector/PDF codecs still use Qt Gui. Pure native\ncontainer and monitor builds are separately verified with Qt discovery disabled.\nThe remaining codec and event-loop adapters are explicit migration boundaries.\n"
+    },
+    {
+      "id": "b000012",
+      "kind": "blank",
+      "start_line": 29,
+      "end_line": 29,
+      "raw": "\n"
+    },
+    {
+      "id": "b000013",
+      "kind": "paragraph",
+      "start_line": 30,
+      "end_line": 33,
+      "raw": "Verification covers native storage fixtures and installed consumers; native\nmonitor library/process tests; the full canvas suite and a Core-only installed\nconsumer with QML/Quick discovery disabled; sharing/photo/helper regressions;\nand the packaged Society app, daemon, GUI and live container connection.\n"
+    },
+    {
+      "id": "b000014",
+      "kind": "blank",
+      "start_line": 34,
+      "end_line": 34,
+      "raw": "\n"
+    },
+    {
+      "id": "b000015",
+      "kind": "heading",
+      "start_line": 35,
+      "end_line": 35,
+      "raw": "## macOS verification, 2026-10-15\n",
+      "level": 2,
+      "title": "macOS verification, 2026-10-15"
+    },
+    {
+      "id": "b000016",
+      "kind": "blank",
+      "start_line": 36,
+      "end_line": 36,
+      "raw": "\n"
+    },
+    {
+      "id": "b000017",
+      "kind": "paragraph",
+      "start_line": 37,
+      "end_line": 42,
+      "raw": "The installed application was built against isolated installations of the\nchanged SDKs. Shared installations under `~/.local/SDK` were preserved because\nother workspace consumers still use a different file-provider package version.\nThe native storage and monitor builds, Core-only canvas build, and installed\nCore/Sharing consumers all configured with the relevant Qt package discovery\ndisabled.\n"
+    },
+    {
+      "id": "b000018",
+      "kind": "blank",
+      "start_line": 43,
+      "end_line": 43,
+      "raw": "\n"
+    },
+    {
+      "id": "b000019",
+      "kind": "paragraph",
+      "start_line": 44,
+      "end_line": 48,
+      "raw": "The packaged `SocietyDaemon --check-runtime` process went from five loaded\nQML/Quick frameworks to none; its total loader inventory went from 776 to 771\nlibraries. The runtime regression rejects a future presentation dependency even\nwhen it arrives through another SDK. Core, network, database and codec adapters\nremain explicit dependencies.\n"
+    },
+    {
+      "id": "b000020",
+      "kind": "blank",
+      "start_line": 49,
+      "end_line": 49,
+      "raw": "\n"
+    },
+    {
+      "id": "b000021",
+      "kind": "paragraph",
+      "start_line": 50,
+      "end_line": 57,
+      "raw": "The signed application was installed at `/Applications/Society.app`. Dashboard,\nTools and Storage were inspected in the installed GUI; the existing container\nselection and its 20 files were preserved. The previous container-monitor\nprocess remained alive but stopped publishing fresh heartbeats during the\nupdate. Refreshing only that login agent restored healthy state publication\nfrom the installed bundle, with zero loaded Qt libraries. Its container UUID\nwas preserved and its monitor instance changed as expected for a new process.\nThe existing synchronization daemon and Dreamscapes process were left running.\n"
+    },
+    {
+      "id": "b000022",
+      "kind": "blank",
+      "start_line": 58,
+      "end_line": 58,
+      "raw": "\n"
+    },
+    {
+      "id": "b000023",
+      "kind": "paragraph",
+      "start_line": 59,
+      "end_line": 62,
+      "raw": "The application bundle changed from 346.71 MiB to 346.92 MiB, an increase of\nabout 0.21 MiB for the split libraries. The GUI still ships Qt Quick, so this\nchange reduces backend coupling and runtime loads without removing the GUI's\nframeworks from the application package.\n"
+    },
+    {
+      "id": "b000024",
+      "kind": "blank",
+      "start_line": 63,
+      "end_line": 63,
+      "raw": "\n"
+    },
+    {
+      "id": "b000025",
+      "kind": "paragraph",
+      "start_line": 64,
+      "end_line": 73,
+      "raw": "Validation includes 11 Society test groups and eight native GUI cases. The\ncanvas run passed 62 functional groups; the updated dependency contract and\neight API/rendering/serialization groups passed after the final library split.\nThe installed compatibility facade also resolved all 922 previously exported\ncanvas namespace symbols on macOS. SDK-specific native, installed-consumer,\nsharing, helper, photo and container tests are recorded in\n`build/qt-boundary-20261015/report.json`, together with package identity,\nsignature, loader and screenshot evidence. Cold runtime-launch timeouts and\nthe subsequent successful retry remain in the validation logs. Execution on\nWindows, Linux and physical mobile devices was not verified in this change.\n"
+    }
+  ],
+  "outline": [
+    {
+      "block_id": "b000001",
+      "parent_id": null,
+      "level": 1,
+      "title": "Qt dependency boundary",
+      "anchor": "qt-dependency-boundary",
+      "start_line": 1
+    },
+    {
+      "block_id": "b000015",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "macOS verification, 2026-10-15",
+      "anchor": "macos-verification-2026-10-15",
+      "start_line": 35
+    }
+  ],
+  "indexes": {
+    "directive_candidates": [],
+    "commands": [],
+    "links": [],
+    "tables": [
+      {
+        "block_id": "b000005",
+        "columns": [
+          "Consumer",
+          "SDK target",
+          "Boundary"
+        ],
+        "rows": [
+          [
+            "Native container monitor",
+            "`iiSocietyContainer::FileTree`",
+            "C++23, no Qt discovery/linkage"
+          ],
+          [
+            "Native storage maintenance",
+            "`iiSocietyContainer::Maintenance`",
+            "C++23 and temporary leases, no Qt"
+          ],
+          [
+            "Helper canvas storage and media I/O",
+            "`iiSharedCanvas::Core`",
+            "No QML or Quick items"
+          ],
+          [
+            "Photo controller clipboard/sharing",
+            "`iiSocietyContainer::Sharing`",
+            "Qt Gui actions, no Quick image provider or application/window helpers"
+          ],
+          [
+            "Society GUI",
+            "LVRS, Qt Quick, container `Gui`",
+            "Presentation and platform GUI integration"
+          ]
+        ]
+      }
+    ]
+  },
+  "provenance": {
+    "generator": "workspace-docs",
+    "version": "1.0.0",
+    "profile": "lossless-blocks-v1",
+    "derived": true
+  }
+}

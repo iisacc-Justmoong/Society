@@ -1,4 +1,4 @@
-#include "App/Services/SocietyRuntime.h"
+#include "Society/Services/SocietyRuntime.h"
 #include <QDir>
 #include <SharedStorage.h>
 #include <QFile>

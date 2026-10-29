@@ -1,18 +1,19 @@
 #include "native_link.h"
-#include "App/Drive/DriveController.h"
-#include "App/Environment/EnvironmentAppsModel.h"
+#include "Society/Drive/DriveController.h"
+#include "Society/Drive/CloudFilesController.h"
+#include "Society/Environment/EnvironmentAppsModel.h"
 #include "AccountServer.h"
 #include <QNetworkProxy>
-#include "App/Drive/StorageNavigation.h"
-#include "App/Dashboard/DashboardFiles.h"
-#include "App/Dashboard/DashboardCalendar.h"
-#include "App/Dashboard/CalendarWorkspace.h"
-#include "App/Tools/ModelMergeController.h"
-#include "App/Tools/ModelPackagingController.h"
-#include "App/Tools/MergeModelCatalog.h"
-#include "App/Models/StorageModels.h"
-#include "App/Files/DirectoryLocation.h"
-#include "App/Files/ModelImporter.h"
+#include "Society/Drive/StorageNavigation.h"
+#include "Society/Dashboard/DashboardFiles.h"
+#include "Society/Dashboard/DashboardCalendar.h"
+#include "Society/Dashboard/CalendarWorkspace.h"
+#include "Society/Tools/ModelMergeController.h"
+#include "Society/Tools/ModelPackagingController.h"
+#include "Society/Tools/MergeModelCatalog.h"
+#include "Society/Models/StorageModels.h"
+#include "Society/Files/DirectoryLocation.h"
+#include "Society/Files/ModelImporter.h"
 #include <StorageMap.h>
 #include <iiSocietyContainer/PreviewCache.h>
 #include <ModelType.h>
@@ -53,12 +54,13 @@
 #include <QJsonArray>
 #include <QWheelEvent>
 #include <QStyleHints>
-#include "App/Network/NetworkDriveController.h"
+#include "Society/Network/NetworkDriveController.h"
 #include "MobileNetworkDevice.h"
-#include "App/Network/DevicePairing.h"
-#include "App/Network/PairingQr.h"
-#include "App/Network/QrScanner.h"
+#include "Society/Network/DevicePairing.h"
+#include "Society/Network/PairingQr.h"
+#include "Society/Network/QrScanner.h"
 #include <SharedStorage.h>
+#include <ApplicationStorage.h>
 #include <QStorageInfo>
 #include <FilesView.h>
 
@@ -103,6 +105,42 @@ class SocietyDriveTest final : public QObject
 {
     Q_OBJECT
 private slots:
+    void suiteStorageIsDiscoveredAndAdoptedOnFirstLaunch() {
+        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/suite-default-drive-XXXXXX"); QVERIFY(fixture.isValid()); QString error;
+        const auto shared = iiSocietyContainer::ApplicationStorage::openInGroup(fixture.path(), "com.iisacc.dreamscapes", &error);
+        QVERIFY2(shared, qPrintable(error));
+        const auto settings = qgetenv("SOCIETY_STORAGE_SETTINGS_PATH"), selected = qgetenv("SOCIETY_CONTAINER_PATH"), suite = qgetenv("IISACC_SHARED_STORAGE_ROOT");
+        const auto restore = qScopeGuard([&] {
+            settings.isNull() ? qunsetenv("SOCIETY_STORAGE_SETTINGS_PATH") : qputenv("SOCIETY_STORAGE_SETTINGS_PATH", settings);
+            selected.isNull() ? qunsetenv("SOCIETY_CONTAINER_PATH") : qputenv("SOCIETY_CONTAINER_PATH", selected);
+            suite.isNull() ? qunsetenv("IISACC_SHARED_STORAGE_ROOT") : qputenv("IISACC_SHARED_STORAGE_ROOT", suite);
+        });
+        qputenv("SOCIETY_STORAGE_SETTINGS_PATH", fixture.filePath("selection.json").toUtf8()); qunsetenv("SOCIETY_CONTAINER_PATH");
+        qputenv("IISACC_SHARED_STORAGE_ROOT", fixture.path().toUtf8());
+        DriveController controller; controller.openDefaultContainer(); QTRY_VERIFY_WITH_TIMEOUT(!controller.busy(), 60000);
+        QVERIFY2(controller.hasDrive(), qPrintable(controller.errorString()));
+        QCOMPARE(controller.rootPath(), shared->drive().rootPath()); QCOMPARE(controller.identifier(), shared->drive().identifier());
+        QCOMPARE(iiSocietyContainer::ApplicationStorage::registration(fixture.path(), &error).value("managingApplication"), "com.iisacc.society");
+    }
+    void appOwnedLogicalStorageOpensAndRestoresWithoutCopyingFiles() {
+        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/app-logical-drive-XXXXXX"); QVERIFY(fixture.isValid()); QString error;
+        const auto shared = iiSocietyContainer::ApplicationStorage::openInGroup(fixture.path(), "com.iisacc.dreamscapes", &error);
+        QVERIFY2(shared, qPrintable(error)); const auto root = shared->drive().rootPath(), id = shared->drive().identifier();
+        QFile original(shared->filePath(iiSocietyContainer::StoreSection::GenerationHistory, "before-society.png"));
+        QVERIFY(original.open(QIODevice::WriteOnly)); QCOMPARE(original.write("original image"), 14); original.close();
+        const auto settings = qgetenv("SOCIETY_STORAGE_SETTINGS_PATH"), selected = qgetenv("SOCIETY_CONTAINER_PATH");
+        const auto restore = qScopeGuard([&] {
+            settings.isNull() ? qunsetenv("SOCIETY_STORAGE_SETTINGS_PATH") : qputenv("SOCIETY_STORAGE_SETTINGS_PATH", settings);
+            selected.isNull() ? qunsetenv("SOCIETY_CONTAINER_PATH") : qputenv("SOCIETY_CONTAINER_PATH", selected);
+        });
+        qputenv("SOCIETY_STORAGE_SETTINGS_PATH", fixture.filePath("desktop-settings.json").toUtf8()); qunsetenv("SOCIETY_CONTAINER_PATH");
+        DriveController first; QVERIFY2(first.openContainer(root), qPrintable(first.errorString())); QCOMPARE(first.identifier(), id);
+        QVERIFY2(iiSocietyContainer::ApplicationStorage::adoptInGroup(fixture.path(), &error), qPrintable(error));
+        DriveController reopened; reopened.openDefaultContainer(); QTRY_VERIFY_WITH_TIMEOUT(!reopened.busy(), 60000);
+        QVERIFY2(reopened.hasDrive(), qPrintable(reopened.errorString())); QCOMPARE(reopened.rootPath(), root); QCOMPARE(reopened.identifier(), id);
+        QVERIFY(original.open(QIODevice::ReadOnly)); QCOMPARE(original.readAll(), QByteArray("original image"));
+        QVERIFY(!QFileInfo::exists(fixture.filePath("Society.societycontainer")));
+    }
     void initTestCase()
     {
         qmlRegisterType<EnvironmentAppsModel>("Society", 1, 0, "EnvironmentAppsModel");
@@ -110,6 +148,7 @@ private slots:
         qmlRegisterType<FileActions>("Society", 1, 0, "FileActions");
         qmlRegisterType<StorageDirectoryModel>("Society", 1, 0, "StorageDirectoryModel");
         qmlRegisterType<DriveController>("Society", 1, 0, "DriveController");
+        qmlRegisterType<CloudFilesController>("Society", 1, 0, "CloudFilesController");
         qmlRegisterType<StorageNavigation>("Society", 1, 0, "StorageNavigation");
         qmlRegisterType<DashboardCalendar>("Society", 1, 0, "DashboardCalendar");
         qmlRegisterType<CalendarWorkspace>("Society", 1, 0, "CalendarWorkspace");
@@ -124,6 +163,23 @@ private slots:
         qmlRegisterType<DevicePairing>("Society", 1, 0, "DevicePairing");
         qmlRegisterType<PairingQr>("Society", 1, 0, "PairingQr");
         qmlRegisterType<QrScanner>("Society", 1, 0, "QrScanner");
+    }
+
+    void cloudFilesControllerReachesStorage()
+    {
+        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/cloud-wiring-XXXXXX.societycontainer");
+        QVERIFY(iiSocietyContainer::SocietyDrive::create(fixture.path()));
+        QQmlApplicationEngine engine;
+        engine.addImageProvider(QStringLiteral("society-preview"), new iiSocietyContainer::PreviewProvider);
+        engine.addImportPath(QString::fromUtf8(SOCIETY_LVRS_QML_IMPORT_PATH));
+        engine.setInitialProperties({{"initialContainerPath", fixture.path()}});
+        engine.load(QUrl::fromLocalFile(QString::fromUtf8(SOCIETY_QML_FILE)));
+        QCOMPARE(engine.rootObjects().size(), 1);
+        auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first()); QVERIFY(window);
+        auto *controller = window->findChild<CloudFilesController *>("cloudFilesController"); QVERIFY(controller);
+        auto *storage = window->findChild<QQuickItem *>("storageView"); QVERIFY(storage);
+        QCOMPARE(storage->property("cloudFiles").value<CloudFilesController *>(), controller);
+        QVERIFY(!controller->busy());
     }
 
     void accountOwnsMovedDiskAndRemoteDevicesKeepTheirLocalMounts()
@@ -3068,6 +3124,14 @@ private slots:
                 QCOMPARE(panel->property("color").value<QColor>().alpha(), 0);
             }
         }
+        // Only the outline changes: the transparent panel still reveals the window.
+        for (const auto &name : {"calendarMonthPanel", "calendarDetailPanel",
+                                 "environmentAccountPanel", "environmentOverviewPanel"}) {
+            auto *panel = visualItem(window->contentItem(), name); QVERIFY2(panel, name);
+            QCOMPARE(panel->property("panelBorderColor").value<QColor>(), QColor("#0c0c0c"));
+            QCOMPARE(QQmlProperty(panel, "border.color").read().value<QColor>(),
+                     panel->property("panelBorderColor").value<QColor>());
+        }
         const QString captureDirectory = qEnvironmentVariable("SOCIETY_PANEL_CAPTURE_DIR");
         int checkedCards = 0;
         const auto checkCards = [&](auto &&self, QQuickItem *item) -> bool {
@@ -3114,6 +3178,9 @@ private slots:
                 auto *card = visualItem(tools, name); QVERIFY2(card, qPrintable(name));
                 auto *background = qvariant_cast<QQuickItem *>(card->property("background")); QVERIFY(background);
                 QCOMPARE(background->property("color").value<QColor>().alpha(), 0);
+                QCOMPARE(background->property("panelBorderColor").value<QColor>(), QColor("#0c0c0c"));
+                QCOMPARE(QQmlProperty(background, "border.color").read().value<QColor>(),
+                         background->property("panelBorderColor").value<QColor>());
             }
             QVERIFY(capture(QString::fromLatin1(tool)));
         }
@@ -3688,7 +3755,7 @@ private slots:
     void environmentCatalogueDoesNotInventInstallationsOrLicenses()
     {
         EnvironmentAppsModel catalogue;
-        QCOMPARE(catalogue.apps().size(), 9);
+        QCOMPARE(catalogue.apps().size(), 10);
         const auto society = catalogue.apps().first().toMap();
         QVERIFY(society.value("installed").toBool());
         QSignalSpy requested(&catalogue, &EnvironmentAppsModel::societyRequested);

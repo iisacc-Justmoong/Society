@@ -1,0 +1,157 @@
+{
+  "format": "iisacc.agent-document",
+  "schema_version": 1,
+  "document_id": "urn:iisacc:document:f1cb9861db497a000c2fcc49b5942e4c782dcb7eacf7256b37becafb721dc0d7",
+  "project": {
+    "id": "urn:iisacc:project:Product%2FSociety",
+    "name": "Society",
+    "root": "Product/Society",
+    "kind": "application"
+  },
+  "source": {
+    "path": "docs/FinderDrive.md",
+    "sha256": "0975053cbfd42df02f4e0578f7c28630930a07831a011369d20a555598a5260b",
+    "bytes": 2790,
+    "line_count": 13,
+    "encoding": "utf-8",
+    "language": "en"
+  },
+  "document": {
+    "title": "Finder drive for container packages",
+    "role": "guide",
+    "authority": "markdown_source"
+  },
+  "blocks": [
+    {
+      "id": "b000001",
+      "kind": "heading",
+      "start_line": 1,
+      "end_line": 1,
+      "raw": "# Finder drive for container packages\n",
+      "level": 1,
+      "title": "Finder drive for container packages"
+    },
+    {
+      "id": "b000002",
+      "kind": "blank",
+      "start_line": 2,
+      "end_line": 2,
+      "raw": "\n"
+    },
+    {
+      "id": "b000003",
+      "kind": "paragraph",
+      "start_line": 3,
+      "end_line": 3,
+      "raw": "Society's `.societycontainer` directory package remains the authoritative storage location. On macOS 26 and later, the SDK's signed FSKit module projects the existing `Files/` directory as a separate filesystem named **Society**. Finder shows this mounted volume in Locations and its computer view. It is not a Finder favorite, symbolic link, copied disk image, or File Provider replica.\n"
+    },
+    {
+      "id": "b000004",
+      "kind": "blank",
+      "start_line": 4,
+      "end_line": 4,
+      "raw": "\n"
+    },
+    {
+      "id": "b000005",
+      "kind": "paragraph",
+      "start_line": 5,
+      "end_line": 5,
+      "raw": "The other eight storage sections and application metadata retain their original paths. The public volume does not expose them. The original manifest UUID becomes the filesystem volume UUID. Reconnecting reuses an existing mount only when its filesystem type and source URL match the selected `.societycontainer` package.\n"
+    },
+    {
+      "id": "b000006",
+      "kind": "blank",
+      "start_line": 6,
+      "end_line": 6,
+      "raw": "\n"
+    },
+    {
+      "id": "b000007",
+      "kind": "paragraph",
+      "start_line": 7,
+      "end_line": 7,
+      "raw": "At startup, the macOS app opens the saved `.societycontainer` package and connects the installed native adapter. `Reconnect` performs the same mount operation. Success requires both the native host's mount result and `QStorageInfo` to identify `societyfs` at the returned volume root. `Open in Finder` then opens that mounted root. A missing or disabled extension produces an actionable connection error without changing the source data or reverting to a disk image.\n"
+    },
+    {
+      "id": "b000008",
+      "kind": "blank",
+      "start_line": 8,
+      "end_line": 8,
+      "raw": "\n"
+    },
+    {
+      "id": "b000009",
+      "kind": "paragraph",
+      "start_line": 9,
+      "end_line": 9,
+      "raw": "On macOS 27, the signed native host uses public FSKit mounting and DiskArbitration unmounting. macOS creates and manages the mount path under `/Volumes/`, while every stored file remains in the selected package. The host verifies the manifest UUID and mounted resource before reusing or unmounting a drive, including after the package is renamed. The host requires a matching `com.apple.developer.fskit.mount` provisioning profile. On macOS 26, the CLI adapter uses `<container>/.society-runtime/mounts/<container UUID>/Society` and requires ownership enabled on the container's host volume. Neither path creates an external data store.\n"
+    },
+    {
+      "id": "b000010",
+      "kind": "blank",
+      "start_line": 10,
+      "end_line": 10,
+      "raw": "\n"
+    },
+    {
+      "id": "b000011",
+      "kind": "paragraph",
+      "start_line": 11,
+      "end_line": 11,
+      "raw": "Build the SDK with an Apple development signing identity and its developer team, following [the SDK directory-storage instructions](../../../SDK/iiSocietyContainer/docs/DirectoryStorage.md). Enable the Society module once in System Settings > General > Login Items & Extensions > File System Extensions. The app restores the mount when opened; the filesystem remains mounted after the app window closes. Removing or disabling an extension and reboot behavior must be verified separately when distributing a new signed build.\n"
+    },
+    {
+      "id": "b000012",
+      "kind": "blank",
+      "start_line": 12,
+      "end_line": 12,
+      "raw": "\n"
+    },
+    {
+      "id": "b000013",
+      "kind": "paragraph",
+      "start_line": 13,
+      "end_line": 13,
+      "raw": "Validation uses the SDK's explicit `tests/native_directory_mount.py` integration test for an actual mount, Files-only enumeration, Unicode file CRUD, repeated reconnect, unmount/remount, original UUID preservation, and rejection of a plain folder. The app's ordinary-directory regression test continues to run without registering OS extensions. Native Finder and installed-app checks supplement those tests.\n"
+    }
+  ],
+  "outline": [
+    {
+      "block_id": "b000001",
+      "parent_id": null,
+      "level": 1,
+      "title": "Finder drive for container packages",
+      "anchor": "finder-drive-for-container-packages",
+      "start_line": 1
+    }
+  ],
+  "indexes": {
+    "directive_candidates": [
+      {
+        "block_id": "b000011",
+        "line": 11,
+        "text": "Build the SDK with an Apple development signing identity and its developer team, following [the SDK directory-storage instructions](../../../SDK/iiSocietyContainer/docs/DirectoryStorage.md). Enable the Society module once in System Settings > General > Login Items & Extensions > File System Extensions. The app restores the mount when opened; the filesystem remains mounted after the app window closes. Removing or disabling an extension and reboot behavior must be verified separately when distributing a new signed build.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      }
+    ],
+    "commands": [],
+    "links": [
+      {
+        "block_id": "b000011",
+        "label": "the SDK directory-storage instructions",
+        "target": "../../../SDK/iiSocietyContainer/docs/DirectoryStorage.md",
+        "kind": "relative",
+        "line": 11
+      }
+    ],
+    "tables": []
+  },
+  "provenance": {
+    "generator": "workspace-docs",
+    "version": "1.0.0",
+    "profile": "lossless-blocks-v1",
+    "derived": true
+  }
+}

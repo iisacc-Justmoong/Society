@@ -1,7 +1,7 @@
 #include "MobileNetworkDevice.h"
 #include "AuthenticatedNetworkFixture.h"
-#include "App/Network/PairingCredentials.h"
-#include "App/Network/NetworkDriveController.h"
+#include "Society/Network/PairingCredentials.h"
+#include "Society/Network/NetworkDriveController.h"
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>

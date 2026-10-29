@@ -1,6 +1,6 @@
 #include "native_link.h"
-#include "App/Tools/ModelMergeController.h"
-#include "App/Tools/MergeModelCatalog.h"
+#include "Society/Tools/ModelMergeController.h"
+#include "Society/Tools/MergeModelCatalog.h"
 #include <SocietyDrive.h>
 #include "backend/runtime/appbootstrap.h"
 

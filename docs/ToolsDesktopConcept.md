@@ -52,8 +52,8 @@ Society의 자산 보관·준비·전달 역할을 기준으로 도구를 정의
 
 ## 확인 근거
 
-현행 `docs/Tools.md`, `docs/ModelMerge.md`, `docs/Files.md`, `src/App/Tools/ToolsView.qml`,
-`src/App/Tools/ToolCard.qml`, `src/App/Tools/ModelMergeTool.qml` 및 기존 Figma Storage 화면을 확인했다.
+현행 `docs/Tools.md`, `docs/ModelMerge.md`, `docs/Files.md`, `App/Society/Tools/ToolsView.qml`,
+`App/Society/Tools/ToolCard.qml`, `App/Society/Tools/ModelMergeTool.qml` 및 기존 Figma Storage 화면을 확인했다.
 Figma 디자인에는 현재 소스 계약과 신규 제안을 구분해 기록했다.
 
 두 화면과 설명 보드의 렌더링을 확인했다. 자동 배치 컨테이너 밖으로 벗어나는 요소는 0개이며,

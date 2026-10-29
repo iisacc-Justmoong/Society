@@ -24,9 +24,9 @@ class IosBuildTest(unittest.TestCase):
             prefix = build_ios.WORKSPACE / 'build' / mode / 'install'
             self.assertIn(f'-DiiSocietyContainer_DIR={prefix}/lib/cmake/iiSocietyContainer', plan[helper_index])
             account_install = next(i for i, step in enumerate(plan)
-                                   if '--install' in step and 'iiAcountManager' in step[2])
+                                   if '--install' in step and 'iiAccountManager' in step[2])
             self.assertLess(account_install, helper_index)
-            self.assertIn(f'-DiiAcountManager_DIR={prefix}/lib/cmake/iiAcountManager', plan[helper_index])
+            self.assertIn(f'-DiiAccountManager_DIR={prefix}/lib/cmake/iiAccountManager', plan[helper_index])
             host_install = next(i for i, step in enumerate(plan)
                                 if '--install' in step and 'iiWebServer' in step[2])
             self.assertLess(host_install, helper_index)
@@ -54,7 +54,7 @@ class IosBuildTest(unittest.TestCase):
             plan = build_ios.commands(mode, Path('/Volumes/Storage/Qt/6.8.3'), 'TESTTEAM', 'Debug')
             configurations = [step for step in plan if '-S' in step]
             self.assertEqual({Path(c[c.index('-S') + 1]).name for c in configurations},
-                             {'LVRS', 'iiAcountManager', 'iiWebServer', 'iiSocietyContainer',
+                             {'LVRS', 'iiAccountManager', 'iiWebServer', 'iiSocietyContainer',
                               'iiSocietyHelper', 'iiPhotoLibrary', 'Society'})
             for command in configurations:
                 self.assertIn(f'-DCMAKE_OSX_SYSROOT={sdk}', command)
@@ -63,13 +63,13 @@ class IosBuildTest(unittest.TestCase):
                 self.assertEqual(output.parent.name, 'build')
                 self.assertNotIn('/Users/', ' '.join(command))
             self.assertIn('-DLVRS_BUILD_SHARED_LIBS=OFF', configurations[0])
-            account = next(c for c in configurations if Path(c[c.index('-S') + 1]).name == 'iiAcountManager')
+            account = next(c for c in configurations if Path(c[c.index('-S') + 1]).name == 'iiAccountManager')
             self.assertIn('-DIIACCOUNTMANAGER_BUILD_QUICK=ON', account)
             self.assertIn(f'-DLVRS_DIR={build_ios.WORKSPACE / "build" / mode / "install"}/lib/cmake/LVRS', account)
             variables = next(p['cacheVariables'] for p in presets if p['name'] == mode)
             self.assertEqual(variables['CMAKE_OSX_SYSROOT'], sdk)
             self.assertEqual({k for k in variables if k.startswith('ii')},
-                             {'iiAcountManager_DIR', 'iiWebServer_DIR', 'iiSocietyContainer_DIR', 'iiSocietyHelper_DIR', 'iiPhotoLibrary_DIR'})
+                             {'iiAccountManager_DIR', 'iiWebServer_DIR', 'iiSocietyContainer_DIR', 'iiSocietyHelper_DIR', 'iiPhotoLibrary_DIR'})
             hosting = next(c for c in configurations if Path(c[c.index('-S') + 1]).name == 'iiWebServer')
             self.assertIn('-DBUILD_SHARED_LIBS=OFF', hosting)
             self.assertIn(mode, variables['LVRS_DIR'])

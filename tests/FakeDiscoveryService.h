@@ -1,5 +1,5 @@
 #pragma once
-#include "App/Network/DiscoveryService.h"
+#include "Society/Network/DiscoveryService.h"
 class FakeDiscoveryService final : public DiscoveryService {
 public:
     QJsonObject record;

@@ -10,16 +10,16 @@ runtime validation are separate evidence.
 Changed boundaries:
 
 
-- `src/App/Files/ModelImporter.cpp`
-- `src/App/Network/NetworkDriveController.cpp`
-- `src/App/Network/NetworkDriveController.h`
-- `src/App/Photos/PhotoLibraryApple.mm`
-- `src/App/Photos/PhotoLibraryWindows.cpp`
-- `src/App/Photos/PhotoStore.cpp`
-- `src/App/Services/SyncOwnership.cpp`
-- `src/App/Services/SyncOwnership.h`
-- `src/App/Tools/ModelMergeController.cpp`
-- `src/Daemon/DaemonService.cpp`
-- `src/Daemon/DaemonService.h`
-- `src/Daemon/main.cpp`
-- `src/platform/android/src/com/iisacc/society/SocietyPhotoLibrary.java`
+- `App/Society/Files/ModelImporter.cpp`
+- `App/Society/Network/NetworkDriveController.cpp`
+- `App/Society/Network/NetworkDriveController.h`
+- `App/Society/Photos/PhotoLibraryApple.mm`
+- `App/Society/Photos/PhotoLibraryWindows.cpp`
+- `App/Society/Photos/PhotoStore.cpp`
+- `App/Society/Services/SyncOwnership.cpp`
+- `App/Society/Services/SyncOwnership.h`
+- `App/Society/Tools/ModelMergeController.cpp`
+- `App/Daemon/DaemonService.cpp`
+- `App/Daemon/DaemonService.h`
+- `App/Daemon/main.cpp`
+- `App/platform/android/src/com/iisacc/society/SocietyPhotoLibrary.java`

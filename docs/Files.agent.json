@@ -1,0 +1,381 @@
+{
+  "format": "iisacc.agent-document",
+  "schema_version": 1,
+  "document_id": "urn:iisacc:document:873ef1a5108212d1d1586e77a9c026d8c05fe1b0af925e32c5de292c0297cecd",
+  "project": {
+    "id": "urn:iisacc:project:Product%2FSociety",
+    "name": "Society",
+    "root": "Product/Society",
+    "kind": "application"
+  },
+  "source": {
+    "path": "docs/Files.md",
+    "sha256": "92525e14effb5beec8bf1af32b66c520e86e8e400cea3fbe56116ab08231144c",
+    "bytes": 8771,
+    "line_count": 96,
+    "encoding": "utf-8",
+    "language": "ko"
+  },
+  "document": {
+    "title": "Files 관리",
+    "role": "guide",
+    "authority": "markdown_source"
+  },
+  "blocks": [
+    {
+      "id": "b000001",
+      "kind": "heading",
+      "start_line": 1,
+      "end_line": 1,
+      "raw": "# Files 관리\n",
+      "level": 1,
+      "title": "Files 관리"
+    },
+    {
+      "id": "b000002",
+      "kind": "blank",
+      "start_line": 2,
+      "end_line": 2,
+      "raw": "\n"
+    },
+    {
+      "id": "b000003",
+      "kind": "paragraph",
+      "start_line": 3,
+      "end_line": 8,
+      "raw": "Storage의 **Files 및 그 하위 폴더**는 [Figma의 본문 영역 39:1014](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=39-1014)을\n`FilesBrowser.qml`로 구현한다. Storage 사이드바는 기존 구성을 유지한다.\n나머지 Storage 섹션은 기존 그리드·사진·모델 화면을 유지한다.\nStorage 탭을 누르면 Overview 없이 Files 최상위 폴더를 바로 표시한다. 다른 영역이나\n하위 폴더를 보고 있었더라도 Storage 탭을 다시 선택하면 Files 최상위로 이동한다.\n특정 영역·폴더 바로가기의 목적지는 유지한다.\n"
+    },
+    {
+      "id": "b000004",
+      "kind": "blank",
+      "start_line": 9,
+      "end_line": 9,
+      "raw": "\n"
+    },
+    {
+      "id": "b000005",
+      "kind": "paragraph",
+      "start_line": 10,
+      "end_line": 13,
+      "raw": "Files 툴바는 [Figma 39:1022](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=39-1022)를\n따른다. 왼쪽에 List/Grid 세그먼트와 Sort를 8px 간격으로 배치하고 오른쪽에 폭 205px의\nSearch Files를 둔다. 좁은 화면에서는 검색 폭만 줄이며 모든 컨트롤의 LVRS 기본 높이를\n유지한다. 상단 경로 버튼은 제거하고 하단 경로 정보는 유지한다.\n"
+    },
+    {
+      "id": "b000006",
+      "kind": "blank",
+      "start_line": 14,
+      "end_line": 14,
+      "raw": "\n"
+    },
+    {
+      "id": "b000007",
+      "kind": "paragraph",
+      "start_line": 15,
+      "end_line": 17,
+      "raw": "Storage 전체에서 Up·breadcrumb 표시줄을 제거한다. 영역 이동은 기존 사이드바·모바일\n탐색 시트를 사용하며, 상위 폴더는 플랫폼의 뒤로 가기 단축키 또는 기존 모바일 가장자리\n제스처로 이동한다. 모바일 Storage actions는 앱의 기존 상단 바로 옮겨 접근을 유지한다.\n"
+    },
+    {
+      "id": "b000008",
+      "kind": "blank",
+      "start_line": 18,
+      "end_line": 18,
+      "raw": "\n"
+    },
+    {
+      "id": "b000009",
+      "kind": "paragraph",
+      "start_line": 19,
+      "end_line": 23,
+      "raw": "Files의 기본 화면은 LVRS Table이며 파일명·수정일·종류·크기를 표시한다. Table의\n`rowHeight`, `rowHeights`, 헤더 높이, TableCellItem의 `cellHeight`는 오버라이드하지 않는다.\n기본 행 24px, 헤더 25px와 ListItem.Navigation 기본 44px를 그대로 따른다.\nFiles 안에서만 List/Grid를 전환할 수 있고 검색과 정렬은 두 보기에 공통으로 적용한다.\n좁은 화면에서는 상세 패널을 숨기고 표를 가로 스크롤하며 컨트롤 높이는 유지한다.\n"
+    },
+    {
+      "id": "b000010",
+      "kind": "blank",
+      "start_line": 24,
+      "end_line": 24,
+      "raw": "\n"
+    },
+    {
+      "id": "b000011",
+      "kind": "paragraph",
+      "start_line": 25,
+      "end_line": 30,
+      "raw": "데이터는 기존 SDK `StorageDirectoryModel`에서 읽는다. 폴더를 우선 표시하고 열 제목·Sort\n메뉴로 정렬하며 크기는 실제 바이트 수, 날짜는 실제 시각으로 비교한다. 단일 클릭은 선택,\n더블 클릭·Enter·Open은 기존 SDK의 다운로드/열기 경로를 사용한다. 우클릭·길게 누르기와\n복사·붙여넣기도 기존 FileActionMenu를 재사용한다. Reveal은 현재 폴더를 OS 파일 관리자로\n연다. 변경된 목록에서도 선택 경로와 스크롤 위치를 유지하고 이동·검색 제외·삭제 시 선택을\n해제한다. 예시 파일이나 기본 폴더를 생성하지 않는다.\n"
+    },
+    {
+      "id": "b000012",
+      "kind": "blank",
+      "start_line": 31,
+      "end_line": 31,
+      "raw": "\n"
+    },
+    {
+      "id": "b000013",
+      "kind": "paragraph",
+      "start_line": 32,
+      "end_line": 35,
+      "raw": "상세 패널은 실제 수정일·크기·로컬/원격 상태를 표시한다. 생성일과 이미지 크기는 선택한\n로컬 항목에 한해 GUI 어댑터 `DirectoryLocation.fileDetails()`에서 읽는다. 제공되지 않는\n생성일은 `—`로 표시하고 PDF 페이지 수 등 읽지 않은 메타데이터는 만들지 않는다.\n`Society.Gui`는 목록·검색·선택·열기·갱신·보기 전환과 LVRS 기본 높이를 검증한다.\n"
+    },
+    {
+      "id": "b000014",
+      "kind": "blank",
+      "start_line": 36,
+      "end_line": 36,
+      "raw": "\n"
+    },
+    {
+      "id": "b000015",
+      "kind": "paragraph",
+      "start_line": 37,
+      "end_line": 43,
+      "raw": "파일 그리드의 하위 폴더는 폭과 높이가 같은 정사각형\n클릭 영역을 사용한다. 폴더 프레임의 배경과 테두리는 기본·호버·누름·선택 상태에서\n모두 표시하지 않는다. 하위 폴더의 선택은 이름의 강조색으로\n구분한다. 일반 파일 카드의 높이와 갤러리의 정사각형 프리뷰는 기존 규칙을 유지한다.\n`Society.Gui`는 여러 창 크기에서 폴더의 비율·투명도·테두리와 선택 후 키보드 열기를\n검증한다. `Society.Drive`는 실제 Storage 탭의 Files 진입과 폴더 이동을 검증하고\n`build/storage-files-entry/files.png`에 화면을 기록한다.\n"
+    },
+    {
+      "id": "b000016",
+      "kind": "blank",
+      "start_line": 44,
+      "end_line": 44,
+      "raw": "\n"
+    },
+    {
+      "id": "b000017",
+      "kind": "paragraph",
+      "start_line": 45,
+      "end_line": 49,
+      "raw": "스토리지의 파일·생성 기록 목록은 백그라운드 조회를 계속하되, 같은 결과로 화면을\n다시 만들지 않는다. SDK가 실제로 바뀐 행과 역할만 반영하며, 갱신 전후 선택 경로와\n스크롤 위치를 유지한다. 최신순 화면의 끝을 보고 있더라도 새 항목 도착만으로 카메라를\n이동하지 않는다. 최초 폴더 진입·정렬 변경 때만 초기 위치를 정하고, 삭제로 화면 범위가\n줄어들면 유효한 끝 위치까지만 제한한다. `Society.Gui`와 `Society.Drive`가 이 동작을 검증한다.\n"
+    },
+    {
+      "id": "b000018",
+      "kind": "blank",
+      "start_line": 50,
+      "end_line": 50,
+      "raw": "\n"
+    },
+    {
+      "id": "b000019",
+      "kind": "paragraph",
+      "start_line": 51,
+      "end_line": 55,
+      "raw": "파일 그리드, 모델 카드, 대시보드의 파일·생성 기록에서 우클릭하거나 터치로 길게 누르면\n열기·폴더 보기·복사·경로 복사·붙여넣기·복제·이름 변경·공유·삭제 메뉴가 열린다.\nmacOS의 공유는 시스템 공유 선택기를 사용한다. 복사는 Finder와 호환되는 파일 URL을\n클립보드에 넣으며, 붙여넣기는 대상 폴더의 빈 공간 메뉴 또는 파일 메뉴로 실행한다.\n파일 그리드에 키보드 포커스가 있을 때 표준 복사·붙여넣기 단축키도 사용할 수 있다.\n"
+    },
+    {
+      "id": "b000020",
+      "kind": "blank",
+      "start_line": 56,
+      "end_line": 56,
+      "raw": "\n"
+    },
+    {
+      "id": "b000021",
+      "kind": "paragraph",
+      "start_line": 57,
+      "end_line": 68,
+      "raw": "삭제는 다운로드·모델 검사·해시 계산·동기화 잠금을 기다리지 않고 `Deleted/`로 이름만\n변경하여 이동한다. 다른 파일시스템으로의 복사로 대체하지 않는다. 복구하려면 Deleted에서\n복사한 뒤 원하는 폴더에 붙여넣는다. Deleted 안에서는 파일 이름을 표시한 확인 시트를 거쳐\n파일시스템에서 직접 영구 삭제한다. 블록·노드·모델 의존 관계를 탐색하지 않으며, 디렉터리는\n하위 파일을 직접 제거한다. 호스트의 목록도 실제 경로를 우선하므로 재색인이 끝나기 전에\n삭제가 반영된다. 동기화 기록 갱신은 이후 별도로 진행한다. 최상위 섹션\n자체는 변경할 수 없다. 모델 패키지는 모든 하위 파일을 함께 다룬다. 복제 작업은 SDK\n작업 스레드에서 수행하며 완료된 사본만 목록에 표시한다. 이름 충돌은 덮어쓰지 않는다.\n복사·복제·공유·이름 변경은 선택한 파일·패키지에 한해 원본을 준비한 뒤 동작한다.\n로컬 내용이 없는 원격 전용 항목의 삭제는 다운로드하지 않고 호스트에서 삭제하라는 오류를\n즉시 표시한다. 메뉴를 여는 것만으로는 다운로드하지 않는다. SDK 계약은\n[FileActions](../../../SDK/iiSocietyContainer/docs/FileActions.md)에 있다.\n"
+    },
+    {
+      "id": "b000022",
+      "kind": "blank",
+      "start_line": 69,
+      "end_line": 69,
+      "raw": "\n"
+    },
+    {
+      "id": "b000023",
+      "kind": "paragraph",
+      "start_line": 70,
+      "end_line": 73,
+      "raw": "사진·비디오 화면은 같은 우클릭/길게 누르기 방식으로 열기·복사·복제·공유·삭제를 제공한다.\nPhotoStore가 네이티브 원본과 다중 리소스를 처리하며, 복제는 별도 사진 ID를 만든다.\n사진 삭제는 기존 기기 사진 보관함 삭제 경로를 사용하고 OS의 동의 절차를 따른다.\n별칭이나 프리뷰만 복사·삭제하지 않는다.\n"
+    },
+    {
+      "id": "b000024",
+      "kind": "blank",
+      "start_line": 74,
+      "end_line": 74,
+      "raw": "\n"
+    },
+    {
+      "id": "b000025",
+      "kind": "paragraph",
+      "start_line": 75,
+      "end_line": 80,
+      "raw": "`Society.Gui`는 실제 우클릭과 복사·복제·Deleted 이동 및 사용자 폴더 변경를 검사하고,\n`Society.Photos`는 원본 바이트 내보내기와 다중 리소스 사진 복제·삭제를 검사한다.\n사진 TLS 검사는 최초 동기화 신호가 아니라 사진 별칭의 실제 도착과 프리뷰 해시 일치를\n확인한 뒤 원본 전송을 검사한다. 호스트의 인덱스 배치 게시와 파일 도착을 혼동하지 않는다.\n공유 Qt를 사용하는 데스크톱 구성은 이전 앱 사본까지 포함하는 `build/` 전체 QML import\n탐색을 생략하며 실제 QML 로딩은 앱·GUI 회귀 검사로 확인한다. 정적 모바일 구성은 유지한다.\n"
+    },
+    {
+      "id": "b000026",
+      "kind": "blank",
+      "start_line": 81,
+      "end_line": 81,
+      "raw": "\n"
+    },
+    {
+      "id": "b000027",
+      "kind": "paragraph",
+      "start_line": 82,
+      "end_line": 84,
+      "raw": "Society의 `Files/`는 기본 제공 항목 없이 시작한다. 생성·열기·동기화·네이티브 파일 제공자\n갱신으로 하위 폴더를 만들거나 복원하지 않는다. `Documents`, `Audios`, `3D objects`도\n일반 사용자 이름으로 사용할 수 있으며 삭제·이름 변경·이동이 가능하다.\n"
+    },
+    {
+      "id": "b000028",
+      "kind": "blank",
+      "start_line": 85,
+      "end_line": 85,
+      "raw": "\n"
+    },
+    {
+      "id": "b000029",
+      "kind": "paragraph",
+      "start_line": 86,
+      "end_line": 88,
+      "raw": "이전 버전에서 생성된 기본 폴더는 컨테이너를 최초 갱신할 때 비어 있는 경우에만 정리한다.\n숨김 항목을 포함해 내용이 있거나 파일·링크인 경우에는 보존한다. 이전 완료를 매니페스트에\n기록하므로 이후 사용자가 같은 이름으로 만든 빈 폴더는 그대로 유지한다.\n"
+    },
+    {
+      "id": "b000030",
+      "kind": "blank",
+      "start_line": 89,
+      "end_line": 89,
+      "raw": "\n"
+    },
+    {
+      "id": "b000031",
+      "kind": "paragraph",
+      "start_line": 90,
+      "end_line": 92,
+      "raw": "Storage → Files와 Finder/파일 앱은 같은 사용자 항목을 표시한다. Files와 같은 계층의\n`Society/Photos/`는 [사진과 비디오를 기기 보관함과 연결한다](Photos.md).\nSDK의 [Files 계약](../../../SDK/iiSocietyContainer/docs/Files.md)에 생성·이전·조회 규칙을 설명한다.\n"
+    },
+    {
+      "id": "b000032",
+      "kind": "blank",
+      "start_line": 93,
+      "end_line": 93,
+      "raw": "\n"
+    },
+    {
+      "id": "b000033",
+      "kind": "paragraph",
+      "start_line": 94,
+      "end_line": 96,
+      "raw": "`Society.Drive`는 새 Files 화면의 빈 상태, 사용자가 만든 폴더의 탐색과 삭제, Photos 전용\n화면을 검사한다. `Society.Gui`는 이전 기본 이름의 삭제 메뉴와 삭제 후 미복구를 확인한다.\n동기화·모델 가져오기·네트워크 목록 테스트도 기본 폴더가 없는 상태에서 실행한다.\n"
+    }
+  ],
+  "outline": [
+    {
+      "block_id": "b000001",
+      "parent_id": null,
+      "level": 1,
+      "title": "Files 관리",
+      "anchor": "files-관리",
+      "start_line": 1
+    }
+  ],
+  "indexes": {
+    "directive_candidates": [
+      {
+        "block_id": "b000009",
+        "line": 20,
+        "text": "`rowHeight`, `rowHeights`, 헤더 높이, TableCellItem의 `cellHeight`는 오버라이드하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000011",
+        "line": 30,
+        "text": "해제한다. 예시 파일이나 기본 폴더를 생성하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000015",
+        "line": 39,
+        "text": "모두 표시하지 않는다. 하위 폴더의 선택은 이름의 강조색으로",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000017",
+        "line": 48,
+        "text": "이동하지 않는다. 최초 폴더 진입·정렬 변경 때만 초기 위치를 정하고, 삭제로 화면 범위가",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000021",
+        "line": 58,
+        "text": "변경하여 이동한다. 다른 파일시스템으로의 복사로 대체하지 않는다. 복구하려면 Deleted에서",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000021",
+        "line": 67,
+        "text": "즉시 표시한다. 메뉴를 여는 것만으로는 다운로드하지 않는다. SDK 계약은",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000023",
+        "line": 73,
+        "text": "별칭이나 프리뷰만 복사·삭제하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000025",
+        "line": 78,
+        "text": "확인한 뒤 원본 전송을 검사한다. 호스트의 인덱스 배치 게시와 파일 도착을 혼동하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000027",
+        "line": 83,
+        "text": "갱신으로 하위 폴더를 만들거나 복원하지 않는다. `Documents`, `Audios`, `3D objects`도",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      }
+    ],
+    "commands": [],
+    "links": [
+      {
+        "block_id": "b000003",
+        "label": "Figma의 본문 영역 39:1014",
+        "target": "https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=39-1014",
+        "kind": "external",
+        "line": 3
+      },
+      {
+        "block_id": "b000005",
+        "label": "Figma 39:1022",
+        "target": "https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=39-1022",
+        "kind": "external",
+        "line": 10
+      },
+      {
+        "block_id": "b000021",
+        "label": "FileActions",
+        "target": "../../../SDK/iiSocietyContainer/docs/FileActions.md",
+        "kind": "relative",
+        "line": 68
+      },
+      {
+        "block_id": "b000031",
+        "label": "사진과 비디오를 기기 보관함과 연결한다",
+        "target": "Photos.md",
+        "kind": "relative",
+        "line": 91
+      },
+      {
+        "block_id": "b000031",
+        "label": "Files 계약",
+        "target": "../../../SDK/iiSocietyContainer/docs/Files.md",
+        "kind": "relative",
+        "line": 92
+      }
+    ],
+    "tables": []
+  },
+  "provenance": {
+    "generator": "workspace-docs",
+    "version": "1.0.0",
+    "profile": "lossless-blocks-v1",
+    "derived": true
+  }
+}

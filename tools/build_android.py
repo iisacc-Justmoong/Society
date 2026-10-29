@@ -51,11 +51,11 @@ def main():
             raise SystemExit(result.returncode)
 
     packages = {}
-    for name in ('iiAcountManager', 'iiWebServer', 'iiSocietyContainer', 'iiSocietyHelper', 'iiPhotoLibrary'):
+    for name in ('iiAccountManager', 'iiWebServer', 'iiSocietyContainer', 'iiSocietyHelper', 'iiPhotoLibrary'):
         directory = workspace / 'SDK' / name / 'build/society-android'
         prefix = build / 'installed' / name
         definitions = [f'-D{key}_DIR={value}' for key, value in packages.items()]
-        if name == 'iiAcountManager':
+        if name == 'iiAccountManager':
             definitions += ['-DIIACCOUNTMANAGER_BUILD_QUICK=ON', f'-DLVRS_DIR={lvrs}/lib/cmake/LVRS']
         run(common + ['-S', str(workspace / 'SDK' / name), '-B', str(directory), f'-DCMAKE_INSTALL_PREFIX={prefix}'] + definitions, name + '-configure')
         run(['cmake', '--build', str(directory), '--parallel', str(args.jobs)], name + '-build')

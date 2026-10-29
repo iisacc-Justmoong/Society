@@ -1,5 +1,11 @@
 # Society
 
+All iisacc products use the same `.societycontainer` storage contract across
+platforms. Society discovers and adopts their shared logical disks, keeping
+paths, identities and original files. Desktop discovery uses the suite storage
+root, including Windows/Linux user data and configured shared deployments. See
+[shared logical storage](docs/SharedLogicalStorage.md).
+
 File import, file actions and Helper storage use iiFileProvider managed originals
 and revision history. Dashboard search supports indexed metadata and semantic
 directories; file information exposes the working identity, RAW original and
@@ -24,6 +30,16 @@ The login and sign-up screens owned by the iiAccountManager SDK are called from 
 Search for iisacc devices of the same Society account via BLE and LAN, verify the certificate issued by the account server, and add to the automatic queue and connect. Other desktops, mobile phones, and tablets connect to one desktop host in sequence, and failed devices are automatically retried. BLE exchanges small connection information, and files are transmitted via Wi-Fi/LAN TCP /TLS. Apple Bonjour and Android NSD discovery are also maintained. If [self-hosted web server and NAS](docs/SelfHosting.md)are set up, devices of the same account can be connected over the internet, and the entire container is synchronized. Refer to [automatic connection contract](docs/AutomaticPairing.md)and [manual invitation QR procedure](docs/Pairing.md).
 
 <a id="iisacc-계정"></a>
+
+## Cloud Files
+
+Each basic iisacc account receives 5 GB (5,000,000,000 bytes) of S3-backed storage
+for `Society.societycontainer/Files`. Storage → Cloud Files provides explicit
+uploads, version-checked replacements, downloads that preserve existing local
+files, quota usage and pending upload controls. The service uses the existing
+Society account session and server-enforced quota. See [CloudFiles.md](docs/CloudFiles.md)
+for the client boundary and verification; AWS activation and deployment remain
+separate from this source change.
 
 ## iisacc account
 
@@ -89,7 +105,7 @@ Maintained as [loadInPlaceFileRepresentation](https://developer.apple.com/docume
 
 Storage's sidebar is the 228 px navigation list from Figma. The default Models screen displays Image, Video, Audio, and Language models in separate horizontally scrolling card lists. It uses the bounded metadata queries in iiSocietyContainer 0.11.1. Existing subfolders are explored through the path at the bottom of the screen and card menus. Refer to the [model document](docs/Models.md)for dimension, classification, update, and verification contracts.
 
-`src/App/FileGridView.qml` receives the absolute path of the local folder as a required `string path` argument. If no container is selected or it is at the drive root, it passes an empty path and hides the file list. When opening an area, it passes the corresponding actual directory. It can also be used as an independent component.
+`App/Society/FileGridView.qml` receives the absolute path of the local folder as a required `string path` argument. If no container is selected or it is at the drive root, it passes an empty path and hides the file list. When opening an area, it passes the corresponding actual directory. It can also be used as an independent component.
 
 ```qml
 FileGridView {
@@ -129,7 +145,7 @@ uses explicit package directories or `~/.local/SDK/<package name>`.
 
 | Required capability | Owning SDK |
 | --- | --- |
-| Account UI and authentication | iiAcountManager Quick |
+| Account UI and authentication | iiAccountManager Quick |
 | Persistent calendar, events and tasks | iiCalendar |
 | File creation, temporary leases and native presentation | iiFileProvider |
 | Device pairing and authenticated LAN hosting | iiWebServer |
@@ -186,16 +202,18 @@ CLion also specifies the CMake build directory as `build/`. The execution target
 
 ## Structure and Validation
 
-- `src/main.cpp`: LVRS runtime initialization and `Society.Main` QML load
-- `src/App/Main.qml`: LVRS window, folder selection, 9 area, sidebar, path navigation, Finder connection UI
-- `src/App/FileGridView.qml`: file list, preview, selection, empty state UI
-- `src/App/Files/DirectoryLocation.h/.cpp`: local absolute path validation and file URL conversion
-- `src/App/Files/ModelImporter.h/.cpp`: model classification, asynchronous copy, duplicate name handling, and progress status
-- `src/App/Files/ModelImportSource.h`: contract for local files and Apple provider to maintain read access during copy
-- `src/App/Files/AppleModelSource.h/.mm`: Apple file provider input maintaining security scope and file adjustment
-- `src/App/Files/IosModelDrop.h/.mm`: iOS native drop across entire window and destination feedback
-- `src/App/Drive/DriveController.h/.cpp`: SDK drive load, navigation within area boundaries, native connection status
-- `src/App/AI/`: Empty initial skeleton of the Civitai·Hugging Face·Ollama integration class
+- `App/`: application entry point, Society views and controllers, daemon, and platform-specific sources. Project headers are resolved relative to this directory.
+- `docs/SourceLayout.md`: source layout, stable QML resource paths, and verification commands.
+- `App/main.cpp`: LVRS runtime initialization and `Society.Main` QML load
+- `App/Society/Main.qml`: LVRS window, folder selection, 9 area, sidebar, path navigation, Finder connection UI
+- `App/Society/FileGridView.qml`: file list, preview, selection, empty state UI
+- `App/Society/Files/DirectoryLocation.h/.cpp`: local absolute path validation and file URL conversion
+- `App/Society/Files/ModelImporter.h/.cpp`: model classification, asynchronous copy, duplicate name handling, and progress status
+- `App/Society/Files/ModelImportSource.h`: contract for local files and Apple provider to maintain read access during copy
+- `App/Society/Files/AppleModelSource.h/.mm`: Apple file provider input maintaining security scope and file adjustment
+- `App/Society/Files/IosModelDrop.h/.mm`: iOS native drop across entire window and destination feedback
+- `App/Society/Drive/DriveController.h/.cpp`: SDK drive load, navigation within area boundaries, native connection status
+- `App/Society/AI/`: Empty initial skeleton of the Civitai·Hugging Face·Ollama integration class
 - `tests/tst_filegrid.cpp`: empty path, invalid path, sorting and image preview of actual temporary files, click, double-click, keyboard navigation and scroll, three kinds window size, path change, QML warning check
 - `tests/FileGridHarness.qml`: LVRS window that validates the file grid independently of the drive screen
 - `tests/tst_drive.cpp`: Checks persistent ID, retention of in-app file browsing for all 9 sections, rejection of boundary escapes, preservation of an existing container on conflicts, and section clicks, folder navigation, parent navigation, small-window layouts, and QML warnings in the actual drive screen. Also checks the window's URL drop, copy action, automatic section placement, and model-list updates.
@@ -282,9 +300,9 @@ The mobile screen shares the Dashboard, Tools, and Storage of the desktop. The d
 
 ## Source layout
 
-Implementation files and their headers live together under `src/`. Existing feature and platform subdirectories retain their responsibilities. Build configuration, tests, documentation, resources, and maintenance scripts remain at the project root. Configure and build using the repository-local `build/` directory.
+Implementation files and their headers live together under `App/`. Existing feature and platform subdirectories retain their responsibilities. Build configuration, tests, documentation, resources, and maintenance scripts remain at the project root. Configure and build using the repository-local `build/` directory.
 
-The file grid and photo gallery test harnesses import their views from `src/App` and `src/App/Photos`, matching the application's source layout.
+The file grid and photo gallery test harnesses import their views from `App/Society` and `App/Society/Photos`, matching the application's source layout.
 
 
 ### Dashboard calendar
@@ -304,10 +322,19 @@ If the `build/bin/Society.app` of the same build has already passed independent 
 macOS window close, app termination, and Dock reopen actions follow the [application lifecycle policy](docs/ApplicationLifetime.md).
 ## Model Packaging
 
-Tools의 Model merge 옆 Model Packaging에서 로컬 모델 폴더를 단일 Safetensors로 묶을 수 있다.
-구성요소와 샤드를 자동 식별하고 중복·불량 파일을 검사하며, 원래 정밀도와 GGUF 형식을 보존한다.
-SDK가 출력 검증과 원자적 저장을 완료해야 성공으로 표시한다. [사용법과 검증](docs/ModelPackaging.md)을 참조한다.
+Model Packaging, next to Model merge in Tools, packages a local model directory into a single Safetensors file.
+It identifies components and shards automatically, checks duplicate and invalid files, and preserves the original precision and GGUF format.
+Success is reported only after the SDK completes output verification and atomic saving. See [usage and verification](docs/ModelPackaging.md).
 
 Society creates and manages a single `Society.societycontainer` directory package. Its user files, private working state and cache share that boundary; the native adapter projects `Files/` as the system drive. On macOS 27, FSKit creates and manages the mount namespace under `/Volumes/`; Society stores no additional data there and does not create an external backing directory. A bare directory and a legacy disk image cannot be selected as a live container. External model inputs remain readable, while model outputs must be saved inside the selected container.
 
 The application disables Qt QML and GPU pipeline disk caches so framework startup does not create an external application cache. The iOS drop syntax check includes the same temporary-file SDK dependency as its production importer.
+
+<!-- workspace-docs:readme:start -->
+## Documentation entry points
+
+- Human overview: this English `README.md`.
+- Agent instructions: [AGENT.md](AGENT.md).
+- Human documentation: [documentation index](docs/README.md).
+- Structured agent documentation: [agent index](docs/agent-index.json).
+<!-- workspace-docs:readme:end -->

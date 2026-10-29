@@ -65,6 +65,11 @@ society_add_android_qr(Fixture)
             self.assertIn('import com.iisacc.iiphotolibrary.PhotoLibrary;', activity)
             self.assertIn('PhotoLibrary.photoAccessFinished()', activity)
             self.assertIn('PhotoLibrary.consentFinished(result)', activity)
+            for name in ('SocietyActivity.java', 'SocietyDiscovery.java', 'SocietySyncService.java'):
+                with self.subTest(source=name):
+                    source = ROOT / 'App/platform/android/src/com/iisacc/society' / name
+                    self.assertEqual((package / 'src/com/iisacc/society' / name).read_bytes(),
+                                     source.read_bytes())
             manifest = (package / 'AndroidManifest.xml').read_text()
             self.assertIn('READ_MEDIA_VISUAL_USER_SELECTED', manifest)
             self.assertIn('READ_MEDIA_VIDEO', manifest)

@@ -1,0 +1,362 @@
+{
+  "format": "iisacc.agent-document",
+  "schema_version": 1,
+  "document_id": "urn:iisacc:document:9f69a2237202a745dc22cf0edb4cb6bbd8f6324ffe79195b6cf3d485402be4ad",
+  "project": {
+    "id": "urn:iisacc:project:Product%2FSociety",
+    "name": "Society",
+    "root": "Product/Society",
+    "kind": "application"
+  },
+  "source": {
+    "path": "docs/Preferences.md",
+    "sha256": "fedff0fe4ca0cc83358fbde89cbd72a68f987e69e5a946726c06f587ef4acbc3",
+    "bytes": 5026,
+    "line_count": 43,
+    "encoding": "utf-8",
+    "language": "ko"
+  },
+  "document": {
+    "title": "Society 환경 설정",
+    "role": "guide",
+    "authority": "markdown_source"
+  },
+  "blocks": [
+    {
+      "id": "b000001",
+      "kind": "html",
+      "start_line": 1,
+      "end_line": 1,
+      "raw": "<a id=\"society-preferences\"></a>\n"
+    },
+    {
+      "id": "b000002",
+      "kind": "blank",
+      "start_line": 2,
+      "end_line": 2,
+      "raw": "\n"
+    },
+    {
+      "id": "b000003",
+      "kind": "heading",
+      "start_line": 3,
+      "end_line": 3,
+      "raw": "# Society 환경 설정\n",
+      "level": 1,
+      "title": "Society 환경 설정"
+    },
+    {
+      "id": "b000004",
+      "kind": "blank",
+      "start_line": 4,
+      "end_line": 4,
+      "raw": "\n"
+    },
+    {
+      "id": "b000005",
+      "kind": "paragraph",
+      "start_line": 5,
+      "end_line": 8,
+      "raw": "데스크톱 환경설정은 좌측 카테고리와 우측 상세 내용으로 구성한다. macOS 글로벌 메뉴 바의 앱 메뉴\nPreferences… 및 ⌘+,로 열며, 같은 창을 재사용한다. Escape·⌘W·창 닫기로 숨긴다.\nFile·Edit·Window·Help는 확장을 위한 빈 메뉴 구조이다. 환경설정과 종료만 연결한다.\n계정 드라이브·연결 관련 기존 설정은 모바일 Preferences 시트에 유지한다. Environment는 별도의 [기기·앱 관리 페이지](Environment.md)이다.\n"
+    },
+    {
+      "id": "b000006",
+      "kind": "blank",
+      "start_line": 9,
+      "end_line": 9,
+      "raw": "\n"
+    },
+    {
+      "id": "b000007",
+      "kind": "paragraph",
+      "start_line": 10,
+      "end_line": 10,
+      "raw": "데스크톱 상단의 **Preferences…** 또는 **⌘+,**(macOS), **Ctrl+,**(Windows/Linux)로 독립 LVRS 설정 창을 연다. 좁은 창에서는 설정 아이콘을 표시하며 Devices의 **Preferences…**도 같은 창을 연다. 창은 최초 요청 때 생성하고 이후에는 기존 창을 활성화한다. Escape, OS 창 닫기로 숨기며 메인 창을 닫으면 함께 닫는다.\n"
+    },
+    {
+      "id": "b000008",
+      "kind": "blank",
+      "start_line": 11,
+      "end_line": 11,
+      "raw": "\n"
+    },
+    {
+      "id": "b000009",
+      "kind": "html",
+      "start_line": 12,
+      "end_line": 12,
+      "raw": "<a id=\"society-drive\"></a>\n"
+    },
+    {
+      "id": "b000010",
+      "kind": "blank",
+      "start_line": 13,
+      "end_line": 13,
+      "raw": "\n"
+    },
+    {
+      "id": "b000011",
+      "kind": "heading",
+      "start_line": 14,
+      "end_line": 14,
+      "raw": "## Society 드라이브\n",
+      "level": 2,
+      "title": "Society 드라이브"
+    },
+    {
+      "id": "b000012",
+      "kind": "blank",
+      "start_line": 15,
+      "end_line": 15,
+      "raw": "\n"
+    },
+    {
+      "id": "b000013",
+      "kind": "paragraph",
+      "start_line": 16,
+      "end_line": 16,
+      "raw": "좌측 Society drive 카테고리의 우측에서 현재 위치를 확인하고, 기존 드라이브 루트 폴더를 직접 입력하거나 Choose folder…로 선택한 뒤 Apply로 적용한다. 선택 취소는 현재 드라이브를 변경하지 않는다. 저장은 기존 `DriveController::openContainer`와 SDK `SharedStorage::setDefaultContainer`를 사용한다. 잘못된 폴더는 기존 연결과 저장 위치를 유지하며 오류를 표시한다. 새 드라이브 생성, 파일 이동·삭제, 계정에 등록된 호스트 위치 변경은 수행하지 않는다. 일반 Society 루트의 9개 폴더를 직접 사용한다. 레거시 이미지 선택은 이전·복구 호환 경로이다. 공유 위치는 Dreamscapes의 기본 연결에도 사용되며, 이미 실행 중인 다른 앱을 강제로 전환하지 않는다.\n"
+    },
+    {
+      "id": "b000014",
+      "kind": "blank",
+      "start_line": 17,
+      "end_line": 17,
+      "raw": "\n"
+    },
+    {
+      "id": "b000015",
+      "kind": "paragraph",
+      "start_line": 18,
+      "end_line": 18,
+      "raw": "Society의 기존 시작 정책은 유지한다. 로그인된 계정에 등록된 호스트 디스크가 있으면 재시작 시 해당 계정 디스크를 우선 복원하며, 기본 드라이브 복원은 저장된 Society 폴더와 컨테이너 UUID를 검증한다. 이 화면은 계정에 등록된 호스트 디스크를 교체하는 기능이 아니다.\n"
+    },
+    {
+      "id": "b000016",
+      "kind": "blank",
+      "start_line": 19,
+      "end_line": 19,
+      "raw": "\n"
+    },
+    {
+      "id": "b000017",
+      "kind": "paragraph",
+      "start_line": 20,
+      "end_line": 20,
+      "raw": "모바일 Preferences는 `PreferencesContent`를 LVRS 시트로 사용하여 계정의 컨테이너 드라이브 위치, 이동한 폴더 연결, 연결 상태와 **Devices…**를 제공한다. 호스트·클라이언트 역할 선택 항목은 표시하지 않는다.\n"
+    },
+    {
+      "id": "b000018",
+      "kind": "blank",
+      "start_line": 21,
+      "end_line": 21,
+      "raw": "\n"
+    },
+    {
+      "id": "b000019",
+      "kind": "paragraph",
+      "start_line": 22,
+      "end_line": 22,
+      "raw": "기기 역할은 플랫폼으로 고정된다.\n"
+    },
+    {
+      "id": "b000020",
+      "kind": "blank",
+      "start_line": 23,
+      "end_line": 23,
+      "raw": "\n"
+    },
+    {
+      "id": "b000021",
+      "kind": "table",
+      "start_line": 24,
+      "end_line": 27,
+      "raw": "| 플랫폼 | 역할 |\n| --- | --- |\n| macOS, Windows, Linux 데스크톱 및 NAS의 SocietyDaemon |호스트|\n| iOS, Android |클라이언트|\n",
+      "columns": [
+        "플랫폼",
+        "역할"
+      ],
+      "rows": [
+        [
+          "macOS, Windows, Linux 데스크톱 및 NAS의 SocietyDaemon",
+          "호스트"
+        ],
+        [
+          "iOS, Android",
+          "클라이언트"
+        ]
+      ]
+    },
+    {
+      "id": "b000022",
+      "kind": "blank",
+      "start_line": 28,
+      "end_line": 28,
+      "raw": "\n"
+    },
+    {
+      "id": "b000023",
+      "kind": "paragraph",
+      "start_line": 29,
+      "end_line": 29,
+      "raw": "`NetworkDriveController.mode`는 읽기 전용 상수이며 런타임 변경 API가 없다. 서버 연결·연결 해제·로그아웃·컨테이너 변경도 이 값을 바꾸지 않는다. Devices는 현재 기기의 역할을 설명하고 서버 연결 버튼 하나만 제공한다. 데스크톱은 유효한 컨테이너와 인증된 연결이 준비되면 호스팅하며, 모바일에서는 호스팅 옵션을 전달해도 파일 서버를 열지 않는다.\n"
+    },
+    {
+      "id": "b000024",
+      "kind": "blank",
+      "start_line": 30,
+      "end_line": 30,
+      "raw": "\n"
+    },
+    {
+      "id": "b000025",
+      "kind": "paragraph",
+      "start_line": 31,
+      "end_line": 31,
+      "raw": "서버 설정에는 주소만 저장한다. 이전 버전이 저장한 `host` 값은 복원 시 제거하고 주소와 로그인 세션은 유지한다. 기기 역할과 컨테이너의 기본 호스트는 서로 다른 개념이다. 기존 미러의 기본 호스트 연결·자동 선출·데이터 보존 정책은 유지하며, 다른 기본 호스트에 연결된 데스크톱도 기기 역할은 Host이다.\n"
+    },
+    {
+      "id": "b000026",
+      "kind": "blank",
+      "start_line": 32,
+      "end_line": 32,
+      "raw": "\n"
+    },
+    {
+      "id": "b000027",
+      "kind": "paragraph",
+      "start_line": 33,
+      "end_line": 33,
+      "raw": "`Society.NetworkDrive`는 데스크톱 기본 호스팅, 읽기 전용 역할, 연결 해제 시 다운로드 보존을 검사한다. `Society.ClientOnlyNetwork`는 모바일로 별도 컴파일하여 역할 고정, 레거시 호스트 설정 무시, 호스팅 옵션 차단과 LVRS 화면의 선택 항목 제거를 검사한다. `Society.Account`는 데스크톱의 레거시 클라이언트 설정 복원을, `Society.Pairing`은 여러 기기의 페어링을 검사한다. 한 프로세스 안의 여러 기기 통합 검사는 생성 시 역할이 고정된 `MobileNetworkDevice` fixture를 사용한다. 제품의 기본 생성자는 항상 빌드 플랫폼을 따른다.\n"
+    },
+    {
+      "id": "b000028",
+      "kind": "blank",
+      "start_line": 34,
+      "end_line": 34,
+      "raw": "\n"
+    },
+    {
+      "id": "b000029",
+      "kind": "paragraph",
+      "start_line": 35,
+      "end_line": 35,
+      "raw": "`Society.Drive`의 `preferencesDriveLocationAndWindowLifecycle`는 카테고리/상세 영역, 위치 적용·공유 저장, 잘못된 경로에서 기존 연결 보존, 창 재사용, 크기 변경, 키보드 닫기·재열기, Devices 왕복을 검사한다. 이 창은 로그인이나 네트워크 연결 없이 열 수 있다.\n"
+    },
+    {
+      "id": "b000030",
+      "kind": "blank",
+      "start_line": 36,
+      "end_line": 36,
+      "raw": "\n"
+    },
+    {
+      "id": "b000031",
+      "kind": "fenced_code",
+      "start_line": 37,
+      "end_line": 41,
+      "raw": "```sh\ncmake --build build --parallel 4\nctest --test-dir build --output-on-failure -R 'Society\\.(NetworkDrive|ClientOnlyNetwork|Account|Pairing|Drive|Daemon)$'\ncmake --build build --target Society_qmllint\n```\n",
+      "language": "sh",
+      "code": "cmake --build build --parallel 4\nctest --test-dir build --output-on-failure -R 'Society\\.(NetworkDrive|ClientOnlyNetwork|Account|Pairing|Drive|Daemon)$'\ncmake --build build --target Society_qmllint\n",
+      "closed": true
+    },
+    {
+      "id": "b000032",
+      "kind": "blank",
+      "start_line": 42,
+      "end_line": 42,
+      "raw": "\n"
+    },
+    {
+      "id": "b000033",
+      "kind": "paragraph",
+      "start_line": 43,
+      "end_line": 43,
+      "raw": "실제 모바일 기기 실행과 외부 서버 배포 검증은 데스크톱의 정책·통합 검사와 별도이다. 연결 및 공개 범위의 상세 계약은 [NetworkDrive.md](NetworkDrive.md)를 따른다.\n"
+    }
+  ],
+  "outline": [
+    {
+      "block_id": "b000003",
+      "parent_id": null,
+      "level": 1,
+      "title": "Society 환경 설정",
+      "anchor": "society-환경-설정",
+      "start_line": 3
+    },
+    {
+      "block_id": "b000011",
+      "parent_id": "b000003",
+      "level": 2,
+      "title": "Society 드라이브",
+      "anchor": "society-드라이브",
+      "start_line": 14
+    }
+  ],
+  "indexes": {
+    "directive_candidates": [
+      {
+        "block_id": "b000013",
+        "line": 16,
+        "text": "좌측 Society drive 카테고리의 우측에서 현재 위치를 확인하고, 기존 드라이브 루트 폴더를 직접 입력하거나 Choose folder…로 선택한 뒤 Apply로 적용한다. 선택 취소는 현재 드라이브를 변경하지 않는다. 저장은 기존 `DriveController::openContainer`와 SDK `SharedStorage::setDefaultContainer`를 사용한다. 잘못된 폴더는 기존 연결과 저장 위치를 유지하며 오류를 표시한다. 새 드라이브 생성, 파일 이동·삭제, 계정에 등록된 호스트 위치 변경은 수행하지 않는다. 일반 Society 루트의 9개 폴더를 직접 사용한다. 레거시 이미지 선택은 이전·복구 호환 경로이다. 공유 위치는 Dreamscapes의 기본 연결에도 사용되며, 이미 실행 중인 다른 앱을 강제로 전환하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000017",
+        "line": 20,
+        "text": "모바일 Preferences는 `PreferencesContent`를 LVRS 시트로 사용하여 계정의 컨테이너 드라이브 위치, 이동한 폴더 연결, 연결 상태와 **Devices…**를 제공한다. 호스트·클라이언트 역할 선택 항목은 표시하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      }
+    ],
+    "commands": [
+      {
+        "block_id": "b000031",
+        "language": "sh",
+        "code": "cmake --build build --parallel 4\nctest --test-dir build --output-on-failure -R 'Society\\.(NetworkDrive|ClientOnlyNetwork|Account|Pairing|Drive|Daemon)$'\ncmake --build build --target Society_qmllint\n"
+      }
+    ],
+    "links": [
+      {
+        "block_id": "b000005",
+        "label": "기기·앱 관리 페이지",
+        "target": "Environment.md",
+        "kind": "relative",
+        "line": 8
+      },
+      {
+        "block_id": "b000033",
+        "label": "NetworkDrive.md",
+        "target": "NetworkDrive.md",
+        "kind": "relative",
+        "line": 43
+      }
+    ],
+    "tables": [
+      {
+        "block_id": "b000021",
+        "columns": [
+          "플랫폼",
+          "역할"
+        ],
+        "rows": [
+          [
+            "macOS, Windows, Linux 데스크톱 및 NAS의 SocietyDaemon",
+            "호스트"
+          ],
+          [
+            "iOS, Android",
+            "클라이언트"
+          ]
+        ]
+      }
+    ]
+  },
+  "provenance": {
+    "generator": "workspace-docs",
+    "version": "1.0.0",
+    "profile": "lossless-blocks-v1",
+    "derived": true
+  }
+}

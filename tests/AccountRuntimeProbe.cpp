@@ -1,5 +1,5 @@
 // Opt-in, credential-free native APK/device verification. Disabled in normal builds.
-#include "App/Account/AccountController.h"
+#include "Society/Account/AccountController.h"
 #include <QDir>
 #include <QJsonDocument>
 #include <QJsonObject>

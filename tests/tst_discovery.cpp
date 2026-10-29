@@ -1,7 +1,7 @@
-#include "App/Network/NearbyDevices.h"
+#include "Society/Network/NearbyDevices.h"
 #include "FakeDiscoveryService.h"
 #include "PairingCredentialsFixture.h"
-#include "App/Network/PairingCredentials.h"
+#include "Society/Network/PairingCredentials.h"
 #include <iiWebServer.h>
 #include <QSignalSpy>
 #include <QJsonDocument>

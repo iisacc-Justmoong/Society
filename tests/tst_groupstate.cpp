@@ -1,6 +1,6 @@
 #include "native_link.h"
-#include "App/State/GroupSessionStore.h"
-#include "App/State/StateCrypto.h"
+#include "Society/State/GroupSessionStore.h"
+#include "Society/State/StateCrypto.h"
 #include "MemorySessionStore.h"
 #include <QCryptographicHash>
 #include <QDir>

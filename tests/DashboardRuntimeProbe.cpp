@@ -1,7 +1,7 @@
 // Opt-in inspection of the real view and store. Never changes library data.
-#include "App/Dashboard/DashboardFiles.h"
-#include "App/Drive/DriveController.h"
-#include "App/Network/NetworkDriveController.h"
+#include "Society/Dashboard/DashboardFiles.h"
+#include "Society/Drive/DriveController.h"
+#include "Society/Network/NetworkDriveController.h"
 #include <QDir>
 #include <QElapsedTimer>
 #include <QGuiApplication>

@@ -1,7 +1,7 @@
 #pragma once
 #include "AccountServer.h"
 #include "MemorySessionStore.h"
-#include "App/Account/AccountController.h"
+#include "Society/Account/AccountController.h"
 #include <SocietyDrive.h>
 #include <QElapsedTimer>
 #include <QSignalSpy>

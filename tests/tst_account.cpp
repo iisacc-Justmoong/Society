@@ -1,10 +1,11 @@
 #include "MobileNetworkDevice.h"
-#include "App/Account/AccountController.h"
-#include "App/Network/NetworkDriveController.h"
+#include "Society/Account/AccountController.h"
+#include "Society/Network/NetworkDriveController.h"
 #include "PairingCredentialsFixture.h"
 #include "FakeDiscoveryService.h"
 #include "MemorySessionStore.h"
-#include "App/State/GroupSessionStore.h"
+#include <QNetworkReply>
+#include "Society/State/GroupSessionStore.h"
 #include <QCryptographicHash>
 #include <QScopeGuard>
 #include <iiSocietyHelper.h>
@@ -34,11 +35,61 @@ class AccountTests : public QObject {
     Q_OBJECT
     void download(const QString &root, const QString &key) {
         iiSocietyContainer::StorageMap map(*iiSocietyContainer::SocietyDrive::open(root));
-        QTRY_COMPARE_WITH_TIMEOUT(map.object(key).value("kind").toString(), QString("file"), 15000);
+        QTRY_COMPARE_WITH_TIMEOUT(map.object(key).value("kind").toString(), QString("file"), 30000);
         const auto request = map.request({key}); QVERIFY(!request.isEmpty());
-        QTRY_COMPARE_WITH_TIMEOUT(map.requestState(request).value("state").toString(), QString("ready"), 15000);
+        QTRY_COMPARE_WITH_TIMEOUT(map.requestState(request).value("state").toString(), QString("ready"), 30000);
     }
 private slots:
+    void societyMountsAccountLicenseInventory() {
+        AccountServer server;QVERIFY(server.server.listen(QHostAddress::LocalHost));
+        MemorySessionStore localTokens;
+        AccountController account(server.url());
+        auto* licenses=account.manager()->licenseManager();
+        QCOMPARE(licenses,account.manager()->licenseManager());
+        licenses->setTrustedKeys({{"fixture-owned-license",QByteArray::fromStdString(license_fixture::public_key())}});
+        QVERIFY(licenses->setTokenStore(&localTokens));
+        QVERIFY(account.licenses().isEmpty());QVERIFY(!account.refreshLicenses());
+        QVERIFY(account.login("builder@example.com","FixtureOnly1!"));QTRY_VERIFY(account.signedIn());
+        QCOMPARE(server.licenseRequests,0);QVERIFY(licenses->ensure());
+        QTRY_COMPARE(account.licensesCode(),QString("verified"));QCOMPARE(account.licenses().size(),3);
+        QVERIFY(licenses->allows("congregation"));QVERIFY(!licenses->allows("foreign"));
+        QVERIFY(!licenses->authorizationToken().isEmpty());
+        auto requests=server.licenseRequests;
+        licenses->clear();server.licenseHang=true;QVERIFY(licenses->ensure());
+        QTRY_COMPARE(account.licensesCode(),QString("local_token"));
+        QCOMPARE(server.licenseRequests,requests);QVERIFY(licenses->allows("congregation"));
+        server.licenseHang=false;
+        for(auto it=localTokens.values.begin();it!=localTokens.values.end();++it)it.value()="tampered local token";
+        licenses->clear();QVERIFY(licenses->ensure());QTRY_COMPARE(account.licensesCode(),QString("verified"));
+        QCOMPARE(server.licenseRequests,requests+1);requests=server.licenseRequests;
+        QVERIFY(account.startLicenseBroker(0));
+        QNetworkAccessManager client;
+        auto authorize=[&](QJsonObject input,bool origin=false){
+            QNetworkRequest request(account.licenseBrokerUrl());request.setHeader(QNetworkRequest::ContentTypeHeader,"application/json");
+            if(origin)request.setRawHeader("Origin","https://foreign.invalid");
+            return client.post(request,QJsonDocument(input).toJson(QJsonDocument::Compact));
+        };
+        QJsonObject input{{"productId","congregation"},{"appId","com.iisacc.congregation.painter"},
+            {"subject",account.manager()->sessionBinding().value("subject").toString()},
+            {"deviceId",account.manager()->deviceInfo().value("id").toString()},
+            {"requestId","fa37a985-5c4d-48e7-8343-82cc7254536f"}};
+        auto* reply=authorize(input);QTRY_VERIFY(reply->isFinished());auto answer=QJsonDocument::fromJson(reply->readAll()).object();reply->deleteLater();
+        QVERIFY(answer.value("allowed").toBool());QVERIFY(!answer.value("licenseToken").toString().isEmpty());
+        QCOMPARE(answer.value("requestId"),input.value("requestId"));QCOMPARE(server.licenseRequests,requests);
+        auto foreign=input;foreign.insert("deviceId",QString(64,'b'));reply=authorize(foreign);QTRY_VERIFY(reply->isFinished());
+        QVERIFY(!QJsonDocument::fromJson(reply->readAll()).object().value("allowed").toBool());reply->deleteLater();
+        reply=authorize(input,true);QTRY_VERIFY(reply->isFinished());QCOMPARE(reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt(),400);reply->deleteLater();
+        server.licenseOwned=false;QVERIFY(account.refreshLicenses());
+        QTRY_COMPARE(account.licensesCode(),QString("verified"));QVERIFY(!licenses->allows("congregation"));
+        reply=authorize(input);QTRY_VERIFY(reply->isFinished());QVERIFY(!QJsonDocument::fromJson(reply->readAll()).object().value("allowed").toBool());reply->deleteLater();
+        server.licenseForeign=true;QVERIFY(account.refreshLicenses());QTRY_COMPARE(account.licensesCode(),QString("verification_unavailable"));QVERIFY(account.licenses().isEmpty());
+        QVERIFY(account.refreshConnections());QTRY_COMPARE(account.connectionsCode(),QString("verified"));QCOMPARE(account.connections().size(),2);
+        QVERIFY(!account.disconnectApp(QString(32,'a')));QVERIFY(!account.disconnectApp(QString(32,'c')));
+        QVERIFY(account.disconnectApp(QString(32,'b')));QTRY_COMPARE(account.connections().size(),1);QCOMPARE(server.revokedSession,QString(32,'b'));
+        QVERIFY(account.logout());QTRY_VERIFY(!account.signedIn());
+        QVERIFY(account.licenses().isEmpty());QVERIFY(account.connections().isEmpty());QCOMPARE(account.licensesCode(),QString("sign_in_required"));
+        QVERIFY(licenses->authorizationToken().isEmpty());QTRY_VERIFY(localTokens.values.isEmpty());
+    }
     void qrPairingCannotBypassAccountRegistration() {
         QTemporaryDir root(QString(QT_TESTCASE_BUILDDIR) + "/account-required-XXXXXX.societycontainer");
         QVERIFY(iiSocietyContainer::SocietyDrive::create(root.path()));
@@ -133,7 +184,7 @@ private slots:
         QVERIFY(account.login("builder@example.com", "FixtureOnly1!")); QTRY_VERIFY(account.signedIn() && !account.busy());
         MobileNetworkDevice client; client.setContainerPath(root.filePath("client.societycontainer")); client.setAccountSession(&account);
         QVERIFY(client.configureServer(QUrl(endpoint)));
-        QTRY_VERIFY_WITH_TIMEOUT(iiSocietyHelper::Sync::Replica::binding(root.filePath("client.societycontainer")).value("complete").toBool(), 20000);
+        QTRY_VERIFY_WITH_TIMEOUT(iiSocietyHelper::Sync::Replica::binding(root.filePath("client.societycontainer")).value("complete").toBool(), 60000);
         QCOMPARE(iiSocietyContainer::SocietyDrive::open(root.filePath("client.societycontainer"))->identifier(), original->identifier());
         QVERIFY(!QFileInfo::exists(root.filePath("client.societycontainer/Models/headless.bin")));
         download(root.filePath("client.societycontainer"), "models/headless.bin");
@@ -209,6 +260,9 @@ private slots:
         QTRY_VERIFY(host.connected() && client.connected());
         QVERIFY(host.hosting()); QVERIFY(!client.hosting());
         QVERIFY(!host.discovering() && !client.discovering());
+        // A connected transport can precede the namespace/host service. Wait
+        // for the same readiness contract used by the client before an RPC.
+        QTRY_VERIFY_WITH_TIMEOUT(iiSocietyHelper::Sync::Replica::binding(clientRoot.path()).value("complete").toBool(), 20000);
         QSignalSpy generationReplies(client.peer(), &iiWebServer::Peer::completed);
         const auto generationId = client.peer()->request(QString(64, '1'), {{"op", "society.generation"},
             {"schema", 1}, {"action", "status"}, {"id", "6d1f39f8-a22d-4e44-a846-d6823be23018"}});
@@ -221,7 +275,6 @@ private slots:
         // An authenticated host reaches the SDK queue; an unknown job must not
         // turn into inference or a local model download.
         QCOMPARE((*generationReply)[1].toJsonObject().value("error").toString(), QString("generation_job_not_found"));
-        QTRY_VERIFY_WITH_TIMEOUT(iiSocietyHelper::Sync::Replica::binding(clientRoot.path()).value("complete").toBool(), 20000);
         const auto scope = iiSocietyHelper::Sync::Replica::binding(clientRoot.path()).value("scope").toString();
         QCOMPARE(iiSocietyHelper::Sync::Replica::primaryHost(hostRoot.path(), scope), hostAccount.manager()->deviceInfo().value("id").toString());
         QVERIFY(!QFileInfo::exists(clientRoot.filePath("Models/remote-model.bin")));

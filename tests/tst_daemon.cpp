@@ -1,5 +1,5 @@
 #include "Daemon/DaemonService.h"
-#include "App/Services/SocietyInbox.h"
+#include "Society/Services/SocietyInbox.h"
 #include <iiSocietyHelper.h>
 #include <DeliveryStore.h>
 #include <SocietyDrive.h>

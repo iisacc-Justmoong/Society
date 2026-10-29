@@ -1,0 +1,229 @@
+#include "Society/ApplicationLifetime.h"
+#include "Society/ContainerFileOpenHandler.h"
+#include "Society/Drive/DriveController.h"
+#include "Society/Files/CanvasFilePreview.h"
+#include "backend/runtime/appentry.h"
+#include <iiSocietyHelper.h>
+#include <iiSocietyContainer/SocietyApplication.h>
+#include <iiSocietyContainer/PreviewCache.h>
+#include <QQuickWindow>
+#include <QGuiApplication>
+#include <QIcon>
+#include <QQmlApplicationEngine>
+#include <QQmlContext>
+#ifdef SOCIETY_WITH_LOCAL_MCP
+#include "Society/Mcp/SocietyMcp.h"
+#endif
+#include "Society/Services/SocietyRuntime.h"
+#include "Society/Services/SyncOwnership.h"
+#include "Society/State/GroupSessionStore.h"
+#include <QDir>
+#include "Society/Account/AccountController.h"
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QTextStream>
+#include "Society/Network/NetworkDriveController.h"
+#if defined(Q_OS_IOS) || defined(Q_OS_ANDROID)
+#include "Society/Network/MobileSyncActivity.h"
+
+#endif
+#ifdef SOCIETY_ACCOUNT_RUNTIME_PROBE
+void societyAccountRuntimeProbe(QObject *root);
+#endif
+#ifdef SOCIETY_GROUP_STATE_RUNTIME_PROBE
+void societyGroupStateRuntimeProbe(QObject *root);
+#endif
+#ifdef SOCIETY_DASHBOARD_RUNTIME_PROBE
+void societyDashboardRuntimeProbe(QObject *root);
+#endif
+#ifdef SOCIETY_FILES_RUNTIME_PROBE
+void societyFilesRuntimeProbe(QObject *root);
+#endif
+#ifdef SOCIETY_IOS_FILES_INTEGRATION_TEST
+#include <QTimer>
+extern "C" void society_ios_files_integration_test();
+#endif
+#ifdef Q_OS_MACOS
+#include "Daemon/platform/macos/ServiceRegistration.h"
+#endif
+
+// Keep Qt's generated type registrar alive under Windows LTO and section GC.
+void qml_register_types_Society();
+
+int main(int argc, char *argv[])
+{
+#ifdef Q_OS_ANDROID
+    qputenv("ANDROID_OPENSSL_SUFFIX", "_3");
+#endif
+#ifdef Q_OS_MACOS
+    if (argc >= 2 && (QString::fromLocal8Bit(argv[1]) == "--daemon-service" ||
+                      QString::fromLocal8Bit(argv[1]) == "--container-monitor-service")) {
+        QCoreApplication app(argc, argv);
+        const auto command = argc > 2 ? QString::fromLocal8Bit(argv[2]) : "status";
+        const auto result = QString::fromLocal8Bit(argv[1]) == "--daemon-service"
+            ? societyDaemonRegistration(command) : societyContainerMonitorRegistration(command);
+        QTextStream(stdout) << QJsonDocument(QJsonObject::fromVariantMap(result)).toJson(QJsonDocument::Compact) << Qt::endl;
+        return result.value("ok").toBool() ? 0 : 1;
+    }
+#endif
+    QCoreApplication::setOrganizationName(QStringLiteral("iisacc"));
+    QCoreApplication::setOrganizationDomain(QStringLiteral("iisacc.com"));
+    qml_register_types_Society();
+    lvrs::QmlAppLaunchSpec launchSpec;
+    launchSpec.bootstrap.applicationName = QStringLiteral("Society");
+    launchSpec.bootstrap.quickStyleName = QStringLiteral("Basic");
+    launchSpec.moduleUri = QStringLiteral("Society");
+    launchSpec.rootObject = QStringLiteral("Main");
+    launchSpec.qmlImportPaths.append(QString::fromUtf8(SOCIETY_LVRS_QML_IMPORT_PATH));
+    launchSpec.configureEngine = [](QQmlApplicationEngine &engine) {
+        auto *fileOpen = new ContainerFileOpenHandler(&engine);
+        qGuiApp->installEventFilter(fileOpen);
+        QObject::connect(&engine, &QQmlApplicationEngine::objectCreated, fileOpen,
+            [fileOpen](QObject *root, const QUrl &) {
+                if (!root) return;
+                auto *drive = root->findChild<DriveController *>();
+                if (!drive) return;
+                const QPointer<DriveController> guarded(drive);
+                fileOpen->setOpener([guarded](const QUrl &url) {
+                    if (!guarded || guarded->busy()) return false;
+                    guarded->openContainerImage(url); return true;
+                });
+                QObject::connect(drive, &DriveController::systemChanged, fileOpen, [fileOpen] { fileOpen->flush(); });
+            });
+
+        configureApplicationLifetime(engine);
+        registerSocietyCanvasFilePreview();
+        engine.addImageProvider(QStringLiteral("society-preview"), new iiSocietyContainer::PreviewProvider);
+#ifdef Q_OS_MACOS
+        const auto bundledQml = QDir(QCoreApplication::applicationDirPath()).filePath("../Resources/qml");
+        if (QDir(bundledQml).exists())
+            engine.addImportPath(bundledQml);
+#endif
+        auto *applicationLinks = new iiSocietyContainer::SocietyApplication(&engine);
+        QObject::connect(&engine, &QQmlApplicationEngine::objectCreated, applicationLinks,
+            [applicationLinks](QObject *root, const QUrl &) {
+                if (!root) return;
+                QObject::connect(applicationLinks, &iiSocietyContainer::SocietyApplication::generationHistoryRequested,
+                    root, [root] {
+                        QMetaObject::invokeMethod(root, "showStorage", Q_ARG(QVariant, QStringLiteral("generation-history")));
+                        if (auto *window = qobject_cast<QQuickWindow *>(root)) {
+                            if (window->visibility() == QWindow::Minimized) window->showNormal();
+                            window->raise();
+                            window->requestActivate();
+                        }
+                    });
+                applicationLinks->listen();
+            });
+#ifdef SOCIETY_WITH_LOCAL_MCP
+        QObject::connect(&engine, &QQmlApplicationEngine::objectCreated, &engine,
+            [&engine](QObject* root, const QUrl&) { if (root) installSocietyMcp(root, &engine); });
+#endif
+        QGuiApplication::setWindowIcon(QIcon(QStringLiteral(":/branding/Society.png")));
+#if defined(Q_OS_LINUX) && !defined(Q_OS_ANDROID)
+        QGuiApplication::setDesktopFileName(QStringLiteral("com.iisacc.society"));
+#endif
+#ifdef SOCIETY_IOS_FILES_INTEGRATION_TEST
+        QTimer::singleShot(2000, &engine, society_ios_files_integration_test);
+#endif
+        auto *runtime = new SocietyRuntime(
+#if defined(Q_OS_IOS) || defined(Q_OS_ANDROID)
+            true,
+#else
+            false,
+#endif
+            {}, &engine);
+        auto *helper = runtime->helper();
+        helper->setObjectName(QStringLiteral("societyHelper"));
+        engine.rootContext()->setContextProperty(QStringLiteral("societyHelper"), helper);
+        QObject::connect(&engine, &QQmlApplicationEngine::objectCreated, runtime,
+            [helper](QObject *root, const QUrl &) {
+                if (root) {
+                    if (auto *drive = root->findChild<DriveController *>()) {
+                        auto *files = helper->fileSystem();
+                        const auto select = [drive, files] {
+                            if (drive->hasDrive() && (files->rootPath() != drive->rootPath() || files->containerId() != drive->identifier()))
+                                files->open(drive->rootPath());
+                        };
+                        QObject::connect(drive, &DriveController::locationChanged, files, select);
+                        QObject::connect(files, &iiSocietyHelper::FileSystem::containerStateChanged, drive, [drive, files] {
+                            const auto state = files->containerState();
+                            if (drive->hasDrive() && state.value("rootPath").toString() == drive->rootPath()
+                                && state.value("containerId").toString() == drive->identifier()) drive->refreshFromDisk();
+                        });
+                        select();
+                    }
+#if !defined(Q_OS_IOS) && !defined(Q_OS_ANDROID)
+                    {
+                        if (auto *network = root->findChild<NetworkDriveController *>("networkDriveController")) {
+                            network->setRuntimeEnabled(false);
+                            auto *ownership = new SyncOwnership({}, true, network);
+                            QObject::connect(ownership, &SyncOwnership::ownershipChanged, network, [ownership, network](bool owned) {
+                                network->setRuntimeEnabled(owned);
+                                if (owned && !network->containerPath().isEmpty()) ownership->rememberContainer(network->containerPath());
+                            });
+                            const auto selectRuntime = [ownership, network] {
+                                const auto storage = network->containerPath().isEmpty() ? std::optional<iiSocietyContainer::SharedStorage>{}
+                                    : iiSocietyContainer::SharedStorage::open(network->containerPath(), nullptr, true);
+                                ownership->setDirectory(storage ? storage->runtimePath(QStringLiteral("sync")) : QString());
+                                if (ownership->owned() && !network->containerPath().isEmpty()) ownership->rememberContainer(network->containerPath());
+                            };
+                            QObject::connect(network, &NetworkDriveController::configurationChanged, ownership, selectRuntime);
+                            QObject::connect(qGuiApp, &QCoreApplication::aboutToQuit, ownership, &SyncOwnership::stop);
+                            selectRuntime();
+                        }
+                    }
+#endif
+#if defined(Q_OS_IOS) || defined(Q_OS_ANDROID)
+                    if (auto *network = root->findChild<NetworkDriveController *>("networkDriveController")) {
+                        const auto updateScreen = [network] {
+                            societySetSyncScreenActive(societySyncNeedsScreen(network->synchronizing(),
+                                network->connected(), QGuiApplication::applicationState()));
+                        };
+                        QObject::connect(network, &NetworkDriveController::synchronizationChanged, network, updateScreen);
+                        QObject::connect(network, &NetworkDriveController::stateChanged, network, updateScreen);
+                        QObject::connect(qGuiApp, &QGuiApplication::applicationStateChanged, network, updateScreen);
+                        QObject::connect(network, &QObject::destroyed, qGuiApp, [] { societySetSyncScreenActive(false); });
+                        updateScreen();
+                    }
+#endif
+                    if (auto *account = root->findChild<AccountController *>(QStringLiteral("societyAccount"))) {
+                        helper->setAccountManager(account->manager());
+                        if (!account->startLicenseBroker()) qWarning() << "Society license authorization service is already in use.";
+                    }
+#ifdef SOCIETY_ACCOUNT_RUNTIME_PROBE
+                    societyAccountRuntimeProbe(root);
+#endif
+#ifdef SOCIETY_GROUP_STATE_RUNTIME_PROBE
+                    societyGroupStateRuntimeProbe(root);
+#endif
+#ifdef SOCIETY_DASHBOARD_RUNTIME_PROBE
+                    societyDashboardRuntimeProbe(root);
+#endif
+#ifdef SOCIETY_FILES_RUNTIME_PROBE
+                    societyFilesRuntimeProbe(root);
+#endif
+                }
+            });
+        auto *inbox = runtime->inbox();
+        inbox->setObjectName(QStringLiteral("societyInbox"));
+        engine.rootContext()->setContextProperty(QStringLiteral("societyInbox"), inbox);
+        QObject::connect(qGuiApp, &QGuiApplication::applicationStateChanged, runtime, &SocietyRuntime::setApplicationState);
+        runtime->setApplicationState(QGuiApplication::applicationState());
+#ifdef Q_OS_MACOS
+        // Isolated SDK/app tests must not change the user's login services.
+        if (!qEnvironmentVariableIsSet("SOCIETY_HELPER_DIRECTORY")) {
+            const auto result = societyDaemonRegistration("register");
+            if (!result.value("ok").toBool()) qWarning() << "Society daemon service" << result;
+            const auto monitor = societyContainerMonitorRegistration("register");
+            if (!monitor.value("ok").toBool()) qWarning() << "Society container monitor service" << monitor;
+        }
+#endif
+    };
+    for (int index = 1; index < argc; ++index) {
+        if (QString::fromLocal8Bit(argv[index]) == QStringLiteral("--container") && index + 1 < argc) {
+            launchSpec.initialProperties.insert(QStringLiteral("initialContainerPath"), QString::fromLocal8Bit(argv[++index]));
+        }
+    }
+
+    return lvrs::runBootstrappedQmlApp(argc, argv, launchSpec);
+}

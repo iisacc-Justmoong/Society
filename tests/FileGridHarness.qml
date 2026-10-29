@@ -1,6 +1,6 @@
 import QtQuick
 import LVRS 1.0 as LV
-import "../src/App" as App
+import "../App/Society" as App
 
 LV.ApplicationWindow {
     title: "Society"

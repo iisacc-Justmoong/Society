@@ -1,9 +1,9 @@
 # Storage 사이드바
 
-[Figma 39:1275](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=39-1275)의 사이드바를 `src/App/Drive/StorageSidebar.qml`로 구성한다. 기존 LVRS Label·ListItem.Navigation·VStack과 Qt Flickable을 사용하며 추가 외부 의존성은 없다.
+[Figma 39:1275](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=39-1275)의 사이드바를 `App/Society/Drive/StorageSidebar.qml`로 구성한다. 기존 LVRS Label·ListItem.Navigation·VStack과 Qt Flickable을 사용하며 추가 외부 의존성은 없다.
 
 - 폭 228 px, 안쪽 여백 12 px, 항목 폭 204 px, 행 높이 32 px이다. 그룹 내부의 제목·행 사이 간격은 0 px, 그룹 사이 간격은 8 px이다. 그룹 제목은 Caption 11 px, 항목은 Body 13 px, 아이콘 영역은 18 px이다. LVRS ListItem의 상단·하단 패딩은 데스크톱·터치 행 모두 0 px이다. 내부 표시 영역은 행 높이 전체를 사용하며, 아이콘과 텍스트는 수직 중앙에 정렬한다. 패널 배경은 투명하며 기본 LV.ApplicationWindow 표면을 노출한다. 선택 배경은 panelBackground12, 맨 아래 1 px 구분선은 panelBackground08이다.
-- Files는 보라색 Database, Generation History는 profileCPU 시계, Published는 흰색 Application 아이콘을 사용한다. 설치된 LVRS 아이콘의 색상·도형·정규화된 뷰포트가 Figma와 다르므로 해당 세 SVG 원본은 `src/App/Drive/icons/`에 보관하고 기존 ListItem의 leadingComponent·iconSource로 표시한다. Files 원본은 18 px 슬롯 안에서 `(2.3125, 1.1875)` 위치에 `13.375 × 15.6659` px로 배치하고, Generation History·Published 원본은 `18 × 18` px이다. 다른 항목은 기존 LVRS 아이콘을 유지한다.
+- Files는 보라색 Database, Generation History는 profileCPU 시계, Published는 흰색 Application 아이콘을 사용한다. 설치된 LVRS 아이콘의 색상·도형·정규화된 뷰포트가 Figma와 다르므로 해당 세 SVG 원본은 `App/Society/Drive/icons/`에 보관하고 기존 ListItem의 leadingComponent·iconSource로 표시한다. Files 원본은 18 px 슬롯 안에서 `(2.3125, 1.1875)` 위치에 `13.375 × 15.6659` px로 배치하고, Generation History·Published 원본은 `18 × 18` px이다. 다른 항목은 기존 LVRS 아이콘을 유지한다.
 - My storage → Other devices → Guild → Organization 순서이다. My storage의 순서는 Files, Photos, Asset Library, Generation History, Models, Thinking Space, Forked, Published, Deleted이다.
 - Storage 탭은 데스크톱·모바일 모두 바로 Files 최상위 폴더를 연다. 탭 재선택이나 다른 탭에서 돌아올 때도 Files로 이동하며, 기존 Overview 영역 그리드는 제공하지 않는다. 다른 영역은 사이드바·모바일 탐색 시트로 선택한다. Dashboard의 특정 영역·폴더 바로가기는 지정한 목적지를 유지한다. Storage에서 뒤로 이동해 컨테이너 루트에 도달하거나 초기 동기화가 완료되면 Files를 표시한다.
 - 짧은 창과 긴 목록은 사이드바 안에서 세로 스크롤한다. 휠·트랙패드·드래그·스크롤바를 지원하며 키보드로 초점을 이동하면 해당 행을 보이게 한다. 목록 스크롤은 파일·모델 콘텐츠 스크롤과 독립적이다. 760 px 미만 모바일에서는 같은 항목을 탐색 시트로 제공한다.

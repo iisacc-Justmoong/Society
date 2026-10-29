@@ -1,5 +1,5 @@
-#include "App/Files/DirectoryLocation.h"
-#include "App/Files/CanvasFilePreview.h"
+#include "Society/Files/DirectoryLocation.h"
+#include "Society/Files/CanvasFilePreview.h"
 #include <iiSharedCanvas.h>
 #include <iiSocietyContainer/PreviewCache.h>
 #include <FileCatalog.h>
@@ -87,7 +87,7 @@ private slots:
     void filesBrowserUsesNativeTableAndRealFiles()
     {
         const auto appPath = QFileInfo(QString::fromUtf8(SOCIETY_QML_FILE)).dir()
-            .filePath("../src/App/FilesBrowser.qml");
+            .filePath("../App/Society/FilesBrowser.qml");
         QQmlComponent component(&engine, QUrl::fromLocalFile(appPath));
         QScopedPointer<QObject> object(component.createWithInitialProperties({
             {"path", fixtures.path()}, {"width", 1212}, {"height", 844}}));
@@ -225,7 +225,7 @@ private slots:
             QFile file(folder.filePath(QString("file-%1.txt").arg(i, 5, 10, QChar('0'))));
             QVERIFY(file.open(QIODevice::WriteOnly));
         }
-        const auto appPath = QFileInfo(QString::fromUtf8(SOCIETY_QML_FILE)).dir().filePath("../src/App/FilesBrowser.qml");
+        const auto appPath = QFileInfo(QString::fromUtf8(SOCIETY_QML_FILE)).dir().filePath("../App/Society/FilesBrowser.qml");
         QQmlComponent component(&engine, QUrl::fromLocalFile(appPath));
         QElapsedTimer timer; timer.start();
         QScopedPointer<QObject> object(component.createWithInitialProperties({
@@ -313,7 +313,7 @@ private slots:
         location.inspectFile(root.filePath("Files/brief.txt"), "revision-2");
         QTRY_VERIFY(!location.inspecting());
         QVERIFY(detailChanges.count() > notifications);
-        const auto appPath = QFileInfo(QString::fromUtf8(SOCIETY_QML_FILE)).dir().filePath("../src/App/FilesBrowser.qml");
+        const auto appPath = QFileInfo(QString::fromUtf8(SOCIETY_QML_FILE)).dir().filePath("../App/Society/FilesBrowser.qml");
         QQmlComponent component(&engine, QUrl::fromLocalFile(appPath));
         QScopedPointer<QObject> object(component.createWithInitialProperties({
             {"path", root.filePath("Files")}, {"width", 1212}, {"height", 844}}));

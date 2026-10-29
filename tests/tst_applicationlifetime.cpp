@@ -1,4 +1,4 @@
-#include "../src/App/ApplicationLifetime.h"
+#include "../App/Society/ApplicationLifetime.h"
 #include <QTimer>
 #include <QDebug>
 

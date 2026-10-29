@@ -26,7 +26,7 @@ Metal 픽셀 검사로 별도 검증하며, 호스트의 좁은 창 검사는 �
 
 Society 데스크톱의 기본 화면은 [Figma 18:14](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=18-14)의 대시보드 디자인이다. `Main.qml`의 `LV.ApplicationWindow`가 창과 컨트롤러·대화상자를 소유하고, `SocietyView.qml`을 공개 `content` 슬롯에 전달한다. 창의 프레임·닫기·최소화·최대화와 이동·크기 조절은 LVRS가 소유하며 앱이 창 제어 버튼을 직접 그리지 않는다.
 
-앱 전역 상단 바는 [Figma 135:464](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=135-464)의 56 px 한 행이다. 기본 `LV.ApplicationWindow` 배경을 드러내는 투명 표면, 바깥 여백과 요소 간 간격 12 px, Dashboard·Tools·Storage·Browse·Environment 탭, 300×22 px 검색창, 22×22 px 알림·계정 버튼을 사용한다. 검색은 기존 실제 파일 조회를 유지하며, 알림 버튼은 현재 저장소·계정 오류 또는 빈 상태를 공용 LVRS 안내창에 표시한다. 검색·알림·계정 아이콘은 이 노드의 12×12·18×18·18×18 SVG 원본을 `src/App/Toolbar/icons/`에 저장하고 앱 QML 리소스에 포함한다. LVRS LabelSegmentedControl·InputField·IconButton의 재질·글꼴·상태를 재사용한다.
+앱 전역 상단 바는 [Figma 135:464](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=135-464)의 56 px 한 행이다. 기본 `LV.ApplicationWindow` 배경을 드러내는 투명 표면, 바깥 여백과 요소 간 간격 12 px, Dashboard·Tools·Storage·Browse·Environment 탭, 300×22 px 검색창, 22×22 px 알림·계정 버튼을 사용한다. 검색은 기존 실제 파일 조회를 유지하며, 알림 버튼은 현재 저장소·계정 오류 또는 빈 상태를 공용 LVRS 안내창에 표시한다. 검색·알림·계정 아이콘은 이 노드의 12×12·18×18·18×18 SVG 원본을 `App/Society/Toolbar/icons/`에 저장하고 앱 QML 리소스에 포함한다. LVRS LabelSegmentedControl·InputField·IconButton의 재질·글꼴·상태를 재사용한다.
 
 데스크톱 콘텐츠를 창 위쪽에서 바로 시작하고, `nativeTitleBarHeight`를 상단 바 높이에 연결해 macOS의 실제 창 버튼과 탭·검색·알림·계정 버튼의 중심을 맞춘다. 탭 뷰포트는 행의 가용 높이를 채우고 그 안에서 세그먼트를 세로 중앙에 고정하여, 29 px 세그먼트의 레이아웃 반올림으로 생기는 0.5 px 차이도 방지한다. `nativeTitleBarControlsRect` 오른쪽에 12 px 여백을 두어 탭과 창 버튼이 겹치지 않도록 한다. 전체 화면에서는 네이티브 버튼 예약 폭을 없애며, 복귀와 크기 변경은 LVRS가 처리한다. `windowDragHandleHeight`는 같은 행 전체를 덮고 `windowDragExclusionItems`로 탭·검색·알림·계정·Storage actions 영역을 제외하여 클릭과 입력을 보존한다. 좁은 창에서는 탭 영역이 가로 스크롤되고 검색창이 숨겨진다. 모바일은 기존 안전 영역과 내비게이션 구조를 유지한다. [모바일 레이아웃](MobileViews.md)을 참조한다.
 
@@ -224,7 +224,7 @@ Description·Body 텍스트와 Navigation ListItem 및 18 px disclosure 아이�
 행 사이에 추가 간격·구분선·카드를 넣지 않는다. 이전 Locations와 하단 기기 카드는 제거했다.
 
 Home·Projects·Calendar·Activity·People·Organization 아이콘은 해당 Figma 노드의 SVG
-export를 `src/App/Dashboard/icons/`에 보존했다. Guild 깃발은 같은 Figma 컴포넌트의
+export를 `App/Society/Dashboard/icons/`에 보존했다. Guild 깃발은 같은 Figma 컴포넌트의
 기존 `SDK/LVRS/resources/iconset/flag-asset.svg` 원본이다. 새 벡터를 직접 그리지 않았으며
 앱 QML 리소스에도 포함하여 네트워크가 없어도 표시한다.
 

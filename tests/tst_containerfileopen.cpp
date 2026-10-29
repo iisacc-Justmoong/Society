@@ -1,4 +1,4 @@
-#include "App/ContainerFileOpenHandler.h"
+#include "Society/ContainerFileOpenHandler.h"
 #include <QCoreApplication>
 #include <QTest>
 

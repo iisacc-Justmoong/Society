@@ -1,7 +1,7 @@
 #include <QBuffer>
 #include <QImage>
 #include <QString>
-#include "App/Network/AppleQrDecoder.h"
+#include "Society/Network/AppleQrDecoder.h"
 #import <CoreImage/CoreImage.h>
 
 QString decodePairingQrImage(const QImage &image) {

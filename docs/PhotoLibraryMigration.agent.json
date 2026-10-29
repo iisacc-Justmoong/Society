@@ -1,0 +1,360 @@
+{
+  "format": "iisacc.agent-document",
+  "schema_version": 1,
+  "document_id": "urn:iisacc:document:6f76d7e0231a6363ccffa073153b03cd2df3022e2183232fef772a043c3b79cf",
+  "project": {
+    "id": "urn:iisacc:project:Product%2FSociety",
+    "name": "Society",
+    "root": "Product/Society",
+    "kind": "application"
+  },
+  "source": {
+    "path": "docs/PhotoLibraryMigration.md",
+    "sha256": "03d90fff0f5e1b4e7d2403ba57cd5e8e5602d467213d923455c2604b3304e9be",
+    "bytes": 4885,
+    "line_count": 62,
+    "encoding": "utf-8",
+    "language": "ko"
+  },
+  "document": {
+    "title": "iiPhotoLibrary 소비 전환",
+    "role": "guide",
+    "authority": "markdown_source"
+  },
+  "blocks": [
+    {
+      "id": "b000001",
+      "kind": "heading",
+      "start_line": 1,
+      "end_line": 1,
+      "raw": "# iiPhotoLibrary 소비 전환\n",
+      "level": 1,
+      "title": "iiPhotoLibrary 소비 전환"
+    },
+    {
+      "id": "b000002",
+      "kind": "blank",
+      "start_line": 2,
+      "end_line": 2,
+      "raw": "\n"
+    },
+    {
+      "id": "b000003",
+      "kind": "paragraph",
+      "start_line": 3,
+      "end_line": 3,
+      "raw": "2026-09-24에 Society의 사진 기능을 독립 SDK `iiPhotoLibrary 0.1` 소비 구조로 전환했다.\n"
+    },
+    {
+      "id": "b000004",
+      "kind": "blank",
+      "start_line": 4,
+      "end_line": 4,
+      "raw": "\n"
+    },
+    {
+      "id": "b000005",
+      "kind": "heading",
+      "start_line": 5,
+      "end_line": 5,
+      "raw": "## 실행 경로\n",
+      "level": 2,
+      "title": "실행 경로"
+    },
+    {
+      "id": "b000006",
+      "kind": "blank",
+      "start_line": 6,
+      "end_line": 6,
+      "raw": "\n"
+    },
+    {
+      "id": "b000007",
+      "kind": "list",
+      "start_line": 7,
+      "end_line": 14,
+      "raw": "- 앱과 데몬이 공유하는 `NetworkDriveController`는 `iiPhotoLibrary::PhotoController`를 생성한다.\n- 사진 저장·영구 인덱스·네이티브 보관함·원본 전송 코드는 설치된 SDK 정적 라이브러리에서 연결된다.\n- `StorageView`는 `import iiPhotoLibrary 1.0 as Photos`를 사용한다.\n- `cmake/PhotoLibrary.cmake`가 SDK의 qmldir와 Photos/Gallery QML을 `/qt/qml/iiPhotoLibrary`에 넣는다.\n  앱·사진 테스트·Drive 통합 테스트가 같은 리소스 구성으로 실행된다.\n- Android Activity는 SDK Java 클래스에 권한 및 휴지통 결과를 전달한다.\n  패키징은 SDK Java 파일을 복사하고 이전 빌드의 생성된 SocietyPhotoLibrary.java만 제거한다.\n- iOS/Android 빌드 도구와 iOS preset에 타깃 ABI용 iiPhotoLibrary 설치 경로를 추가했다.\n",
+      "items": [
+        {
+          "marker": "-",
+          "text": "앱과 데몬이 공유하는 `NetworkDriveController`는 `iiPhotoLibrary::PhotoController`를 생성한다.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "사진 저장·영구 인덱스·네이티브 보관함·원본 전송 코드는 설치된 SDK 정적 라이브러리에서 연결된다.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "`StorageView`는 `import iiPhotoLibrary 1.0 as Photos`를 사용한다.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "`cmake/PhotoLibrary.cmake`가 SDK의 qmldir와 Photos/Gallery QML을 `/qt/qml/iiPhotoLibrary`에 넣는다.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Android Activity는 SDK Java 클래스에 권한 및 휴지통 결과를 전달한다.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "iOS/Android 빌드 도구와 iOS preset에 타깃 ABI용 iiPhotoLibrary 설치 경로를 추가했다.",
+          "checked": null
+        }
+      ]
+    },
+    {
+      "id": "b000008",
+      "kind": "blank",
+      "start_line": 15,
+      "end_line": 15,
+      "raw": "\n"
+    },
+    {
+      "id": "b000009",
+      "kind": "paragraph",
+      "start_line": 16,
+      "end_line": 18,
+      "raw": "기존 `App/Society/Photos`의 C++/QML과 원본 `SocietyPhotoLibrary.java`는 수정하지 않고 보존한다.\n이 파일들은 사진 기능의 현재 빌드·런타임 경로가 아니다. 공용 `App/Gallery`는 파일 갤러리에서도\n사용하므로 Society에 그대로 남긴다. 기존 저장 형식과 인증·동기화 채널은 변경하지 않는다.\n"
+    },
+    {
+      "id": "b000010",
+      "kind": "blank",
+      "start_line": 19,
+      "end_line": 19,
+      "raw": "\n"
+    },
+    {
+      "id": "b000011",
+      "kind": "heading",
+      "start_line": 20,
+      "end_line": 20,
+      "raw": "## 재현\n",
+      "level": 2,
+      "title": "재현"
+    },
+    {
+      "id": "b000012",
+      "kind": "blank",
+      "start_line": 21,
+      "end_line": 21,
+      "raw": "\n"
+    },
+    {
+      "id": "b000013",
+      "kind": "fenced_code",
+      "start_line": 22,
+      "end_line": 26,
+      "raw": "```sh\ncmake -S . -B build -DiiPhotoLibrary_DIR=<SDK-설치본>/lib/cmake/iiPhotoLibrary\ncmake --build build --target Society SocietyPhotoTests SocietyNetworkTests SocietyClientOnlyNetworkTests SocietyDriveTests --parallel 4\nctest --test-dir build -R '^Society\\.(Photos|PhotoLibraryPackaging|PhotoLibraryIntegration|PhotosNavigation)$' --output-on-failure\n```\n",
+      "language": "sh",
+      "code": "cmake -S . -B build -DiiPhotoLibrary_DIR=<SDK-설치본>/lib/cmake/iiPhotoLibrary\ncmake --build build --target Society SocietyPhotoTests SocietyNetworkTests SocietyClientOnlyNetworkTests SocietyDriveTests --parallel 4\nctest --test-dir build -R '^Society\\.(Photos|PhotoLibraryPackaging|PhotoLibraryIntegration|PhotosNavigation)$' --output-on-failure\n",
+      "closed": true
+    },
+    {
+      "id": "b000014",
+      "kind": "blank",
+      "start_line": 27,
+      "end_line": 27,
+      "raw": "\n"
+    },
+    {
+      "id": "b000015",
+      "kind": "paragraph",
+      "start_line": 28,
+      "end_line": 33,
+      "raw": "SDK 설치본에는 C++ 헤더/라이브러리뿐 아니라 QML·Android 소스가 필요하다.\n호스트 개발용 `SDK/iiPhotoLibrary/build/install`은 기본 검색 후보이며 교차 컴파일은 ABI가 맞는\n설치본을 명시해야 한다. `Society.Photos`는 SDK를 링크하고 리소스 포함·TLS·갤러리 동작을 검사한다.\n`Society.NetworkDrive`는 실제 SDK 컨트롤러 타입·미인증 요청 차단·기존 비활성화 변수도 검사한다.\n`Society.PhotoLibraryPackaging`은 생성된 Android 패키지와 iOS 빌드 순서를 검증한다.\nAndroid 패키징 테스트는 타깃 등록만 모의하며 실제 CMake 파일 복사·Manifest 처리를 실행한다.\n"
+    },
+    {
+      "id": "b000016",
+      "kind": "blank",
+      "start_line": 34,
+      "end_line": 34,
+      "raw": "\n"
+    },
+    {
+      "id": "b000017",
+      "kind": "paragraph",
+      "start_line": 35,
+      "end_line": 37,
+      "raw": "일반 앱 테스트는 기존 `SOCIETY_DISABLE_PHOTOS=1`을 유지해 실제 사용자 보관함을 활성화하지 않는다.\n사진 전용 테스트는 별도 fixture 보관함을 주입한다. 최초 갤러리/전송용 저장소 준비는 외장 스토리지\nI/O를 포함하므로 완료 대기 한도를 15초로 둔다. 검증 조건과 제품 동작을 완화하지 않는다.\n"
+    },
+    {
+      "id": "b000018",
+      "kind": "blank",
+      "start_line": 38,
+      "end_line": 38,
+      "raw": "\n"
+    },
+    {
+      "id": "b000019",
+      "kind": "paragraph",
+      "start_line": 39,
+      "end_line": 41,
+      "raw": "네트워크 및 Drive 테스트는 기존 generation SDK도 연결하므로 macOS에서는\n`SOCIETY_MAC_RUNTIME_SEARCH_PATHS`를 BUILD_RPATH에도 반영한다. 이렇게 하면\nDYLD 환경 변수로 SDK 선택을 덮어쓰지 않고 json-c 등 구성에 지정된 네이티브 의존성을 찾는다.\n"
+    },
+    {
+      "id": "b000020",
+      "kind": "blank",
+      "start_line": 42,
+      "end_line": 42,
+      "raw": "\n"
+    },
+    {
+      "id": "b000021",
+      "kind": "paragraph",
+      "start_line": 43,
+      "end_line": 44,
+      "raw": "검증 산출물은 `build/photo-migration/`, 렌더링 이미지는 `build/photos/`에 둔다.\n실제 사용자 보관함 등록·삭제와 iOS/Android/Windows 실기기 검증은 별도 범위이다.\n"
+    },
+    {
+      "id": "b000022",
+      "kind": "blank",
+      "start_line": 45,
+      "end_line": 45,
+      "raw": "\n"
+    },
+    {
+      "id": "b000023",
+      "kind": "heading",
+      "start_line": 46,
+      "end_line": 46,
+      "raw": "## 확인된 테스트 결과\n",
+      "level": 2,
+      "title": "확인된 테스트 결과"
+    },
+    {
+      "id": "b000024",
+      "kind": "blank",
+      "start_line": 47,
+      "end_line": 47,
+      "raw": "\n"
+    },
+    {
+      "id": "b000025",
+      "kind": "paragraph",
+      "start_line": 48,
+      "end_line": 50,
+      "raw": "사진 회귀 35개, SDK 연결·비활성화·미인증 요청 검사, 실제 StorageView의 Photos 진입·모바일 조작,\n모바일 패키징 구성 검사가 통과했다. 실행 파일 심벌에서도 SDK 컨트롤러가 연결되고 기존\n`society::photos` 컨트롤러가 없음을 확인했다. 원본 사진 구현 11개의 해시도 보존되어 있다.\n"
+    },
+    {
+      "id": "b000026",
+      "kind": "blank",
+      "start_line": 51,
+      "end_line": 51,
+      "raw": "\n"
+    },
+    {
+      "id": "b000027",
+      "kind": "paragraph",
+      "start_line": 52,
+      "end_line": 56,
+      "raw": "별도로 실행한 전체 NetworkDrive/ClientOnlyNetwork 스위트에는 각각 7개의 실패가 남았다.\n기존 테스트는 현재의 계정·호스트 등록 요건 없이 연결을 시도하며, 모바일 버튼 문구도 현재 UI와\n다르게 기대한다. 인증 구현은 작업 전 스냅샷과 동일하다. 이 전환을 위해 인증 조건을 완화하거나\n해당 실패를 통과로 취급하지 않았다. 상세 결과는 `build/photo-migration/verification.json`,\n`tests-final.log`, `integration-tests.log`, `drive-tests-final.log`에서 확인한다.\n"
+    },
+    {
+      "id": "b000028",
+      "kind": "blank",
+      "start_line": 57,
+      "end_line": 57,
+      "raw": "\n"
+    },
+    {
+      "id": "b000029",
+      "kind": "paragraph",
+      "start_line": 58,
+      "end_line": 62,
+      "raw": "최종 Society 앱·데몬 및 관련 테스트 실행 파일 빌드가 완료되었다. 빌드 과정의\n`codesign --verify --deep --strict`가 통과했으며, 개발용 DYLD/QML 경로를 제거한 별도 실행 검증에서\nGUI 776개·데몬 765개·QML 실행 813개 라이브러리의 로드 경로가 번들 및 시스템 내부임을 확인했다.\n빈 설정으로 QML 루트가 로드되었고 사용자 컨테이너를 새로 생성하지 않았다.\n검증한 앱은 `build/bin/Society.app`이다. 실제 기기 보관함 등록·삭제 검증을 의미하지 않는다.\n"
+    }
+  ],
+  "outline": [
+    {
+      "block_id": "b000001",
+      "parent_id": null,
+      "level": 1,
+      "title": "iiPhotoLibrary 소비 전환",
+      "anchor": "iiphotolibrary-소비-전환",
+      "start_line": 1
+    },
+    {
+      "block_id": "b000005",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "실행 경로",
+      "anchor": "실행-경로",
+      "start_line": 5
+    },
+    {
+      "block_id": "b000011",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "재현",
+      "anchor": "재현",
+      "start_line": 20
+    },
+    {
+      "block_id": "b000023",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "확인된 테스트 결과",
+      "anchor": "확인된-테스트-결과",
+      "start_line": 46
+    }
+  ],
+  "indexes": {
+    "directive_candidates": [
+      {
+        "block_id": "b000009",
+        "line": 18,
+        "text": "사용하므로 Society에 그대로 남긴다. 기존 저장 형식과 인증·동기화 채널은 변경하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000015",
+        "line": 30,
+        "text": "설치본을 명시해야 한다. `Society.Photos`는 SDK를 링크하고 리소스 포함·TLS·갤러리 동작을 검사한다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000017",
+        "line": 35,
+        "text": "일반 앱 테스트는 기존 `SOCIETY_DISABLE_PHOTOS=1`을 유지해 실제 사용자 보관함을 활성화하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000017",
+        "line": 37,
+        "text": "I/O를 포함하므로 완료 대기 한도를 15초로 둔다. 검증 조건과 제품 동작을 완화하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000029",
+        "line": 62,
+        "text": "검증한 앱은 `build/bin/Society.app`이다. 실제 기기 보관함 등록·삭제 검증을 의미하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      }
+    ],
+    "commands": [
+      {
+        "block_id": "b000013",
+        "language": "sh",
+        "code": "cmake -S . -B build -DiiPhotoLibrary_DIR=<SDK-설치본>/lib/cmake/iiPhotoLibrary\ncmake --build build --target Society SocietyPhotoTests SocietyNetworkTests SocietyClientOnlyNetworkTests SocietyDriveTests --parallel 4\nctest --test-dir build -R '^Society\\.(Photos|PhotoLibraryPackaging|PhotoLibraryIntegration|PhotosNavigation)$' --output-on-failure\n"
+      }
+    ],
+    "links": [],
+    "tables": []
+  },
+  "provenance": {
+    "generator": "workspace-docs",
+    "version": "1.0.0",
+    "profile": "lossless-blocks-v1",
+    "derived": true
+  }
+}

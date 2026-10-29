@@ -1,0 +1,188 @@
+{
+  "format": "iisacc.agent-document",
+  "schema_version": 1,
+  "document_id": "urn:iisacc:document:dfc603e82a556305630e4f6433ca8219e7dff29100b31f5b0dea84ec21f0e982",
+  "project": {
+    "id": "urn:iisacc:project:Product%2FSociety",
+    "name": "Society",
+    "root": "Product/Society",
+    "kind": "application"
+  },
+  "source": {
+    "path": "docs/FILE_PROVIDER.md",
+    "sha256": "1f795798c46064be151a4a484e0ce8c02aa43216d1ca24449924ff48dd2174c7",
+    "bytes": 1145,
+    "line_count": 25,
+    "encoding": "utf-8",
+    "language": "en"
+  },
+  "document": {
+    "title": "File creation ownership in Society",
+    "role": "guide",
+    "authority": "markdown_source"
+  },
+  "blocks": [
+    {
+      "id": "b000001",
+      "kind": "heading",
+      "start_line": 1,
+      "end_line": 1,
+      "raw": "# File creation ownership in Society\n",
+      "level": 1,
+      "title": "File creation ownership in Society"
+    },
+    {
+      "id": "b000002",
+      "kind": "blank",
+      "start_line": 2,
+      "end_line": 2,
+      "raw": "\n"
+    },
+    {
+      "id": "b000003",
+      "kind": "paragraph",
+      "start_line": 3,
+      "end_line": 3,
+      "raw": "Daemon/status state, synchronization ownership, model import/merge workspace and photo file creation use provider factories. Android media and container storage use the shared provider bridge.\n"
+    },
+    {
+      "id": "b000004",
+      "kind": "blank",
+      "start_line": 4,
+      "end_line": 4,
+      "raw": "\n"
+    },
+    {
+      "id": "b000005",
+      "kind": "paragraph",
+      "start_line": 5,
+      "end_line": 8,
+      "raw": "The common [ownership contract](../../../SDK/iiFileProvider/docs/FILE_OWNERSHIP.md) defines stream, staging, control-file and\ninstalled-package rules. Source regression tests remain with this module; the\nworkspace creation audit also checks these boundaries. Build/deployment and target\nruntime validation are separate evidence.\n"
+    },
+    {
+      "id": "b000006",
+      "kind": "blank",
+      "start_line": 9,
+      "end_line": 9,
+      "raw": "\n"
+    },
+    {
+      "id": "b000007",
+      "kind": "paragraph",
+      "start_line": 10,
+      "end_line": 10,
+      "raw": "Changed boundaries:\n"
+    },
+    {
+      "id": "b000008",
+      "kind": "blank",
+      "start_line": 11,
+      "end_line": 12,
+      "raw": "\n\n"
+    },
+    {
+      "id": "b000009",
+      "kind": "list",
+      "start_line": 13,
+      "end_line": 25,
+      "raw": "- `App/Society/Files/ModelImporter.cpp`\n- `App/Society/Network/NetworkDriveController.cpp`\n- `App/Society/Network/NetworkDriveController.h`\n- `App/Society/Photos/PhotoLibraryApple.mm`\n- `App/Society/Photos/PhotoLibraryWindows.cpp`\n- `App/Society/Photos/PhotoStore.cpp`\n- `App/Society/Services/SyncOwnership.cpp`\n- `App/Society/Services/SyncOwnership.h`\n- `App/Society/Tools/ModelMergeController.cpp`\n- `App/Daemon/DaemonService.cpp`\n- `App/Daemon/DaemonService.h`\n- `App/Daemon/main.cpp`\n- `App/platform/android/src/com/iisacc/society/SocietyPhotoLibrary.java`\n",
+      "items": [
+        {
+          "marker": "-",
+          "text": "`App/Society/Files/ModelImporter.cpp`",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "`App/Society/Network/NetworkDriveController.cpp`",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "`App/Society/Network/NetworkDriveController.h`",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "`App/Society/Photos/PhotoLibraryApple.mm`",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "`App/Society/Photos/PhotoLibraryWindows.cpp`",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "`App/Society/Photos/PhotoStore.cpp`",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "`App/Society/Services/SyncOwnership.cpp`",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "`App/Society/Services/SyncOwnership.h`",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "`App/Society/Tools/ModelMergeController.cpp`",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "`App/Daemon/DaemonService.cpp`",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "`App/Daemon/DaemonService.h`",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "`App/Daemon/main.cpp`",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "`App/platform/android/src/com/iisacc/society/SocietyPhotoLibrary.java`",
+          "checked": null
+        }
+      ]
+    }
+  ],
+  "outline": [
+    {
+      "block_id": "b000001",
+      "parent_id": null,
+      "level": 1,
+      "title": "File creation ownership in Society",
+      "anchor": "file-creation-ownership-in-society",
+      "start_line": 1
+    }
+  ],
+  "indexes": {
+    "directive_candidates": [],
+    "commands": [],
+    "links": [
+      {
+        "block_id": "b000005",
+        "label": "ownership contract",
+        "target": "../../../SDK/iiFileProvider/docs/FILE_OWNERSHIP.md",
+        "kind": "relative",
+        "line": 5
+      }
+    ],
+    "tables": []
+  },
+  "provenance": {
+    "generator": "workspace-docs",
+    "version": "1.0.0",
+    "profile": "lossless-blocks-v1",
+    "derived": true
+  }
+}

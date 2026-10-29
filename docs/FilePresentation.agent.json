@@ -1,0 +1,164 @@
+{
+  "format": "iisacc.agent-document",
+  "schema_version": 1,
+  "document_id": "urn:iisacc:document:878df89878357b1b6c68c1645144c3b2a3805e3e8fdc64f3ca1f693cb70bac5e",
+  "project": {
+    "id": "urn:iisacc:project:Product%2FSociety",
+    "name": "Society",
+    "root": "Product/Society",
+    "kind": "application"
+  },
+  "source": {
+    "path": "docs/FilePresentation.md",
+    "sha256": "82094a91bf0d1567e74ecd449a848f96404226c933297aa341436db204170396",
+    "bytes": 2874,
+    "line_count": 45,
+    "encoding": "utf-8",
+    "language": "en"
+  },
+  "document": {
+    "title": "File information and keyboard previews",
+    "role": "guide",
+    "authority": "markdown_source"
+  },
+  "blocks": [
+    {
+      "id": "b000001",
+      "kind": "heading",
+      "start_line": 1,
+      "end_line": 1,
+      "raw": "# File information and keyboard previews\n",
+      "level": 1,
+      "title": "File information and keyboard previews"
+    },
+    {
+      "id": "b000002",
+      "kind": "blank",
+      "start_line": 2,
+      "end_line": 2,
+      "raw": "\n"
+    },
+    {
+      "id": "b000003",
+      "kind": "paragraph",
+      "start_line": 3,
+      "end_line": 6,
+      "raw": "The file inspector loads persistent iiFileProvider 0.7 details and content\npreviews asynchronously. It shows real source information rather than placeholder\nfile data. The preview remains part of the portable file asset through its native\nattribute and hidden companion, with source identity/change validation.\n"
+    },
+    {
+      "id": "b000004",
+      "kind": "blank",
+      "start_line": 7,
+      "end_line": 7,
+      "raw": "\n"
+    },
+    {
+      "id": "b000005",
+      "kind": "paragraph",
+      "start_line": 8,
+      "end_line": 14,
+      "raw": "Select a local file in the list or grid and press **Space** to open the LVRS\npreview surface. Press Space or Escape to close it. The Open action retains the\nexisting application/file activation behavior. Image previews preserve aspect\nand alpha; text previews escape markup; unsupported content shows an explicit\ninformation card. IISC previews use iiSocietyHelper's registered iiSharedCanvas\ncompositor. Remote entries are inspected after local materialization; selecting\none never silently downloads it for metadata.\n"
+    },
+    {
+      "id": "b000006",
+      "kind": "blank",
+      "start_line": 15,
+      "end_line": 15,
+      "raw": "\n"
+    },
+    {
+      "id": "b000007",
+      "kind": "paragraph",
+      "start_line": 16,
+      "end_line": 19,
+      "raw": "The selected child must belong directly to the validated visible folder and must\nnot be redirected. Late asynchronous results cannot replace a newer selection.\nChanging folders clears the inspector and closes the preview. Native provider\ncontrol documents remain excluded from listings and dashboards.\n"
+    },
+    {
+      "id": "b000008",
+      "kind": "blank",
+      "start_line": 20,
+      "end_line": 20,
+      "raw": "\n"
+    },
+    {
+      "id": "b000009",
+      "kind": "paragraph",
+      "start_line": 21,
+      "end_line": 31,
+      "raw": "Inside a Society container the inspector consumes the common\n`SharedStorage::fileInformation` projection. The selected-file details now include\npublished titles, descriptions, keywords, 0–5 ratings, color labels, collection\nnames, custom fields, MIME type and supported format-specific properties such as\naudio rate/channels/duration, camera capture/exposure and text encoding. Missing\nclassification is distinct from invalid classification; damaged annotations do\nnot hide a readable preview. Classification parsing belongs to iiFileProvider,\nand inspection does not initialize another catalog or rewrite the original.\nThe SDK's asynchronous host inspection API also exposes the same data without\nmaterializing a remote original. This browser's existing local-folder selection\nuses local inspection; its remote open/download interaction remains explicit.\n"
+    },
+    {
+      "id": "b000010",
+      "kind": "blank",
+      "start_line": 32,
+      "end_line": 32,
+      "raw": "\n"
+    },
+    {
+      "id": "b000011",
+      "kind": "paragraph",
+      "start_line": 33,
+      "end_line": 38,
+      "raw": "New file saves use provider completion hooks. External files arriving in the\nSociety drive are handled by the native intake monitor while a storage consumer\nor daemon owns that drive. See\n[the SDK contract](../../../SDK/iiFileProvider/docs/FILE_PRESENTATION.md) for\nembedding, codec support and limits. The keyboard surface described here is in\nSociety; it does not itself register a Finder extension for a custom file type.\n"
+    },
+    {
+      "id": "b000012",
+      "kind": "blank",
+      "start_line": 39,
+      "end_line": 39,
+      "raw": "\n"
+    },
+    {
+      "id": "b000013",
+      "kind": "paragraph",
+      "start_line": 40,
+      "end_line": 45,
+      "raw": "Source regression verifies Space/Escape behavior, actual preview data, existing\nfile activation, native path boundaries and table/grid behavior. The richer\ncontainer-selection regression also checks the actual rendered inspector rows\nfor title, keywords, rating, color and custom fields, plus a decoded Provider\ntext preview. SDK stage and\ntest-consumer validation are separate from deployment of a running app.\n"
+    }
+  ],
+  "outline": [
+    {
+      "block_id": "b000001",
+      "parent_id": null,
+      "level": 1,
+      "title": "File information and keyboard previews",
+      "anchor": "file-information-and-keyboard-previews",
+      "start_line": 1
+    }
+  ],
+  "indexes": {
+    "directive_candidates": [
+      {
+        "block_id": "b000005",
+        "line": 14,
+        "text": "one never silently downloads it for metadata.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000007",
+        "line": 16,
+        "text": "The selected child must belong directly to the validated visible folder and must",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      }
+    ],
+    "commands": [],
+    "links": [
+      {
+        "block_id": "b000011",
+        "label": "the SDK contract",
+        "target": "../../../SDK/iiFileProvider/docs/FILE_PRESENTATION.md",
+        "kind": "relative",
+        "line": 36
+      }
+    ],
+    "tables": []
+  },
+  "provenance": {
+    "generator": "workspace-docs",
+    "version": "1.0.0",
+    "profile": "lossless-blocks-v1",
+    "derived": true
+  }
+}

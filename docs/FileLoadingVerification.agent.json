@@ -1,0 +1,558 @@
+{
+  "format": "iisacc.agent-document",
+  "schema_version": 1,
+  "document_id": "urn:iisacc:document:d2dd0315880a4f81e5cf358fe09020ac2f7316103cf5494fea174801a1aa2fab",
+  "project": {
+    "id": "urn:iisacc:project:Product%2FSociety",
+    "name": "Society",
+    "root": "Product/Society",
+    "kind": "application"
+  },
+  "source": {
+    "path": "docs/FileLoadingVerification.md",
+    "sha256": "87ad6b88e577540c6be18d732da850e380d0c2d5df78f2f2454cee698353ff54",
+    "bytes": 8800,
+    "line_count": 63,
+    "encoding": "utf-8",
+    "language": "ko"
+  },
+  "document": {
+    "title": "파일 로딩 확인 — 2026-09-28",
+    "role": "evidence",
+    "authority": "markdown_source"
+  },
+  "blocks": [
+    {
+      "id": "b000001",
+      "kind": "html",
+      "start_line": 1,
+      "end_line": 1,
+      "raw": "<a id=\"file-loading-verification--2026-09-28\"></a>\n"
+    },
+    {
+      "id": "b000002",
+      "kind": "blank",
+      "start_line": 2,
+      "end_line": 2,
+      "raw": "\n"
+    },
+    {
+      "id": "b000003",
+      "kind": "heading",
+      "start_line": 3,
+      "end_line": 3,
+      "raw": "# 파일 로딩 확인 — 2026-09-28\n",
+      "level": 1,
+      "title": "파일 로딩 확인 — 2026-09-28"
+    },
+    {
+      "id": "b000004",
+      "kind": "blank",
+      "start_line": 4,
+      "end_line": 4,
+      "raw": "\n"
+    },
+    {
+      "id": "b000005",
+      "kind": "paragraph",
+      "start_line": 5,
+      "end_line": 5,
+      "raw": "아래 측정치는 앱 시작 또는 렌더링 프레임 시간이지 모델 수준 시간입니다. 머신은 10 논리 CPU / 32 GiB RAM 를 보고합니다. 파일은 외부 저장소에 있으며, 빌드 활동과 OS 페이지 캐시는 첫 실행 시간에 영향을 미칩니다. 원본은 실제 라이브러리 벤치마크를 위해 수정되지 않았습니다.\n"
+    },
+    {
+      "id": "b000006",
+      "kind": "blank",
+      "start_line": 6,
+      "end_line": 6,
+      "raw": "\n"
+    },
+    {
+      "id": "b000007",
+      "kind": "html",
+      "start_line": 7,
+      "end_line": 7,
+      "raw": "<a id=\"current-turn-regression-rerun\"></a>\n"
+    },
+    {
+      "id": "b000008",
+      "kind": "blank",
+      "start_line": 8,
+      "end_line": 8,
+      "raw": "\n"
+    },
+    {
+      "id": "b000009",
+      "kind": "heading",
+      "start_line": 9,
+      "end_line": 9,
+      "raw": "## 현재 턴 회귀 재실행\n",
+      "level": 2,
+      "title": "현재 턴 회귀 재실행"
+    },
+    {
+      "id": "b000010",
+      "kind": "blank",
+      "start_line": 10,
+      "end_line": 10,
+      "raw": "\n"
+    },
+    {
+      "id": "b000011",
+      "kind": "list",
+      "start_line": 11,
+      "end_line": 14,
+      "raw": "- `iiSocietyContainerPreviewCacheTests`, `iiSocietyContainerDashboardTests` 및 `iiSocietyContainerSharedStorageTests` 를 현재 SDK 에 대해 재귀적으로 다시 구축했습니다.\n- 미리보기 캐시는 43.40 에 전달되고 대시보드는 25.90 에 전달됩니다.\n- 첫 번째 공유 저장소 런은 23 의 24 사례 중 픽스처 에서 일반적인 5초 QtTest 대기 시간을 초과하여 7 초 후에 완료되었습니다. 준비 상태 주장은 30 초를 허용하며 런타임 동작을 변경하지 않습니다. SDK 테스트는 다시 구축하고 공유 저장소를 통해 1/1 를 10.10 초 만에 통과시켰습니다.\n- 이는 관찰된 저장소 하중 하에서 회귀 커버리지를 확인하며, 콜드 캐시, 전체 볼륨 처리량 또는 물리적 iPhone 성능 결과가 아닙니다.\n",
+      "items": [
+        {
+          "marker": "-",
+          "text": "`iiSocietyContainerPreviewCacheTests`, `iiSocietyContainerDashboardTests` 및 `iiSocietyContainerSharedStorageTests` 를 현재 SDK 에 대해 재귀적으로 다시 구축했습니다.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "미리보기 캐시는 43.40 에 전달되고 대시보드는 25.90 에 전달됩니다.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "첫 번째 공유 저장소 런은 23 의 24 사례 중 픽스처 에서 일반적인 5초 QtTest 대기 시간을 초과하여 7 초 후에 완료되었습니다. 준비 상태 주장은 30 초를 허용하며 런타임 동작을 변경하지 않습니다. SDK 테스트는 다시 구축하고 공유 저장소를 통해 1/1 를 10.10 초 만에 통과시켰습니다.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "이는 관찰된 저장소 하중 하에서 회귀 커버리지를 확인하며, 콜드 캐시, 전체 볼륨 처리량 또는 물리적 iPhone 성능 결과가 아닙니다.",
+          "checked": null
+        }
+      ]
+    },
+    {
+      "id": "b000012",
+      "kind": "blank",
+      "start_line": 15,
+      "end_line": 15,
+      "raw": "\n"
+    },
+    {
+      "id": "b000013",
+      "kind": "html",
+      "start_line": 16,
+      "end_line": 16,
+      "raw": "<a id=\"follow-up-validation-current-storage-contention-and-concurrency-check\"></a>\n"
+    },
+    {
+      "id": "b000014",
+      "kind": "blank",
+      "start_line": 17,
+      "end_line": 17,
+      "raw": "\n"
+    },
+    {
+      "id": "b000015",
+      "kind": "heading",
+      "start_line": 18,
+      "end_line": 18,
+      "raw": "## 후속 검증: 현재 스토리지 경합 및 동시성 확인\n",
+      "level": 2,
+      "title": "후속 검증: 현재 스토리지 경합 및 동시성 확인"
+    },
+    {
+      "id": "b000016",
+      "kind": "blank",
+      "start_line": 19,
+      "end_line": 19,
+      "raw": "\n"
+    },
+    {
+      "id": "b000017",
+      "kind": "paragraph",
+      "start_line": 20,
+      "end_line": 20,
+      "raw": "이후의 재검증은 완전히 친환경적이지 않으며 아래의 과거 측정을 새로운 성능 주장으로 대체하지 않습니다.\n"
+    },
+    {
+      "id": "b000018",
+      "kind": "blank",
+      "start_line": 21,
+      "end_line": 21,
+      "raw": "\n"
+    },
+    {
+      "id": "b000019",
+      "kind": "list",
+      "start_line": 22,
+      "end_line": 28,
+      "raw": "- 설치된 macOS GUI 라이브러리는 여전히 `PreviewCache` / `PreviewProvider`를 내보내며, 두 앱 캐시 디렉터리 모두 소유자 전용 권한을 가지고 존재합니다.\n- 프리뷰 캐시와 공유 저장소 테스트 대상이 다시 통과했다(77.85 / 96.58초). Dashboard는 SIGTRAP로 종료되었으며, 네이티브 충돌 보고서는 병렬 섹션 스캔 중 힙의 해제 블록 손상을 보고한다. 원인은 검토 중이며, 별도의 힙 계측 빌드와 반복 섹션 격리 테스트를 추가했다. 로그: `SDK/iiSocietyContainer/build/file-loading-current-tests.log`.\n- 재구성한 GUI SDK 및 그 대시보드 테스트를 함께 수행한 후, 정상 대시보드 스위트는 5 연속 실행을 통과했습니다 (총 86.84 초). 별도의 AddressSanitizer 빌드가 5 연속 실행을 통과했습니다 (총 89.80 초). 각 실행에는 기존 편집/삭제/감시 계약에 더하여 열두 개의 세 부분 새로고침이 포함됩니다. 이전 단일 충돌은 이 실행에서 재현되지 않았으며, 확인된 손상 수정이나 범용 충돌 없는 보장은 주장되지 않습니다. 로그: `file-loading-dashboard-stress.log`, `file-loading-asan-tests.log` 에서 `SDK/iiSocietyContainer/build/`.\n- 한계가 설정된 스트리밍 감시 발견은 동기화 SDK 에서 전체 디렉토리 구체화를 대체합니다. 독립형/ CMake 계약은 통과했습니다 (최종 CTest 0.52 초) 이나, 컨트롤러 스위트는 시작 중 60초 시간 제한을 초과했습니다. 기존 설치된 SDK 도 격리된 시작 확인에서 실패했으며, 이는 새 코드가 원인이었거나 통합이 검증되었다는 것을 입증하지 않습니다.\n- 1 MiB 블록으로 네이티브 16 MiB 원본 읽기를 수행하는 데 88.75초가 걸렸다. 이는 관측 당시의 심각한 저장소 지연 증거이며 디스크 손상 진단은 아니다. 백그라운드 경합을 줄이기 위해 이전 일괄 패키저를 정상적으로 취소했다(종료 코드 130, 커밋된 가져오기 0개). 원본은 수정하지 않았다.\n- 추가 감시 발견 변경사항은 새 앱 번들로 제공되지 않았습니다. 아래 역사적 설치 캐시 증거를 이 후속 패치 배포나 관찰된 대시보드 충돌 해결과 혼동하지 마십시오.\n- 최종 시안 SDK 빌드와 집중된 CTest 통과 ( 0.60 초), 그리고 `cmake --install build` 가 표준 `~/.local/SDK/iiSocietySync` 설치 업데이트함. 이는 실행 중인 Society 앱의 내장 라이브러리 교체 아님, SDK 설치임. 로그: 동기화 SDK 빌드의 `watch-paths-delivery-build.log` , `watch-paths-delivery-tests.log` , `watch-paths-install.log`\n",
+      "items": [
+        {
+          "marker": "-",
+          "text": "설치된 macOS GUI 라이브러리는 여전히 `PreviewCache` / `PreviewProvider`를 내보내며, 두 앱 캐시 디렉터리 모두 소유자 전용 권한을 가지고 존재합니다.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "프리뷰 캐시와 공유 저장소 테스트 대상이 다시 통과했다(77.85 / 96.58초). Dashboard는 SIGTRAP로 종료되었으며, 네이티브 충돌 보고서는 병렬 섹션 스캔 중 힙의 해제 블록 손상을 보고한다. 원인은 검토 중이며, 별도의 힙 계측 빌드와 반복 섹션 격리 테스트를 추가했다. 로그: `SDK/iiSocietyContainer/build/file-loading-current-tests.log`.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "재구성한 GUI SDK 및 그 대시보드 테스트를 함께 수행한 후, 정상 대시보드 스위트는 5 연속 실행을 통과했습니다 (총 86.84 초). 별도의 AddressSanitizer 빌드가 5 연속 실행을 통과했습니다 (총 89.80 초). 각 실행에는 기존 편집/삭제/감시 계약에 더하여 열두 개의 세 부분 새로고침이 포함됩니다. 이전 단일 충돌은 이 실행에서 재현되지 않았으며, 확인된 손상 수정이나 범용 충돌 없는 보장은 주장되지 않습니다. 로그: `file-loading-dashboard-stress.log`, `file-loading-asan-tests.log` 에서 `SDK/iiSocietyContainer/build/`.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "한계가 설정된 스트리밍 감시 발견은 동기화 SDK 에서 전체 디렉토리 구체화를 대체합니다. 독립형/ CMake 계약은 통과했습니다 (최종 CTest 0.52 초) 이나, 컨트롤러 스위트는 시작 중 60초 시간 제한을 초과했습니다. 기존 설치된 SDK 도 격리된 시작 확인에서 실패했으며, 이는 새 코드가 원인이었거나 통합이 검증되었다는 것을 입증하지 않습니다.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "1 MiB 블록으로 네이티브 16 MiB 원본 읽기를 수행하는 데 88.75초가 걸렸다. 이는 관측 당시의 심각한 저장소 지연 증거이며 디스크 손상 진단은 아니다. 백그라운드 경합을 줄이기 위해 이전 일괄 패키저를 정상적으로 취소했다(종료 코드 130, 커밋된 가져오기 0개). 원본은 수정하지 않았다.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "추가 감시 발견 변경사항은 새 앱 번들로 제공되지 않았습니다. 아래 역사적 설치 캐시 증거를 이 후속 패치 배포나 관찰된 대시보드 충돌 해결과 혼동하지 마십시오.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "최종 시안 SDK 빌드와 집중된 CTest 통과 ( 0.60 초), 그리고 `cmake --install build` 가 표준 `~/.local/SDK/iiSocietySync` 설치 업데이트함. 이는 실행 중인 Society 앱의 내장 라이브러리 교체 아님, SDK 설치임. 로그: 동기화 SDK 빌드의 `watch-paths-delivery-build.log` , `watch-paths-delivery-tests.log` , `watch-paths-install.log`",
+          "checked": null
+        }
+      ]
+    },
+    {
+      "id": "b000020",
+      "kind": "blank",
+      "start_line": 29,
+      "end_line": 29,
+      "raw": "\n"
+    },
+    {
+      "id": "b000021",
+      "kind": "html",
+      "start_line": 30,
+      "end_line": 30,
+      "raw": "<a id=\"repeat-navigation\"></a>\n"
+    },
+    {
+      "id": "b000022",
+      "kind": "blank",
+      "start_line": 31,
+      "end_line": 31,
+      "raw": "\n"
+    },
+    {
+      "id": "b000023",
+      "kind": "heading",
+      "start_line": 32,
+      "end_line": 32,
+      "raw": "## 탐색 반복\n",
+      "level": 2,
+      "title": "탐색 반복"
+    },
+    {
+      "id": "b000024",
+      "kind": "blank",
+      "start_line": 33,
+      "end_line": 33,
+      "raw": "\n"
+    },
+    {
+      "id": "b000025",
+      "kind": "table",
+      "start_line": 34,
+      "end_line": 37,
+      "raw": "|데이터 세트|이전 첫 번째 행 / 준비됨|캐시된 첫 번째 행|실시간 조정 준비됨|\n| --- | --- | --- | --- |\n|실제 생성 기록, 94 항목, 2–3|216 / 212 ms|2 / 2 ms|11 / 11 ms|\n|합성 텍스트 디렉터리, 2,000 항목, 실행 2–3|23 / 22 ms|25 / 24 ms|87 / 87 ms|\n",
+      "columns": [
+        "데이터 세트",
+        "이전 첫 번째 행 / 준비됨",
+        "캐시된 첫 번째 행",
+        "실시간 조정 준비됨"
+      ],
+      "rows": [
+        [
+          "실제 생성 기록, 94 항목, 2–3",
+          "216 / 212 ms",
+          "2 / 2 ms",
+          "11 / 11 ms"
+        ],
+        [
+          "합성 텍스트 디렉터리, 2,000 항목, 실행 2–3",
+          "23 / 22 ms",
+          "25 / 24 ms",
+          "87 / 87 ms"
+        ]
+      ]
+    },
+    {
+      "id": "b000026",
+      "kind": "blank",
+      "start_line": 38,
+      "end_line": 38,
+      "raw": "\n"
+    },
+    {
+      "id": "b000027",
+      "kind": "paragraph",
+      "start_line": 39,
+      "end_line": 39,
+      "raw": "실제 라이브러리 온 경로가 현저히 개선되었습니다. 간단한 텍스트 픽스처 는 첫 행 지연을 개선하지 않았으며, 스냅숏 조정은 준비 경로에 작업을 추가합니다. 보편적 속도 향상을 주장하지 마십시오. 첫 실행은 제어된 콜드 캐시 비교가 아니며, 속도 향상 계산에 의도적으로 사용되지 않습니다.\n"
+    },
+    {
+      "id": "b000028",
+      "kind": "blank",
+      "start_line": 40,
+      "end_line": 40,
+      "raw": "\n"
+    },
+    {
+      "id": "b000029",
+      "kind": "paragraph",
+      "start_line": 41,
+      "end_line": 41,
+      "raw": "원시 보고서는 `SDK/iiSocietyContainer/build/`: `loading-real-baseline.json`, `loading-watch-real.json`, `loading-baseline-warm.json`, `loading-watch-fixture.json` 아래에 있습니다.\n"
+    },
+    {
+      "id": "b000030",
+      "kind": "blank",
+      "start_line": 42,
+      "end_line": 42,
+      "raw": "\n"
+    },
+    {
+      "id": "b000031",
+      "kind": "paragraph",
+      "start_line": 43,
+      "end_line": 43,
+      "raw": "미리보기 회귀 는 21.9 – 156.1 ms 에 2400×1600 테스트 PNG 를 디코딩/해시/저장하고, 신선한 캐시 객체에서 지속된 512픽셀 미리보기를 로드하는 데 약 0.7 – 0.8 ms 를 측정합니다. 이는 하나의 테스트 이미지 결과이며, 전체 라이브러리 처리량이 아닙니다.\n"
+    },
+    {
+      "id": "b000032",
+      "kind": "blank",
+      "start_line": 44,
+      "end_line": 44,
+      "raw": "\n"
+    },
+    {
+      "id": "b000033",
+      "kind": "html",
+      "start_line": 45,
+      "end_line": 45,
+      "raw": "<a id=\"checks\"></a>\n"
+    },
+    {
+      "id": "b000034",
+      "kind": "blank",
+      "start_line": 46,
+      "end_line": 46,
+      "raw": "\n"
+    },
+    {
+      "id": "b000035",
+      "kind": "heading",
+      "start_line": 47,
+      "end_line": 47,
+      "raw": "## 수표\n",
+      "level": 2,
+      "title": "수표"
+    },
+    {
+      "id": "b000036",
+      "kind": "blank",
+      "start_line": 48,
+      "end_line": 48,
+      "raw": "\n"
+    },
+    {
+      "id": "b000037",
+      "kind": "list",
+      "start_line": 49,
+      "end_line": 52,
+      "raw": "- SDK의 프리뷰·대시보드·공유 저장소 CTest 대상이 통과했다(3/3).\n- 소스 덮어쓰기/삭제, 임시 스냅샷 조정, 감시자 새로 고침, 콘텐츠 SHA-256, 동시 캐시 요청, 손상된 미리보기, 취소 및 이전 대시보드 `previewSource` 호환성이 포함됩니다.\n- 제품 QML는 검증된 렌더링된 `Image.Ready`, 이미지 교체/캐시 업데이트, 선택/스크롤 보존, 대시보드 추가/편집/제거 업데이트 및 새로운 썸네일 필드를 사용한 인터랙티브 대시보드 카드를 테스트합니다 (8 통과; 최종 호환성 빌드).\n- macOS와 iOS의 SDK 빌드/설치가 통과했다.\n",
+      "items": [
+        {
+          "marker": "-",
+          "text": "SDK의 프리뷰·대시보드·공유 저장소 CTest 대상이 통과했다(3/3).",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "소스 덮어쓰기/삭제, 임시 스냅샷 조정, 감시자 새로 고침, 콘텐츠 SHA-256, 동시 캐시 요청, 손상된 미리보기, 취소 및 이전 대시보드 `previewSource` 호환성이 포함됩니다.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "제품 QML는 검증된 렌더링된 `Image.Ready`, 이미지 교체/캐시 업데이트, 선택/스크롤 보존, 대시보드 추가/편집/제거 업데이트 및 새로운 썸네일 필드를 사용한 인터랙티브 대시보드 카드를 테스트합니다 (8 통과; 최종 호환성 빌드).",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "macOS와 iOS의 SDK 빌드/설치가 통과했다.",
+          "checked": null
+        }
+      ]
+    },
+    {
+      "id": "b000038",
+      "kind": "blank",
+      "start_line": 53,
+      "end_line": 53,
+      "raw": "\n"
+    },
+    {
+      "id": "b000039",
+      "kind": "html",
+      "start_line": 54,
+      "end_line": 54,
+      "raw": "<a id=\"application-delivery\"></a>\n"
+    },
+    {
+      "id": "b000040",
+      "kind": "blank",
+      "start_line": 55,
+      "end_line": 55,
+      "raw": "\n"
+    },
+    {
+      "id": "b000041",
+      "kind": "heading",
+      "start_line": 56,
+      "end_line": 56,
+      "raw": "## 신청서 전달\n",
+      "level": 2,
+      "title": "신청서 전달"
+    },
+    {
+      "id": "b000042",
+      "kind": "blank",
+      "start_line": 57,
+      "end_line": 57,
+      "raw": "\n"
+    },
+    {
+      "id": "b000043",
+      "kind": "list",
+      "start_line": 58,
+      "end_line": 63,
+      "raw": "- macOS 애플리케이션 컴파일/링크가 완료되었습니다. 배포가 중단되어 `QtNetwork.framework`가 완성되지 않았으며, 누락된 리소스와 버전 심볼릭 링크가 동일한 Qt 6.8.3 설치에서 복원된 후 서명이 재개되었습니다.\n- 외부 저장 후보의 표준 런타임 프로브가 변경되지 않은 30초 제한을 초과했습니다. 이것은 실패한 시작 프로브이며, 통과하는 build/runtime 검사가 아닙니다. 로그: `build/file-loading-macos-source-runtime.log`.\n- 수리된 macOS 후보가 `codesign --verify --deep --strict`를 통과했으며, `/Applications/Society.app`에 설치되었고, 설치된 번들은 동일한 서명 검사와 표준 런타임 프로브를 통과했습니다 (776 GUI -loader / 771 데몬-loader 라이브러리; 번들/시스템 위치 외에는 없음). 로그: `build/file-loading-sign-recovery.log` , `build/file-loading-macos-installed-runtime.json` .\n- 설치된 GUI 가 `bootstrap.entry.root-loaded` 에 도달함; 그 생성 이력은 94 행과 실제 이미지 미리보기, 이동 후/뒤로 돌아온 후 포함됨. `~/Library/Caches/Society/society` 에서 관찰된 애플리케이션 캐시는 하나의 디렉토리 스냅샷과 45 개의 PNG /manifest 쌍 (그 샘플의 13,834,190 바이트) 을 포함함. 한 미리보기는 512x512 로 모드 0600 와 64자리의 SHA-256 필드를 가짐. 그 manifest 의 원래 파일을 독립적으로 해싱하면 저장된 다이제스트와 일치함. 이 관찰은 렌더링된 프레임 지연 시간이나 차가운 앱 시작을 측정하지 않음.\n- iOS 릴리스 빌드가 성공했습니다. 앱, File Provider 및 Live Activity는 연결된 iPhone 15 Pro Max에 대한 서명된 번들/프로비저닝 검사를 통과했으며, 이후 `devicectl`가 데이터를 제거하거나 재설정하지 않고 `com.iisacc.society`를 성공적으로 설치했습니다. 로그: `build/file-loading-ios-build.log` , `build/file-loading-ios-bundle.json` , `build/file-loading-ios-install.json` .\n- 새로운 iPhone 설치가 `FBSOpenApplicationErrorDomain / Locked`와 함께 거부되었습니다. 새 설치가 확인되었지만, 물리적 장치 실행, 미리보기 캐시 생성 및 재연결 타이밍은 사용자가 장치를 잠금 해제할 때까지 확인되지 않습니다. 로그: `build/file-loading-ios-launch.json`.\n",
+      "items": [
+        {
+          "marker": "-",
+          "text": "macOS 애플리케이션 컴파일/링크가 완료되었습니다. 배포가 중단되어 `QtNetwork.framework`가 완성되지 않았으며, 누락된 리소스와 버전 심볼릭 링크가 동일한 Qt 6.8.3 설치에서 복원된 후 서명이 재개되었습니다.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "외부 저장 후보의 표준 런타임 프로브가 변경되지 않은 30초 제한을 초과했습니다. 이것은 실패한 시작 프로브이며, 통과하는 build/runtime 검사가 아닙니다. 로그: `build/file-loading-macos-source-runtime.log`.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "수리된 macOS 후보가 `codesign --verify --deep --strict`를 통과했으며, `/Applications/Society.app`에 설치되었고, 설치된 번들은 동일한 서명 검사와 표준 런타임 프로브를 통과했습니다 (776 GUI -loader / 771 데몬-loader 라이브러리; 번들/시스템 위치 외에는 없음). 로그: `build/file-loading-sign-recovery.log` , `build/file-loading-macos-installed-runtime.json` .",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "설치된 GUI 가 `bootstrap.entry.root-loaded` 에 도달함; 그 생성 이력은 94 행과 실제 이미지 미리보기, 이동 후/뒤로 돌아온 후 포함됨. `~/Library/Caches/Society/society` 에서 관찰된 애플리케이션 캐시는 하나의 디렉토리 스냅샷과 45 개의 PNG /manifest 쌍 (그 샘플의 13,834,190 바이트) 을 포함함. 한 미리보기는 512x512 로 모드 0600 와 64자리의 SHA-256 필드를 가짐. 그 manifest 의 원래 파일을 독립적으로 해싱하면 저장된 다이제스트와 일치함. 이 관찰은 렌더링된 프레임 지연 시간이나 차가운 앱 시작을 측정하지 않음.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "iOS 릴리스 빌드가 성공했습니다. 앱, File Provider 및 Live Activity는 연결된 iPhone 15 Pro Max에 대한 서명된 번들/프로비저닝 검사를 통과했으며, 이후 `devicectl`가 데이터를 제거하거나 재설정하지 않고 `com.iisacc.society`를 성공적으로 설치했습니다. 로그: `build/file-loading-ios-build.log` , `build/file-loading-ios-bundle.json` , `build/file-loading-ios-install.json` .",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "새로운 iPhone 설치가 `FBSOpenApplicationErrorDomain / Locked`와 함께 거부되었습니다. 새 설치가 확인되었지만, 물리적 장치 실행, 미리보기 캐시 생성 및 재연결 타이밍은 사용자가 장치를 잠금 해제할 때까지 확인되지 않습니다. 로그: `build/file-loading-ios-launch.json`.",
+          "checked": null
+        }
+      ]
+    }
+  ],
+  "outline": [
+    {
+      "block_id": "b000003",
+      "parent_id": null,
+      "level": 1,
+      "title": "파일 로딩 확인 — 2026-09-28",
+      "anchor": "파일-로딩-확인--2026-09-28",
+      "start_line": 3
+    },
+    {
+      "block_id": "b000009",
+      "parent_id": "b000003",
+      "level": 2,
+      "title": "현재 턴 회귀 재실행",
+      "anchor": "현재-턴-회귀-재실행",
+      "start_line": 9
+    },
+    {
+      "block_id": "b000015",
+      "parent_id": "b000003",
+      "level": 2,
+      "title": "후속 검증: 현재 스토리지 경합 및 동시성 확인",
+      "anchor": "후속-검증-현재-스토리지-경합-및-동시성-확인",
+      "start_line": 18
+    },
+    {
+      "block_id": "b000023",
+      "parent_id": "b000003",
+      "level": 2,
+      "title": "탐색 반복",
+      "anchor": "탐색-반복",
+      "start_line": 32
+    },
+    {
+      "block_id": "b000035",
+      "parent_id": "b000003",
+      "level": 2,
+      "title": "수표",
+      "anchor": "수표",
+      "start_line": 47
+    },
+    {
+      "block_id": "b000041",
+      "parent_id": "b000003",
+      "level": 2,
+      "title": "신청서 전달",
+      "anchor": "신청서-전달",
+      "start_line": 56
+    }
+  ],
+  "indexes": {
+    "directive_candidates": [],
+    "commands": [],
+    "links": [],
+    "tables": [
+      {
+        "block_id": "b000025",
+        "columns": [
+          "데이터 세트",
+          "이전 첫 번째 행 / 준비됨",
+          "캐시된 첫 번째 행",
+          "실시간 조정 준비됨"
+        ],
+        "rows": [
+          [
+            "실제 생성 기록, 94 항목, 2–3",
+            "216 / 212 ms",
+            "2 / 2 ms",
+            "11 / 11 ms"
+          ],
+          [
+            "합성 텍스트 디렉터리, 2,000 항목, 실행 2–3",
+            "23 / 22 ms",
+            "25 / 24 ms",
+            "87 / 87 ms"
+          ]
+        ]
+      }
+    ]
+  },
+  "provenance": {
+    "generator": "workspace-docs",
+    "version": "1.0.0",
+    "profile": "lossless-blocks-v1",
+    "derived": true
+  }
+}

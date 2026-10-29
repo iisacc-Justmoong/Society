@@ -14,7 +14,7 @@ LVRS 입력 필드·버튼·라벨과 화면 크기에 맞는 스크롤 패널�
 `Main.qml`이 `objectName: societyAccount`인 `AccountController` 하나를 소유한다.
 이 컨트롤러가 `iisacc::accounts::AccountManager`와 전용 `QNetworkAccessManager`를 소유한다.
 `NetworkDriveController.accountSession`은 이를 `QPointer`로 참조하고 별도 계정을 만들지 않는다.
-공통 `src/main.cpp`는 루트 생성 후 같은 manager를 `iiSocietyHelper::Helper::setAccountManager()`에 연결한다.
+공통 `App/main.cpp`는 루트 생성 후 같은 manager를 `iiSocietyHelper::Helper::setAccountManager()`에 연결한다.
 따라서 모든 플랫폼에서 계정 패널, 네트워크 드라이브, Helper가 같은 Account·AuthorDetails 객체를 읽는다.
 계정이 파괴되거나 교체되면 네트워크 연결을 해제하며 Helper의 비소유 참조도 자동 해제된다.
 
@@ -41,7 +41,7 @@ Society의 `signedIn`은 SDK의 `isAuthenticated()`를 그대로 따른다. 공�
 일시적 네트워크 실패는 저장 정보를 유지하고 자동 재시도한다. 로그아웃은 오프라인이어도 자동 복원을 해제한다.
 서버 만료·철회 또는 기기 불일치는 세션을 제거하므로 다시 로그인해야 한다. 서버의 30일 절대 만료 정책은 유지한다.
 기존 보안 저장소에 유효한 세션이 있으면 다시 로그인하지 않고 그룹 컨테이너로 이전한다.
-자세한 SDK 계약은 `SDK/iiAcountManager/docs/SESSION_PERSISTENCE.md`를 따른다.
+자세한 SDK 계약은 `SDK/iiAccountManager/docs/SESSION_PERSISTENCE.md`를 따른다.
 
 자동 로그인용 iiAccountManager 0.2.4는 QtKeychain의 플랫폼 보안 저장소 구현을 정적으로 포함한다.
 iOS 앱은 Qt의 AVFoundation 백엔드를 명시적으로 선택하여 설치본에 네이티브 의존성이 없는 FFmpeg 플러그인의 자동 링크를 막는다.
@@ -67,7 +67,7 @@ OS가 식별자를 제공하지 않을 때만 QSettings의 비밀값이 아닌 �
 
 ## 빌드와 검증
 
-iiAcountManager **0.2.3**의 **Quick** 컴포넌트과 iiSocietyHelper **0.7.0** 이상이 필요하다. 기존 Qt Network·LVRS와
+iiAccountManager **0.2.3**의 **Quick** 컴포넌트과 iiSocietyHelper **0.7.0** 이상이 필요하다. 기존 Qt Network·LVRS와
 OS API를 재사용하고 새로운 인증 라이브러리나 유료 서비스를 추가하지 않는다. iOS의 계정 SDK는 정적 라이브러리이다.
 `tools/build_ios.py`와 `tools/build_android.py`는 대상 ABI의 계정 SDK를 먼저 설치한 뒤 Helper·Society를 빌드한다.
 Android SDK별 빌드 디렉터리는 각 SDK의 `build/society-android`, 설치본은 Society의 `build/android/installed`이다.
@@ -131,7 +131,7 @@ iPhone 앱의 서명·번들 검사를 통과했고 연결된 iPhone 15 Pro Max�
 
 ## 2026-09-09 SDK 소유 화면으로 전환
 
-`src/App/Main.qml`은 `import iiAccountManager as Accounts` 후 `Accounts.AccountViews`에
+`App/Society/Main.qml`은 `import iiAccountManager as Accounts` 후 `Accounts.AccountViews`에
 `accountSession.manager`와 창 overlay만 연결한다. 계정 버튼은 `manager.showAccount()`를 호출한다.
 로그인에서 가입으로 이동하는 동작도 SDK의 `showSignUp()`이며 가입 폼을 외부 브라우저로 열지 않는다.
 표시 이름·유저 ID·메일·비밀번호/확인·약관·선택 이메일 동의를 입력하고 이메일 코드로 가입을 완료한다.
@@ -162,7 +162,7 @@ Android는 서명되지 않은 Release APK를 생성했고 SDK 가입 API 및 Ac
 
 ## GraphQL 전환
 
-iiAcountManager 0.2.8과 갱신한 iiSocietyHelper/iiWebServer를 함께 빌드한다. 계정 모델,
+iiAccountManager 0.2.8과 갱신한 iiSocietyHelper/iiWebServer를 함께 빌드한다. 계정 모델,
 컨테이너 위치, 페어링 증명은 `data.appSession`에서 읽고 릴레이는
 `data.accountSession.account.sub`를 확인한다. HTTP 200의 `errors`를 성공으로 처리하지
 않으며 로그인 만료도 기존 UI/세션 정리 흐름으로 전달한다. 로컬 fixture는 GraphQL POST와

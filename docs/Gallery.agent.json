@@ -1,0 +1,205 @@
+{
+  "format": "iisacc.agent-document",
+  "schema_version": 1,
+  "document_id": "urn:iisacc:document:82aa69b1d49f79a8e4938c485d549bb054c0b9436776372233391063dfe59588",
+  "project": {
+    "id": "urn:iisacc:project:Product%2FSociety",
+    "name": "Society",
+    "root": "Product/Society",
+    "kind": "application"
+  },
+  "source": {
+    "path": "docs/Gallery.md",
+    "sha256": "9a41bffc608175384db3f4526d5fde0e465d4192191cf326d5ada561f09d933e",
+    "bytes": 4180,
+    "line_count": 19,
+    "encoding": "utf-8",
+    "language": "ko"
+  },
+  "document": {
+    "title": "Photos와 Generation History 갤러리",
+    "role": "guide",
+    "authority": "markdown_source"
+  },
+  "blocks": [
+    {
+      "id": "b000001",
+      "kind": "heading",
+      "start_line": 1,
+      "end_line": 1,
+      "raw": "# Photos와 Generation History 갤러리\n",
+      "level": 1,
+      "title": "Photos와 Generation History 갤러리"
+    },
+    {
+      "id": "b000002",
+      "kind": "blank",
+      "start_line": 2,
+      "end_line": 2,
+      "raw": "\n"
+    },
+    {
+      "id": "b000003",
+      "kind": "paragraph",
+      "start_line": 3,
+      "end_line": 3,
+      "raw": "`GalleryTile`, `GalleryZoom`, `GalleryInfo`를 두 화면이 공유한다. 기존 LVRS 1.0과 Qt Quick 6.8.3의 GridView·Image·포인터 핸들러를 재사용한다. 추가 패키지 의존성은 없다. 기존 Qt/LVRS 라이선스와 고정 버전을 그대로 사용하며, 제품별 데이터 연결만 Society가 담당한다.\n"
+    },
+    {
+      "id": "b000004",
+      "kind": "blank",
+      "start_line": 4,
+      "end_line": 4,
+      "raw": "\n"
+    },
+    {
+      "id": "b000005",
+      "kind": "paragraph",
+      "start_line": 5,
+      "end_line": 5,
+      "raw": "썸네일은 열 너비에 맞춘 정사각형이며 가로·세로 간격은 2 px이다. 이미지의 종횡비와 무관하게 `PreserveAspectCrop`으로 중앙을 잘라 채운다. 모서리와 내부 여백은 0이다. 파일 이름·종류·경로 텍스트는 타일에 표시하지 않으며 접근성 이름은 유지한다. 비디오는 작은 재생 표시로 구분한다. 정보 시트의 큰 이미지는 원래 비율로 보여준다.\n"
+    },
+    {
+      "id": "b000006",
+      "kind": "blank",
+      "start_line": 6,
+      "end_line": 6,
+      "raw": "\n"
+    },
+    {
+      "id": "b000007",
+      "kind": "paragraph",
+      "start_line": 7,
+      "end_line": 7,
+      "raw": "Files에서 Generation History로 전환하는 동안 이전 폴더·일반 파일 행이 잠시 남아 있어도 이미지로 읽지 않는다. 디렉터리 여부와 지원 이미지 확장자를 함께 확인한 뒤 썸네일을 요청한다.\n"
+    },
+    {
+      "id": "b000008",
+      "kind": "blank",
+      "start_line": 8,
+      "end_line": 8,
+      "raw": "\n"
+    },
+    {
+      "id": "b000009",
+      "kind": "paragraph",
+      "start_line": 9,
+      "end_line": 9,
+      "raw": "두 갤러리 모두 오래된 항목을 위, 최신 항목을 아래에 배치하고 진입 시 최하단에서 시작한다. Photos는 사진·비디오의 촬영/생성 시각, Generation History는 파일 수정 시각의 오름차순이다. Photos의 시각이 같으면 영구 갤러리 키 순서를 유지해 원본 검증 완료 시에도 행이 재정렬되지 않게 한다. 빈 화면에 목록이 비동기로 도착하거나 숨겨져 있던 Photos 화면에 다시 진입해도 실제 레이아웃이 준비된 뒤 최신 행을 보여준다. 최하단을 보고 있을 때 새 항목이 도착하면 하단을 따라가며, 과거 항목을 보는 중에는 갱신·프리뷰 도착·같은 개수의 재정렬에도 선택과 스크롤 위치를 유지한다.\n"
+    },
+    {
+      "id": "b000010",
+      "kind": "blank",
+      "start_line": 10,
+      "end_line": 10,
+      "raw": "\n"
+    },
+    {
+      "id": "b000011",
+      "kind": "paragraph",
+      "start_line": 11,
+      "end_line": 11,
+      "raw": "갤러리 위에서 오른쪽으로 드래그하면 크게, 왼쪽으로 드래그하면 작게 표시한다. Generation History에서는 두 손가락을 벌리거나 오므리는 핀치도 같은 열 크기를 조절한다. Photos는 핀치 크기 조절을 사용하지 않으며 두 손가락을 벌리거나 오므려도 열 수와 썸네일 크기를 유지한다. 세로 드래그는 목록 스크롤이다. 목표 썸네일 크기는 56–400 px 범위이며 정수 열 수로 재배치되므로 실제 너비는 뷰 너비에 맞춰진다. 확대·축소 시 보고 있던 행을 기준으로 스크롤을 보정하고 선택 항목을 유지한다. 입력 도중 원본 열기·선택 클릭이 발생하지 않아야 한다.\n"
+    },
+    {
+      "id": "b000012",
+      "kind": "blank",
+      "start_line": 12,
+      "end_line": 12,
+      "raw": "\n"
+    },
+    {
+      "id": "b000013",
+      "kind": "paragraph",
+      "start_line": 13,
+      "end_line": 13,
+      "raw": "Photos는 화면 주변 두 화면 높이의 타일을 미리 로딩하고 프리뷰 디코딩 캐시를 재사용한다. 프리뷰가 갱신되는 동안 기존 이미지를 유지한다. 화면 중심의 순차 인덱싱·컨테이너 내부 영구 저장은 [Photos](Photos.md)의 저장 계약을 따른다.\n"
+    },
+    {
+      "id": "b000014",
+      "kind": "blank",
+      "start_line": 14,
+      "end_line": 14,
+      "raw": "\n"
+    },
+    {
+      "id": "b000015",
+      "kind": "paragraph",
+      "start_line": 15,
+      "end_line": 15,
+      "raw": "클릭·터치하면 파일 정보 시트를 연다. Generation History는 이름·크기·수정 시각·경로, Photos는 이름·종류·원본 리소스 합산 크기·촬영/생성 시각을 제공한다. 원본 보기와 사진 휴지통 동작은 시트에서 실행한다. Escape·바깥 클릭·닫기로 목록에 돌아온다. 경로 이동 또는 선택 항목 삭제 시 시트를 닫는다.\n"
+    },
+    {
+      "id": "b000016",
+      "kind": "blank",
+      "start_line": 16,
+      "end_line": 16,
+      "raw": "\n"
+    },
+    {
+      "id": "b000017",
+      "kind": "paragraph",
+      "start_line": 17,
+      "end_line": 17,
+      "raw": "`Society.Gui`는 세로 이미지의 정사각형 크롭, 2 px 간격, 숨긴 이름, 클릭 후 정보 표시, 가로 드래그의 확대·축소, 세로 스크롤, 시간순 정렬·최하단 진입과 선택 보존을 검사한다. `Society.Photos`는 사진·비디오 시간순 정렬, 비동기 초기 로딩·재진입·새 항목 도착 시 최하단, 탐색 중 갱신·재정렬 후 스크롤·선택 보존, 터치 후 정보 표시, 양방향 핀치 후 썸네일 크기 불변, 늦게 도착한 프리뷰, 모바일·데스크톱 렌더링을 검사한다. 호스트의 합성 터치 테스트와 실제 기기의 네이티브 제스처 검증은 별도이다.\n"
+    },
+    {
+      "id": "b000018",
+      "kind": "blank",
+      "start_line": 18,
+      "end_line": 18,
+      "raw": "\n"
+    },
+    {
+      "id": "b000019",
+      "kind": "paragraph",
+      "start_line": 19,
+      "end_line": 19,
+      "raw": "포인터 핸들러 계약은 Qt 공식 [DragHandler](https://doc.qt.io/qt-6.8/qml-qtquick-draghandler.html)와 [PinchHandler](https://doc.qt.io/qt-6.8/qml-qtquick-pinchhandler.html)를 따른다.\n"
+    }
+  ],
+  "outline": [
+    {
+      "block_id": "b000001",
+      "parent_id": null,
+      "level": 1,
+      "title": "Photos와 Generation History 갤러리",
+      "anchor": "photos와-generation-history-갤러리",
+      "start_line": 1
+    }
+  ],
+  "indexes": {
+    "directive_candidates": [],
+    "commands": [],
+    "links": [
+      {
+        "block_id": "b000013",
+        "label": "Photos",
+        "target": "Photos.md",
+        "kind": "relative",
+        "line": 13
+      },
+      {
+        "block_id": "b000019",
+        "label": "DragHandler",
+        "target": "https://doc.qt.io/qt-6.8/qml-qtquick-draghandler.html",
+        "kind": "external",
+        "line": 19
+      },
+      {
+        "block_id": "b000019",
+        "label": "PinchHandler",
+        "target": "https://doc.qt.io/qt-6.8/qml-qtquick-pinchhandler.html",
+        "kind": "external",
+        "line": 19
+      }
+    ],
+    "tables": []
+  },
+  "provenance": {
+    "generator": "workspace-docs",
+    "version": "1.0.0",
+    "profile": "lossless-blocks-v1",
+    "derived": true
+  }
+}

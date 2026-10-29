@@ -47,18 +47,18 @@ def commands(mode, qt, team, configuration):
               f'-DCMAKE_BUILD_TYPE={configuration}', '-DBUILD_TESTING=OFF',
               f'-DCMAKE_INSTALL_PREFIX={prefix}', f'-DQT_ADDITIONAL_PACKAGES_PREFIX_PATH={prefix}']
     steps = []
-    for name in ('LVRS', 'iiAcountManager', 'iiWebServer', 'iiSocietyContainer', 'iiSocietyHelper', 'iiPhotoLibrary'):
+    for name in ('LVRS', 'iiAccountManager', 'iiWebServer', 'iiSocietyContainer', 'iiSocietyHelper', 'iiPhotoLibrary'):
         source = WORKSPACE / 'SDK' / name
         build = source / 'build' / mode
         options = []
         if name == 'LVRS':
             options = ['-DLVRS_BUILD_SHARED_LIBS=OFF', '-DLVRS_BUILD_EXAMPLES=OFF',
                        '-DLVRS_BUILD_TESTS=OFF', '-DLVRS_ENABLE_FRAMEWORK_BOOTSTRAP_TARGETS=OFF']
-        elif name == 'iiAcountManager':
+        elif name == 'iiAccountManager':
             options = ['-DIIACCOUNTMANAGER_BUILD_QUICK=ON', f'-DLVRS_DIR={prefix}/lib/cmake/LVRS']
         elif name == 'iiSocietyHelper':
             options = [f'-DiiWebServer_DIR={prefix}/lib/cmake/iiWebServer', f'-DiiSocietyContainer_DIR={prefix}/lib/cmake/iiSocietyContainer',
-                       f'-DiiAcountManager_DIR={prefix}/lib/cmake/iiAcountManager']
+                       f'-DiiAccountManager_DIR={prefix}/lib/cmake/iiAccountManager']
         elif name == 'iiWebServer':
             options = ['-DBUILD_SHARED_LIBS=OFF']
         elif name == 'iiPhotoLibrary':
@@ -71,7 +71,7 @@ def commands(mode, qt, team, configuration):
     build = PRODUCT / 'build' / mode
     steps.append(['cmake', '-S', str(PRODUCT), '-B', str(build), '-G', 'Xcode', *common,
                   f'-DLVRS_DIR={prefix}/lib/cmake/LVRS',
-                  f'-DiiAcountManager_DIR={prefix}/lib/cmake/iiAcountManager',
+                  f'-DiiAccountManager_DIR={prefix}/lib/cmake/iiAccountManager',
                   f'-DiiWebServer_DIR={prefix}/lib/cmake/iiWebServer',
                   f'-DiiSocietyContainer_DIR={prefix}/lib/cmake/iiSocietyContainer',
                   f'-DiiSocietyHelper_DIR={prefix}/lib/cmake/iiSocietyHelper',

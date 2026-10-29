@@ -2,10 +2,10 @@
 #include "AccountServer.h"
 #include <QElapsedTimer>
 #include <QLockFile>
-#include "App/Network/DevicePairing.h"
+#include "Society/Network/DevicePairing.h"
 #include "PairingCredentialsFixture.h"
-#include "App/Network/PairingQr.h"
-#include "App/Network/QrScanner.h"
+#include "Society/Network/PairingQr.h"
+#include "Society/Network/QrScanner.h"
 #include "FakeDiscoveryService.h"
 #include "MemorySessionStore.h"
 #include <QGuiApplication>
@@ -185,9 +185,15 @@ private slots:
         QLockFile operation(fixture.container.filePath(".society-sync/operation.lock"));
         QTRY_VERIFY_WITH_TIMEOUT(operation.isLocked() || operation.tryLock(), 5000);
         phone.synchronizeNow();
-        QTRY_COMPARE_WITH_TIMEOUT(phone.synchronizationStatus(), QString("Container sync is waiting to retry."), 10000);
-        QVERIFY(phone.hostConnectionReady()); // A content synchronization error is not lost host authentication.
+        // The SDK keeps lock collisions pending within the same request now.
+        // File contention must preserve authenticated host readiness and retry
+        // the operation once the lock is released.
+        QTRY_VERIFY_WITH_TIMEOUT(phone.synchronizing(), 5000);
+        QVERIFY(phone.hostConnectionReady());
+        QVERIFY(!phone.reconnecting());
         operation.unlock();
+        QTRY_VERIFY_WITH_TIMEOUT(!phone.synchronizing(), 15000);
+        QVERIFY(phone.hostConnectionReady());
         QTRY_VERIFY(!fixture.clientAccount->savedHostConnection().value("routes").toArray().isEmpty());
         announce.stop();
         phone.setRuntimeEnabled(false); QVERIFY(!phone.hostConnectionReady());

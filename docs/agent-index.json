@@ -1,0 +1,440 @@
+{
+  "format": "iisacc.agent-document-index",
+  "schema_version": 1,
+  "project": {
+    "id": "urn:iisacc:project:Product%2FSociety",
+    "name": "Society",
+    "root": "Product/Society",
+    "kind": "application"
+  },
+  "documentation_root": "docs",
+  "agent_schema": "docs/agent-document.schema.json",
+  "documents": [
+    {
+      "document_id": "urn:iisacc:document:e8d5bb8c34e9ead09c97715802a40b312b5105e23c0a0d473fa7a93b8583c6b2",
+      "source": "AGENT.md",
+      "agent_json": "docs/entrypoints/AGENT.agent.json",
+      "source_sha256": "3f35ed9cd5707d9ba89edec6a368ecb4ad493b03ca382dd36e232706d089e32e",
+      "role": "instructions"
+    },
+    {
+      "document_id": "urn:iisacc:document:6f9d6c6311a30e62a88b1daaaef5b103a11d89b466e222897d9c16a21ead5a68",
+      "source": "LICENSING.md",
+      "agent_json": "docs/entrypoints/LICENSING.agent.json",
+      "source_sha256": "629af7be7391f3cda4d302ef93b8f164fde800b301464da5aadcd13f3c1d0082",
+      "role": "guide"
+    },
+    {
+      "document_id": "urn:iisacc:document:a8e949809ff94f51752856b9cbb45c547abeab4dc549b1d63d72e710bbc83abe",
+      "source": "README.md",
+      "agent_json": "docs/entrypoints/README.agent.json",
+      "source_sha256": "fc81ecf3e659c704873c16b6c1da20104a3ac5113b6f2a2db69acb370372a0cf",
+      "role": "overview"
+    },
+    {
+      "document_id": "urn:iisacc:document:80c8941bf0c1745ddf0ee1ffaab1f65f62fef9a1524950b87843d0c81a7851c3",
+      "source": "docs/AIIntegrationNames.md",
+      "agent_json": "docs/AIIntegrationNames.agent.json",
+      "source_sha256": "a5ec28ce35fd4a82c098f113b4016c308d4fae1ac93e1f54f88f3ad75b427e64",
+      "role": "guide"
+    },
+    {
+      "document_id": "urn:iisacc:document:69f247de8f389efb126f1f9de0eaf1304c6c11c182cb3a19a07d9e8bd8dd8b5b",
+      "source": "docs/Account.md",
+      "agent_json": "docs/Account.agent.json",
+      "source_sha256": "f86cbe2fe774cd128b861a9a4b9535194e55bdceec5f01b19ce0665906a2707c",
+      "role": "guide"
+    },
+    {
+      "document_id": "urn:iisacc:document:6eadc992fac8621adf69b5e608323604252fed1ed60bc8a273be927074465195",
+      "source": "docs/AccountLicenses.md",
+      "agent_json": "docs/AccountLicenses.agent.json",
+      "source_sha256": "bb2b2ca90f79c3ee6494ac74e5b3f6fe8492d3604eb940d3cf2508e3f34d72ae",
+      "role": "guide"
+    },
+    {
+      "document_id": "urn:iisacc:document:edddfd24ab315e12dc0778619b31665f6d3f4c55aefc5152391281c5c9cd256a",
+      "source": "docs/AgentIntegration.md",
+      "agent_json": "docs/AgentIntegration.agent.json",
+      "source_sha256": "f29f5a969284b1b355853a5a4f76b220e8e9fd8550d4ef78d545144b7607574a",
+      "role": "guide"
+    },
+    {
+      "document_id": "urn:iisacc:document:e75bec0c5f8711b6d18ff7c9e090109075f86b0954f578311d321ba88989407c",
+      "source": "docs/ApplicationLifetime.md",
+      "agent_json": "docs/ApplicationLifetime.agent.json",
+      "source_sha256": "44b9e0d07cabdc1caf4a901989b8a2d1700f6b6c589d61612c3cacc631b78e62",
+      "role": "guide"
+    },
+    {
+      "document_id": "urn:iisacc:document:2ea760654df18cc49c7411d75bd7d89ad8342e64211b3d623260e83b94ef7eea",
+      "source": "docs/AutomaticPairing.md",
+      "agent_json": "docs/AutomaticPairing.agent.json",
+      "source_sha256": "9bb7142bcd617383f43cec51278153583930bde3b3620d5c9ac78607e682d3d4",
+      "role": "guide"
+    },
+    {
+      "document_id": "urn:iisacc:document:abb5525a08707b47fe2b6ca09d8e84580efb19bb72cb6ea327bf9d46eec6e6ff",
+      "source": "docs/BundleFootprint.md",
+      "agent_json": "docs/BundleFootprint.agent.json",
+      "source_sha256": "d27f8be39ed22e3a50448e0b79a9ad605564b5c2ceb1ba12c79edf2ac20c3913",
+      "role": "guide"
+    },
+    {
+      "document_id": "urn:iisacc:document:1709cf720593b359687c239b923d4b2608a513ab67258a6546e74ca082c34d11",
+      "source": "docs/CloudFiles.md",
+      "agent_json": "docs/CloudFiles.agent.json",
+      "source_sha256": "c925873ecbf62f759dc3cd6d897beeeb7d49e9e3f262f4ce4964309de1b25b3e",
+      "role": "guide"
+    },
+    {
+      "document_id": "urn:iisacc:document:575156b377c0dc0fdbb52a097a6e94da7e63a176434e94052b0b82888139c97a",
+      "source": "docs/Dashboard.md",
+      "agent_json": "docs/Dashboard.agent.json",
+      "source_sha256": "0f6ba822214381c6b0b423f16552febf2bf533006caf37f32d5b1cbfb2d535e8",
+      "role": "guide"
+    },
+    {
+      "document_id": "urn:iisacc:document:e8821a5715f4ec76776afd0faebbcfd5e9372d0bf41ff2df58113cf826961acc",
+      "source": "docs/Environment.md",
+      "agent_json": "docs/Environment.agent.json",
+      "source_sha256": "6c9fefe6b8aedf5aa6687f16785af98c18028703fbe675c9772f52c1bcc8f48e",
+      "role": "guide"
+    },
+    {
+      "document_id": "urn:iisacc:document:ebea2464164ee0bbe428e5859445dbaf7db85904817be4b45f1ae83436d29c5e",
+      "source": "docs/EnvironmentDesktopConcept.md",
+      "agent_json": "docs/EnvironmentDesktopConcept.agent.json",
+      "source_sha256": "b8364023e913d0bf945653b103d7abfe3a8e1d6109181b6fba4e83f08ce2b728",
+      "role": "guide"
+    },
+    {
+      "document_id": "urn:iisacc:document:dfc603e82a556305630e4f6433ca8219e7dff29100b31f5b0dea84ec21f0e982",
+      "source": "docs/FILE_PROVIDER.md",
+      "agent_json": "docs/FILE_PROVIDER.agent.json",
+      "source_sha256": "1f795798c46064be151a4a484e0ce8c02aa43216d1ca24449924ff48dd2174c7",
+      "role": "guide"
+    },
+    {
+      "document_id": "urn:iisacc:document:10c3bc31a10ea9db6f693a051ba2701296957f7242cba023b3f3e04d47066f6f",
+      "source": "docs/FileLoading.md",
+      "agent_json": "docs/FileLoading.agent.json",
+      "source_sha256": "66619d0fe9d519da550852dac008b482d181f6995102d13018998d9907336047",
+      "role": "guide"
+    },
+    {
+      "document_id": "urn:iisacc:document:9ad147a8e82682d172a14c49263e9479dd9f38c4c410a5b37a3d996a54d08580",
+      "source": "docs/FileLoadingPerformance.md",
+      "agent_json": "docs/FileLoadingPerformance.agent.json",
+      "source_sha256": "fc0681bbc7f59c27e1807635e2c32a5cba7487dc1714fcbd5d4382cd237941c4",
+      "role": "guide"
+    },
+    {
+      "document_id": "urn:iisacc:document:d2dd0315880a4f81e5cf358fe09020ac2f7316103cf5494fea174801a1aa2fab",
+      "source": "docs/FileLoadingVerification.md",
+      "agent_json": "docs/FileLoadingVerification.agent.json",
+      "source_sha256": "87ad6b88e577540c6be18d732da850e380d0c2d5df78f2f2454cee698353ff54",
+      "role": "evidence"
+    },
+    {
+      "document_id": "urn:iisacc:document:878df89878357b1b6c68c1645144c3b2a3805e3e8fdc64f3ca1f693cb70bac5e",
+      "source": "docs/FilePresentation.md",
+      "agent_json": "docs/FilePresentation.agent.json",
+      "source_sha256": "82094a91bf0d1567e74ecd449a848f96404226c933297aa341436db204170396",
+      "role": "guide"
+    },
+    {
+      "document_id": "urn:iisacc:document:873ef1a5108212d1d1586e77a9c026d8c05fe1b0af925e32c5de292c0297cecd",
+      "source": "docs/Files.md",
+      "agent_json": "docs/Files.agent.json",
+      "source_sha256": "92525e14effb5beec8bf1af32b66c520e86e8e400cea3fbe56116ab08231144c",
+      "role": "guide"
+    },
+    {
+      "document_id": "urn:iisacc:document:f1cb9861db497a000c2fcc49b5942e4c782dcb7eacf7256b37becafb721dc0d7",
+      "source": "docs/FinderDrive.md",
+      "agent_json": "docs/FinderDrive.agent.json",
+      "source_sha256": "0975053cbfd42df02f4e0578f7c28630930a07831a011369d20a555598a5260b",
+      "role": "guide"
+    },
+    {
+      "document_id": "urn:iisacc:document:82aa69b1d49f79a8e4938c485d549bb054c0b9436776372233391063dfe59588",
+      "source": "docs/Gallery.md",
+      "agent_json": "docs/Gallery.agent.json",
+      "source_sha256": "9a41bffc608175384db3f4526d5fde0e465d4192191cf326d5ada561f09d933e",
+      "role": "guide"
+    },
+    {
+      "document_id": "urn:iisacc:document:931ccfb1b99bccc37d5ec2a8ddd05b748346e4202a9d84ed41fbe387949ffa4e",
+      "source": "docs/Generation.md",
+      "agent_json": "docs/Generation.agent.json",
+      "source_sha256": "05d55279da5c32294670f4edc2990ef1fe66e4c06950c9a2bf131bcda492713d",
+      "role": "guide"
+    },
+    {
+      "document_id": "urn:iisacc:document:cbd4894e665863d3fd6b4576f56b6794416df6973bf26945f14272069223241b",
+      "source": "docs/GroupState.md",
+      "agent_json": "docs/GroupState.agent.json",
+      "source_sha256": "b0e6a780e3d821537a00f1b4901e20deb5f21541d0087227bdc5a8439a110409",
+      "role": "guide"
+    },
+    {
+      "document_id": "urn:iisacc:document:6a5910571cc1dab8d60d288acda95a845b98efc71792dcf511d8cdbb259b2dcf",
+      "source": "docs/ManagedStorage.md",
+      "agent_json": "docs/ManagedStorage.agent.json",
+      "source_sha256": "a7935e5b9ad9927d5bfdfb15c97613bf6cd6d8b760036ec44f33aa26ec2334fc",
+      "role": "guide"
+    },
+    {
+      "document_id": "urn:iisacc:document:a6e7b3ebe8b76ddf50dff11c79a78afcd0e81004d480e0424542fdd5763df975",
+      "source": "docs/Mcp.md",
+      "agent_json": "docs/Mcp.agent.json",
+      "source_sha256": "cbdbfdf23034d3e25eee415cbe970885761a9d186262438d132de529dd2ef07b",
+      "role": "guide"
+    },
+    {
+      "document_id": "urn:iisacc:document:16ba3578a7edcc031142fc0b1390c491c7ff8bf5f7efccdf0667062a675ff323",
+      "source": "docs/MobileViews.md",
+      "agent_json": "docs/MobileViews.agent.json",
+      "source_sha256": "1d08be5f15377e3be8bf4c4563e02a02b7906261ea82e2a49b6a611823c21b4e",
+      "role": "guide"
+    },
+    {
+      "document_id": "urn:iisacc:document:e96955a452003a0ab75265f388549be4ccfd1c67de3471be549f99ec7e1eca3a",
+      "source": "docs/ModelMerge.md",
+      "agent_json": "docs/ModelMerge.agent.json",
+      "source_sha256": "fc56554c6b4c345fe31a7cd3207ec6bc444db6ded7f9d1fd7ef14f52cff06658",
+      "role": "guide"
+    },
+    {
+      "document_id": "urn:iisacc:document:7c65bb266e1123df3bbdd7b0781699704f729b9b141628508b7f5cd8f43d3801",
+      "source": "docs/ModelPackaging.md",
+      "agent_json": "docs/ModelPackaging.agent.json",
+      "source_sha256": "127f8df996ef27146c538066e38d52f474b9519a283016497de205c16106db23",
+      "role": "guide"
+    },
+    {
+      "document_id": "urn:iisacc:document:5d27ded3267a82838ceaf06d9276b1cdb01093d950aeb603d700540bcb58aea2",
+      "source": "docs/ModelPackagingVerification.md",
+      "agent_json": "docs/ModelPackagingVerification.agent.json",
+      "source_sha256": "99486e375d3e1c53f95a1fe9ae7fceebb1f2b49d9c2c7a3e6cdbdfb8e3232ea7",
+      "role": "evidence"
+    },
+    {
+      "document_id": "urn:iisacc:document:93580fc41f392a2a13ed87a652180f1564235b3d3b45fca1591cf26667a9610f",
+      "source": "docs/Models.md",
+      "agent_json": "docs/Models.agent.json",
+      "source_sha256": "213a1887caf72c9aee70aa4677fb36f155ad9ebbdc17ce1f4bc7cc62b71dd9cc",
+      "role": "guide"
+    },
+    {
+      "document_id": "urn:iisacc:document:329bc16c8360b557dda7534b82ceccda63d83a4578003c078a2d16882f84ac49",
+      "source": "docs/NetworkDrive.md",
+      "agent_json": "docs/NetworkDrive.agent.json",
+      "source_sha256": "6a110433c3600dd61e0b934db5591618c3264c2ece0ec64322bc7d1e983f7dda",
+      "role": "guide"
+    },
+    {
+      "document_id": "urn:iisacc:document:25d275860174489989a2431bca53ae6b26102d604f98df0fbf41ac1cb9dd0b20",
+      "source": "docs/OfflineStartupVerification.md",
+      "agent_json": "docs/OfflineStartupVerification.agent.json",
+      "source_sha256": "48f76d7742d1ca7252a0da4de1802d9111cb8288e28b42b82a1fcca8b710587d",
+      "role": "evidence"
+    },
+    {
+      "document_id": "urn:iisacc:document:481c212650f4ffd392796bc0c92ed80cd9c1b3dbab0ff91a3909a8ef5d374867",
+      "source": "docs/Onboarding.md",
+      "agent_json": "docs/Onboarding.agent.json",
+      "source_sha256": "0b8af1c46fb1002f13f9d2f9e767b6e922b4da95ca65fd60afb0aa44462f1cd5",
+      "role": "guide"
+    },
+    {
+      "document_id": "urn:iisacc:document:11ff8e87d49ff7d4c57358ebd8002cd16c9fd2ec5565c8a7319ba0cbee488b07",
+      "source": "docs/Pairing.md",
+      "agent_json": "docs/Pairing.agent.json",
+      "source_sha256": "660f3c7f2567e6cdb1b846063df4efcc621af8319359cb19b6330afdd29337d3",
+      "role": "guide"
+    },
+    {
+      "document_id": "urn:iisacc:document:bb4a2b1ea28a6aa2daf4792058bac35abdf00d0b24b3700e06c8d30802583284",
+      "source": "docs/PairingFailure-2026-09-21.md",
+      "agent_json": "docs/PairingFailure-2026-09-21.agent.json",
+      "source_sha256": "8fcb7de934ade2412964a0f86f9793b53f0beb54be335af79f8a012b957d3200",
+      "role": "guide"
+    },
+    {
+      "document_id": "urn:iisacc:document:b9e49ccb35a31a33055a40ad46c4e5a9a869cf79aed6b20a36601c33c0f7a727",
+      "source": "docs/PanelBackgrounds.md",
+      "agent_json": "docs/PanelBackgrounds.agent.json",
+      "source_sha256": "aa15054313f53884d5186c4fed2f6f1fc697736793797949fa37b02b294ee466",
+      "role": "guide"
+    },
+    {
+      "document_id": "urn:iisacc:document:b0f5c97f16a6ca6a2b6497301d9283e914983691c69b04772a80ca3c1f2be086",
+      "source": "docs/Performance.md",
+      "agent_json": "docs/Performance.agent.json",
+      "source_sha256": "d885e37a5dd6fd768479875fdc19e154c62211deeab3f66226916b9e861f2eb6",
+      "role": "guide"
+    },
+    {
+      "document_id": "urn:iisacc:document:6f76d7e0231a6363ccffa073153b03cd2df3022e2183232fef772a043c3b79cf",
+      "source": "docs/PhotoLibraryMigration.md",
+      "agent_json": "docs/PhotoLibraryMigration.agent.json",
+      "source_sha256": "03d90fff0f5e1b4e7d2403ba57cd5e8e5602d467213d923455c2604b3304e9be",
+      "role": "guide"
+    },
+    {
+      "document_id": "urn:iisacc:document:2d95eaca1d4b50c37a150abbfc68a15600b717180f7fdf4678602866dd56d91c",
+      "source": "docs/Photos.md",
+      "agent_json": "docs/Photos.agent.json",
+      "source_sha256": "dfde303e9c33c06c7615bec71deaecd07fd8e9474f9f67cf471def2f11458115",
+      "role": "guide"
+    },
+    {
+      "document_id": "urn:iisacc:document:9f69a2237202a745dc22cf0edb4cb6bbd8f6324ffe79195b6cf3d485402be4ad",
+      "source": "docs/Preferences.md",
+      "agent_json": "docs/Preferences.agent.json",
+      "source_sha256": "fedff0fe4ca0cc83358fbde89cbd72a68f987e69e5a946726c06f587ef4acbc3",
+      "role": "guide"
+    },
+    {
+      "document_id": "urn:iisacc:document:75e1d312a7a94c0cd87a9700b906fe18c5fc738329e971458f37952cfc8a74ee",
+      "source": "docs/QtBoundary.md",
+      "agent_json": "docs/QtBoundary.agent.json",
+      "source_sha256": "a1818ad840d040c7ba144ccb41471e73cfcf561dce865ccf0a6016db61f0316b",
+      "role": "guide"
+    },
+    {
+      "document_id": "urn:iisacc:document:78dfb266327bfdb243e4d7e4156b75d50d4e5e4a4b11cfb9be3814e144c30fdd",
+      "source": "docs/README.md",
+      "agent_json": "docs/README.agent.json",
+      "source_sha256": "79db8f309b0aef46f81fd9d3155bb4379b8aaa661e0af3485a68b5ced68d4e3c",
+      "role": "overview"
+    },
+    {
+      "document_id": "urn:iisacc:document:039f84436bde30fd87d3e8ab48bc29c1a3353aa69946f701aa21f86aaec0d663",
+      "source": "docs/ResourceOptimization.md",
+      "agent_json": "docs/ResourceOptimization.agent.json",
+      "source_sha256": "328c5697486776d8c5b99ecd609bd631d40cda17856a7b83cb96603e7418ada1",
+      "role": "guide"
+    },
+    {
+      "document_id": "urn:iisacc:document:fc3b629794aa1794a17b05cf3d621f134d0c7b31bbaae597f0e8ad57a6c4d5b0",
+      "source": "docs/RuntimeRetirement.md",
+      "agent_json": "docs/RuntimeRetirement.agent.json",
+      "source_sha256": "eb00d5baedaa4bf64065b12233a78bb2cb25bf4db591036f25bd49c00c7d353d",
+      "role": "guide"
+    },
+    {
+      "document_id": "urn:iisacc:document:b1168850be6e27d75de12a2aab39abebe19cee6ff46929dd65fe759975e8d03d",
+      "source": "docs/SelfHosting.md",
+      "agent_json": "docs/SelfHosting.agent.json",
+      "source_sha256": "c3d95ba831717b339fdc4129b18cef5dcfb286fcd0a563293119bfb682749a8f",
+      "role": "guide"
+    },
+    {
+      "document_id": "urn:iisacc:document:6e10a7960568393ca986e8c5e0aa1abae6b3e81da8fbf94b93e043b865be84a7",
+      "source": "docs/SharedLogicalStorage.md",
+      "agent_json": "docs/SharedLogicalStorage.agent.json",
+      "source_sha256": "a948ecf672f750579a2ee85fdfe9109ad91360655077986f1dedaddc34726e82",
+      "role": "guide"
+    },
+    {
+      "document_id": "urn:iisacc:document:48be6bd59c27acf8c2e52bab2cf6d9e63a035000153da0d2557dcb66876fb402",
+      "source": "docs/SingleAppBuild.md",
+      "agent_json": "docs/SingleAppBuild.agent.json",
+      "source_sha256": "7379942e02cb3e28b3fe7be7e730b7279f7c6476c77952322beacd918f565065",
+      "role": "guide"
+    },
+    {
+      "document_id": "urn:iisacc:document:17230426e2147581a667a8431ca5aea760188b0b247cb8b4b06c1f096cd8286d",
+      "source": "docs/SocietyDaemon.md",
+      "agent_json": "docs/SocietyDaemon.agent.json",
+      "source_sha256": "17148d09b1b38eb776dd64683396e4252d3418e3e71b65d79a71b67a99202afa",
+      "role": "guide"
+    },
+    {
+      "document_id": "urn:iisacc:document:30a545fdbef839fbe0b4cb663588613eb7f301c2e7792057c75304c90b8d4305",
+      "source": "docs/SourceLayout.md",
+      "agent_json": "docs/SourceLayout.agent.json",
+      "source_sha256": "885cb5d08a0a9adc968b123fd32f1ec5e1a9a6204443e943a22d27d07cf01fca",
+      "role": "guide"
+    },
+    {
+      "document_id": "urn:iisacc:document:74ef439aa10d32ad87282ead60fec254d341a512b9d51b2da03b5d9dbb62af5c",
+      "source": "docs/StorageNavigation.md",
+      "agent_json": "docs/StorageNavigation.agent.json",
+      "source_sha256": "7ad63632f1d88efc2cdc47111428d8975f2f2104b0a3a7407d6e71389c96742b",
+      "role": "guide"
+    },
+    {
+      "document_id": "urn:iisacc:document:43b7cae4c988784208894228577a2ddfa572feab8a8d8d8769e4546344e68263",
+      "source": "docs/Synchronization.md",
+      "agent_json": "docs/Synchronization.agent.json",
+      "source_sha256": "5a4c2c15e3d6e2ae7c84cefa3b5a911856916dd4acb6000672c1d9c7af2fea93",
+      "role": "guide"
+    },
+    {
+      "document_id": "urn:iisacc:document:d0bde0ab2bc77f2c14db93884d71f753a6eca2e324001b6c90b85d6d7888c443",
+      "source": "docs/SystemDrive.md",
+      "agent_json": "docs/SystemDrive.agent.json",
+      "source_sha256": "6afbc19401480a26ddbb10df18a1f32c8bfbbca47063e6765855c4e17199c5c8",
+      "role": "guide"
+    },
+    {
+      "document_id": "urn:iisacc:document:29e4f14983e9e8859d827135d36b2499e9e1e3cf0fc8fdd717deefa550569511",
+      "source": "docs/Tools.md",
+      "agent_json": "docs/Tools.agent.json",
+      "source_sha256": "35d80f8173159b32dd655951947162e2ae4b53be677c0e86f50ce7138d2f2511",
+      "role": "guide"
+    },
+    {
+      "document_id": "urn:iisacc:document:f5b656aac15b33a21fbc7a83883adda939b1d35224bbd86683e9d5af43b9aba1",
+      "source": "docs/ToolsDesktopConcept.md",
+      "agent_json": "docs/ToolsDesktopConcept.agent.json",
+      "source_sha256": "920acadda297aef348b0ccb1afcfcdfa7eb151a22ddcc3d39c944cc05815faeb",
+      "role": "guide"
+    },
+    {
+      "document_id": "urn:iisacc:document:347e69ba94b94b36a0f6f7e7fa27ce7c68d5cc09259b5828997e78e5fa8f1935",
+      "source": "docs/WindowsValidation.md",
+      "agent_json": "docs/WindowsValidation.agent.json",
+      "source_sha256": "e97f0ec3314f7d7f0b16ff7498c43d77a9604f30f91c8f6e77bc69b433a8fb64",
+      "role": "guide"
+    },
+    {
+      "document_id": "urn:iisacc:document:86b3871da3b45aa06e9fd8fd53e4daf6dedac4ea96e3fbeb81abb743cb5c9885",
+      "source": "docs/documentation-structure.md",
+      "agent_json": "docs/documentation-structure.agent.json",
+      "source_sha256": "c3c970a16c398c0e37766a3b643bc94af75740941dbacb0a3feb442b4446fbc1",
+      "role": "guide"
+    },
+    {
+      "document_id": "urn:iisacc:document:c85da3e2f93efcc38bcf5491958612c530066b884e19ba1aeb3e77ef3d42455b",
+      "source": "docs/iOS.md",
+      "agent_json": "docs/iOS.agent.json",
+      "source_sha256": "d4182418ddd95a9e9ae75e3bc7c54fc9284a214dce9c8750c723d92ec7f4f92a",
+      "role": "guide"
+    },
+    {
+      "document_id": "urn:iisacc:document:117918bd25a98e6f42564243dbb6e176cd4852a2825c53aac0e241c77d4f7cbe",
+      "source": "resources/Appicon/README.md",
+      "agent_json": "docs/mirrors/resources/Appicon/README.agent.json",
+      "source_sha256": "e61c13ba33f7a7511314a065866b5e2e243d0d8458a2e4fba8fe646975b04215",
+      "role": "overview"
+    }
+  ],
+  "layout": {
+    "human_entry": "README.md",
+    "agent_entry": "AGENT.md",
+    "human_format": "markdown",
+    "agent_format": "structured_json",
+    "source_authority": "markdown"
+  },
+  "provenance": {
+    "generator": "workspace-docs",
+    "version": "1.0.0",
+    "profile": "lossless-blocks-v1",
+    "derived": true
+  }
+}

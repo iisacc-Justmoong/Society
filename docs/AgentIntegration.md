@@ -52,6 +52,12 @@ iiLocalDiffusion 설치본은 보존한다. OpenSSL 3.6.4 Crypto도 SDK 경로�
 이 네이티브 프로필은 MLX의 `libmlx.dylib`와 해당 빌드의 `mlx.metallib`를 같은
 `lib/` 디렉터리에 설치해야 한다. 배포기는 커널 파일을 앱 `Resources/`로 복사하고
 `Frameworks/mlx.metallib` 심볼릭 링크를 만들어 MLX가 번들 안에서 찾도록 한다.
+macOS 제품은 같은 iiLocalDiffusion 빌드에서 나온 라이브러리와 Metal 파일을
+`SOCIETY_MLX_RUNTIME_DIR`로 명시적으로 선택할 수 있다. 두 파일이 모두 존재해야
+하며 빌드 시 같은 쌍이 링크와 번들에 사용된다. SDK 소스의 `build/`에서
+`iild_mlx_runtime_ready`를 빌드하면 소비할 수 있는 쌍이 생성된다.
+`Society.MacMlxDeployment`는 앱과 MLX의 Mach-O 최소 macOS 버전 및 선택한
+Metal 파일의 번들 일치 여부를 실행 없이 검사한다.
 라이브러리의 동적 로드만으로는 커널 누락을 확인할 수 없으므로 번들 커널 경로를
 명시한 실제 GPU 배열 계산도 별도로 검증한다.
 네트워크 SDK가 사용하는 OpenSSL 4는 해당 설치본을 링크하고, 기존 SDK의 Crypto 3

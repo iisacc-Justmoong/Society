@@ -1,0 +1,366 @@
+{
+  "format": "iisacc.agent-document",
+  "schema_version": 1,
+  "document_id": "urn:iisacc:document:6a5910571cc1dab8d60d288acda95a845b98efc71792dcf511d8cdbb259b2dcf",
+  "project": {
+    "id": "urn:iisacc:project:Product%2FSociety",
+    "name": "Society",
+    "root": "Product/Society",
+    "kind": "application"
+  },
+  "source": {
+    "path": "docs/ManagedStorage.md",
+    "sha256": "a7935e5b9ad9927d5bfdfb15c97613bf6cd6d8b760036ec44f33aa26ec2334fc",
+    "bytes": 5562,
+    "line_count": 38,
+    "encoding": "utf-8",
+    "language": "ko"
+  },
+  "document": {
+    "title": "iiFileProvider 기반 실제 파일 관리",
+    "role": "guide",
+    "authority": "markdown_source"
+  },
+  "blocks": [
+    {
+      "id": "b000001",
+      "kind": "heading",
+      "start_line": 1,
+      "end_line": 1,
+      "raw": "# iiFileProvider 기반 실제 파일 관리\n",
+      "level": 1,
+      "title": "iiFileProvider 기반 실제 파일 관리"
+    },
+    {
+      "id": "b000002",
+      "kind": "blank",
+      "start_line": 2,
+      "end_line": 2,
+      "raw": "\n"
+    },
+    {
+      "id": "b000003",
+      "kind": "paragraph",
+      "start_line": 3,
+      "end_line": 3,
+      "raw": "Society는 일반 디렉터리 `.societycontainer` 안에서 공개 파일을 그대로 제공하고, iiSocietyContainer/iiSocietyHelper의 관리 저장 경로를 사용한다.\n"
+    },
+    {
+      "id": "b000004",
+      "kind": "blank",
+      "start_line": 4,
+      "end_line": 4,
+      "raw": "\n"
+    },
+    {
+      "id": "b000005",
+      "kind": "paragraph",
+      "start_line": 5,
+      "end_line": 5,
+      "raw": "빌드는 Container와 Helper의 `HAS_MANAGED_FILES` 기능 변수를 확인한다. Helper와 동일한 iiSharedCanvas 0.31.4 계약을 사용하여 서로 다른 패치 버전의 캔버스 객체가 한 프로세스에 섞이지 않도록 한다.\n"
+    },
+    {
+      "id": "b000006",
+      "kind": "blank",
+      "start_line": 6,
+      "end_line": 6,
+      "raw": "\n"
+    },
+    {
+      "id": "b000007",
+      "kind": "paragraph",
+      "start_line": 7,
+      "end_line": 7,
+      "raw": "Apple 파일 선택기의 분해형 한글 파일명도 네이티브 파일 철자를 보존하여 등록한다. 모델 가져오기 완료에는 원본 보관까지 포함되며, 파일이 먼저 나타나더라도 다음 파일 작업은 기존 `busy` 상태가 끝난 뒤 활성화된다. 설치형 앱은 라이브러리를 번들 안에서 확인하고, 단독 테스트 실행 파일에는 선택한 OpenSSL Crypto 디렉터리만 연결하여 Qt/SDK 경로가 섞이지 않게 한다.\n"
+    },
+    {
+      "id": "b000008",
+      "kind": "blank",
+      "start_line": 8,
+      "end_line": 8,
+      "raw": "\n"
+    },
+    {
+      "id": "b000009",
+      "kind": "paragraph",
+      "start_line": 9,
+      "end_line": 9,
+      "raw": "원본을 처음 수집하는 복제·가져오기 통합 검사는 비동기 완료에 최대 30초, 여러 입력과 종료 정리를 포함하는 GUI·모델 가져오기 검사 프로세스에는 120초를 둔다. 파일 발행 시점과 관리 기록 완료 시점을 구분하여 후속 동작은 `busy == false` 이후 검증한다. SDK의 GUI 요청 배치·파일 이벤트·대용량 삭제 지연 검증은 별도로 유지한다.\n"
+    },
+    {
+      "id": "b000010",
+      "kind": "blank",
+      "start_line": 10,
+      "end_line": 10,
+      "raw": "\n"
+    },
+    {
+      "id": "b000011",
+      "kind": "paragraph",
+      "start_line": 11,
+      "end_line": 11,
+      "raw": "앱 피어 검사는 `--container`로 격리된 테스트 저장소를 명시적으로 선택하여 자동 복원에 의존하지 않는다. 드라이브의 테마 회귀 값은 현재 LVRS 그린 `#00E71F` 계약을 따른다.\n"
+    },
+    {
+      "id": "b000012",
+      "kind": "blank",
+      "start_line": 12,
+      "end_line": 12,
+      "raw": "\n"
+    },
+    {
+      "id": "b000013",
+      "kind": "paragraph",
+      "start_line": 13,
+      "end_line": 13,
+      "raw": "현재 LVRS의 창 표면은 악센트 2%를 RGB에 혼합한 불투명 표면이다. 드라이브 검사도 이 계약을 확인하며, 이전 반투명 오버레이·블러 속성을 요구하지 않는다. 터치 검색 열기/닫기는 합성 더블 탭과 구분하여 검증한다.\n"
+    },
+    {
+      "id": "b000014",
+      "kind": "blank",
+      "start_line": 14,
+      "end_line": 14,
+      "raw": "\n"
+    },
+    {
+      "id": "b000015",
+      "kind": "list",
+      "start_line": 15,
+      "end_line": 19,
+      "raw": "- 모델 가져오기는 검증한 파일을 Models에 발행한 뒤 `SharedStorage::recordFile()`로 RAW 원본·편집본·작업 세션과 분류/온톨로지 인덱스를 기록한다. 저장 후 인덱스 기록이 실패하면 저장된 파일을 삭제하지 않고 재시도가 필요한 오류를 보여 준다. 가져오기 취소·드라이브 전환·앱 종료의 취소 토큰은 원본 수집에도 전달한다.\n- 파일 복제·가져오기·이동·삭제는 SDK `FileOperations`를 사용한다. 실제 작업과 동일한 관리 객체 키의 journal이 연결된다.\n- Deleted에서 제거해도 이미 보관된 원본과 수정 이력은 남는다. 확인 화면도 모든 저장 데이터의 영구 소거로 표현하지 않는다. 아직 관리되지 않은 기존 파일에는 복구할 보관본이 없을 수 있다.\n- Helper의 I/O 수집기와 호스트 인덱서가 외부에서 들어온 파일을 관리 원본에 편입한다. 큰 파일 수집은 백그라운드에서 진행되며 진행 중에는 상세 정보의 관리 상태가 `pending`일 수 있다.\n- 파일 정보 화면은 기존 분류/프리뷰 외에 수정 버전, 최초 원본 이름/체크섬, 작업 설명과 앱을 표시한다. 관리 객체·RAW·세션 식별자와 온톨로지 버전은 SDK 상세 응답에 포함한다. 상세 조회 자체가 과거 수정 이력을 만들어 내지는 않는다.\n",
+      "items": [
+        {
+          "marker": "-",
+          "text": "모델 가져오기는 검증한 파일을 Models에 발행한 뒤 `SharedStorage::recordFile()`로 RAW 원본·편집본·작업 세션과 분류/온톨로지 인덱스를 기록한다. 저장 후 인덱스 기록이 실패하면 저장된 파일을 삭제하지 않고 재시도가 필요한 오류를 보여 준다. 가져오기 취소·드라이브 전환·앱 종료의 취소 토큰은 원본 수집에도 전달한다.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "파일 복제·가져오기·이동·삭제는 SDK `FileOperations`를 사용한다. 실제 작업과 동일한 관리 객체 키의 journal이 연결된다.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Deleted에서 제거해도 이미 보관된 원본과 수정 이력은 남는다. 확인 화면도 모든 저장 데이터의 영구 소거로 표현하지 않는다. 아직 관리되지 않은 기존 파일에는 복구할 보관본이 없을 수 있다.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Helper의 I/O 수집기와 호스트 인덱서가 외부에서 들어온 파일을 관리 원본에 편입한다. 큰 파일 수집은 백그라운드에서 진행되며 진행 중에는 상세 정보의 관리 상태가 `pending`일 수 있다.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "파일 정보 화면은 기존 분류/프리뷰 외에 수정 버전, 최초 원본 이름/체크섬, 작업 설명과 앱을 표시한다. 관리 객체·RAW·세션 식별자와 온톨로지 버전은 SDK 상세 응답에 포함한다. 상세 조회 자체가 과거 수정 이력을 만들어 내지는 않는다.",
+          "checked": null
+        }
+      ]
+    },
+    {
+      "id": "b000016",
+      "kind": "blank",
+      "start_line": 20,
+      "end_line": 20,
+      "raw": "\n"
+    },
+    {
+      "id": "b000017",
+      "kind": "paragraph",
+      "start_line": 21,
+      "end_line": 21,
+      "raw": "Dashboard의 검색 입력은 iiFileProvider의 인덱스 검색으로 연결된다. 일반 검색은 파일명에 없는 제목·설명·키워드·사용자 필드도 찾는다. 단어 접두사를 AND 조건으로 처리한다. 검색은 별도 I/O 작업자에서 실행하고 새 입력/드라이브 선택은 오래된 검색을 취소한다. 결과는 기존 파일 스냅샷과 대조하여 실제 파일 카드로 표시한다.\n"
+    },
+    {
+      "id": "b000018",
+      "kind": "blank",
+      "start_line": 22,
+      "end_line": 22,
+      "raw": "\n"
+    },
+    {
+      "id": "b000019",
+      "kind": "paragraph",
+      "start_line": 23,
+      "end_line": 23,
+      "raw": "예시는 다음과 같다.\n"
+    },
+    {
+      "id": "b000020",
+      "kind": "blank",
+      "start_line": 24,
+      "end_line": 24,
+      "raw": "\n"
+    },
+    {
+      "id": "b000021",
+      "kind": "table",
+      "start_line": 25,
+      "end_line": 32,
+      "raw": "| 검색 | 의미 |\n| --- | --- |\n| `campaign approved` | 두 단어 접두사를 모두 가진 파일 |\n| `keyword:approved rating:4` | approved 키워드와 4점 이상 |\n| `color:green` | 초록색 라벨 |\n| `collection:collection-key` | 해당 컬렉션 키의 파일 |\n| `class:ProjectAsset keyword:approved` | 사용자 온톨로지 클래스와 키워드 관계 |\n| `in:Projects/Launch` | 저장된 가상 디렉터리 |\n",
+      "columns": [
+        "검색",
+        "의미"
+      ],
+      "rows": [
+        [
+          "`campaign approved`",
+          "두 단어 접두사를 모두 가진 파일"
+        ],
+        [
+          "`keyword:approved rating:4`",
+          "approved 키워드와 4점 이상"
+        ],
+        [
+          "`color:green`",
+          "초록색 라벨"
+        ],
+        [
+          "`collection:collection-key`",
+          "해당 컬렉션 키의 파일"
+        ],
+        [
+          "`class:ProjectAsset keyword:approved`",
+          "사용자 온톨로지 클래스와 키워드 관계"
+        ],
+        [
+          "`in:Projects/Launch`",
+          "저장된 가상 디렉터리"
+        ]
+      ]
+    },
+    {
+      "id": "b000022",
+      "kind": "blank",
+      "start_line": 33,
+      "end_line": 33,
+      "raw": "\n"
+    },
+    {
+      "id": "b000023",
+      "kind": "paragraph",
+      "start_line": 34,
+      "end_line": 34,
+      "raw": "`class:`와 함께 사용하는 `rating:`은 온톨로지 정수 값의 정확 일치이다. `in:`은 저장된 쿼리 자체를 사용하므로 단독으로 사용한다. 클래스·가상 디렉터리는 Helper/Provider의 공개 온톨로지 API로 저장한다. 이 변경은 온톨로지 편집용 별도 화면을 추가하지 않는다.\n"
+    },
+    {
+      "id": "b000024",
+      "kind": "blank",
+      "start_line": 35,
+      "end_line": 35,
+      "raw": "\n"
+    },
+    {
+      "id": "b000025",
+      "kind": "paragraph",
+      "start_line": 36,
+      "end_line": 36,
+      "raw": "검색할 때 인덱스가 아직 전혀 없는 기존 컨테이너는 I/O 작업자에서 최초 수집을 수행한다. 이후 검색은 인덱스만 조회하고 파일 payload를 읽지 않는다. 일반 파일 목록은 기존 네이티브 스냅샷을 유지한다. 원본 보관은 초기 파일 용량만큼의 추가 저장 공간이 필요하고, 변경된 블록과 이력은 계속 보존된다. 작업 기록 DB를 캐시처럼 지우면 복구 가능한 이력도 사라진다.\n"
+    },
+    {
+      "id": "b000026",
+      "kind": "blank",
+      "start_line": 37,
+      "end_line": 37,
+      "raw": "\n"
+    },
+    {
+      "id": "b000027",
+      "kind": "paragraph",
+      "start_line": 38,
+      "end_line": 38,
+      "raw": "이전 사용자 컨테이너와 설치된 앱에 대한 일괄 강제 변환은 수행하지 않는다. 변경된 앱/SDK를 사용하여 저장·외부 수집·검색을 수행할 때 관리 저장소가 점진적으로 만들어진다. 인증이나 원작자를 추정하지 않고, 등록 전에 관찰하지 못한 수정 이력을 복원했다고 표시하지 않는다. journal과 온톨로지를 여러 기기로 복제하는 기능은 기존 파일 동기화와 별개이다.\n"
+    }
+  ],
+  "outline": [
+    {
+      "block_id": "b000001",
+      "parent_id": null,
+      "level": 1,
+      "title": "iiFileProvider 기반 실제 파일 관리",
+      "anchor": "iifileprovider-기반-실제-파일-관리",
+      "start_line": 1
+    }
+  ],
+  "indexes": {
+    "directive_candidates": [
+      {
+        "block_id": "b000011",
+        "line": 11,
+        "text": "앱 피어 검사는 `--container`로 격리된 테스트 저장소를 명시적으로 선택하여 자동 복원에 의존하지 않는다. 드라이브의 테마 회귀 값은 현재 LVRS 그린 `#00E71F` 계약을 따른다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000013",
+        "line": 13,
+        "text": "현재 LVRS의 창 표면은 악센트 2%를 RGB에 혼합한 불투명 표면이다. 드라이브 검사도 이 계약을 확인하며, 이전 반투명 오버레이·블러 속성을 요구하지 않는다. 터치 검색 열기/닫기는 합성 더블 탭과 구분하여 검증한다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000015",
+        "line": 17,
+        "text": "- Deleted에서 제거해도 이미 보관된 원본과 수정 이력은 남는다. 확인 화면도 모든 저장 데이터의 영구 소거로 표현하지 않는다. 아직 관리되지 않은 기존 파일에는 복구할 보관본이 없을 수 있다.",
+        "basis": "lexical_match",
+        "context": "list"
+      },
+      {
+        "block_id": "b000023",
+        "line": 34,
+        "text": "`class:`와 함께 사용하는 `rating:`은 온톨로지 정수 값의 정확 일치이다. `in:`은 저장된 쿼리 자체를 사용하므로 단독으로 사용한다. 클래스·가상 디렉터리는 Helper/Provider의 공개 온톨로지 API로 저장한다. 이 변경은 온톨로지 편집용 별도 화면을 추가하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000027",
+        "line": 38,
+        "text": "이전 사용자 컨테이너와 설치된 앱에 대한 일괄 강제 변환은 수행하지 않는다. 변경된 앱/SDK를 사용하여 저장·외부 수집·검색을 수행할 때 관리 저장소가 점진적으로 만들어진다. 인증이나 원작자를 추정하지 않고, 등록 전에 관찰하지 못한 수정 이력을 복원했다고 표시하지 않는다. journal과 온톨로지를 여러 기기로 복제하는 기능은 기존 파일 동기화와 별개이다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      }
+    ],
+    "commands": [],
+    "links": [],
+    "tables": [
+      {
+        "block_id": "b000021",
+        "columns": [
+          "검색",
+          "의미"
+        ],
+        "rows": [
+          [
+            "`campaign approved`",
+            "두 단어 접두사를 모두 가진 파일"
+          ],
+          [
+            "`keyword:approved rating:4`",
+            "approved 키워드와 4점 이상"
+          ],
+          [
+            "`color:green`",
+            "초록색 라벨"
+          ],
+          [
+            "`collection:collection-key`",
+            "해당 컬렉션 키의 파일"
+          ],
+          [
+            "`class:ProjectAsset keyword:approved`",
+            "사용자 온톨로지 클래스와 키워드 관계"
+          ],
+          [
+            "`in:Projects/Launch`",
+            "저장된 가상 디렉터리"
+          ]
+        ]
+      }
+    ]
+  },
+  "provenance": {
+    "generator": "workspace-docs",
+    "version": "1.0.0",
+    "profile": "lossless-blocks-v1",
+    "derived": true
+  }
+}

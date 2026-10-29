@@ -1,0 +1,2740 @@
+{
+  "format": "iisacc.agent-document",
+  "schema_version": 1,
+  "document_id": "urn:iisacc:document:a8e949809ff94f51752856b9cbb45c547abeab4dc549b1d63d72e710bbc83abe",
+  "project": {
+    "id": "urn:iisacc:project:Product%2FSociety",
+    "name": "Society",
+    "root": "Product/Society",
+    "kind": "application"
+  },
+  "source": {
+    "path": "README.md",
+    "sha256": "fc81ecf3e659c704873c16b6c1da20104a3ac5113b6f2a2db69acb370372a0cf",
+    "bytes": 44583,
+    "line_count": 340,
+    "encoding": "utf-8",
+    "language": "ko"
+  },
+  "document": {
+    "title": "Society",
+    "role": "overview",
+    "authority": "markdown_source"
+  },
+  "blocks": [
+    {
+      "id": "b000001",
+      "kind": "heading",
+      "start_line": 1,
+      "end_line": 1,
+      "raw": "# Society\n",
+      "level": 1,
+      "title": "Society"
+    },
+    {
+      "id": "b000002",
+      "kind": "blank",
+      "start_line": 2,
+      "end_line": 2,
+      "raw": "\n"
+    },
+    {
+      "id": "b000003",
+      "kind": "paragraph",
+      "start_line": 3,
+      "end_line": 7,
+      "raw": "All iisacc products use the same `.societycontainer` storage contract across\nplatforms. Society discovers and adopts their shared logical disks, keeping\npaths, identities and original files. Desktop discovery uses the suite storage\nroot, including Windows/Linux user data and configured shared deployments. See\n[shared logical storage](docs/SharedLogicalStorage.md).\n"
+    },
+    {
+      "id": "b000004",
+      "kind": "blank",
+      "start_line": 8,
+      "end_line": 8,
+      "raw": "\n"
+    },
+    {
+      "id": "b000005",
+      "kind": "paragraph",
+      "start_line": 9,
+      "end_line": 12,
+      "raw": "File import, file actions and Helper storage use iiFileProvider managed originals\nand revision history. Dashboard search supports indexed metadata and semantic\ndirectories; file information exposes the working identity, RAW original and\nwork session. See [managed storage](docs/ManagedStorage.md).\n"
+    },
+    {
+      "id": "b000006",
+      "kind": "blank",
+      "start_line": 13,
+      "end_line": 13,
+      "raw": "\n"
+    },
+    {
+      "id": "b000007",
+      "kind": "paragraph",
+      "start_line": 14,
+      "end_line": 14,
+      "raw": "Society connects existing Files storage to the system file manager: a signed FSKit volume on macOS 26+, an identity-checked Dokan 2 removable drive on Windows, and a verified DocumentsProvider root on Android. Startup and Reconnect preserve the source directory and shared storage configuration. See [system drive behavior](docs/SystemDrive.md) and [Finder setup](docs/FinderDrive.md).\n"
+    },
+    {
+      "id": "b000008",
+      "kind": "blank",
+      "start_line": 15,
+      "end_line": 15,
+      "raw": "\n"
+    },
+    {
+      "id": "b000009",
+      "kind": "paragraph",
+      "start_line": 16,
+      "end_line": 16,
+      "raw": "`Files/`  does not provide default files or folders. `Documents` , `Audios` , `3D objects`  are also standard user folders and do not apply automatic creation, recovery, or name reservation. One-time cleanup of existing empty default folders and preservation of user content follow [Files management documentation](docs/Files.md).\n"
+    },
+    {
+      "id": "b000010",
+      "kind": "blank",
+      "start_line": 17,
+      "end_line": 17,
+      "raw": "\n"
+    },
+    {
+      "id": "b000011",
+      "kind": "paragraph",
+      "start_line": 18,
+      "end_line": 18,
+      "raw": "App icons are generated per platform in `resources/Appicon/Artboard 1.png` . macOS · iOS · Android · Windows · Linux · WebAssembly  packaging and Qt  runtime are connected, and regeneration, specification, and verification methods are in [app icons documentation](resources/Appicon/README.md).\n"
+    },
+    {
+      "id": "b000012",
+      "kind": "blank",
+      "start_line": 19,
+      "end_line": 19,
+      "raw": "\n"
+    },
+    {
+      "id": "b000013",
+      "kind": "paragraph",
+      "start_line": 20,
+      "end_line": 20,
+      "raw": "Society's main window and Preferences use `LV.ApplicationWindow`  and `LV.Theme.accentGreen`  ( `#57965C` ) Primary. The entire window is filled with `#0B0B0B`  nearly black without gradient, and fill opacity is 50%. The window background is separated from Primary, and opacity for buttons and selected states is maintained at the app accent color. 64px  material blur and macOS  native background blur are maintained, and opacity for text and buttons is not reduced. The background of the dashboard list is kept transparent to reveal the window material. `Society.Drive`  verifies color, opacity, and gradient removal for both windows and existing window behavior.\n"
+    },
+    {
+      "id": "b000014",
+      "kind": "blank",
+      "start_line": 21,
+      "end_line": 21,
+      "raw": "\n"
+    },
+    {
+      "id": "b000015",
+      "kind": "paragraph",
+      "start_line": 22,
+      "end_line": 22,
+      "raw": "The latest LVRS  package must be used. The current Workspace build shares the framework installed in `SDK/LVRS/build/material-runtime`  between two apps, and Society's `build/`  is configured by specifying `lib/cmake/LVRS`  as `LVRS_DIR`  .\n"
+    },
+    {
+      "id": "b000016",
+      "kind": "blank",
+      "start_line": 23,
+      "end_line": 23,
+      "raw": "\n"
+    },
+    {
+      "id": "b000017",
+      "kind": "paragraph",
+      "start_line": 24,
+      "end_line": 24,
+      "raw": "Android currently uses a package built from the same LVRS source at `SDK/LVRS/build/society-android` using the same Qt/NDK and installed at `build/android/installed/LVRS`. Updating only the desktop package does not reflect new window properties on mobile. After changing the package, rebuild the APK and verify up to the actual QML root loading.\n"
+    },
+    {
+      "id": "b000018",
+      "kind": "blank",
+      "start_line": 25,
+      "end_line": 25,
+      "raw": "\n"
+    },
+    {
+      "id": "b000019",
+      "kind": "paragraph",
+      "start_line": 26,
+      "end_line": 26,
+      "raw": "Login recovery information and pairing authentication, device history, and auto-connect settings are encrypted and stored in the [group container](docs/GroupState.md), including mobile.\n"
+    },
+    {
+      "id": "b000020",
+      "kind": "blank",
+      "start_line": 27,
+      "end_line": 27,
+      "raw": "\n"
+    },
+    {
+      "id": "b000021",
+      "kind": "paragraph",
+      "start_line": 28,
+      "end_line": 28,
+      "raw": "The login and sign-up screens owned by the iiAccountManager SDK are called from desktop, iPhone, and Android. From the common account screen, log in directly with the iisacc.com email and password. Sessions are kept in the app owner's secure storage to automatically recover from the next execution and update the entire account object. Passwords are not stored, and recovery is disabled upon logout, server expiration, or revocation. Refer to the [account connection contract](docs/Account.md).\n"
+    },
+    {
+      "id": "b000022",
+      "kind": "blank",
+      "start_line": 29,
+      "end_line": 29,
+      "raw": "\n"
+    },
+    {
+      "id": "b000023",
+      "kind": "paragraph",
+      "start_line": 30,
+      "end_line": 30,
+      "raw": "Search for iisacc devices of the same Society account via BLE and LAN, verify the certificate issued by the account server, and add to the automatic queue and connect. Other desktops, mobile phones, and tablets connect to one desktop host in sequence, and failed devices are automatically retried. BLE exchanges small connection information, and files are transmitted via Wi-Fi/LAN TCP /TLS. Apple Bonjour and Android NSD discovery are also maintained. If [self-hosted web server and NAS](docs/SelfHosting.md)are set up, devices of the same account can be connected over the internet, and the entire container is synchronized. Refer to [automatic connection contract](docs/AutomaticPairing.md)and [manual invitation QR procedure](docs/Pairing.md).\n"
+    },
+    {
+      "id": "b000024",
+      "kind": "blank",
+      "start_line": 31,
+      "end_line": 31,
+      "raw": "\n"
+    },
+    {
+      "id": "b000025",
+      "kind": "html",
+      "start_line": 32,
+      "end_line": 32,
+      "raw": "<a id=\"iisacc-계정\"></a>\n"
+    },
+    {
+      "id": "b000026",
+      "kind": "blank",
+      "start_line": 33,
+      "end_line": 33,
+      "raw": "\n"
+    },
+    {
+      "id": "b000027",
+      "kind": "heading",
+      "start_line": 34,
+      "end_line": 34,
+      "raw": "## Cloud Files\n",
+      "level": 2,
+      "title": "Cloud Files"
+    },
+    {
+      "id": "b000028",
+      "kind": "blank",
+      "start_line": 35,
+      "end_line": 35,
+      "raw": "\n"
+    },
+    {
+      "id": "b000029",
+      "kind": "paragraph",
+      "start_line": 36,
+      "end_line": 42,
+      "raw": "Each basic iisacc account receives 5 GB (5,000,000,000 bytes) of S3-backed storage\nfor `Society.societycontainer/Files`. Storage → Cloud Files provides explicit\nuploads, version-checked replacements, downloads that preserve existing local\nfiles, quota usage and pending upload controls. The service uses the existing\nSociety account session and server-enforced quota. See [CloudFiles.md](docs/CloudFiles.md)\nfor the client boundary and verification; AWS activation and deployment remain\nseparate from this source change.\n"
+    },
+    {
+      "id": "b000030",
+      "kind": "blank",
+      "start_line": 43,
+      "end_line": 43,
+      "raw": "\n"
+    },
+    {
+      "id": "b000031",
+      "kind": "heading",
+      "start_line": 44,
+      "end_line": 44,
+      "raw": "## iisacc account\n",
+      "level": 2,
+      "title": "iisacc account"
+    },
+    {
+      "id": "b000032",
+      "kind": "blank",
+      "start_line": 45,
+      "end_line": 45,
+      "raw": "\n"
+    },
+    {
+      "id": "b000033",
+      "kind": "paragraph",
+      "start_line": 46,
+      "end_line": 46,
+      "raw": "A common LVRS account screen is provided for all Society platforms. Log in directly with just email and password from the desktop top account icon or the mobile Sign in button. The account panel, Devices, and iiSocietyHelper share the same iiAccountManager object. Independent limits of PC 2 desktops, 2 tablets, and 2 mobiles are used, and no relay address is required for login. Refer to the [authentication flow, device identification, and verification scope](docs/Account.md).\n"
+    },
+    {
+      "id": "b000034",
+      "kind": "blank",
+      "start_line": 47,
+      "end_line": 47,
+      "raw": "\n"
+    },
+    {
+      "id": "b000035",
+      "kind": "paragraph",
+      "start_line": 48,
+      "end_line": 48,
+      "raw": "On desktop, the [Figma dashboard](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=18-14)is placed as `SocietyView` in the `content` slot of `LV.ApplicationWindow`, using the default LVRS window frame and controls. The top tabs are ordered **Dashboard → Tools → Storage → Browse → Environment**. **Tools**provides the [model addition/subtraction merge tool](docs/ModelMerge.md)based on iiLocalDiffusion; base and additional checkpoints/LoRA are selected from the dropdown and context menu in the container's `Models/`. It provides weights, output, cache, the Python environment, and configuration validation. **Storage**opens the existing Society drive. **Browse**browses files on connected devices. **Environment**displays [Overview, Devices, Apps, and four app collections](docs/Environment.md). The device-pairing modal opens through Environment → Devices → Add device. Merge settings, the current folder, and prompts persist when switching tabs. Actual recent files and generation history, screen composition, and the scope of behavior are documented in the [Dashboard documentation](docs/Dashboard.md). The Storage sidebar has four groups: My storage, Other devices, Guild, and Organization. Actual device lists, per-account browsing objects, empty states, and scrolling behavior are documented in the [Storage navigation documentation](docs/StorageNavigation.md). Storage → Photos [connects bidirectionally to the device photo library](docs/Photos.md)and provides photo and video aliases, directly saved previews, and authenticated original transfers.\n"
+    },
+    {
+      "id": "b000036",
+      "kind": "blank",
+      "start_line": 49,
+      "end_line": 49,
+      "raw": "\n"
+    },
+    {
+      "id": "b000037",
+      "kind": "paragraph",
+      "start_line": 50,
+      "end_line": 50,
+      "raw": "App title, drive home, and path display, and the OS drive display name are `Society`. iiSocietyContainer 0.9.1 reads existing drives with previous names while maintaining UUID and files. Re-registering the original at macOS updates the display name of the same File Provider domain. `Society.Drive` validates app title, home, and path display.\n"
+    },
+    {
+      "id": "b000038",
+      "kind": "blank",
+      "start_line": 51,
+      "end_line": 51,
+      "raw": "\n"
+    },
+    {
+      "id": "b000039",
+      "kind": "paragraph",
+      "start_line": 52,
+      "end_line": 52,
+      "raw": "If Finder's `~/Library/CloudStorage/` replica or the interior of existing Society container is selected as the container original, an error is displayed and the original and common storage settings are maintained. This validation is applied to the creation/opening boundary of iiSocietyContainer and is also passed to Helper consumer apps. `Society.Drive`'s `rejectsPublicFilesAsANewContainer` validates that no new area or manifest is created even if `Files/` is incorrectly selected.\n"
+    },
+    {
+      "id": "b000040",
+      "kind": "blank",
+      "start_line": 53,
+      "end_line": 53,
+      "raw": "\n"
+    },
+    {
+      "id": "b000041",
+      "kind": "paragraph",
+      "start_line": 54,
+      "end_line": 54,
+      "raw": "iiSocietyHelper   0.4.0's `societyHelper.fileSystem` provides Society original's 9 areas as general file system paths. SDK iiSocietyContainer   0.8.0 is reused so iOS build tools configure Helper after Container installation and specify Container packages of the same ABI. `Society.IosBuildContract` validates this sequence and package path. File access itself and iOS signature and runtime permission verification are separated.\n"
+    },
+    {
+      "id": "b000042",
+      "kind": "blank",
+      "start_line": 55,
+      "end_line": 55,
+      "raw": "\n"
+    },
+    {
+      "id": "b000043",
+      "kind": "paragraph",
+      "start_line": 56,
+      "end_line": 56,
+      "raw": "[SocietyDaemon](docs/SocietyDaemon.md)is a service that receives and holds Helper's data independently of the host window. The host's `societyInbox` object receives cumulative data and new data after re-execution. macOS login service registration, storage guarantee, and platform scope follow separate documentation.\n"
+    },
+    {
+      "id": "b000044",
+      "kind": "blank",
+      "start_line": 57,
+      "end_line": 57,
+      "raw": "\n"
+    },
+    {
+      "id": "b000045",
+      "kind": "paragraph",
+      "start_line": 58,
+      "end_line": 58,
+      "raw": "When the app starts, iiSocietyHelper   0.3.1's `Helper` is run as `com.iisacc.society`. It observes execution instances bidirectionally with other Helpers on the same device, shares foreground and background states, and unregisters itself when the app ends. QML provides `societyHelper.observedApplications` and observation events. This state is recorded on the device's local location, separated from Society drive content. `SocietyRuntime` retries start failure and, when iOS stops, cleans up the connection and restores Helper, receiver, and inbox together. Detailed features and validation scope follow [iOS implementation document](docs/iOS.md).\n"
+    },
+    {
+      "id": "b000046",
+      "kind": "blank",
+      "start_line": 59,
+      "end_line": 59,
+      "raw": "\n"
+    },
+    {
+      "id": "b000047",
+      "kind": "paragraph",
+      "start_line": 60,
+      "end_line": 60,
+      "raw": "`Society.Dependencies` validates bidirectional discovery between the actual app executable and the test Helper. `SOCIETY_HELPER_DIRECTORY` and repository settings are isolated by test-specific `build/` paths. SDK   0.3.1 installation paths are specified as `iiSocietyHelper_DIR`. The current Workspace validation is `SDK/iiSocietyHelper/build/install/lib/cmake/iiSocietyHelper`.\n"
+    },
+    {
+      "id": "b000048",
+      "kind": "blank",
+      "start_line": 61,
+      "end_line": 61,
+      "raw": "\n"
+    },
+    {
+      "id": "b000049",
+      "kind": "paragraph",
+      "start_line": 62,
+      "end_line": 62,
+      "raw": "Society creates `Society.societycontainer` as a native directory package under the selected existing parent. Opening, creation, file operations and maintenance require that package boundary. Legacy disk images are rejected by the app; the separate low-level migration API is available only for explicitly requested maintenance.\n"
+    },
+    {
+      "id": "b000050",
+      "kind": "blank",
+      "start_line": 63,
+      "end_line": 63,
+      "raw": "\n"
+    },
+    {
+      "id": "b000051",
+      "kind": "paragraph",
+      "start_line": 64,
+      "end_line": 64,
+      "raw": "The `Society.Drive` test checks whether the UUID of the common repository matches after container selection and whether the new controller reopens the same drive. Configuration files are separated by `build/` temporary paths per test.\n"
+    },
+    {
+      "id": "b000052",
+      "kind": "blank",
+      "start_line": 65,
+      "end_line": 65,
+      "raw": "\n"
+    },
+    {
+      "id": "b000053",
+      "kind": "paragraph",
+      "start_line": 66,
+      "end_line": 66,
+      "raw": "It is a Society drive navigation app using Qt Quick and LVRS. It creates or reopens a Society directory with nine sections and connects its public Files contents to the platform file manager. The default window size is 1120 × 720, and the minimum size is 360 × 320.\n"
+    },
+    {
+      "id": "b000054",
+      "kind": "blank",
+      "start_line": 67,
+      "end_line": 67,
+      "raw": "\n"
+    },
+    {
+      "id": "b000055",
+      "kind": "html",
+      "start_line": 68,
+      "end_line": 68,
+      "raw": "<a id=\"컨테이너-탐색\"></a>\n"
+    },
+    {
+      "id": "b000056",
+      "kind": "blank",
+      "start_line": 69,
+      "end_line": 69,
+      "raw": "\n"
+    },
+    {
+      "id": "b000057",
+      "kind": "heading",
+      "start_line": 70,
+      "end_line": 70,
+      "raw": "## Container navigation\n",
+      "level": 2,
+      "title": "Container navigation"
+    },
+    {
+      "id": "b000058",
+      "kind": "blank",
+      "start_line": 71,
+      "end_line": 71,
+      "raw": "\n"
+    },
+    {
+      "id": "b000059",
+      "kind": "paragraph",
+      "start_line": 72,
+      "end_line": 72,
+      "raw": "If the container settings are missing or the saved path cannot be opened, LVRS provides a role for the container and a file dialog for creating a new disk and assigning an existing disk in the onboarding screen. If verification succeeds, it remembers the location and enters the dashboard. On mobile, it must complete synchronization with the host verified by the account and the current connection before entering, and if the connection is unavailable, it provides login, nearby hosts, and server settings. It can also reattempt the saved location after reconnecting the external storage. [Onboarding behavior and verification](docs/Onboarding.md)are referenced.\n"
+    },
+    {
+      "id": "b000060",
+      "kind": "blank",
+      "start_line": 73,
+      "end_line": 73,
+      "raw": "\n"
+    },
+    {
+      "id": "b000061",
+      "kind": "paragraph",
+      "start_line": 74,
+      "end_line": 74,
+      "raw": "In `Create a new disk…`, select the parent folder for a new `Society.societycontainer` directory package. Existing files in the parent folder are preserved. The package is the authoritative store, and the installed desktop adapter mounts its `Files/` contents. Existing-container selection accepts valid `.societycontainer` packages and rejects bare directories and legacy disk images. `--container <absolute path>` explicitly opens a valid package. Platform connections and prerequisites are described in [SystemDrive.md](docs/SystemDrive.md).\n"
+    },
+    {
+      "id": "b000062",
+      "kind": "blank",
+      "start_line": 75,
+      "end_line": 75,
+      "raw": "\n"
+    },
+    {
+      "id": "b000063",
+      "kind": "paragraph",
+      "start_line": 76,
+      "end_line": 76,
+      "raw": "The start screen displays Asset Library, Deleted, Files, Forked, Generation History, Photos, Models, Published, Thinking Space. Clicking an area moves to the file grid. A wide window also displays the area sidebar. Navigate using folder double-click, Enter, `Up`, path button, and drive root button, and open files with the default connection app. Navigation outside the container or to an unclassified root folder is denied.\n"
+    },
+    {
+      "id": "b000064",
+      "kind": "blank",
+      "start_line": 77,
+      "end_line": 77,
+      "raw": "\n"
+    },
+    {
+      "id": "b000065",
+      "kind": "paragraph",
+      "start_line": 78,
+      "end_line": 78,
+      "raw": "Generation History displays all completed generated images from all apps as a single list. Image files are automatically saved directly below the area without creating app-specific or task-specific folders. This screen displays only PNG · JPEG · WebP and does not allow subfolder navigation. Since generated images are not Assets, they are not added to the Asset Library merely by generation. Queue and execution status are managed in each app's memory and are not saved to Society. Generated data that requires file paths, such as task materials and cache used outside Society, is cleaned up after use. Generated data permanently saved to Society is only the completed image file. In `Society.Drive`, image filtering and denial of subfolder navigation are verified for both desktop and mobile widths. If the path and filter change, FolderListModel is regenerated together to ensure no asynchronous list from the previous area remains. `Society.Gui` also checks for recursive switching between the image list and the regular folder list. No separate trash, publish, or archive policies are assigned to other areas.\n"
+    },
+    {
+      "id": "b000066",
+      "kind": "blank",
+      "start_line": 79,
+      "end_line": 79,
+      "raw": "\n"
+    },
+    {
+      "id": "b000067",
+      "kind": "paragraph",
+      "start_line": 80,
+      "end_line": 80,
+      "raw": "On macOS 26 and later, a directory-based Society store connects through FSKit as a Society volume. The app confirms the actual `societyfs` mount before reporting a mounted drive, and `Open in Finder` opens its public Files root. The selected package and UUID are preserved across reconnect and restart. Windows uses a Dokan removable volume; Android uses a verified DocumentsProvider root in system Files. Mobile managed storage also uses a `.societycontainer` package. The application does not automatically recover or reopen past disk images. Container synchronization within authenticated Society is handled by iiSocietyHelper Sync.\n"
+    },
+    {
+      "id": "b000068",
+      "kind": "blank",
+      "start_line": 81,
+      "end_line": 81,
+      "raw": "\n"
+    },
+    {
+      "id": "b000069",
+      "kind": "html",
+      "start_line": 82,
+      "end_line": 82,
+      "raw": "<a id=\"모델-파일-드래그-앤-드롭\"></a>\n"
+    },
+    {
+      "id": "b000070",
+      "kind": "blank",
+      "start_line": 83,
+      "end_line": 83,
+      "raw": "\n"
+    },
+    {
+      "id": "b000071",
+      "kind": "heading",
+      "start_line": 84,
+      "end_line": 84,
+      "raw": "## Drag and drop model file\n",
+      "level": 2,
+      "title": "Drag and drop model file"
+    },
+    {
+      "id": "b000072",
+      "kind": "blank",
+      "start_line": 85,
+      "end_line": 85,
+      "raw": "\n"
+    },
+    {
+      "id": "b000073",
+      "kind": "paragraph",
+      "start_line": 86,
+      "end_line": 86,
+      "raw": "After opening the container, dropping Society or `.safetensor` or `.safetensors` files into the window copies them to the `Models/<type>/` of the original container, regardless of the current browsing area. Extensions are case-insensitive. It shows the destination during drag and moves to the `Models` screen upon completion. It does not add models to `Files/Models/` or public drives in Finder or the Files app.\n"
+    },
+    {
+      "id": "b000074",
+      "kind": "blank",
+      "start_line": 87,
+      "end_line": 87,
+      "raw": "\n"
+    },
+    {
+      "id": "b000075",
+      "kind": "list",
+      "start_line": 88,
+      "end_line": 92,
+      "raw": "- Preserves the original file. If `weights.safetensor` already exists, it chooses an unused name like `weights (1).safetensor`, and does not overwrite existing files, folders, or links.\n- Can import multiple models at once. Repeated paths in the same drop are processed only once, and files already under the `Models/` of that container are not copied again.\n- Drops mixed with other extensions or web URLs are rejected entirely. If actual read/write errors occur, failed files are displayed, and completed models are held.\n- Large files are copied to the 1 MiB buffer in the worker thread. Models displays import progress, results, errors, and `Cancel` in its own view; mobile Storage actions also exposes import status and cancellation. Storage has no fixed common footer for model import, system connection status, section counts, or file-manager actions, so section content uses the available height. `Cancel` stops remaining tasks and cleans up incomplete temporary files. The area can be navigated even during copying, and the container selection button is locked.\n- Temporary files are created in private `Models/`, written completely, and then renamed atomically. The drive ID and section boundaries are checked before and after copying. No writes are made to invalid containers or symbolic links that connect `Models` to `Files`.\n",
+      "items": [
+        {
+          "marker": "-",
+          "text": "Preserves the original file. If `weights.safetensor` already exists, it chooses an unused name like `weights (1).safetensor`, and does not overwrite existing files, folders, or links.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Can import multiple models at once. Repeated paths in the same drop are processed only once, and files already under the `Models/` of that container are not copied again.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Drops mixed with other extensions or web URLs are rejected entirely. If actual read/write errors occur, failed files are displayed, and completed models are held.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Large files are copied to the 1 MiB buffer in the worker thread. Models displays import progress, results, errors, and `Cancel` in its own view; mobile Storage actions also exposes import status and cancellation. Storage has no fixed common footer for model import, system connection status, section counts, or file-manager actions, so section content uses the available height. `Cancel` stops remaining tasks and cleans up incomplete temporary files. The area can be navigated even during copying, and the container selection button is locked.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Temporary files are created in private `Models/`, written completely, and then renamed atomically. The drive ID and section boundaries are checked before and after copying. No writes are made to invalid containers or symbolic links that connect `Models` to `Files`.",
+          "checked": null
+        }
+      ]
+    },
+    {
+      "id": "b000076",
+      "kind": "blank",
+      "start_line": 93,
+      "end_line": 93,
+      "raw": "\n"
+    },
+    {
+      "id": "b000077",
+      "kind": "paragraph",
+      "start_line": 94,
+      "end_line": 94,
+      "raw": "External import targets the above two extensions. iiSocietyContainer 0.11.0's `ModelStore` determines headers, settings, and metadata, organizing them into 23 types, and stores unclear models in `Other/`. When opening a container, existing models are also automatically classified. It does not execute models or check full tensor integrity and inference compatibility. [Models management document](docs/Models.md)explains the type list and organization, preservation, and reference contracts.\n"
+    },
+    {
+      "id": "b000078",
+      "kind": "blank",
+      "start_line": 95,
+      "end_line": 95,
+      "raw": "\n"
+    },
+    {
+      "id": "b000079",
+      "kind": "paragraph",
+      "start_line": 96,
+      "end_line": 100,
+      "raw": "Desktop input uses the existing Qt Quick\n[DropArea](https://doc.qt.io/qt-6.8/qml-qtquick-droparea.html)and\n[copy drop action](https://doc.qt.io/qt-6.8/qml-qtquick-dragevent.html). iOS / iPadOS is in the native view of the Qt window\n[UIDropInteraction](https://developer.apple.com/documentation/uikit/uidropinteraction)and receives the `NSItemProvider` of the file app. Provider file access is\nMaintained as [loadInPlaceFileRepresentation](https://developer.apple.com/documentation/foundation/nsitemprovider/loadinplacefilerepresentation(fortypeidentifier:completionhandler:)) and `NSFileCoordinator`, and executes the same model copy logic within that access scope. It does not redundantly create separate temporary copies in the app. It ignores provider callbacks that arrive late after cancellation. It does not add external packages and uses existing Qt licenses and Apple default SDK API.\n"
+    },
+    {
+      "id": "b000080",
+      "kind": "blank",
+      "start_line": 101,
+      "end_line": 101,
+      "raw": "\n"
+    },
+    {
+      "id": "b000081",
+      "kind": "html",
+      "start_line": 102,
+      "end_line": 102,
+      "raw": "<a id=\"파일-그리드\"></a>\n"
+    },
+    {
+      "id": "b000082",
+      "kind": "blank",
+      "start_line": 103,
+      "end_line": 103,
+      "raw": "\n"
+    },
+    {
+      "id": "b000083",
+      "kind": "heading",
+      "start_line": 104,
+      "end_line": 104,
+      "raw": "## File grid\n",
+      "level": 2,
+      "title": "File grid"
+    },
+    {
+      "id": "b000084",
+      "kind": "blank",
+      "start_line": 105,
+      "end_line": 105,
+      "raw": "\n"
+    },
+    {
+      "id": "b000085",
+      "kind": "paragraph",
+      "start_line": 106,
+      "end_line": 106,
+      "raw": "Storage's sidebar is the 228 px navigation list from Figma. The default Models screen displays Image, Video, Audio, and Language models in separate horizontally scrolling card lists. It uses the bounded metadata queries in iiSocietyContainer 0.11.1. Existing subfolders are explored through the path at the bottom of the screen and card menus. Refer to the [model document](docs/Models.md)for dimension, classification, update, and verification contracts.\n"
+    },
+    {
+      "id": "b000086",
+      "kind": "blank",
+      "start_line": 107,
+      "end_line": 107,
+      "raw": "\n"
+    },
+    {
+      "id": "b000087",
+      "kind": "paragraph",
+      "start_line": 108,
+      "end_line": 108,
+      "raw": "`App/Society/FileGridView.qml` receives the absolute path of the local folder as a required `string path` argument. If no container is selected or it is at the drive root, it passes an empty path and hides the file list. When opening an area, it passes the corresponding actual directory. It can also be used as an independent component.\n"
+    },
+    {
+      "id": "b000088",
+      "kind": "blank",
+      "start_line": 109,
+      "end_line": 109,
+      "raw": "\n"
+    },
+    {
+      "id": "b000089",
+      "kind": "fenced_code",
+      "start_line": 110,
+      "end_line": 115,
+      "raw": "```qml\nFileGridView {\n    anchors.fill: parent\n    path: \"\"\n}\n```\n",
+      "language": "qml",
+      "code": "FileGridView {\n    anchors.fill: parent\n    path: \"\"\n}\n",
+      "closed": true
+    },
+    {
+      "id": "b000090",
+      "kind": "blank",
+      "start_line": 116,
+      "end_line": 116,
+      "raw": "\n"
+    },
+    {
+      "id": "b000091",
+      "kind": "paragraph",
+      "start_line": 117,
+      "end_line": 117,
+      "raw": "An empty string is unspecified and does not create a file list model or open the current working folder. In an independent component, it displays `No folder selected` and 0 items. To display other folders, it passes the corresponding absolute path to `path`. It does not receive URL, relative paths, or `~` extensions. Paths containing spaces, Hangul, `#`, and `%` are converted to `QUrl::fromLocalFile()`. Non-existent folders, file paths, and unreadable folders are displayed as error states.\n"
+    },
+    {
+      "id": "b000092",
+      "kind": "blank",
+      "start_line": 118,
+      "end_line": 118,
+      "raw": "\n"
+    },
+    {
+      "id": "b000093",
+      "kind": "list",
+      "start_line": 119,
+      "end_line": 125,
+      "raw": "- The default is folder-first, case-insensitive name sorting, and excludes hidden items and `.` / `..`.\n- `chronological: true` maintains folder priority while arranging files from the oldest modification time to the newest. It is used in the Files area of Storage and its subfolders, and starts from the bottom where the newest file is located once asynchronous list retrieval and layout are complete. The sort criterion is the file's modification time.\n- PNG / JPEG / WebP / GIF / BMP /SVG are displayed as Qt image loaders with asynchronous previews. Other files and images that failed to load use the LVRS file icon, and folders use the LVRS folder icon. Content previews for videos, PDF, and documents are not yet provided.\n- Supports single selection by click, movement by arrow keys, and selection cancellation by Escape. Double-click or Enter emits a `activated(string path, bool isDirectory)` signal. The app connects this signal to DriveController boundary validation and folder navigation/file opening.\n- `count` and `selectedPath` are read-only. On `path` change, selection is cleared and the initial scroll position matching the sort method is applied. In auto-refresh, the path and scroll position of the selected file are restored, and if it is at the bottom of the time-sorted list, it follows the newly added newest file. Even if the file count does not change but only the modification time changes causing re-sorting, the selection of the same file is maintained.\n- `heading` is the display title, with the default value being `Files`, and the app passes the current area name.\n- Long file names are limited to a maximum of two lines, and the grid uses vertical scrolling and column re-arrangement based on window size.\n",
+      "items": [
+        {
+          "marker": "-",
+          "text": "The default is folder-first, case-insensitive name sorting, and excludes hidden items and `.` / `..`.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "`chronological: true` maintains folder priority while arranging files from the oldest modification time to the newest. It is used in the Files area of Storage and its subfolders, and starts from the bottom where the newest file is located once asynchronous list retrieval and layout are complete. The sort criterion is the file's modification time.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "PNG / JPEG / WebP / GIF / BMP /SVG are displayed as Qt image loaders with asynchronous previews. Other files and images that failed to load use the LVRS file icon, and folders use the LVRS folder icon. Content previews for videos, PDF, and documents are not yet provided.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Supports single selection by click, movement by arrow keys, and selection cancellation by Escape. Double-click or Enter emits a `activated(string path, bool isDirectory)` signal. The app connects this signal to DriveController boundary validation and folder navigation/file opening.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "`count` and `selectedPath` are read-only. On `path` change, selection is cleared and the initial scroll position matching the sort method is applied. In auto-refresh, the path and scroll position of the selected file are restored, and if it is at the bottom of the time-sorted list, it follows the newly added newest file. Even if the file count does not change but only the modification time changes causing re-sorting, the selection of the same file is maintained.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "`heading` is the display title, with the default value being `Files`, and the app passes the current area name.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Long file names are limited to a maximum of two lines, and the grid uses vertical scrolling and column re-arrangement based on window size.",
+          "checked": null
+        }
+      ]
+    },
+    {
+      "id": "b000094",
+      "kind": "blank",
+      "start_line": 126,
+      "end_line": 126,
+      "raw": "\n"
+    },
+    {
+      "id": "b000095",
+      "kind": "html",
+      "start_line": 127,
+      "end_line": 127,
+      "raw": "<a id=\"의존성\"></a>\n"
+    },
+    {
+      "id": "b000096",
+      "kind": "blank",
+      "start_line": 128,
+      "end_line": 128,
+      "raw": "\n"
+    },
+    {
+      "id": "b000097",
+      "kind": "heading",
+      "start_line": 129,
+      "end_line": 129,
+      "raw": "## dependencies\n",
+      "level": 2,
+      "title": "dependencies"
+    },
+    {
+      "id": "b000098",
+      "kind": "blank",
+      "start_line": 130,
+      "end_line": 130,
+      "raw": "\n"
+    },
+    {
+      "id": "b000099",
+      "kind": "list",
+      "start_line": 131,
+      "end_line": 135,
+      "raw": "- CMake  3.31 or more, Ninja, C++23 compiler\n- Qt 6.8.3: Quick, QuickControls2, Qt .labs.folderlistmodel, test Test module\n- Installed LVRS CMake package and QML module\n- iiSocietyHelper 0.10.0 (including Sync/Remote and native Monitoring), iiWebServer 0.6.0 or above\n- iiSocietyContainer 0.14.0's `DiskImage` API; macOS's APFS disk image tool\n",
+      "items": [
+        {
+          "marker": "-",
+          "text": "CMake  3.31 or more, Ninja, C++23 compiler",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Qt 6.8.3: Quick, QuickControls2, Qt .labs.folderlistmodel, test Test module",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Installed LVRS CMake package and QML module",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "iiSocietyHelper 0.10.0 (including Sync/Remote and native Monitoring), iiWebServer 0.6.0 or above",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "iiSocietyContainer 0.14.0's `DiskImage` API; macOS's APFS disk image tool",
+          "checked": null
+        }
+      ]
+    },
+    {
+      "id": "b000100",
+      "kind": "blank",
+      "start_line": 136,
+      "end_line": 136,
+      "raw": "\n"
+    },
+    {
+      "id": "b000101",
+      "kind": "paragraph",
+      "start_line": 137,
+      "end_line": 139,
+      "raw": "Reuses existing Qt /LVRS's window, font, theme, app bootstrap. File listing, sorting, folder change detection is included in Qt\nUses [FolderListModel](https://doc.qt.io/qt-6.8/qml-qt-labs-folderlistmodel-folderlistmodel.html). Since the Qt Quick module is already installed, no additional libraries or services are introduced. Reuses the implementation provided by Qt and the existing Qt license scope,\nFollow [Qt Quick's license notice](https://doc.qt.io/qt-6.8/qtquick-index.html#licenses-and-attributions). The `Qt.labs` API does not guarantee future compatibility, so the current Qt 6.8.3 fix is maintained, and grid integration tests are performed upon version changes. `DirectoryLocation` is responsible only for path verification. Drive ID, area placement, and path determination are delegated to iiSocietyContainer. The app uses existing Qt's QProcess, QDesktopServices, FolderDialog, so no additional dependencies are introduced. The current macOS preset uses Qt `/Volumes/Storage/Qt/6.8.3/macos` and LVRS `~/.local/SDK/LVRS` installers. At execution, the library path provided by the LVRS package and the explicit QML import path are used, so separate `DYLD_LIBRARY_PATH` or `QML2_IMPORT_PATH` configuration is not required.\n"
+    },
+    {
+      "id": "b000102",
+      "kind": "blank",
+      "start_line": 140,
+      "end_line": 140,
+      "raw": "\n"
+    },
+    {
+      "id": "b000103",
+      "kind": "paragraph",
+      "start_line": 141,
+      "end_line": 141,
+      "raw": "macOS's `Society` build copies Qt · LVRS · SDK ·native library of GUI and embedded daemon to the app bundle respectively, links them via relative paths, and signs them. `build/bin/Society.app` must be runnable directly from Finder, and post-build checks remove development library environment variables and run the main body and daemon in actual execution. `Society.MacRuntimeLaunch` also validates QML window loading in the container unset state. Runtime such as OpenSSL installed in a separate location can specify a directory list to `SOCIETY_MAC_RUNTIME_SEARCH_PATHS`. Missing libraries are treated as build errors\n"
+    },
+    {
+      "id": "b000104",
+      "kind": "blank",
+      "start_line": 142,
+      "end_line": 142,
+      "raw": "\n"
+    },
+    {
+      "id": "b000105",
+      "kind": "paragraph",
+      "start_line": 143,
+      "end_line": 144,
+      "raw": "The product links the SDK capabilities used by its current features. Package discovery\nuses explicit package directories or `~/.local/SDK/<package name>`.\n"
+    },
+    {
+      "id": "b000106",
+      "kind": "blank",
+      "start_line": 145,
+      "end_line": 145,
+      "raw": "\n"
+    },
+    {
+      "id": "b000107",
+      "kind": "table",
+      "start_line": 146,
+      "end_line": 157,
+      "raw": "| Required capability | Owning SDK |\n| --- | --- |\n| Account UI and authentication | iiAccountManager Quick |\n| Persistent calendar, events and tasks | iiCalendar |\n| File creation, temporary leases and native presentation | iiFileProvider |\n| Device pairing and authenticated LAN hosting | iiWebServer |\n| Native container, previews and system-drive presentation | iiSocietyContainer Gui |\n| Shared application presence and file mirror | iiSocietyHelper 0.9.3 or later |\n| Bidirectional container replication | iiSocietyHelper Sync |\n| Photo library and gallery | iiPhotoLibrary |\n| Model packaging and desktop inference hosting | iiLocalDiffusion ModelPackaging and iiSocietyHelper Generation Host |\n| Local desktop MCP endpoint and agent harness on supported Unix platforms | iiMultimodalAgent 0.1 (iiLocalLLM 0.56 inference dependency) |\n",
+      "columns": [
+        "Required capability",
+        "Owning SDK"
+      ],
+      "rows": [
+        [
+          "Account UI and authentication",
+          "iiAccountManager Quick"
+        ],
+        [
+          "Persistent calendar, events and tasks",
+          "iiCalendar"
+        ],
+        [
+          "File creation, temporary leases and native presentation",
+          "iiFileProvider"
+        ],
+        [
+          "Device pairing and authenticated LAN hosting",
+          "iiWebServer"
+        ],
+        [
+          "Native container, previews and system-drive presentation",
+          "iiSocietyContainer Gui"
+        ],
+        [
+          "Shared application presence and file mirror",
+          "iiSocietyHelper 0.9.3 or later"
+        ],
+        [
+          "Bidirectional container replication",
+          "iiSocietyHelper Sync"
+        ],
+        [
+          "Photo library and gallery",
+          "iiPhotoLibrary"
+        ],
+        [
+          "Model packaging and desktop inference hosting",
+          "iiLocalDiffusion ModelPackaging and iiSocietyHelper Generation Host"
+        ],
+        [
+          "Local desktop MCP endpoint and agent harness on supported Unix platforms",
+          "iiMultimodalAgent 0.1 (iiLocalLLM 0.56 inference dependency)"
+        ]
+      ]
+    },
+    {
+      "id": "b000108",
+      "kind": "blank",
+      "start_line": 158,
+      "end_line": 158,
+      "raw": "\n"
+    },
+    {
+      "id": "b000109",
+      "kind": "paragraph",
+      "start_line": 159,
+      "end_line": 160,
+      "raw": "The desktop links the installed agent SDK and packages its native runtime.\nSee [agent integration](docs/AgentIntegration.md) for package selection and checks.\n"
+    },
+    {
+      "id": "b000110",
+      "kind": "blank",
+      "start_line": 161,
+      "end_line": 161,
+      "raw": "\n"
+    },
+    {
+      "id": "b000111",
+      "kind": "paragraph",
+      "start_line": 162,
+      "end_line": 166,
+      "raw": "`iiGeneralDocument`, `iiLicenseManager`, `iiUpdateManager`, `iiVoiceOver` and\n`iiWhatsNew` are not direct product dependencies. Canvas codecs belong to the\nstorage/helper SDK dependency graph. The app does not link the broad inference\nfacade directly; its model-packaging component and generation host retain the\ncapabilities they call. Transitive dependencies required by these SDKs remain.\n"
+    },
+    {
+      "id": "b000112",
+      "kind": "blank",
+      "start_line": 167,
+      "end_line": 167,
+      "raw": "\n"
+    },
+    {
+      "id": "b000113",
+      "kind": "paragraph",
+      "start_line": 168,
+      "end_line": 171,
+      "raw": "`Society.Dependencies` checks the generated application's direct target list and\nlaunches the real packaged application in an isolated container to verify Helper\npeer observation. Product tests cover the actual account, calendar, photo,\npackaging, pairing and storage behavior. See [runtime efficiency](docs/Performance.md).\n"
+    },
+    {
+      "id": "b000114",
+      "kind": "blank",
+      "start_line": 172,
+      "end_line": 172,
+      "raw": "\n"
+    },
+    {
+      "id": "b000115",
+      "kind": "paragraph",
+      "start_line": 173,
+      "end_line": 173,
+      "raw": "File grid uses Qt's local file list and image loader. For  Society  connections verified by account, it executes  iiSocietyHelper Sync   0.7.0  host permission-based Namespace replication. Host finalizes revision·change journal and client submits changes then receives finalization result. Mac Storage· NAS · S3  providers fall under this permission and Mac's local record is maintained even offline. Responsibility separation·conflict·recovery contract follows  [sync document](docs/Synchronization.md).  iiSocietyContainer 's new drive API is used in app and  `Society.Drive`  tests.\n"
+    },
+    {
+      "id": "b000116",
+      "kind": "blank",
+      "start_line": 174,
+      "end_line": 174,
+      "raw": "\n"
+    },
+    {
+      "id": "b000117",
+      "kind": "html",
+      "start_line": 175,
+      "end_line": 175,
+      "raw": "<a id=\"빌드-및-실행\"></a>\n"
+    },
+    {
+      "id": "b000118",
+      "kind": "blank",
+      "start_line": 176,
+      "end_line": 176,
+      "raw": "\n"
+    },
+    {
+      "id": "b000119",
+      "kind": "heading",
+      "start_line": 177,
+      "end_line": 177,
+      "raw": "## Build and run\n",
+      "level": 2,
+      "title": "Build and run"
+    },
+    {
+      "id": "b000120",
+      "kind": "blank",
+      "start_line": 178,
+      "end_line": 178,
+      "raw": "\n"
+    },
+    {
+      "id": "b000121",
+      "kind": "paragraph",
+      "start_line": 179,
+      "end_line": 179,
+      "raw": "Run from project directory. All build outputs are created in  `build/` .\n"
+    },
+    {
+      "id": "b000122",
+      "kind": "blank",
+      "start_line": 180,
+      "end_line": 180,
+      "raw": "\n"
+    },
+    {
+      "id": "b000123",
+      "kind": "fenced_code",
+      "start_line": 181,
+      "end_line": 188,
+      "raw": "```sh\ncmake --preset debug\ncmake --build --preset debug --parallel 2\nctest --preset debug\nopen build/bin/Society.app\n# You can also run it directly by specifying the prepared source path.\nbuild/bin/Society.app/Contents/MacOS/Society --container \"/absolute/path/to/container\"\n```\n",
+      "language": "sh",
+      "code": "cmake --preset debug\ncmake --build --preset debug --parallel 2\nctest --preset debug\nopen build/bin/Society.app\n# You can also run it directly by specifying the prepared source path.\nbuild/bin/Society.app/Contents/MacOS/Society --container \"/absolute/path/to/container\"\n",
+      "closed": true
+    },
+    {
+      "id": "b000124",
+      "kind": "blank",
+      "start_line": 189,
+      "end_line": 189,
+      "raw": "\n"
+    },
+    {
+      "id": "b000125",
+      "kind": "paragraph",
+      "start_line": 190,
+      "end_line": 190,
+      "raw": "To use the installed SDK in the workspace, specify the package path as follows.\n"
+    },
+    {
+      "id": "b000126",
+      "kind": "blank",
+      "start_line": 191,
+      "end_line": 191,
+      "raw": "\n"
+    },
+    {
+      "id": "b000127",
+      "kind": "fenced_code",
+      "start_line": 192,
+      "end_line": 195,
+      "raw": "```sh\ncmake --preset debug \\\n  -DiiSocietyContainer_DIR=/Volumes/Storage/Workspace/SDK/iiSocietyContainer/build/install/lib/cmake/iiSocietyContainer\n```\n",
+      "language": "sh",
+      "code": "cmake --preset debug \\\n  -DiiSocietyContainer_DIR=/Volumes/Storage/Workspace/SDK/iiSocietyContainer/build/install/lib/cmake/iiSocietyContainer\n",
+      "closed": true
+    },
+    {
+      "id": "b000128",
+      "kind": "blank",
+      "start_line": 196,
+      "end_line": 196,
+      "raw": "\n"
+    },
+    {
+      "id": "b000129",
+      "kind": "paragraph",
+      "start_line": 197,
+      "end_line": 197,
+      "raw": "iiSocietyContainer's macOS build requires Swift Command Line Tools and Python 3. Native adapter signature, installation, and connection removal follow the `platform/macos/README.md` of the SDK.\n"
+    },
+    {
+      "id": "b000130",
+      "kind": "blank",
+      "start_line": 198,
+      "end_line": 198,
+      "raw": "\n"
+    },
+    {
+      "id": "b000131",
+      "kind": "paragraph",
+      "start_line": 199,
+      "end_line": 199,
+      "raw": "CLion also specifies the CMake build directory as `build/`. The execution target is `Society`. In other installation paths, preset values can be overridden with `cmake --preset debug -DQt6_DIR=\"<Qt>/lib/cmake/Qt6\" -DLVRS_DIR=\"<LVRS>\"`.\n"
+    },
+    {
+      "id": "b000132",
+      "kind": "blank",
+      "start_line": 200,
+      "end_line": 200,
+      "raw": "\n"
+    },
+    {
+      "id": "b000133",
+      "kind": "html",
+      "start_line": 201,
+      "end_line": 201,
+      "raw": "<a id=\"구조와-검증\"></a>\n"
+    },
+    {
+      "id": "b000134",
+      "kind": "blank",
+      "start_line": 202,
+      "end_line": 202,
+      "raw": "\n"
+    },
+    {
+      "id": "b000135",
+      "kind": "heading",
+      "start_line": 203,
+      "end_line": 203,
+      "raw": "## Structure and Validation\n",
+      "level": 2,
+      "title": "Structure and Validation"
+    },
+    {
+      "id": "b000136",
+      "kind": "blank",
+      "start_line": 204,
+      "end_line": 204,
+      "raw": "\n"
+    },
+    {
+      "id": "b000137",
+      "kind": "list",
+      "start_line": 205,
+      "end_line": 223,
+      "raw": "- `App/`: application entry point, Society views and controllers, daemon, and platform-specific sources. Project headers are resolved relative to this directory.\n- `docs/SourceLayout.md`: source layout, stable QML resource paths, and verification commands.\n- `App/main.cpp`: LVRS runtime initialization and `Society.Main` QML load\n- `App/Society/Main.qml`: LVRS window, folder selection, 9 area, sidebar, path navigation, Finder connection UI\n- `App/Society/FileGridView.qml`: file list, preview, selection, empty state UI\n- `App/Society/Files/DirectoryLocation.h/.cpp`: local absolute path validation and file URL conversion\n- `App/Society/Files/ModelImporter.h/.cpp`: model classification, asynchronous copy, duplicate name handling, and progress status\n- `App/Society/Files/ModelImportSource.h`: contract for local files and Apple provider to maintain read access during copy\n- `App/Society/Files/AppleModelSource.h/.mm`: Apple file provider input maintaining security scope and file adjustment\n- `App/Society/Files/IosModelDrop.h/.mm`: iOS native drop across entire window and destination feedback\n- `App/Society/Drive/DriveController.h/.cpp`: SDK drive load, navigation within area boundaries, native connection status\n- `App/Society/AI/`: Empty initial skeleton of the Civitai·Hugging Face·Ollama integration class\n- `tests/tst_filegrid.cpp`: empty path, invalid path, sorting and image preview of actual temporary files, click, double-click, keyboard navigation and scroll, three kinds window size, path change, QML warning check\n- `tests/FileGridHarness.qml`: LVRS window that validates the file grid independently of the drive screen\n- `tests/tst_drive.cpp`: Checks persistent ID, retention of in-app file browsing for all 9 sections, rejection of boundary escapes, preservation of an existing container on conflicts, and section clicks, folder navigation, parent navigation, small-window layouts, and QML warnings in the actual drive screen. Also checks the window's URL drop, copy action, automatic section placement, and model-list updates.\n- `tests/tst_modelimporter.cpp` : two model extensions, preserve original, name conflict, duplicate input, prevent overwrite during simultaneous import, invalid input, reject region redirect, cancel and temporary file cleanup\n- `tests/tst_applemodelsource.mm`: Copy and delayed callback cancellation check through actual Foundation file providers\n- `Society.IosDropSyntax` : If the host SDK has a UIKit header, compile-check the iOS drop delegate's API ·type at iOS target. It is not app link or execution check.\n- `tests/tst_dependencies.cpp`: Check the final product link dependencies and real packaged Helper peer observation\n",
+      "items": [
+        {
+          "marker": "-",
+          "text": "`App/`: application entry point, Society views and controllers, daemon, and platform-specific sources. Project headers are resolved relative to this directory.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "`docs/SourceLayout.md`: source layout, stable QML resource paths, and verification commands.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "`App/main.cpp`: LVRS runtime initialization and `Society.Main` QML load",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "`App/Society/Main.qml`: LVRS window, folder selection, 9 area, sidebar, path navigation, Finder connection UI",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "`App/Society/FileGridView.qml`: file list, preview, selection, empty state UI",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "`App/Society/Files/DirectoryLocation.h/.cpp`: local absolute path validation and file URL conversion",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "`App/Society/Files/ModelImporter.h/.cpp`: model classification, asynchronous copy, duplicate name handling, and progress status",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "`App/Society/Files/ModelImportSource.h`: contract for local files and Apple provider to maintain read access during copy",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "`App/Society/Files/AppleModelSource.h/.mm`: Apple file provider input maintaining security scope and file adjustment",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "`App/Society/Files/IosModelDrop.h/.mm`: iOS native drop across entire window and destination feedback",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "`App/Society/Drive/DriveController.h/.cpp`: SDK drive load, navigation within area boundaries, native connection status",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "`App/Society/AI/`: Empty initial skeleton of the Civitai·Hugging Face·Ollama integration class",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "`tests/tst_filegrid.cpp`: empty path, invalid path, sorting and image preview of actual temporary files, click, double-click, keyboard navigation and scroll, three kinds window size, path change, QML warning check",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "`tests/FileGridHarness.qml`: LVRS window that validates the file grid independently of the drive screen",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "`tests/tst_drive.cpp`: Checks persistent ID, retention of in-app file browsing for all 9 sections, rejection of boundary escapes, preservation of an existing container on conflicts, and section clicks, folder navigation, parent navigation, small-window layouts, and QML warnings in the actual drive screen. Also checks the window's URL drop, copy action, automatic section placement, and model-list updates.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "`tests/tst_modelimporter.cpp` : two model extensions, preserve original, name conflict, duplicate input, prevent overwrite during simultaneous import, invalid input, reject region redirect, cancel and temporary file cleanup",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "`tests/tst_applemodelsource.mm`: Copy and delayed callback cancellation check through actual Foundation file providers",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "`Society.IosDropSyntax` : If the host SDK has a UIKit header, compile-check the iOS drop delegate's API ·type at iOS target. It is not app link or execution check.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "`tests/tst_dependencies.cpp`: Check the final product link dependencies and real packaged Helper peer observation",
+          "checked": null
+        }
+      ]
+    },
+    {
+      "id": "b000138",
+      "kind": "blank",
+      "start_line": 224,
+      "end_line": 224,
+      "raw": "\n"
+    },
+    {
+      "id": "b000139",
+      "kind": "paragraph",
+      "start_line": 225,
+      "end_line": 225,
+      "raw": "AI class source and header are registered in `SocietyDependencyTests` and included in the build. Since the current class has no API or execution behavior and is not connected to the app, no separate feature assertions are added. Existing dependencies, GUI tests, and the full build are used to verify this skeleton addition.\n"
+    },
+    {
+      "id": "b000140",
+      "kind": "blank",
+      "start_line": 226,
+      "end_line": 226,
+      "raw": "\n"
+    },
+    {
+      "id": "b000141",
+      "kind": "paragraph",
+      "start_line": 227,
+      "end_line": 227,
+      "raw": "`ctest --preset debug` checks GUI behavior in a software rendering environment without a screen. The temporary folder for the file grid test is created under `build/` and removed after execution. `Society.Dependencies` test calls 13 public SDK symbols. Inference model download, network requests, license activation, and update installation are not performed. `cmake --build build --target Society_qmllint` QML static analysis can also be run. The local app for execution uses installed Qt /LVRS. Separate packaging is required for deployment to other computers.\n"
+    },
+    {
+      "id": "b000142",
+      "kind": "blank",
+      "start_line": 228,
+      "end_line": 228,
+      "raw": "\n"
+    },
+    {
+      "id": "b000143",
+      "kind": "heading",
+      "start_line": 229,
+      "end_line": 229,
+      "raw": "## iOS / iPadOS\n",
+      "level": 2,
+      "title": "iOS / iPadOS"
+    },
+    {
+      "id": "b000144",
+      "kind": "blank",
+      "start_line": 230,
+      "end_line": 230,
+      "raw": "\n"
+    },
+    {
+      "id": "b000145",
+      "kind": "paragraph",
+      "start_line": 231,
+      "end_line": 231,
+      "raw": "iOS 16 and above automatically open the Society of the shared App Group when the app is opened and register it with the Files app. The app's home maintains all 9 areas. Opening Society from the Files app immediately shows the content of `Files/` and does not expose the remaining 8 areas. iOS `Open in Files` opens a system document navigator starting from this public root.\n"
+    },
+    {
+      "id": "b000146",
+      "kind": "blank",
+      "start_line": 232,
+      "end_line": 232,
+      "raw": "\n"
+    },
+    {
+      "id": "b000147",
+      "kind": "paragraph",
+      "start_line": 233,
+      "end_line": 233,
+      "raw": "`ios-device`, `ios-simulator` CMake preset, and built-in `SocietyFileProvider.appex` are used. Full Xcode 16 and above, Qt 6.8.3 iOS, LVRS · iiSocietyContainer · iiSocietyHelper 0.10.0 and their corresponding iOS target package of dependencies are required. `python3 -B tools/build_ios.py --platform ios-simulator` performs SDK build and installation through to app and extension build. Device package uses `build/ios-device/install`, simulator package uses `build/ios-simulator/install`. iOS configuration does not replace missing packages with desktop installation.\n"
+    },
+    {
+      "id": "b000148",
+      "kind": "blank",
+      "start_line": 234,
+      "end_line": 234,
+      "raw": "\n"
+    },
+    {
+      "id": "b000149",
+      "kind": "fenced_code",
+      "start_line": 235,
+      "end_line": 238,
+      "raw": "```sh\ncmake --preset ios-device -DSOCIETY_IOS_TEAM=<development-team-id>\ncmake --build --preset ios-device\n```\n",
+      "language": "sh",
+      "code": "cmake --preset ios-device -DSOCIETY_IOS_TEAM=<development-team-id>\ncmake --build --preset ios-device\n",
+      "closed": true
+    },
+    {
+      "id": "b000150",
+      "kind": "blank",
+      "start_line": 239,
+      "end_line": 239,
+      "raw": "\n"
+    },
+    {
+      "id": "b000151",
+      "kind": "paragraph",
+      "start_line": 240,
+      "end_line": 240,
+      "raw": "The default App Group for app and extension is `group.com.iisacc.society` and is set to `SOCIETY_IOS_APP_GROUP`. App ID and extension ID are `com.iisacc.society` and `com.iisacc.society.fileprovider` respectively. Same App Group access permission is required for both signing profiles. The original is stored in the group's `Library/Application Support/Society` and app Documents full sharing is not enabled. Detailed storage contract and SDK build procedure follow [iiSocietyContainer iOS document](../../SDK/iiSocietyContainer/platform/ios/README.md).\n"
+    },
+    {
+      "id": "b000152",
+      "kind": "blank",
+      "start_line": 241,
+      "end_line": 241,
+      "raw": "\n"
+    },
+    {
+      "id": "b000153",
+      "kind": "paragraph",
+      "start_line": 242,
+      "end_line": 242,
+      "raw": "Host GUI test verifies navigation of 9 areas and system-specific connection messages on phone portrait and landscape sizes. This test and the common File Provider storage test distinguish actual iOS build and device execution results. Model import also follows the same distinction. macOS opens the Foundation provider and file adjustment path `Import models…` to open the iOS file picker, which copies `.safetensor` and `.safetensors` to Models within the original access scope. Files and folders are opened by tapping one time, and supported documents and images are displayed as QuickLook. Copying requests a finite background execution time and cancels upon expiration. Detailed behavior and current iOS SDK actual build and device verification remaining uninstalled are recorded in [iOS implementation document](docs/iOS.md).\n"
+    },
+    {
+      "id": "b000154",
+      "kind": "blank",
+      "start_line": 243,
+      "end_line": 243,
+      "raw": "\n"
+    },
+    {
+      "id": "b000155",
+      "kind": "html",
+      "start_line": 244,
+      "end_line": 244,
+      "raw": "<a id=\"windows--linux--android-드라이브\"></a>\n"
+    },
+    {
+      "id": "b000156",
+      "kind": "blank",
+      "start_line": 245,
+      "end_line": 245,
+      "raw": "\n"
+    },
+    {
+      "id": "b000157",
+      "kind": "heading",
+      "start_line": 246,
+      "end_line": 246,
+      "raw": "## Windows · Linux · Android drive\n",
+      "level": 2,
+      "title": "Windows · Linux · Android drive"
+    },
+    {
+      "id": "b000158",
+      "kind": "blank",
+      "start_line": 247,
+      "end_line": 247,
+      "raw": "\n"
+    },
+    {
+      "id": "b000159",
+      "kind": "paragraph",
+      "start_line": 248,
+      "end_line": 248,
+      "raw": "Society uses iiSocietyContainer 0.15 and iiSocietyHelper 0.7. Windows uses Dokan 2 based drive letters, Linux uses libfuse 3 mount, and Android connects to the system document provider. Opening a drive on the system immediately shows Files content, and the app maintains existing 9 areas internally. Windows / Linux adapter is a separate user session process, so closing the Society window maintains the drive and restores saved registration at login. Windows requires a signed Dokan 2 driver and DLL, Linux requires fuse3 and /dev/fuse access.\n"
+    },
+    {
+      "id": "b000160",
+      "kind": "blank",
+      "start_line": 249,
+      "end_line": 249,
+      "raw": "\n"
+    },
+    {
+      "id": "b000161",
+      "kind": "paragraph",
+      "start_line": 250,
+      "end_line": 250,
+      "raw": "Android automatically prepares app-specific storage. Other iisacc apps provide internal ContentProvider with the same signature. It directly reads the content URI of the external file picker to import .safetensor/.safetensors to Models. LVRS applies actual WindowInsets of Android system bars and screen cropping to place the bottom Open in Files button outside the navigation bar.\n"
+    },
+    {
+      "id": "b000162",
+      "kind": "blank",
+      "start_line": 251,
+      "end_line": 251,
+      "raw": "\n"
+    },
+    {
+      "id": "b000163",
+      "kind": "fenced_code",
+      "start_line": 252,
+      "end_line": 255,
+      "raw": "```sh\npython3 tools/build_android.py --qt <Qt-6.8.3-Android-ABI> --qt-host <Qt-6.8.3-host> \\\n  --sdk <Android-SDK> --ndk <NDK-r27c> --lvrs <same-ABI-LVRS-prefix> --package\n```\n",
+      "language": "sh",
+      "code": "python3 tools/build_android.py --qt <Qt-6.8.3-Android-ABI> --qt-host <Qt-6.8.3-host> \\\n  --sdk <Android-SDK> --ndk <NDK-r27c> --lvrs <same-ABI-LVRS-prefix> --package\n",
+      "closed": true
+    },
+    {
+      "id": "b000164",
+      "kind": "blank",
+      "start_line": 256,
+      "end_line": 256,
+      "raw": "\n"
+    },
+    {
+      "id": "b000165",
+      "kind": "paragraph",
+      "start_line": 257,
+      "end_line": 257,
+      "raw": "Build order is Container installation → Helper installation → Society APK. Output and SDK installation are placed under `build/android/`. Each platform discovers the SDK capabilities called by its current product code; macOS no longer requires unrelated SDK compatibility probes. Device-specific signed APK deployment is a separate step.\n"
+    },
+    {
+      "id": "b000166",
+      "kind": "blank",
+      "start_line": 258,
+      "end_line": 258,
+      "raw": "\n"
+    },
+    {
+      "id": "b000167",
+      "kind": "paragraph",
+      "start_line": 259,
+      "end_line": 260,
+      "raw": "Regression tests are in SDK's `files_view`, `mount_service`, `tests/native_mount.py`, `tests/android/run_device.py`, and Helper's `tests/android/`. Actual platform execution results are recorded with build logs, distinguishing cross-compilation and actual OS drive verification.\n<a id=\"ios-files-실행-회귀-검사\"></a>\n"
+    },
+    {
+      "id": "b000168",
+      "kind": "blank",
+      "start_line": 261,
+      "end_line": 261,
+      "raw": "\n"
+    },
+    {
+      "id": "b000169",
+      "kind": "heading",
+      "start_line": 262,
+      "end_line": 262,
+      "raw": "## iOS Files execution regression test\n",
+      "level": 2,
+      "title": "iOS Files execution regression test"
+    },
+    {
+      "id": "b000170",
+      "kind": "blank",
+      "start_line": 263,
+      "end_line": 263,
+      "raw": "\n"
+    },
+    {
+      "id": "b000171",
+      "kind": "paragraph",
+      "start_line": 264,
+      "end_line": 264,
+      "raw": "The actual iOS  system drive check is activated as normal iOS  build followed by `cmake -S . -B build/ios-device -DSOCIETY_IOS_FILES_INTEGRATION_TEST=ON` , and Society is rebuilt, installed, and executed again. This option is off by default.  `tests/IosFilesIntegration.swift`  compares the App Group source with the system's public root enumeration, and checks creation, reading, editing, renaming, deletion, and source reflection within a test folder with a new UUID attached. Existing user files are not deleted or the domain is not initialized.\n"
+    },
+    {
+      "id": "b000172",
+      "kind": "blank",
+      "start_line": 265,
+      "end_line": 265,
+      "raw": "\n"
+    },
+    {
+      "id": "b000173",
+      "kind": "paragraph",
+      "start_line": 266,
+      "end_line": 266,
+      "raw": "The results are kept in the app's `Documents/ios-files-integration.json` and `SOCIETY_FILES_INTEGRATION` console logs. If successful, the public root is opened with the existing `Open in Files` feature. Results can be retrieved via the `devicectl device copy from` `appDataContainer` domain. After confirmation, change the option to OFF and rebuild and install again. This check calls the actual File Provider on the connected device and is separate from the host's plist and Swift syntax check. If a test folder remains on a failed step, only that UUID folder is checked. The signature bundle check `tests/verify_ios_bundle.py` rejects builds containing this diagnostic function. If Release LTO inlines the resource initialization function, it verifies the static generators of the remaining qrc translation units and checks the links to LVRS · QR license resources.\n"
+    },
+    {
+      "id": "b000174",
+      "kind": "blank",
+      "start_line": 267,
+      "end_line": 267,
+      "raw": "\n"
+    },
+    {
+      "id": "b000175",
+      "kind": "paragraph",
+      "start_line": 268,
+      "end_line": 268,
+      "raw": "If the device connection is broken and an empty test folder remains, the exact `Society Files Test <UUID>` name can be passed as the `SOCIETY_FILES_TEST_CLEANUP` environment variable in the next check execution. This processing deletes only empty regular folders with that name and does not search and clean other files.\n"
+    },
+    {
+      "id": "b000176",
+      "kind": "blank",
+      "start_line": 269,
+      "end_line": 269,
+      "raw": "\n"
+    },
+    {
+      "id": "b000177",
+      "kind": "html",
+      "start_line": 270,
+      "end_line": 270,
+      "raw": "<a id=\"같은-계정의-로컬원격-기기-파일\"></a>\n"
+    },
+    {
+      "id": "b000178",
+      "kind": "blank",
+      "start_line": 271,
+      "end_line": 271,
+      "raw": "\n"
+    },
+    {
+      "id": "b000179",
+      "kind": "heading",
+      "start_line": 272,
+      "end_line": 272,
+      "raw": "## Local and remote device files of the same account\n",
+      "level": 2,
+      "title": "Local and remote device files of the same account"
+    },
+    {
+      "id": "b000180",
+      "kind": "blank",
+      "start_line": 273,
+      "end_line": 273,
+      "raw": "\n"
+    },
+    {
+      "id": "b000181",
+      "kind": "paragraph",
+      "start_line": 274,
+      "end_line": 274,
+      "raw": "Select the same account's peripheral device from the top Devices or scan the desktop's QR with a mobile to browse and download the same Wi-Fi/LAN `Files/`. The QR is independent of account login. The desktop is fixed as the host, iOS /Android as the client, and there is no role selection in the [Preferences window](docs/Preferences.md). Connection is made based on the platform role during device selection, QR creation, or server connection. A self-hosted account-based server can be set up separately from direct LAN connection at Devices' **Your Society server**. Server connection first attempts the local TLS path and switches to WebSocket relay. The public scope, mobile restrictions, and verification methods follow [NetworkDrive .md](docs/NetworkDrive.md).\n"
+    },
+    {
+      "id": "b000182",
+      "kind": "blank",
+      "start_line": 275,
+      "end_line": 275,
+      "raw": "\n"
+    },
+    {
+      "id": "b000183",
+      "kind": "paragraph",
+      "start_line": 276,
+      "end_line": 276,
+      "raw": "Browse and Devices save downloaded files directly in the selected `.societycontainer/Files/`. A repeated file name receives a numbered suffix to preserve the existing file. The controller rejects destinations outside that Files area, including another container, private areas, and redirected paths; it creates no external download directories.\n"
+    },
+    {
+      "id": "b000184",
+      "kind": "blank",
+      "start_line": 277,
+      "end_line": 277,
+      "raw": "\n"
+    },
+    {
+      "id": "b000185",
+      "kind": "paragraph",
+      "start_line": 278,
+      "end_line": 278,
+      "raw": "The iPhone QR scan uses AVFoundation metadata and Vision decoding of the actual camera frame together. It displays scan frames, recognition status, and distance/reflection guidance and sets continuous autofocus. The desktop QR is displayed with a maximum width of 432. Photo regression verification and frame processing/cancellation contracts are recorded in [Pairing.md](docs/Pairing.md).\n"
+    },
+    {
+      "id": "b000186",
+      "kind": "blank",
+      "start_line": 279,
+      "end_line": 279,
+      "raw": "\n"
+    },
+    {
+      "id": "b000187",
+      "kind": "paragraph",
+      "start_line": 280,
+      "end_line": 280,
+      "raw": "The host and all clients use the same logical container UUID. The first pairing mirrors the entire host drive and then starts bidirectional changes, leaving previous client content in the private recovery area. The contract for initial mirror, offline editing, and native registration follows the [synchronization document](docs/Synchronization.md).\n"
+    },
+    {
+      "id": "b000188",
+      "kind": "blank",
+      "start_line": 281,
+      "end_line": 281,
+      "raw": "\n"
+    },
+    {
+      "id": "b000189",
+      "kind": "html",
+      "start_line": 282,
+      "end_line": 282,
+      "raw": "<a id=\"ios-live-activity-동기화\"></a>\n"
+    },
+    {
+      "id": "b000190",
+      "kind": "blank",
+      "start_line": 283,
+      "end_line": 283,
+      "raw": "\n"
+    },
+    {
+      "id": "b000191",
+      "kind": "heading",
+      "start_line": 284,
+      "end_line": 284,
+      "raw": "### iOS Live Activity synchronization\n",
+      "level": 3,
+      "title": "iOS Live Activity synchronization"
+    },
+    {
+      "id": "b000192",
+      "kind": "blank",
+      "start_line": 285,
+      "end_line": 285,
+      "raw": "\n"
+    },
+    {
+      "id": "b000193",
+      "kind": "paragraph",
+      "start_line": 286,
+      "end_line": 286,
+      "raw": "iOS   26  or higher, synchronization started via Devices → **Sync now**is connected to the system Live Activity.  CPU  While network execution permission is granted, background transfer continues and is released upon completion, failure, or cancellation. Automatic discovery does not repeatedly generate this task. Upon old version or request rejection, finite execution is maintained and return resume is held.  [behavior and verification contract](docs/iOS.md#live-activity를-통한-동기화-지속)are referenced.\n"
+    },
+    {
+      "id": "b000194",
+      "kind": "blank",
+      "start_line": 287,
+      "end_line": 287,
+      "raw": "\n"
+    },
+    {
+      "id": "b000195",
+      "kind": "html",
+      "start_line": 288,
+      "end_line": 288,
+      "raw": "<a id=\"로컬-mcp-제어\"></a>\n"
+    },
+    {
+      "id": "b000196",
+      "kind": "blank",
+      "start_line": 289,
+      "end_line": 289,
+      "raw": "\n"
+    },
+    {
+      "id": "b000197",
+      "kind": "heading",
+      "start_line": 290,
+      "end_line": 290,
+      "raw": "## Local MCP control\n",
+      "level": 2,
+      "title": "Local MCP control"
+    },
+    {
+      "id": "b000198",
+      "kind": "blank",
+      "start_line": 291,
+      "end_line": 291,
+      "raw": "\n"
+    },
+    {
+      "id": "b000199",
+      "kind": "paragraph",
+      "start_line": 292,
+      "end_line": 292,
+      "raw": "The desktop POSIX build exposes Society's controller through iiMultimodalAgent 0.1 as an authenticated local MCP tool. Inference remains in its iiLocalLLM 0.56 dependency. Verify the installed SDK connection with the packaged application through `Society.Mcp`; package selection and runtime bundling are described in [AgentIntegration.md](docs/AgentIntegration.md). Automatic discovery, input/permission/cancellation contracts, and actual app execution tests are recorded in [Mcp.md](docs/Mcp.md). It can be disabled via `IILOCALLLM_DISABLE_APP_MCP=1`.\n"
+    },
+    {
+      "id": "b000200",
+      "kind": "blank",
+      "start_line": 293,
+      "end_line": 294,
+      "raw": "\n\n"
+    },
+    {
+      "id": "b000201",
+      "kind": "paragraph",
+      "start_line": 295,
+      "end_line": 295,
+      "raw": "When entering mobile, the container status lookup of iiSocietyHelper Sync and file processing are performed in the work thread. The screen reads only cached states and receives the lookup, download, and synchronization results asynchronously. Mobile exit does not wait for work cleanup and maintains the desktop execution right handover wait. iiSocietyHelper Sync 0.5.0 and [asynchronous execution contract](docs/Synchronization.md#모바일-시작과-화면-응답성)are followed.\n"
+    },
+    {
+      "id": "b000202",
+      "kind": "blank",
+      "start_line": 296,
+      "end_line": 296,
+      "raw": "\n"
+    },
+    {
+      "id": "b000203",
+      "kind": "paragraph",
+      "start_line": 297,
+      "end_line": 297,
+      "raw": "Photos are stored in the `Society.societycontainer/Photos/` hierarchy, similar to Files. Photos and Generation History are a square gallery with 2 px spacing, and zoom in/out by horizontal drag and pinch, and clicking or touching opens file information. [gallery operation and verification](docs/Gallery.md)are referenced.\n"
+    },
+    {
+      "id": "b000204",
+      "kind": "blank",
+      "start_line": 298,
+      "end_line": 298,
+      "raw": "\n"
+    },
+    {
+      "id": "b000205",
+      "kind": "paragraph",
+      "start_line": 299,
+      "end_line": 299,
+      "raw": "The mobile screen shares the Dashboard, Tools, and Storage of the desktop. The default Dashboard, bottom 5 tabs, and the responsive criteria for collapsible navigation, settings, and Storage work sheets are recorded in [MobileViews .md](docs/MobileViews.md).\n"
+    },
+    {
+      "id": "b000206",
+      "kind": "blank",
+      "start_line": 300,
+      "end_line": 300,
+      "raw": "\n"
+    },
+    {
+      "id": "b000207",
+      "kind": "heading",
+      "start_line": 301,
+      "end_line": 301,
+      "raw": "## Source layout\n",
+      "level": 2,
+      "title": "Source layout"
+    },
+    {
+      "id": "b000208",
+      "kind": "blank",
+      "start_line": 302,
+      "end_line": 302,
+      "raw": "\n"
+    },
+    {
+      "id": "b000209",
+      "kind": "paragraph",
+      "start_line": 303,
+      "end_line": 303,
+      "raw": "Implementation files and their headers live together under `App/`. Existing feature and platform subdirectories retain their responsibilities. Build configuration, tests, documentation, resources, and maintenance scripts remain at the project root. Configure and build using the repository-local `build/` directory.\n"
+    },
+    {
+      "id": "b000210",
+      "kind": "blank",
+      "start_line": 304,
+      "end_line": 304,
+      "raw": "\n"
+    },
+    {
+      "id": "b000211",
+      "kind": "paragraph",
+      "start_line": 305,
+      "end_line": 305,
+      "raw": "The file grid and photo gallery test harnesses import their views from `App/Society` and `App/Society/Photos`, matching the application's source layout.\n"
+    },
+    {
+      "id": "b000212",
+      "kind": "blank",
+      "start_line": 306,
+      "end_line": 307,
+      "raw": "\n\n"
+    },
+    {
+      "id": "b000213",
+      "kind": "heading",
+      "start_line": 308,
+      "end_line": 308,
+      "raw": "### Dashboard calendar\n",
+      "level": 3,
+      "title": "Dashboard calendar"
+    },
+    {
+      "id": "b000214",
+      "kind": "blank",
+      "start_line": 309,
+      "end_line": 309,
+      "raw": "\n"
+    },
+    {
+      "id": "b000215",
+      "kind": "paragraph",
+      "start_line": 310,
+      "end_line": 310,
+      "raw": "The dashboard calendar uses C++23 `iiCalendar::iiCalendar`. The Calendar sidebar entry opens a dedicated Day, Week, Month and Year workspace with calendar filters, upcoming events, tasks and an event inspector. New event and Edit event support durable event/task creation, revision-safe editing and deletion, time zones, all-day ranges, recurrence, alerts, participants and notes. Calendar data stays local to the selected Society container; participant records do not send invitations. The compact Home calendar remains available. Prepare iiCalendar, ICU and SQLite before building. See [Dashboard — iiCalendar](docs/Dashboard.md#iicalendar-대시보드) for storage, UI and verification details.\n"
+    },
+    {
+      "id": "b000216",
+      "kind": "blank",
+      "start_line": 311,
+      "end_line": 311,
+      "raw": "\n"
+    },
+    {
+      "id": "b000217",
+      "kind": "html",
+      "start_line": 312,
+      "end_line": 312,
+      "raw": "<a id=\"macos에서-library-missing으로-실행되지-않을-때\"></a>\n"
+    },
+    {
+      "id": "b000218",
+      "kind": "blank",
+      "start_line": 313,
+      "end_line": 313,
+      "raw": "\n"
+    },
+    {
+      "id": "b000219",
+      "kind": "heading",
+      "start_line": 314,
+      "end_line": 314,
+      "raw": "### When not running with Library missing at macOS\n",
+      "level": 3,
+      "title": "When not running with Library missing at macOS"
+    },
+    {
+      "id": "b000220",
+      "kind": "blank",
+      "start_line": 315,
+      "end_line": 315,
+      "raw": "\n"
+    },
+    {
+      "id": "b000221",
+      "kind": "paragraph",
+      "start_line": 316,
+      "end_line": 316,
+      "raw": "If `libiiLocalDiffusion` refers to the `libjson-c.5.dylib` path of the deleted Homebrew, the app terminates with an DYLD error before opening QML. `build/bin/Society.app` can also be run from Finder only after native library distribution, path rewriting, and signing are all completed. Do not use the completed app with the POST_BUILD result immediately after linking or with failed/aborted results.\n"
+    },
+    {
+      "id": "b000222",
+      "kind": "blank",
+      "start_line": 317,
+      "end_line": 317,
+      "raw": "\n"
+    },
+    {
+      "id": "b000223",
+      "kind": "paragraph",
+      "start_line": 318,
+      "end_line": 318,
+      "raw": "Specify the runtime library directory verified at `SOCIETY_MAC_RUNTIME_SEARCH_PATHS` and complete `cmake --build build --target Society -j4` to the end. Also resolve the deleted Homebrew absolute path by the same filename in that directory and copy it into the app. `tests/test_macos_runtime.py` includes a regression test that runs after removing external sources of this transition dependency. After checking the development loader environment variable without `tests/verify_macos_runtime.py APP --gui` and the GUI ·daemon· QML startup, replace the package.\n"
+    },
+    {
+      "id": "b000224",
+      "kind": "blank",
+      "start_line": 319,
+      "end_line": 319,
+      "raw": "\n"
+    },
+    {
+      "id": "b000225",
+      "kind": "paragraph",
+      "start_line": 320,
+      "end_line": 320,
+      "raw": "If the `build/bin/Society.app` of the same build has already passed independent execution and signature verification, first check if the Mach-O UUID of GUI ·daemon·SDK matches, then you can backup the aborted development build and restore the entire bundle of the verified package. If only the executable file is copied, external library paths may be reintroduced, so preserve Frameworks, Helpers, Resources, and the signature together. If the source or SDK build is different, do not use this restoration method.\n"
+    },
+    {
+      "id": "b000226",
+      "kind": "blank",
+      "start_line": 321,
+      "end_line": 321,
+      "raw": "\n"
+    },
+    {
+      "id": "b000227",
+      "kind": "paragraph",
+      "start_line": 322,
+      "end_line": 322,
+      "raw": "macOS window close, app termination, and Dock reopen actions follow the [application lifecycle policy](docs/ApplicationLifetime.md).\n"
+    },
+    {
+      "id": "b000228",
+      "kind": "heading",
+      "start_line": 323,
+      "end_line": 323,
+      "raw": "## Model Packaging\n",
+      "level": 2,
+      "title": "Model Packaging"
+    },
+    {
+      "id": "b000229",
+      "kind": "blank",
+      "start_line": 324,
+      "end_line": 324,
+      "raw": "\n"
+    },
+    {
+      "id": "b000230",
+      "kind": "paragraph",
+      "start_line": 325,
+      "end_line": 327,
+      "raw": "Model Packaging, next to Model merge in Tools, packages a local model directory into a single Safetensors file.\nIt identifies components and shards automatically, checks duplicate and invalid files, and preserves the original precision and GGUF format.\nSuccess is reported only after the SDK completes output verification and atomic saving. See [usage and verification](docs/ModelPackaging.md).\n"
+    },
+    {
+      "id": "b000231",
+      "kind": "blank",
+      "start_line": 328,
+      "end_line": 328,
+      "raw": "\n"
+    },
+    {
+      "id": "b000232",
+      "kind": "paragraph",
+      "start_line": 329,
+      "end_line": 329,
+      "raw": "Society creates and manages a single `Society.societycontainer` directory package. Its user files, private working state and cache share that boundary; the native adapter projects `Files/` as the system drive. On macOS 27, FSKit creates and manages the mount namespace under `/Volumes/`; Society stores no additional data there and does not create an external backing directory. A bare directory and a legacy disk image cannot be selected as a live container. External model inputs remain readable, while model outputs must be saved inside the selected container.\n"
+    },
+    {
+      "id": "b000233",
+      "kind": "blank",
+      "start_line": 330,
+      "end_line": 330,
+      "raw": "\n"
+    },
+    {
+      "id": "b000234",
+      "kind": "paragraph",
+      "start_line": 331,
+      "end_line": 331,
+      "raw": "The application disables Qt QML and GPU pipeline disk caches so framework startup does not create an external application cache. The iOS drop syntax check includes the same temporary-file SDK dependency as its production importer.\n"
+    },
+    {
+      "id": "b000235",
+      "kind": "blank",
+      "start_line": 332,
+      "end_line": 332,
+      "raw": "\n"
+    },
+    {
+      "id": "b000236",
+      "kind": "html",
+      "start_line": 333,
+      "end_line": 333,
+      "raw": "<!-- workspace-docs:readme:start -->\n"
+    },
+    {
+      "id": "b000237",
+      "kind": "heading",
+      "start_line": 334,
+      "end_line": 334,
+      "raw": "## Documentation entry points\n",
+      "level": 2,
+      "title": "Documentation entry points"
+    },
+    {
+      "id": "b000238",
+      "kind": "blank",
+      "start_line": 335,
+      "end_line": 335,
+      "raw": "\n"
+    },
+    {
+      "id": "b000239",
+      "kind": "list",
+      "start_line": 336,
+      "end_line": 339,
+      "raw": "- Human overview: this English `README.md`.\n- Agent instructions: [AGENT.md](AGENT.md).\n- Human documentation: [documentation index](docs/README.md).\n- Structured agent documentation: [agent index](docs/agent-index.json).\n",
+      "items": [
+        {
+          "marker": "-",
+          "text": "Human overview: this English `README.md`.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Agent instructions: [AGENT.md](AGENT.md).",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Human documentation: [documentation index](docs/README.md).",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Structured agent documentation: [agent index](docs/agent-index.json).",
+          "checked": null
+        }
+      ]
+    },
+    {
+      "id": "b000240",
+      "kind": "html",
+      "start_line": 340,
+      "end_line": 340,
+      "raw": "<!-- workspace-docs:readme:end -->\n"
+    }
+  ],
+  "outline": [
+    {
+      "block_id": "b000001",
+      "parent_id": null,
+      "level": 1,
+      "title": "Society",
+      "anchor": "society",
+      "start_line": 1
+    },
+    {
+      "block_id": "b000027",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "Cloud Files",
+      "anchor": "cloud-files",
+      "start_line": 34
+    },
+    {
+      "block_id": "b000031",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "iisacc account",
+      "anchor": "iisacc-account",
+      "start_line": 44
+    },
+    {
+      "block_id": "b000057",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "Container navigation",
+      "anchor": "container-navigation",
+      "start_line": 70
+    },
+    {
+      "block_id": "b000071",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "Drag and drop model file",
+      "anchor": "drag-and-drop-model-file",
+      "start_line": 84
+    },
+    {
+      "block_id": "b000083",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "File grid",
+      "anchor": "file-grid",
+      "start_line": 104
+    },
+    {
+      "block_id": "b000097",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "dependencies",
+      "anchor": "dependencies",
+      "start_line": 129
+    },
+    {
+      "block_id": "b000119",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "Build and run",
+      "anchor": "build-and-run",
+      "start_line": 177
+    },
+    {
+      "block_id": "b000135",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "Structure and Validation",
+      "anchor": "structure-and-validation",
+      "start_line": 203
+    },
+    {
+      "block_id": "b000143",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "iOS / iPadOS",
+      "anchor": "ios--ipados",
+      "start_line": 229
+    },
+    {
+      "block_id": "b000157",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "Windows · Linux · Android drive",
+      "anchor": "windows--linux--android-drive",
+      "start_line": 246
+    },
+    {
+      "block_id": "b000169",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "iOS Files execution regression test",
+      "anchor": "ios-files-execution-regression-test",
+      "start_line": 262
+    },
+    {
+      "block_id": "b000179",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "Local and remote device files of the same account",
+      "anchor": "local-and-remote-device-files-of-the-same-account",
+      "start_line": 272
+    },
+    {
+      "block_id": "b000191",
+      "parent_id": "b000179",
+      "level": 3,
+      "title": "iOS Live Activity synchronization",
+      "anchor": "ios-live-activity-synchronization",
+      "start_line": 284
+    },
+    {
+      "block_id": "b000197",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "Local MCP control",
+      "anchor": "local-mcp-control",
+      "start_line": 290
+    },
+    {
+      "block_id": "b000207",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "Source layout",
+      "anchor": "source-layout",
+      "start_line": 301
+    },
+    {
+      "block_id": "b000213",
+      "parent_id": "b000207",
+      "level": 3,
+      "title": "Dashboard calendar",
+      "anchor": "dashboard-calendar",
+      "start_line": 308
+    },
+    {
+      "block_id": "b000219",
+      "parent_id": "b000207",
+      "level": 3,
+      "title": "When not running with Library missing at macOS",
+      "anchor": "when-not-running-with-library-missing-at-macos",
+      "start_line": 314
+    },
+    {
+      "block_id": "b000228",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "Model Packaging",
+      "anchor": "model-packaging",
+      "start_line": 323
+    },
+    {
+      "block_id": "b000237",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "Documentation entry points",
+      "anchor": "documentation-entry-points",
+      "start_line": 334
+    }
+  ],
+  "indexes": {
+    "directive_candidates": [
+      {
+        "block_id": "b000009",
+        "line": 16,
+        "text": "`Files/`  does not provide default files or folders. `Documents` , `Audios` , `3D objects`  are also standard user folders and do not apply automatic creation, recovery, or name reservation. One-time cleanup of existing empty default folders and preservation of user content follow [Files management documentation](docs/Files.md).",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000015",
+        "line": 22,
+        "text": "The latest LVRS  package must be used. The current Workspace build shares the framework installed in `SDK/LVRS/build/material-runtime`  between two apps, and Society's `build/`  is configured by specifying `lib/cmake/LVRS`  as `LVRS_DIR`  .",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000033",
+        "line": 46,
+        "text": "A common LVRS account screen is provided for all Society platforms. Log in directly with just email and password from the desktop top account icon or the mobile Sign in button. The account panel, Devices, and iiSocietyHelper share the same iiAccountManager object. Independent limits of PC 2 desktops, 2 tablets, and 2 mobiles are used, and no relay address is required for login. Refer to the [authentication flow, device identification, and verification scope](docs/Account.md).",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000059",
+        "line": 72,
+        "text": "If the container settings are missing or the saved path cannot be opened, LVRS provides a role for the container and a file dialog for creating a new disk and assigning an existing disk in the onboarding screen. If verification succeeds, it remembers the location and enters the dashboard. On mobile, it must complete synchronization with the host verified by the account and the current connection before entering, and if the connection is unavailable, it provides login, nearby hosts, and server settings. It can also reattempt the saved location after reconnecting the external storage. [Onboarding behavior and verification](docs/Onboarding.md)are referenced.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000087",
+        "line": 108,
+        "text": "`App/Society/FileGridView.qml` receives the absolute path of the local folder as a required `string path` argument. If no container is selected or it is at the drive root, it passes an empty path and hides the file list. When opening an area, it passes the corresponding actual directory. It can also be used as an independent component.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000101",
+        "line": 139,
+        "text": "Follow [Qt Quick's license notice](https://doc.qt.io/qt-6.8/qtquick-index.html#licenses-and-attributions). The `Qt.labs` API does not guarantee future compatibility, so the current Qt 6.8.3 fix is maintained, and grid integration tests are performed upon version changes. `DirectoryLocation` is responsible only for path verification. Drive ID, area placement, and path determination are delegated to iiSocietyContainer. The app uses existing Qt's QProcess, QDesktopServices, FolderDialog, so no additional dependencies are introduced. The current macOS preset uses Qt `/Volumes/Storage/Qt/6.8.3/macos` and LVRS `~/.local/SDK/LVRS` installers. At execution, the library path provided by the LVRS package and the explicit QML import path are used, so separate `DYLD_LIBRARY_PATH` or `QML2_IMPORT_PATH` configuration is not required.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000103",
+        "line": 141,
+        "text": "macOS's `Society` build copies Qt · LVRS · SDK ·native library of GUI and embedded daemon to the app bundle respectively, links them via relative paths, and signs them. `build/bin/Society.app` must be runnable directly from Finder, and post-build checks remove development library environment variables and run the main body and daemon in actual execution. `Society.MacRuntimeLaunch` also validates QML window loading in the container unset state. Runtime such as OpenSSL installed in a separate location can specify a directory list to `SOCIETY_MAC_RUNTIME_SEARCH_PATHS`. Missing libraries are treated as build errors",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000107",
+        "line": 146,
+        "text": "| Required capability | Owning SDK |",
+        "basis": "lexical_match",
+        "context": "table"
+      },
+      {
+        "block_id": "b000111",
+        "line": 166,
+        "text": "capabilities they call. Transitive dependencies required by these SDKs remain.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000141",
+        "line": 227,
+        "text": "`ctest --preset debug` checks GUI behavior in a software rendering environment without a screen. The temporary folder for the file grid test is created under `build/` and removed after execution. `Society.Dependencies` test calls 13 public SDK symbols. Inference model download, network requests, license activation, and update installation are not performed. `cmake --build build --target Society_qmllint` QML static analysis can also be run. The local app for execution uses installed Qt /LVRS. Separate packaging is required for deployment to other computers.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000147",
+        "line": 233,
+        "text": "`ios-device`, `ios-simulator` CMake preset, and built-in `SocietyFileProvider.appex` are used. Full Xcode 16 and above, Qt 6.8.3 iOS, LVRS · iiSocietyContainer · iiSocietyHelper 0.10.0 and their corresponding iOS target package of dependencies are required. `python3 -B tools/build_ios.py --platform ios-simulator` performs SDK build and installation through to app and extension build. Device package uses `build/ios-device/install`, simulator package uses `build/ios-simulator/install`. iOS configuration does not replace missing packages with desktop installation.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000151",
+        "line": 240,
+        "text": "The default App Group for app and extension is `group.com.iisacc.society` and is set to `SOCIETY_IOS_APP_GROUP`. App ID and extension ID are `com.iisacc.society` and `com.iisacc.society.fileprovider` respectively. Same App Group access permission is required for both signing profiles. The original is stored in the group's `Library/Application Support/Society` and app Documents full sharing is not enabled. Detailed storage contract and SDK build procedure follow [iiSocietyContainer iOS document](../../SDK/iiSocietyContainer/platform/ios/README.md).",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000215",
+        "line": 310,
+        "text": "The dashboard calendar uses C++23 `iiCalendar::iiCalendar`. The Calendar sidebar entry opens a dedicated Day, Week, Month and Year workspace with calendar filters, upcoming events, tasks and an event inspector. New event and Edit event support durable event/task creation, revision-safe editing and deletion, time zones, all-day ranges, recurrence, alerts, participants and notes. Calendar data stays local to the selected Society container; participant records do not send invitations. The compact Home calendar remains available. Prepare iiCalendar, ICU and SQLite before building. See [Dashboard — iiCalendar](docs/Dashboard.md#iicalendar-대시보드) for storage, UI and verification details.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000221",
+        "line": 316,
+        "text": "If `libiiLocalDiffusion` refers to the `libjson-c.5.dylib` path of the deleted Homebrew, the app terminates with an DYLD error before opening QML. `build/bin/Society.app` can also be run from Finder only after native library distribution, path rewriting, and signing are all completed. Do not use the completed app with the POST_BUILD result immediately after linking or with failed/aborted results.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000225",
+        "line": 320,
+        "text": "If the `build/bin/Society.app` of the same build has already passed independent execution and signature verification, first check if the Mach-O UUID of GUI ·daemon·SDK matches, then you can backup the aborted development build and restore the entire bundle of the verified package. If only the executable file is copied, external library paths may be reintroduced, so preserve Frameworks, Helpers, Resources, and the signature together. If the source or SDK build is different, do not use this restoration method.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000232",
+        "line": 329,
+        "text": "Society creates and manages a single `Society.societycontainer` directory package. Its user files, private working state and cache share that boundary; the native adapter projects `Files/` as the system drive. On macOS 27, FSKit creates and manages the mount namespace under `/Volumes/`; Society stores no additional data there and does not create an external backing directory. A bare directory and a legacy disk image cannot be selected as a live container. External model inputs remain readable, while model outputs must be saved inside the selected container.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      }
+    ],
+    "commands": [
+      {
+        "block_id": "b000123",
+        "language": "sh",
+        "code": "cmake --preset debug\ncmake --build --preset debug --parallel 2\nctest --preset debug\nopen build/bin/Society.app\n# You can also run it directly by specifying the prepared source path.\nbuild/bin/Society.app/Contents/MacOS/Society --container \"/absolute/path/to/container\"\n"
+      },
+      {
+        "block_id": "b000127",
+        "language": "sh",
+        "code": "cmake --preset debug \\\n  -DiiSocietyContainer_DIR=/Volumes/Storage/Workspace/SDK/iiSocietyContainer/build/install/lib/cmake/iiSocietyContainer\n"
+      },
+      {
+        "block_id": "b000149",
+        "language": "sh",
+        "code": "cmake --preset ios-device -DSOCIETY_IOS_TEAM=<development-team-id>\ncmake --build --preset ios-device\n"
+      },
+      {
+        "block_id": "b000163",
+        "language": "sh",
+        "code": "python3 tools/build_android.py --qt <Qt-6.8.3-Android-ABI> --qt-host <Qt-6.8.3-host> \\\n  --sdk <Android-SDK> --ndk <NDK-r27c> --lvrs <same-ABI-LVRS-prefix> --package\n"
+      }
+    ],
+    "links": [
+      {
+        "block_id": "b000003",
+        "label": "shared logical storage",
+        "target": "docs/SharedLogicalStorage.md",
+        "kind": "relative",
+        "line": 7
+      },
+      {
+        "block_id": "b000005",
+        "label": "managed storage",
+        "target": "docs/ManagedStorage.md",
+        "kind": "relative",
+        "line": 12
+      },
+      {
+        "block_id": "b000007",
+        "label": "system drive behavior",
+        "target": "docs/SystemDrive.md",
+        "kind": "relative",
+        "line": 14
+      },
+      {
+        "block_id": "b000007",
+        "label": "Finder setup",
+        "target": "docs/FinderDrive.md",
+        "kind": "relative",
+        "line": 14
+      },
+      {
+        "block_id": "b000009",
+        "label": "Files management documentation",
+        "target": "docs/Files.md",
+        "kind": "relative",
+        "line": 16
+      },
+      {
+        "block_id": "b000011",
+        "label": "app icons documentation",
+        "target": "resources/Appicon/README.md",
+        "kind": "relative",
+        "line": 18
+      },
+      {
+        "block_id": "b000019",
+        "label": "group container",
+        "target": "docs/GroupState.md",
+        "kind": "relative",
+        "line": 26
+      },
+      {
+        "block_id": "b000021",
+        "label": "account connection contract",
+        "target": "docs/Account.md",
+        "kind": "relative",
+        "line": 28
+      },
+      {
+        "block_id": "b000023",
+        "label": "self-hosted web server and NAS",
+        "target": "docs/SelfHosting.md",
+        "kind": "relative",
+        "line": 30
+      },
+      {
+        "block_id": "b000023",
+        "label": "automatic connection contract",
+        "target": "docs/AutomaticPairing.md",
+        "kind": "relative",
+        "line": 30
+      },
+      {
+        "block_id": "b000023",
+        "label": "manual invitation QR procedure",
+        "target": "docs/Pairing.md",
+        "kind": "relative",
+        "line": 30
+      },
+      {
+        "block_id": "b000029",
+        "label": "CloudFiles.md",
+        "target": "docs/CloudFiles.md",
+        "kind": "relative",
+        "line": 40
+      },
+      {
+        "block_id": "b000033",
+        "label": "authentication flow, device identification, and verification scope",
+        "target": "docs/Account.md",
+        "kind": "relative",
+        "line": 46
+      },
+      {
+        "block_id": "b000035",
+        "label": "Figma dashboard",
+        "target": "https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=18-14",
+        "kind": "external",
+        "line": 48
+      },
+      {
+        "block_id": "b000035",
+        "label": "model addition/subtraction merge tool",
+        "target": "docs/ModelMerge.md",
+        "kind": "relative",
+        "line": 48
+      },
+      {
+        "block_id": "b000035",
+        "label": "Overview, Devices, Apps, and four app collections",
+        "target": "docs/Environment.md",
+        "kind": "relative",
+        "line": 48
+      },
+      {
+        "block_id": "b000035",
+        "label": "Dashboard documentation",
+        "target": "docs/Dashboard.md",
+        "kind": "relative",
+        "line": 48
+      },
+      {
+        "block_id": "b000035",
+        "label": "Storage navigation documentation",
+        "target": "docs/StorageNavigation.md",
+        "kind": "relative",
+        "line": 48
+      },
+      {
+        "block_id": "b000035",
+        "label": "connects bidirectionally to the device photo library",
+        "target": "docs/Photos.md",
+        "kind": "relative",
+        "line": 48
+      },
+      {
+        "block_id": "b000043",
+        "label": "SocietyDaemon",
+        "target": "docs/SocietyDaemon.md",
+        "kind": "relative",
+        "line": 56
+      },
+      {
+        "block_id": "b000045",
+        "label": "iOS implementation document",
+        "target": "docs/iOS.md",
+        "kind": "relative",
+        "line": 58
+      },
+      {
+        "block_id": "b000059",
+        "label": "Onboarding behavior and verification",
+        "target": "docs/Onboarding.md",
+        "kind": "relative",
+        "line": 72
+      },
+      {
+        "block_id": "b000061",
+        "label": "SystemDrive.md",
+        "target": "docs/SystemDrive.md",
+        "kind": "relative",
+        "line": 74
+      },
+      {
+        "block_id": "b000077",
+        "label": "Models management document",
+        "target": "docs/Models.md",
+        "kind": "relative",
+        "line": 94
+      },
+      {
+        "block_id": "b000079",
+        "label": "DropArea",
+        "target": "https://doc.qt.io/qt-6.8/qml-qtquick-droparea.html",
+        "kind": "external",
+        "line": 97
+      },
+      {
+        "block_id": "b000079",
+        "label": "copy drop action",
+        "target": "https://doc.qt.io/qt-6.8/qml-qtquick-dragevent.html",
+        "kind": "external",
+        "line": 98
+      },
+      {
+        "block_id": "b000079",
+        "label": "UIDropInteraction",
+        "target": "https://developer.apple.com/documentation/uikit/uidropinteraction",
+        "kind": "external",
+        "line": 99
+      },
+      {
+        "block_id": "b000079",
+        "label": "loadInPlaceFileRepresentation",
+        "target": "https://developer.apple.com/documentation/foundation/nsitemprovider/loadinplacefilerepresentation(fortypeidentifier:completionhandler:)",
+        "kind": "external",
+        "line": 100
+      },
+      {
+        "block_id": "b000085",
+        "label": "model document",
+        "target": "docs/Models.md",
+        "kind": "relative",
+        "line": 106
+      },
+      {
+        "block_id": "b000101",
+        "label": "FolderListModel",
+        "target": "https://doc.qt.io/qt-6.8/qml-qt-labs-folderlistmodel-folderlistmodel.html",
+        "kind": "external",
+        "line": 138
+      },
+      {
+        "block_id": "b000101",
+        "label": "Qt Quick's license notice",
+        "target": "https://doc.qt.io/qt-6.8/qtquick-index.html#licenses-and-attributions",
+        "kind": "external",
+        "line": 139
+      },
+      {
+        "block_id": "b000109",
+        "label": "agent integration",
+        "target": "docs/AgentIntegration.md",
+        "kind": "relative",
+        "line": 160
+      },
+      {
+        "block_id": "b000113",
+        "label": "runtime efficiency",
+        "target": "docs/Performance.md",
+        "kind": "relative",
+        "line": 171
+      },
+      {
+        "block_id": "b000115",
+        "label": "sync document",
+        "target": "docs/Synchronization.md",
+        "kind": "relative",
+        "line": 173
+      },
+      {
+        "block_id": "b000151",
+        "label": "iiSocietyContainer iOS document",
+        "target": "../../SDK/iiSocietyContainer/platform/ios/README.md",
+        "kind": "relative",
+        "line": 240
+      },
+      {
+        "block_id": "b000153",
+        "label": "iOS implementation document",
+        "target": "docs/iOS.md",
+        "kind": "relative",
+        "line": 242
+      },
+      {
+        "block_id": "b000181",
+        "label": "Preferences window",
+        "target": "docs/Preferences.md",
+        "kind": "relative",
+        "line": 274
+      },
+      {
+        "block_id": "b000181",
+        "label": "NetworkDrive .md",
+        "target": "docs/NetworkDrive.md",
+        "kind": "relative",
+        "line": 274
+      },
+      {
+        "block_id": "b000185",
+        "label": "Pairing.md",
+        "target": "docs/Pairing.md",
+        "kind": "relative",
+        "line": 278
+      },
+      {
+        "block_id": "b000187",
+        "label": "synchronization document",
+        "target": "docs/Synchronization.md",
+        "kind": "relative",
+        "line": 280
+      },
+      {
+        "block_id": "b000193",
+        "label": "behavior and verification contract",
+        "target": "docs/iOS.md#live-activity를-통한-동기화-지속",
+        "kind": "relative",
+        "line": 286
+      },
+      {
+        "block_id": "b000199",
+        "label": "AgentIntegration.md",
+        "target": "docs/AgentIntegration.md",
+        "kind": "relative",
+        "line": 292
+      },
+      {
+        "block_id": "b000199",
+        "label": "Mcp.md",
+        "target": "docs/Mcp.md",
+        "kind": "relative",
+        "line": 292
+      },
+      {
+        "block_id": "b000201",
+        "label": "asynchronous execution contract",
+        "target": "docs/Synchronization.md#모바일-시작과-화면-응답성",
+        "kind": "relative",
+        "line": 295
+      },
+      {
+        "block_id": "b000203",
+        "label": "gallery operation and verification",
+        "target": "docs/Gallery.md",
+        "kind": "relative",
+        "line": 297
+      },
+      {
+        "block_id": "b000205",
+        "label": "MobileViews .md",
+        "target": "docs/MobileViews.md",
+        "kind": "relative",
+        "line": 299
+      },
+      {
+        "block_id": "b000215",
+        "label": "Dashboard — iiCalendar",
+        "target": "docs/Dashboard.md#iicalendar-대시보드",
+        "kind": "relative",
+        "line": 310
+      },
+      {
+        "block_id": "b000227",
+        "label": "application lifecycle policy",
+        "target": "docs/ApplicationLifetime.md",
+        "kind": "relative",
+        "line": 322
+      },
+      {
+        "block_id": "b000230",
+        "label": "usage and verification",
+        "target": "docs/ModelPackaging.md",
+        "kind": "relative",
+        "line": 327
+      },
+      {
+        "block_id": "b000239",
+        "label": "AGENT.md",
+        "target": "AGENT.md",
+        "kind": "relative",
+        "line": 337
+      },
+      {
+        "block_id": "b000239",
+        "label": "documentation index",
+        "target": "docs/README.md",
+        "kind": "relative",
+        "line": 338
+      },
+      {
+        "block_id": "b000239",
+        "label": "agent index",
+        "target": "docs/agent-index.json",
+        "kind": "relative",
+        "line": 339
+      }
+    ],
+    "tables": [
+      {
+        "block_id": "b000107",
+        "columns": [
+          "Required capability",
+          "Owning SDK"
+        ],
+        "rows": [
+          [
+            "Account UI and authentication",
+            "iiAccountManager Quick"
+          ],
+          [
+            "Persistent calendar, events and tasks",
+            "iiCalendar"
+          ],
+          [
+            "File creation, temporary leases and native presentation",
+            "iiFileProvider"
+          ],
+          [
+            "Device pairing and authenticated LAN hosting",
+            "iiWebServer"
+          ],
+          [
+            "Native container, previews and system-drive presentation",
+            "iiSocietyContainer Gui"
+          ],
+          [
+            "Shared application presence and file mirror",
+            "iiSocietyHelper 0.9.3 or later"
+          ],
+          [
+            "Bidirectional container replication",
+            "iiSocietyHelper Sync"
+          ],
+          [
+            "Photo library and gallery",
+            "iiPhotoLibrary"
+          ],
+          [
+            "Model packaging and desktop inference hosting",
+            "iiLocalDiffusion ModelPackaging and iiSocietyHelper Generation Host"
+          ],
+          [
+            "Local desktop MCP endpoint and agent harness on supported Unix platforms",
+            "iiMultimodalAgent 0.1 (iiLocalLLM 0.56 inference dependency)"
+          ]
+        ]
+      }
+    ]
+  },
+  "provenance": {
+    "generator": "workspace-docs",
+    "version": "1.0.0",
+    "profile": "lossless-blocks-v1",
+    "derived": true
+  }
+}

@@ -8,7 +8,7 @@
 `PhotosView`를 사용한다. SDK QML 모듈은 앱과 화면 테스트의 `/qt/qml/iiPhotoLibrary`에
 포함하므로 설치 경로를 런타임에 읽을 필요가 없다.
 
-기존 `src/App/Photos/*`와 `SocietyPhotoLibrary.java`는 참조용으로 보존하며 빌드·패키징에서
+기존 `App/Society/Photos/*`와 `SocietyPhotoLibrary.java`는 참조용으로 보존하며 빌드·패키징에서
 제외한다. 사진 기능 변경은 `SDK/iiPhotoLibrary`에서 수행하고 재설치한 뒤 Society를 빌드한다.
 `SOCIETY_DISABLE_PHOTOS=1`은 앱 통합 계층에서 계속 지원한다. SDK 자체 비활성화 변수는
 `IIPHOTOLIBRARY_DISABLE_PHOTOS=1`이다. 저장 형식과 `society.photos` 채널은 바뀌지 않는다.

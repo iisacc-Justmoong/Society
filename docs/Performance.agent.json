@@ -1,0 +1,381 @@
+{
+  "format": "iisacc.agent-document",
+  "schema_version": 1,
+  "document_id": "urn:iisacc:document:b0f5c97f16a6ca6a2b6497301d9283e914983691c69b04772a80ca3c1f2be086",
+  "project": {
+    "id": "urn:iisacc:project:Product%2FSociety",
+    "name": "Society",
+    "root": "Product/Society",
+    "kind": "application"
+  },
+  "source": {
+    "path": "docs/Performance.md",
+    "sha256": "d885e37a5dd6fd768479875fdc19e154c62211deeab3f66226916b9e861f2eb6",
+    "bytes": 6659,
+    "line_count": 110,
+    "encoding": "utf-8",
+    "language": "ko"
+  },
+  "document": {
+    "title": "Runtime efficiency and dependency ownership",
+    "role": "guide",
+    "authority": "markdown_source"
+  },
+  "blocks": [
+    {
+      "id": "b000001",
+      "kind": "heading",
+      "start_line": 1,
+      "end_line": 1,
+      "raw": "# Runtime efficiency and dependency ownership\n",
+      "level": 1,
+      "title": "Runtime efficiency and dependency ownership"
+    },
+    {
+      "id": "b000002",
+      "kind": "blank",
+      "start_line": 2,
+      "end_line": 2,
+      "raw": "\n"
+    },
+    {
+      "id": "b000003",
+      "kind": "paragraph",
+      "start_line": 3,
+      "end_line": 11,
+      "raw": "The application leaves Qt's QML and graphics pipeline cache policy at its\nnormal default. It no longer forces both caches off on every production launch.\nExplicit caller environment overrides remain available for diagnostics. The\npackaged runtime launch and real-peer tests exercise the actual application;\nthe peer fixture disables unrelated native-drive, photo and radio services.\nCompact bundles remove Qt framework `Headers`, `PrivateHeaders` and `Modules`\ndirectories, including version aliases, before signing. Framework binaries,\nruntime resources and license files remain. A real Mach-O fixture still loads\nafter the development files and original SDK binary have been removed.\n"
+    },
+    {
+      "id": "b000004",
+      "kind": "blank",
+      "start_line": 12,
+      "end_line": 12,
+      "raw": "\n"
+    },
+    {
+      "id": "b000005",
+      "kind": "paragraph",
+      "start_line": 13,
+      "end_line": 21,
+      "raw": "Society links the capabilities called by its product code. Document, licensing,\nupdate, voice-over and what's-new SDK compatibility probes do not implement\nproduct features and no longer make those packages direct product requirements.\nThe canvas Core library is owned by the storage/helper dependency graph. The\ngeneration host owns the inference runtime; Society's model tools link the\nseparate model-packaging component.\nUnix 데스크톱 MCP는 iiMultimodalAgent를 링크하며 네이티브 추론 플러그인은\nSDK 런타임 소유의 명시적인 배포 입력으로 유지한다.\n제한된 새로고침 계약과 회귀 검증은 [모델 목록 작업량](ResourceOptimization.md)에 있다.\n"
+    },
+    {
+      "id": "b000006",
+      "kind": "blank",
+      "start_line": 22,
+      "end_line": 22,
+      "raw": "\n"
+    },
+    {
+      "id": "b000007",
+      "kind": "paragraph",
+      "start_line": 23,
+      "end_line": 27,
+      "raw": "`Society.Dependencies` reads the final generated `LINK_LIBRARIES` property,\nincluding platform-specific additions, and rejects these unused direct links.\nIts packaged-process test still verifies real Helper peer observation. Unused\nintegration scaffolds are not compiled into the dependency test. SDKs may retain\ntheir own required transitive dependencies.\n"
+    },
+    {
+      "id": "b000008",
+      "kind": "blank",
+      "start_line": 28,
+      "end_line": 28,
+      "raw": "\n"
+    },
+    {
+      "id": "b000009",
+      "kind": "heading",
+      "start_line": 29,
+      "end_line": 29,
+      "raw": "## Calendar snapshots\n",
+      "level": 2,
+      "title": "Calendar snapshots"
+    },
+    {
+      "id": "b000010",
+      "kind": "blank",
+      "start_line": 30,
+      "end_line": 30,
+      "raw": "\n"
+    },
+    {
+      "id": "b000011",
+      "kind": "paragraph",
+      "start_line": 31,
+      "end_line": 34,
+      "raw": "Month counts precompute each civil day's start/end once. Each scheduled item\nupdates a difference array using two boundary searches; a final pass produces\nthe visible counts. This replaces a complete event scan for every day with\n`O(events * log(days) + days)` work and `O(days)` scratch storage.\n"
+    },
+    {
+      "id": "b000012",
+      "kind": "blank",
+      "start_line": 35,
+      "end_line": 35,
+      "raw": "\n"
+    },
+    {
+      "id": "b000013",
+      "kind": "paragraph",
+      "start_line": 36,
+      "end_line": 40,
+      "raw": "Counts retain the native iiCalendar overlap rules: nonempty events exclude their\nending midnight, point events belong to their containing day, and a skipped civil\nday has no events. The native timezone resolver still supplies boundaries for\n23-hour, 25-hour and skipped days. Event/task details, recurrence, persistent\ncompletion, asynchronous storage epochs and explicit refresh remain unchanged.\n"
+    },
+    {
+      "id": "b000014",
+      "kind": "blank",
+      "start_line": 41,
+      "end_line": 41,
+      "raw": "\n"
+    },
+    {
+      "id": "b000015",
+      "kind": "heading",
+      "start_line": 42,
+      "end_line": 42,
+      "raw": "## Presence and build packages\n",
+      "level": 2,
+      "title": "Presence and build packages"
+    },
+    {
+      "id": "b000016",
+      "kind": "blank",
+      "start_line": 43,
+      "end_line": 43,
+      "raw": "\n"
+    },
+    {
+      "id": "b000017",
+      "kind": "paragraph",
+      "start_line": 44,
+      "end_line": 48,
+      "raw": "Society requires iiSocietyHelper 0.9.3 or later. Its recurring presence and\nautomatic-history work run on native workers instead of committing disk writes\non the application event loop. Use a matching package graph for iiFileProvider,\niiSocietyContainer, iiSharedCanvas, iiWebServer and iiSocietySync. A stale build cache pointing\nat a pre-0.7.1 file provider cannot satisfy the current presentation API.\n"
+    },
+    {
+      "id": "b000018",
+      "kind": "blank",
+      "start_line": 49,
+      "end_line": 49,
+      "raw": "\n"
+    },
+    {
+      "id": "b000019",
+      "kind": "paragraph",
+      "start_line": 50,
+      "end_line": 58,
+      "raw": "The selected package is recorded in `build/CMakeCache.txt`. A product-owned\nHelper installation may be placed in `build/runtime-sdk/iiSocietyHelper`, and the\npresentation-aware iiWebServer in `build/runtime-sdk/iiWebServer`, without\nreplacing shared SDK installations. The ServerHost version alone does not\ndistinguish an old binary built before the presentation filter was introduced.\n`fileProjectionHidesProviderControlFiles` therefore checks the consumed library's\nactual list/stat behavior, retaining public files while rejecting private preview\nand lease files. Build output remains under `build/` and\nthe only application bundle remains `build/bin/Society.app`.\n"
+    },
+    {
+      "id": "b000020",
+      "kind": "blank",
+      "start_line": 59,
+      "end_line": 59,
+      "raw": "\n"
+    },
+    {
+      "id": "b000021",
+      "kind": "heading",
+      "start_line": 60,
+      "end_line": 60,
+      "raw": "## Verification\n",
+      "level": 2,
+      "title": "Verification"
+    },
+    {
+      "id": "b000022",
+      "kind": "blank",
+      "start_line": 61,
+      "end_line": 61,
+      "raw": "\n"
+    },
+    {
+      "id": "b000023",
+      "kind": "fenced_code",
+      "start_line": 62,
+      "end_line": 65,
+      "raw": "```sh\ncmake --build build --target Society SocietyDependencyTests SocietyCalendarTests --parallel 4\nctest --test-dir build -R 'Society\\.(Dependencies|Calendar|Drive|Daemon|ModelMerge|ModelPackaging|NetworkDrive|MacRuntimeLaunch|MacBundleFootprint)' --output-on-failure\n```\n",
+      "language": "sh",
+      "code": "cmake --build build --target Society SocietyDependencyTests SocietyCalendarTests --parallel 4\nctest --test-dir build -R 'Society\\.(Dependencies|Calendar|Drive|Daemon|ModelMerge|ModelPackaging|NetworkDrive|MacRuntimeLaunch|MacBundleFootprint)' --output-on-failure\n",
+      "closed": true
+    },
+    {
+      "id": "b000024",
+      "kind": "blank",
+      "start_line": 66,
+      "end_line": 66,
+      "raw": "\n"
+    },
+    {
+      "id": "b000025",
+      "kind": "paragraph",
+      "start_line": 67,
+      "end_line": 75,
+      "raw": "`monthCountsMatchNativeOverlap` compares all 42 month cells with the native\noverlap implementation for ordinary days, both daylight-saving transitions and\nthe 2011 Pacific/Apia date-line skip. Its fixtures include exact midnights,\npoint events and spans crossing multiple days. Existing tests cover recurrence,\ntasks, persistent completion and stale container results.\nThe overlap fixture concentrates durable writes at grid edges, weekly intervals\nand the transition date plus adjacent days. All 42 results are still compared\nwith the native reference, including empty days, without hundreds of redundant\ndisk commits per dataset.\n"
+    },
+    {
+      "id": "b000026",
+      "kind": "blank",
+      "start_line": 76,
+      "end_line": 76,
+      "raw": "\n"
+    },
+    {
+      "id": "b000027",
+      "kind": "paragraph",
+      "start_line": 77,
+      "end_line": 87,
+      "raw": "Legacy encrypted-state fixtures copy a raw prior-version ciphertext from a\nprivate seed directory. Creating the supposed legacy file through the current\nasset writer could schedule preview companions after its initial inventory was\ncaptured. The migration regression retains byte-for-byte source checks and an\nunchanged source inventory, starting with the single raw legacy record.\nPairing fixtures retain their backing directories until the controllers and\ntheir background indexers have stopped; removing the directory first can race\nan otherwise valid scan during test teardown.\nManual pairing interactions also wait for the sheet's `opened` state. Its\n`onOpened` initialization must finish before selecting Nearby or accepting an\ninvitation, while the verification-code and public-file assertions remain intact.\n"
+    },
+    {
+      "id": "b000028",
+      "kind": "blank",
+      "start_line": 88,
+      "end_line": 88,
+      "raw": "\n"
+    },
+    {
+      "id": "b000029",
+      "kind": "paragraph",
+      "start_line": 89,
+      "end_line": 93,
+      "raw": "Live-process samples and candidate build/test records are separate evidence.\nAn application already running retains its loaded executable and SDKs until its\nnext launch. Source/build results do not claim that a preserved user session has\nadopted the new code, nor that all memory owned by an open document or inference\nmodel is a leak.\n"
+    },
+    {
+      "id": "b000030",
+      "kind": "blank",
+      "start_line": 94,
+      "end_line": 94,
+      "raw": "\n"
+    },
+    {
+      "id": "b000031",
+      "kind": "heading",
+      "start_line": 95,
+      "end_line": 95,
+      "raw": "### Verification record, 2026-10-17\n",
+      "level": 3,
+      "title": "Verification record, 2026-10-17"
+    },
+    {
+      "id": "b000032",
+      "kind": "blank",
+      "start_line": 96,
+      "end_line": 96,
+      "raw": "\n"
+    },
+    {
+      "id": "b000033",
+      "kind": "paragraph",
+      "start_line": 97,
+      "end_line": 102,
+      "raw": "Both source compilation and the canonical bundle deployment completed. The\npackaged native launch, footprint, pairing, daemon, network-drive, dependency\nownership and MCP checks passed. The calendar regression passed after removing\nredundant durable fixture writes, and the encrypted-state migration regression\npassed with its isolated legacy fixture. Reports and logs are in\n`build/optimization-20261017/verification-summary.json`.\n"
+    },
+    {
+      "id": "b000034",
+      "kind": "blank",
+      "start_line": 103,
+      "end_line": 103,
+      "raw": "\n"
+    },
+    {
+      "id": "b000035",
+      "kind": "paragraph",
+      "start_line": 104,
+      "end_line": 110,
+      "raw": "The complete regression run is not fully green. The Drive and QuickGenerate\ngroups still report the mobile search-close assertion in\n`mobileViewsShareDesktopContentAndKeepState`, also recorded in the earlier\nbundle-footprint work. These UI behavior failures are retained in the report;\npassing targeted performance and package checks does not supersede them.\nThe build candidate was not copied over the installed application, and the\nuser's existing application processes were preserved.\n"
+    }
+  ],
+  "outline": [
+    {
+      "block_id": "b000001",
+      "parent_id": null,
+      "level": 1,
+      "title": "Runtime efficiency and dependency ownership",
+      "anchor": "runtime-efficiency-and-dependency-ownership",
+      "start_line": 1
+    },
+    {
+      "block_id": "b000009",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "Calendar snapshots",
+      "anchor": "calendar-snapshots",
+      "start_line": 29
+    },
+    {
+      "block_id": "b000015",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "Presence and build packages",
+      "anchor": "presence-and-build-packages",
+      "start_line": 42
+    },
+    {
+      "block_id": "b000021",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "Verification",
+      "anchor": "verification",
+      "start_line": 60
+    },
+    {
+      "block_id": "b000031",
+      "parent_id": "b000021",
+      "level": 3,
+      "title": "Verification record, 2026-10-17",
+      "anchor": "verification-record-2026-10-17",
+      "start_line": 95
+    }
+  ],
+  "indexes": {
+    "directive_candidates": [
+      {
+        "block_id": "b000005",
+        "line": 14,
+        "text": "update, voice-over and what's-new SDK compatibility probes do not implement",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000007",
+        "line": 27,
+        "text": "their own required transitive dependencies.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000027",
+        "line": 86,
+        "text": "`onOpened` initialization must finish before selecting Nearby or accepting an",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000029",
+        "line": 91,
+        "text": "next launch. Source/build results do not claim that a preserved user session has",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      }
+    ],
+    "commands": [
+      {
+        "block_id": "b000023",
+        "language": "sh",
+        "code": "cmake --build build --target Society SocietyDependencyTests SocietyCalendarTests --parallel 4\nctest --test-dir build -R 'Society\\.(Dependencies|Calendar|Drive|Daemon|ModelMerge|ModelPackaging|NetworkDrive|MacRuntimeLaunch|MacBundleFootprint)' --output-on-failure\n"
+      }
+    ],
+    "links": [
+      {
+        "block_id": "b000005",
+        "label": "모델 목록 작업량",
+        "target": "ResourceOptimization.md",
+        "kind": "relative",
+        "line": 21
+      }
+    ],
+    "tables": []
+  },
+  "provenance": {
+    "generator": "workspace-docs",
+    "version": "1.0.0",
+    "profile": "lossless-blocks-v1",
+    "derived": true
+  }
+}

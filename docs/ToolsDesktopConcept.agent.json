@@ -1,0 +1,656 @@
+{
+  "format": "iisacc.agent-document",
+  "schema_version": 1,
+  "document_id": "urn:iisacc:document:f5b656aac15b33a21fbc7a83883adda939b1d35224bbd86683e9d5af43b9aba1",
+  "project": {
+    "id": "urn:iisacc:project:Product%2FSociety",
+    "name": "Society",
+    "root": "Product/Society",
+    "kind": "application"
+  },
+  "source": {
+    "path": "docs/ToolsDesktopConcept.md",
+    "sha256": "920acadda297aef348b0ccb1afcfcdfa7eb151a22ddcc3d39c944cc05815faeb",
+    "bytes": 6589,
+    "line_count": 67,
+    "encoding": "utf-8",
+    "language": "ko"
+  },
+  "document": {
+    "title": "도구 데스크탑 개념",
+    "role": "guide",
+    "authority": "markdown_source"
+  },
+  "blocks": [
+    {
+      "id": "b000001",
+      "kind": "html",
+      "start_line": 1,
+      "end_line": 1,
+      "raw": "<a id=\"tools-desktop-concept\"></a>\n"
+    },
+    {
+      "id": "b000002",
+      "kind": "blank",
+      "start_line": 2,
+      "end_line": 2,
+      "raw": "\n"
+    },
+    {
+      "id": "b000003",
+      "kind": "heading",
+      "start_line": 3,
+      "end_line": 3,
+      "raw": "# 도구 데스크탑 개념\n",
+      "level": 1,
+      "title": "도구 데스크탑 개념"
+    },
+    {
+      "id": "b000004",
+      "kind": "blank",
+      "start_line": 4,
+      "end_line": 4,
+      "raw": "\n"
+    },
+    {
+      "id": "b000005",
+      "kind": "paragraph",
+      "start_line": 5,
+      "end_line": 5,
+      "raw": "2026-09-18 · Figma 시안 및 기능 제안. 후속 구현은 모델 병합 상세 본문 121:752에 한정한다. 도구 카탈로그의 확장안은 구현 완료를 뜻하지 않는다.\n"
+    },
+    {
+      "id": "b000006",
+      "kind": "blank",
+      "start_line": 6,
+      "end_line": 6,
+      "raw": "\n"
+    },
+    {
+      "id": "b000007",
+      "kind": "heading",
+      "start_line": 7,
+      "end_line": 7,
+      "raw": "## 산출물\n",
+      "level": 2,
+      "title": "산출물"
+    },
+    {
+      "id": "b000008",
+      "kind": "blank",
+      "start_line": 8,
+      "end_line": 8,
+      "raw": "\n"
+    },
+    {
+      "id": "b000009",
+      "kind": "list",
+      "start_line": 9,
+      "end_line": 13,
+      "raw": "- [도구 목록 · 1440 × 900](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=115-454)\n- [Model merge 상세 · 1440 × 900](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=121-728)\n- [설계 설명](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=127-2482)\n- [ToolCard 컴포넌트](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=118-2085)\n- 검토 이미지와 상태 기록: `build/figma-tools-desktop/`\n",
+      "items": [
+        {
+          "marker": "-",
+          "text": "[도구 목록 · 1440 × 900](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=115-454)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "[Model merge 상세 · 1440 × 900](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=121-728)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "[설계 설명](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=127-2482)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "[ToolCard 컴포넌트](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=118-2085)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "검토 이미지와 상태 기록: `build/figma-tools-desktop/`",
+          "checked": null
+        }
+      ]
+    },
+    {
+      "id": "b000010",
+      "kind": "blank",
+      "start_line": 14,
+      "end_line": 14,
+      "raw": "\n"
+    },
+    {
+      "id": "b000011",
+      "kind": "heading",
+      "start_line": 15,
+      "end_line": 15,
+      "raw": "## 제품 방향\n",
+      "level": 2,
+      "title": "제품 방향"
+    },
+    {
+      "id": "b000012",
+      "kind": "blank",
+      "start_line": 16,
+      "end_line": 16,
+      "raw": "\n"
+    },
+    {
+      "id": "b000013",
+      "kind": "paragraph",
+      "start_line": 17,
+      "end_line": 19,
+      "raw": "Society의 자산 보관·준비·전달 역할을 기준으로 도구를 정의한다.\n현재 소스의 Tools 목록에는 Model merge 한 종류가 있다. 나머지 다섯 도구는 이 시안의 확장 제안이다.\n이미지 생성은 Dreamscapes 등의 소비 앱에 두며 Society의 기기 동기화 역할과 구분한다.\n"
+    },
+    {
+      "id": "b000014",
+      "kind": "blank",
+      "start_line": 20,
+      "end_line": 20,
+      "raw": "\n"
+    },
+    {
+      "id": "b000015",
+      "kind": "table",
+      "start_line": 21,
+      "end_line": 28,
+      "raw": "| 도구 | 상태 | 입력과 기능 | 산출물 및 경계 |\n| --- | --- | --- | --- |\n|Model merge| 기존 기능 | Models에서 베이스 체크포인트와 추가 체크포인트·LoRA를 선택한다. Weighted sum / Weighted difference, 자동·공통·개별 가중치를 설정하고 입력을 검사한다. | 명시적으로 입력한 이름의 새 단일 .safetensors. 원본과 기존 출력을 덮어쓰지 않는다. |\n|모델 검사기| 독립 도구 제안 | 모델 구조·형식·메타데이터를 표시하고 대상 모델/앱과의 호환성을 검사한다. 기존 SDK의 검사 기능을 활용할 수 있다. | 호환성 및 준비 상태 보고서. 확인되지 않은 아키텍처는 추정으로 성공 처리하지 않는다. |\n|일괄 이름 변경| 신규 제안 | 선택한 파일에 문자열 치환, 접두·접미사, 연속 번호를 적용하고 변경 전후 이름을 미리 본다. | 사용자가 확인한 이름 변경. 충돌·허용되지 않는 이름을 실행 전에 차단하며 보호된 루트 폴더는 대상에서 제외한다. |\n|자산 내보내기| 신규 제안 | 선택한 이미지의 포맷과 크기를 지정한다. 첫 범위는 이미지로 한정한다. | 원본을 보존하는 별도 출력 파일. 이미지 생성 기능이 아니다. |\n|패키지 빌드| 신규 제안 | 관련 파일을 직접 선택하고 상대 경로와 파일 목록을 유지한 채 전달 묶음을 구성한다. | 파일·매니페스트를 포함한 패키지. 외부 업로드나 자동 게시를 포함하지 않는다. |\n|무결성 검사| 신규 제안 | 로컬 자산의 누락·손상·참조 문제를 검사한다. 신뢰할 수 있는 기준 해시가 있는 경우에만 해시 일치를 판정한다. | 검사 보고서. 자동 삭제·재분류·복구를 수행하지 않는다. 기준 정보가 없으면 확인할 수 없는 항목으로 구분한다. |\n",
+      "columns": [
+        "도구",
+        "상태",
+        "입력과 기능",
+        "산출물 및 경계"
+      ],
+      "rows": [
+        [
+          "Model merge",
+          "기존 기능",
+          "Models에서 베이스 체크포인트와 추가 체크포인트·LoRA를 선택한다. Weighted sum / Weighted difference, 자동·공통·개별 가중치를 설정하고 입력을 검사한다.",
+          "명시적으로 입력한 이름의 새 단일 .safetensors. 원본과 기존 출력을 덮어쓰지 않는다."
+        ],
+        [
+          "모델 검사기",
+          "독립 도구 제안",
+          "모델 구조·형식·메타데이터를 표시하고 대상 모델/앱과의 호환성을 검사한다. 기존 SDK의 검사 기능을 활용할 수 있다.",
+          "호환성 및 준비 상태 보고서. 확인되지 않은 아키텍처는 추정으로 성공 처리하지 않는다."
+        ],
+        [
+          "일괄 이름 변경",
+          "신규 제안",
+          "선택한 파일에 문자열 치환, 접두·접미사, 연속 번호를 적용하고 변경 전후 이름을 미리 본다.",
+          "사용자가 확인한 이름 변경. 충돌·허용되지 않는 이름을 실행 전에 차단하며 보호된 루트 폴더는 대상에서 제외한다."
+        ],
+        [
+          "자산 내보내기",
+          "신규 제안",
+          "선택한 이미지의 포맷과 크기를 지정한다. 첫 범위는 이미지로 한정한다.",
+          "원본을 보존하는 별도 출력 파일. 이미지 생성 기능이 아니다."
+        ],
+        [
+          "패키지 빌드",
+          "신규 제안",
+          "관련 파일을 직접 선택하고 상대 경로와 파일 목록을 유지한 채 전달 묶음을 구성한다.",
+          "파일·매니페스트를 포함한 패키지. 외부 업로드나 자동 게시를 포함하지 않는다."
+        ],
+        [
+          "무결성 검사",
+          "신규 제안",
+          "로컬 자산의 누락·손상·참조 문제를 검사한다. 신뢰할 수 있는 기준 해시가 있는 경우에만 해시 일치를 판정한다.",
+          "검사 보고서. 자동 삭제·재분류·복구를 수행하지 않는다. 기준 정보가 없으면 확인할 수 없는 항목으로 구분한다."
+        ]
+      ]
+    },
+    {
+      "id": "b000016",
+      "kind": "blank",
+      "start_line": 29,
+      "end_line": 29,
+      "raw": "\n"
+    },
+    {
+      "id": "b000017",
+      "kind": "heading",
+      "start_line": 30,
+      "end_line": 30,
+      "raw": "## 화면과 동작\n",
+      "level": 2,
+      "title": "화면과 동작"
+    },
+    {
+      "id": "b000018",
+      "kind": "blank",
+      "start_line": 31,
+      "end_line": 31,
+      "raw": "\n"
+    },
+    {
+      "id": "b000019",
+      "kind": "list",
+      "start_line": 32,
+      "end_line": 42,
+      "raw": "- 기존 창 도구 모음과 Dashboard → Tools → Storage → Browse → Environment 순서를 유지한다.\n- 좌측 탐색은 All tools, Pinned, Models, Files, Packages, Storage, Recent activity, Saved presets로 구성한다.\n- 도구 검색은 이름·설명·범주를 대상으로 한다. 상단 Search Society는 제품 전체 검색이다.\n- 도구 카드는 3열 × 2행이다. 제목, 설명, 범주, 아이콘을 컴포넌트 속성으로 제공한다.\n- Pinned, Saved presets, Recent activity는 공통 기능 제안이다. 실제 기능 구현 여부와 분리한다.\n- Model merge 카드와 상세 화면의 All tools 버튼에 양방향 화면 이동을 연결했다.\n- 상세 화면은 Input models / Merge settings / Output / Input check로 구분한다.\n- 입력은 현재 컨테이너의 Models 목록에서 선택한다. 출력 이름은 필수이며 이름이 입력된 상태를 시안으로 표현했다.\n- 기본 모드는 Weighted sum, 기본 가중치 방식은 Automatic이다. Advanced settings는 지원되는 캐시·실행기 설정을 담을 접힌 진입점이다.\n- 실제 병합 실행 상태는 SDK가 제공하는 상태와 경과 시간을 사용한다. 추정 진행률을 새로 제안하지 않는다.\n- 파일 작업은 사용자가 선택한 자산에 한정한다. 원격 자산의 로컬 준비 상태를 실행 전에 구분한다.\n",
+      "items": [
+        {
+          "marker": "-",
+          "text": "기존 창 도구 모음과 Dashboard → Tools → Storage → Browse → Environment 순서를 유지한다.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "좌측 탐색은 All tools, Pinned, Models, Files, Packages, Storage, Recent activity, Saved presets로 구성한다.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "도구 검색은 이름·설명·범주를 대상으로 한다. 상단 Search Society는 제품 전체 검색이다.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "도구 카드는 3열 × 2행이다. 제목, 설명, 범주, 아이콘을 컴포넌트 속성으로 제공한다.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Pinned, Saved presets, Recent activity는 공통 기능 제안이다. 실제 기능 구현 여부와 분리한다.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Model merge 카드와 상세 화면의 All tools 버튼에 양방향 화면 이동을 연결했다.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "상세 화면은 Input models / Merge settings / Output / Input check로 구분한다.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "입력은 현재 컨테이너의 Models 목록에서 선택한다. 출력 이름은 필수이며 이름이 입력된 상태를 시안으로 표현했다.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "기본 모드는 Weighted sum, 기본 가중치 방식은 Automatic이다. Advanced settings는 지원되는 캐시·실행기 설정을 담을 접힌 진입점이다.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "실제 병합 실행 상태는 SDK가 제공하는 상태와 경과 시간을 사용한다. 추정 진행률을 새로 제안하지 않는다.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "파일 작업은 사용자가 선택한 자산에 한정한다. 원격 자산의 로컬 준비 상태를 실행 전에 구분한다.",
+          "checked": null
+        }
+      ]
+    },
+    {
+      "id": "b000020",
+      "kind": "blank",
+      "start_line": 43,
+      "end_line": 43,
+      "raw": "\n"
+    },
+    {
+      "id": "b000021",
+      "kind": "heading",
+      "start_line": 44,
+      "end_line": 44,
+      "raw": "## 시각 구성\n",
+      "level": 2,
+      "title": "시각 구성"
+    },
+    {
+      "id": "b000022",
+      "kind": "blank",
+      "start_line": 45,
+      "end_line": 45,
+      "raw": "\n"
+    },
+    {
+      "id": "b000023",
+      "kind": "list",
+      "start_line": 46,
+      "end_line": 51,
+      "raw": "- 1440 × 900, 창 도구 모음 56 px, 사이드바 228 px, 본문 좌우 여백 32 px.\n- 372 × 176 도구 카드, 카드 사이 16 px, 본문 영역 사이 24 px.\n- LVRS Card.Model의 표면·테두리, ListItem, PushButton, TextField, LabelSegmentedControl 및 기존 창 컨트롤을 재사용한다.\n- ToolCard의 기본·마우스 올림 2개 상태를 만들고 120 ms 전환을 설정했다.\n- Pretendard 텍스트 스타일과 Society Green #57965C를 사용한다. LVRS 입력 내부 시스템 기호는 기존 글꼴을 유지한다.\n- 모델명, 파일명, 최근 작업 시각·건수와 고정 도구 수는 설명용 데이터이다. 사용자 계정의 실제 활동이 아니다.\n",
+      "items": [
+        {
+          "marker": "-",
+          "text": "1440 × 900, 창 도구 모음 56 px, 사이드바 228 px, 본문 좌우 여백 32 px.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "372 × 176 도구 카드, 카드 사이 16 px, 본문 영역 사이 24 px.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "LVRS Card.Model의 표면·테두리, ListItem, PushButton, TextField, LabelSegmentedControl 및 기존 창 컨트롤을 재사용한다.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "ToolCard의 기본·마우스 올림 2개 상태를 만들고 120 ms 전환을 설정했다.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Pretendard 텍스트 스타일과 Society Green #57965C를 사용한다. LVRS 입력 내부 시스템 기호는 기존 글꼴을 유지한다.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "모델명, 파일명, 최근 작업 시각·건수와 고정 도구 수는 설명용 데이터이다. 사용자 계정의 실제 활동이 아니다.",
+          "checked": null
+        }
+      ]
+    },
+    {
+      "id": "b000024",
+      "kind": "blank",
+      "start_line": 52,
+      "end_line": 52,
+      "raw": "\n"
+    },
+    {
+      "id": "b000025",
+      "kind": "heading",
+      "start_line": 53,
+      "end_line": 53,
+      "raw": "## 확인 근거\n",
+      "level": 2,
+      "title": "확인 근거"
+    },
+    {
+      "id": "b000026",
+      "kind": "blank",
+      "start_line": 54,
+      "end_line": 54,
+      "raw": "\n"
+    },
+    {
+      "id": "b000027",
+      "kind": "paragraph",
+      "start_line": 55,
+      "end_line": 57,
+      "raw": "현행 `docs/Tools.md`, `docs/ModelMerge.md`, `docs/Files.md`, `App/Society/Tools/ToolsView.qml`,\n`App/Society/Tools/ToolCard.qml`, `App/Society/Tools/ModelMergeTool.qml` 및 기존 Figma Storage 화면을 확인했다.\nFigma 디자인에는 현재 소스 계약과 신규 제안을 구분해 기록했다.\n"
+    },
+    {
+      "id": "b000028",
+      "kind": "blank",
+      "start_line": 58,
+      "end_line": 58,
+      "raw": "\n"
+    },
+    {
+      "id": "b000029",
+      "kind": "paragraph",
+      "start_line": 59,
+      "end_line": 61,
+      "raw": "두 화면과 설명 보드의 렌더링을 확인했다. 자동 배치 컨테이너 밖으로 벗어나는 요소는 0개이며,\n도구 카드 6개, 상태 2개, 화면 이동 목적지와 텍스트·아이콘 속성을 읽어 검증했다.\nFigma 프로토타입은 화면 이동 예시이며 실제 모델 처리·검색·파일 작업을 수행하지 않는다.\n"
+    },
+    {
+      "id": "b000030",
+      "kind": "blank",
+      "start_line": 62,
+      "end_line": 62,
+      "raw": "\n"
+    },
+    {
+      "id": "b000031",
+      "kind": "paragraph",
+      "start_line": 63,
+      "end_line": 63,
+      "raw": "최초 시안 제작 단계의 저장소 변경은 이 설계 문서뿐이었다. 해당 단계에는 앱 소스 수정과 빌드·테스트·재설치를 수행하지 않았다. 후속 구현 범위는 다음 절과 같다.\n"
+    },
+    {
+      "id": "b000032",
+      "kind": "blank",
+      "start_line": 64,
+      "end_line": 64,
+      "raw": "\n"
+    },
+    {
+      "id": "b000033",
+      "kind": "heading",
+      "start_line": 65,
+      "end_line": 65,
+      "raw": "## 모델 병합 본문 구현\n",
+      "level": 2,
+      "title": "모델 병합 본문 구현"
+    },
+    {
+      "id": "b000034",
+      "kind": "blank",
+      "start_line": 66,
+      "end_line": 66,
+      "raw": "\n"
+    },
+    {
+      "id": "b000035",
+      "kind": "paragraph",
+      "start_line": 67,
+      "end_line": 67,
+      "raw": "후속 요청으로 121:752의 Model merge 본문을 기존 앱에 적용했다. 입력·설정·출력·검사 패널, 본문 내 All tools, 접힌 고급 설정과 좁은 창 한 열 배치를 제공한다. 기존 SDK 실행과 원본 보존 계약은 유지한다. 도구 카탈로그, 제안한 5개 신규 도구와 사이드바는 구현 범위에 포함하지 않는다. 상세 계약과 검증은 [ModelMerge.md](ModelMerge.md)를 참조한다. 재설치는 수행하지 않는다.\n"
+    }
+  ],
+  "outline": [
+    {
+      "block_id": "b000003",
+      "parent_id": null,
+      "level": 1,
+      "title": "도구 데스크탑 개념",
+      "anchor": "도구-데스크탑-개념",
+      "start_line": 3
+    },
+    {
+      "block_id": "b000007",
+      "parent_id": "b000003",
+      "level": 2,
+      "title": "산출물",
+      "anchor": "산출물",
+      "start_line": 7
+    },
+    {
+      "block_id": "b000011",
+      "parent_id": "b000003",
+      "level": 2,
+      "title": "제품 방향",
+      "anchor": "제품-방향",
+      "start_line": 15
+    },
+    {
+      "block_id": "b000017",
+      "parent_id": "b000003",
+      "level": 2,
+      "title": "화면과 동작",
+      "anchor": "화면과-동작",
+      "start_line": 30
+    },
+    {
+      "block_id": "b000021",
+      "parent_id": "b000003",
+      "level": 2,
+      "title": "시각 구성",
+      "anchor": "시각-구성",
+      "start_line": 44
+    },
+    {
+      "block_id": "b000025",
+      "parent_id": "b000003",
+      "level": 2,
+      "title": "확인 근거",
+      "anchor": "확인-근거",
+      "start_line": 53
+    },
+    {
+      "block_id": "b000033",
+      "parent_id": "b000003",
+      "level": 2,
+      "title": "모델 병합 본문 구현",
+      "anchor": "모델-병합-본문-구현",
+      "start_line": 65
+    }
+  ],
+  "indexes": {
+    "directive_candidates": [
+      {
+        "block_id": "b000005",
+        "line": 5,
+        "text": "2026-09-18 · Figma 시안 및 기능 제안. 후속 구현은 모델 병합 상세 본문 121:752에 한정한다. 도구 카탈로그의 확장안은 구현 완료를 뜻하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000015",
+        "line": 24,
+        "text": "|모델 검사기| 독립 도구 제안 | 모델 구조·형식·메타데이터를 표시하고 대상 모델/앱과의 호환성을 검사한다. 기존 SDK의 검사 기능을 활용할 수 있다. | 호환성 및 준비 상태 보고서. 확인되지 않은 아키텍처는 추정으로 성공 처리하지 않는다. |",
+        "basis": "lexical_match",
+        "context": "table"
+      },
+      {
+        "block_id": "b000015",
+        "line": 27,
+        "text": "|패키지 빌드| 신규 제안 | 관련 파일을 직접 선택하고 상대 경로와 파일 목록을 유지한 채 전달 묶음을 구성한다. | 파일·매니페스트를 포함한 패키지. 외부 업로드나 자동 게시를 포함하지 않는다. |",
+        "basis": "lexical_match",
+        "context": "table"
+      },
+      {
+        "block_id": "b000015",
+        "line": 28,
+        "text": "|무결성 검사| 신규 제안 | 로컬 자산의 누락·손상·참조 문제를 검사한다. 신뢰할 수 있는 기준 해시가 있는 경우에만 해시 일치를 판정한다. | 검사 보고서. 자동 삭제·재분류·복구를 수행하지 않는다. 기준 정보가 없으면 확인할 수 없는 항목으로 구분한다. |",
+        "basis": "lexical_match",
+        "context": "table"
+      },
+      {
+        "block_id": "b000019",
+        "line": 39,
+        "text": "- 입력은 현재 컨테이너의 Models 목록에서 선택한다. 출력 이름은 필수이며 이름이 입력된 상태를 시안으로 표현했다.",
+        "basis": "lexical_match",
+        "context": "list"
+      },
+      {
+        "block_id": "b000019",
+        "line": 41,
+        "text": "- 실제 병합 실행 상태는 SDK가 제공하는 상태와 경과 시간을 사용한다. 추정 진행률을 새로 제안하지 않는다.",
+        "basis": "lexical_match",
+        "context": "list"
+      },
+      {
+        "block_id": "b000029",
+        "line": 61,
+        "text": "Figma 프로토타입은 화면 이동 예시이며 실제 모델 처리·검색·파일 작업을 수행하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000035",
+        "line": 67,
+        "text": "후속 요청으로 121:752의 Model merge 본문을 기존 앱에 적용했다. 입력·설정·출력·검사 패널, 본문 내 All tools, 접힌 고급 설정과 좁은 창 한 열 배치를 제공한다. 기존 SDK 실행과 원본 보존 계약은 유지한다. 도구 카탈로그, 제안한 5개 신규 도구와 사이드바는 구현 범위에 포함하지 않는다. 상세 계약과 검증은 [ModelMerge.md](ModelMerge.md)를 참조한다. 재설치는 수행하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      }
+    ],
+    "commands": [],
+    "links": [
+      {
+        "block_id": "b000009",
+        "label": "도구 목록 · 1440 × 900",
+        "target": "https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=115-454",
+        "kind": "external",
+        "line": 9
+      },
+      {
+        "block_id": "b000009",
+        "label": "Model merge 상세 · 1440 × 900",
+        "target": "https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=121-728",
+        "kind": "external",
+        "line": 10
+      },
+      {
+        "block_id": "b000009",
+        "label": "설계 설명",
+        "target": "https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=127-2482",
+        "kind": "external",
+        "line": 11
+      },
+      {
+        "block_id": "b000009",
+        "label": "ToolCard 컴포넌트",
+        "target": "https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=118-2085",
+        "kind": "external",
+        "line": 12
+      },
+      {
+        "block_id": "b000035",
+        "label": "ModelMerge.md",
+        "target": "ModelMerge.md",
+        "kind": "relative",
+        "line": 67
+      }
+    ],
+    "tables": [
+      {
+        "block_id": "b000015",
+        "columns": [
+          "도구",
+          "상태",
+          "입력과 기능",
+          "산출물 및 경계"
+        ],
+        "rows": [
+          [
+            "Model merge",
+            "기존 기능",
+            "Models에서 베이스 체크포인트와 추가 체크포인트·LoRA를 선택한다. Weighted sum / Weighted difference, 자동·공통·개별 가중치를 설정하고 입력을 검사한다.",
+            "명시적으로 입력한 이름의 새 단일 .safetensors. 원본과 기존 출력을 덮어쓰지 않는다."
+          ],
+          [
+            "모델 검사기",
+            "독립 도구 제안",
+            "모델 구조·형식·메타데이터를 표시하고 대상 모델/앱과의 호환성을 검사한다. 기존 SDK의 검사 기능을 활용할 수 있다.",
+            "호환성 및 준비 상태 보고서. 확인되지 않은 아키텍처는 추정으로 성공 처리하지 않는다."
+          ],
+          [
+            "일괄 이름 변경",
+            "신규 제안",
+            "선택한 파일에 문자열 치환, 접두·접미사, 연속 번호를 적용하고 변경 전후 이름을 미리 본다.",
+            "사용자가 확인한 이름 변경. 충돌·허용되지 않는 이름을 실행 전에 차단하며 보호된 루트 폴더는 대상에서 제외한다."
+          ],
+          [
+            "자산 내보내기",
+            "신규 제안",
+            "선택한 이미지의 포맷과 크기를 지정한다. 첫 범위는 이미지로 한정한다.",
+            "원본을 보존하는 별도 출력 파일. 이미지 생성 기능이 아니다."
+          ],
+          [
+            "패키지 빌드",
+            "신규 제안",
+            "관련 파일을 직접 선택하고 상대 경로와 파일 목록을 유지한 채 전달 묶음을 구성한다.",
+            "파일·매니페스트를 포함한 패키지. 외부 업로드나 자동 게시를 포함하지 않는다."
+          ],
+          [
+            "무결성 검사",
+            "신규 제안",
+            "로컬 자산의 누락·손상·참조 문제를 검사한다. 신뢰할 수 있는 기준 해시가 있는 경우에만 해시 일치를 판정한다.",
+            "검사 보고서. 자동 삭제·재분류·복구를 수행하지 않는다. 기준 정보가 없으면 확인할 수 없는 항목으로 구분한다."
+          ]
+        ]
+      }
+    ]
+  },
+  "provenance": {
+    "generator": "workspace-docs",
+    "version": "1.0.0",
+    "profile": "lossless-blocks-v1",
+    "derived": true
+  }
+}

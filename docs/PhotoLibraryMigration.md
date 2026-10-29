@@ -13,7 +13,7 @@
   패키징은 SDK Java 파일을 복사하고 이전 빌드의 생성된 SocietyPhotoLibrary.java만 제거한다.
 - iOS/Android 빌드 도구와 iOS preset에 타깃 ABI용 iiPhotoLibrary 설치 경로를 추가했다.
 
-기존 `src/App/Photos`의 C++/QML과 원본 `SocietyPhotoLibrary.java`는 수정하지 않고 보존한다.
+기존 `App/Society/Photos`의 C++/QML과 원본 `SocietyPhotoLibrary.java`는 수정하지 않고 보존한다.
 이 파일들은 사진 기능의 현재 빌드·런타임 경로가 아니다. 공용 `App/Gallery`는 파일 갤러리에서도
 사용하므로 Society에 그대로 남긴다. 기존 저장 형식과 인증·동기화 채널은 변경하지 않는다.
 

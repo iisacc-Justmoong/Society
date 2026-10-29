@@ -1,5 +1,5 @@
-#include "App/Files/AppleModelSource.h"
-#include "App/Files/ModelImporter.h"
+#include "Society/Files/AppleModelSource.h"
+#include "Society/Files/ModelImporter.h"
 #include <SocietyDrive.h>
 #include <QDir>
 #include <QFile>

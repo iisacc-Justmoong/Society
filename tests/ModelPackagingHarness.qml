@@ -1,6 +1,6 @@
 import QtQuick
 import LVRS 1.0 as LV
-import "../src/App/Tools"
+import "../App/Society/Tools"
 LV.ApplicationWindow {
     width: 1440
     height: 900

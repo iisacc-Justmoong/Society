@@ -1,4 +1,4 @@
-#include "App/Services/SyncOwnership.h"
+#include "Society/Services/SyncOwnership.h"
 #include <QFile>
 #include <QDir>
 #include <SharedStorage.h>

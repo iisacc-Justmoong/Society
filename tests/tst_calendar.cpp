@@ -1,5 +1,5 @@
-#include "App/Dashboard/DashboardCalendar.h"
-#include "App/Dashboard/CalendarWorkspace.h"
+#include "Society/Dashboard/DashboardCalendar.h"
+#include "Society/Dashboard/CalendarWorkspace.h"
 #include <SocietyDrive.h>
 #include <QDir>
 #include <QFile>

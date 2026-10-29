@@ -15,8 +15,10 @@ update, voice-over and what's-new SDK compatibility probes do not implement
 product features and no longer make those packages direct product requirements.
 The canvas Core library is owned by the storage/helper dependency graph. The
 generation host owns the inference runtime; Society's model tools link the
-separate model-packaging component. The Unix desktop MCP endpoint retains its
-explicit iiLocalLLM dependency.
+separate model-packaging component.
+Unix 데스크톱 MCP는 iiMultimodalAgent를 링크하며 네이티브 추론 플러그인은
+SDK 런타임 소유의 명시적인 배포 입력으로 유지한다.
+제한된 새로고침 계약과 회귀 검증은 [모델 목록 작업량](ResourceOptimization.md)에 있다.
 
 `Society.Dependencies` reads the final generated `LINK_LIBRARIES` property,
 including platform-specific additions, and rejects these unused direct links.

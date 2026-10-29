@@ -1,0 +1,784 @@
+{
+  "format": "iisacc.agent-document",
+  "schema_version": 1,
+  "document_id": "urn:iisacc:document:2ea760654df18cc49c7411d75bd7d89ad8342e64211b3d623260e83b94ef7eea",
+  "project": {
+    "id": "urn:iisacc:project:Product%2FSociety",
+    "name": "Society",
+    "root": "Product/Society",
+    "kind": "application"
+  },
+  "source": {
+    "path": "docs/AutomaticPairing.md",
+    "sha256": "9bb7142bcd617383f43cec51278153583930bde3b3620d5c9ac78607e682d3d4",
+    "bytes": 18729,
+    "line_count": 128,
+    "encoding": "utf-8",
+    "language": "ko"
+  },
+  "document": {
+    "title": "같은 iisacc 계정의 자동 LAN 페어링",
+    "role": "guide",
+    "authority": "markdown_source"
+  },
+  "blocks": [
+    {
+      "id": "b000001",
+      "kind": "quote",
+      "start_line": 1,
+      "end_line": 1,
+      "raw": "> 계정 호스트 정책 ( 2026-09-21 ): 제공된 서버의  `societyContainerDrive.hostDeviceId` 와  `containerId` 가 저장된 미러 바인딩 및 발견 선거보다 우선합니다. 수동  QR 도 상호 계정 증명을 필요로 합니다. 계정 변경은 현재 피어 접근을 취소하며, 승인된 대체 항목은 새 네임스페이스를 받기 전에  `.society-sync/detached/` 에 기존 콘텐츠를 유지합니다. [페어링](Pairing.md)을 참조하세요.\n"
+    },
+    {
+      "id": "b000002",
+      "kind": "blank",
+      "start_line": 2,
+      "end_line": 2,
+      "raw": "\n"
+    },
+    {
+      "id": "b000003",
+      "kind": "heading",
+      "start_line": 3,
+      "end_line": 3,
+      "raw": "# 같은 iisacc 계정의 자동 LAN 페어링\n",
+      "level": 1,
+      "title": "같은 iisacc 계정의 자동 LAN 페어링"
+    },
+    {
+      "id": "b000004",
+      "kind": "blank",
+      "start_line": 4,
+      "end_line": 4,
+      "raw": "\n"
+    },
+    {
+      "id": "b000005",
+      "kind": "heading",
+      "start_line": 5,
+      "end_line": 5,
+      "raw": "## 저장된 호스트 재연결\n",
+      "level": 2,
+      "title": "저장된 호스트 재연결"
+    },
+    {
+      "id": "b000006",
+      "kind": "blank",
+      "start_line": 6,
+      "end_line": 6,
+      "raw": "\n"
+    },
+    {
+      "id": "b000007",
+      "kind": "paragraph",
+      "start_line": 7,
+      "end_line": 20,
+      "raw": "검증된 호스트 ID·컨테이너 ID·계정 scope와 최대 8개의 최근 LAN 주소/포트를\niiSocietyHelper의 암호화된 그룹 상태에 저장한다. 앱 재실행과 전경 복귀에서는\n기존 자격 증명을 복원한 뒤 저장 주소로 새 서명 challenge를 즉시 보내고,\nBonjour/BLE 발견도 병행한다. 호스트 응답은 scope·ID·주소·challenge·5초 수명과\n서명을 확인하며, 이후 기존 TLS 지문·상호 계정 인증 절차는 그대로 수행한다.\n주소는 권한이 아니며 과거 QR이나 연결 nonce를 재사용하지 않는다. 호스트 주소나\n프로세스가 바뀌면 일반 발견으로 복구한다. 빠른 경로는 호스트와 클라이언트의\niiSocietyHelper를 함께 갱신해야 하며, 구버전 호스트는 일반 발견으로 연결된다.\n주소는 인증된 TLS 연결 직후 저장하므로 파일 동기화의 잠금·재시도가 다음\n실행의 재연결 정보를 저장하는 일을 지연시키지 않는다.\n인증된 새 실행 nonce를 받으면 이전 실행을 대상으로 한 초대도 즉시 종료한다.\n이전 연결 시도의 20초 제한 시간이 새 실행의 연결을 막지 않도록 한다.\n새 challenge로 교체가 확인된 이전 nonce는 지연된 Bonjour 응답에서 70초 동안\n무시한다. 최대 128개만 보관하며 새 상호 인증된 resume 증명이 있으면 다시 허용한다.\n"
+    },
+    {
+      "id": "b000008",
+      "kind": "blank",
+      "start_line": 21,
+      "end_line": 21,
+      "raw": "\n"
+    },
+    {
+      "id": "b000009",
+      "kind": "paragraph",
+      "start_line": 22,
+      "end_line": 27,
+      "raw": "완료된 미러와 현재 계정의 등록 호스트·컨테이너가 일치하면 `workspaceReady`로\n저장된 화면을 즉시 사용한다. `hostConnectionReady`는 여전히 실제 연결 및 새\n호스트 검증을 요구하므로 오프라인을 Online으로 표시하지 않는다. 최초 설정,\n로그아웃, 계정/호스트/컨테이너 변경은 완료되지 않은 워크스페이스로 처리한다.\nRetry 버튼은 파일 동기화의 busy 펄스가 아닌 안정된 `reconnecting` 상태를 따른다.\n명시적으로 자동 연결을 중단하면 저장 정보는 보존하되 자동 접속은 중지한다.\n"
+    },
+    {
+      "id": "b000010",
+      "kind": "blank",
+      "start_line": 28,
+      "end_line": 28,
+      "raw": "\n"
+    },
+    {
+      "id": "b000011",
+      "kind": "paragraph",
+      "start_line": 29,
+      "end_line": 43,
+      "raw": "`Society.Pairing::authenticatedFirstLaunchAutomaticallyOpensTheHostContainer`는\n첫 설정 후 연결을 닫고 새 모바일 컨트롤러를 생성하여 오프라인 워크스페이스 복원,\n안정된 재연결 상태, Bonjour 광고 없이 저장 주소를 이용한 실제 TLS 재연결을 검사한다.\n`tests/verify_ios_reconnect.py --device <UDID>`는 실제 앱을 데이터 삭제 없이\n세 번 종료·실행하고 메타데이터만 수집한다. 각 실행의 고유 ID와 프로세스 ID로\n이전 실행의 보고서를 배제한다. 첫 실행에서 주소를 저장한\n뒤 두 번째부터 QML 루트 준비 후 작업 공간 5초·인증된 TLS 연결 10초 이내 복원을\n검사한다. 측정 결과는 `build/reconnect-device/`에 남으며 마지막에는 진단 환경\n변수 없이 정상 앱을 실행한다. 연결된 등록 호스트와 opt-in 런타임 probe 빌드가 필요하다.\n`firstHostReadyMs`는 연결 시간과 별도로 새 호스트 컨테이너 검증 완료를 기록한다.\n파일 동기화가 대기 중이면 이 값과 `hostConnectionReady`가 아직 준비되지 않을 수 있다.\n실측된 로컬 초기화는 부하에 따라 1~3초 이상 걸릴 수 있어 화면 기준은 5초로 둔다.\n더 엄격한 성능 검사는 `--workspace-budget-ms`와 `--connection-budget-ms`로 지정한다.\n기기가 잠겨 실행이 거부되면 검증은 실패로 종료하며 iOS의 오류 사유를 출력한다.\n설치 성공을 재실행 검증 성공으로 간주하지 않는다.\n"
+    },
+    {
+      "id": "b000012",
+      "kind": "blank",
+      "start_line": 44,
+      "end_line": 44,
+      "raw": "\n"
+    },
+    {
+      "id": "b000013",
+      "kind": "paragraph",
+      "start_line": 45,
+      "end_line": 45,
+      "raw": "이 문서는 직접 LAN 연결 경로의 계약이다. Society의 전체 동기화 범위에는 [계정 기반 자체 서버·NAS 호스팅](SelfHosting.md)도 포함된다.\n"
+    },
+    {
+      "id": "b000014",
+      "kind": "blank",
+      "start_line": 46,
+      "end_line": 46,
+      "raw": "\n"
+    },
+    {
+      "id": "b000015",
+      "kind": "paragraph",
+      "start_line": 47,
+      "end_line": 47,
+      "raw": "Society를 같은 계정으로 로그인하고 같은 사설 IPv4 LAN에서 실행하면 검증된 기기를 자동 대기열에 넣고 순서대로 연결한다. 패널 열기, 초대 수락, 수동 코드 비교가 필요하지 않다. 모바일은 전경과 OS가 허용한 백그라운드 실행 시간에 동작하며 Files 호스트가 되지 않는다.\n"
+    },
+    {
+      "id": "b000016",
+      "kind": "blank",
+      "start_line": 48,
+      "end_line": 48,
+      "raw": "\n"
+    },
+    {
+      "id": "b000017",
+      "kind": "paragraph",
+      "start_line": 49,
+      "end_line": 49,
+      "raw": "iiSocietyHelper Sync 0.6부터 발견은 SDK `BleDiscovery`의 BLE 광고/GATT bootstrap과 OS Bonjour/NSD를 함께 사용한다. BLE에는 연결 정보만 전달하고 파일은 인증된 TCP/TLS로 전송한다. Bluetooth 권한 거부나 하드웨어 부재에서도 LAN 발견을 계속한다. `NearbyDevices`는 BLE에서 받은 레코드에도 같은 scope/HMAC/nonce 검증을 적용한다. 새 버전끼리는 바이너리 파일 본문과 최대 4개 동시 조각 요청을 사용한다. [SDK 상세 계약](../../../SDK/iiSocietyHelper/docs/Sync/NearbySync.md)을 참고한다. AP 없는 AWDL/Wi-Fi Direct 그룹 생성과 QUIC는 현재 구현에 포함되지 않는다.\n"
+    },
+    {
+      "id": "b000018",
+      "kind": "blank",
+      "start_line": 50,
+      "end_line": 50,
+      "raw": "\n"
+    },
+    {
+      "id": "b000019",
+      "kind": "heading",
+      "start_line": 51,
+      "end_line": 51,
+      "raw": "## 연결 정책\n",
+      "level": 2,
+      "title": "연결 정책"
+    },
+    {
+      "id": "b000020",
+      "kind": "blank",
+      "start_line": 52,
+      "end_line": 52,
+      "raw": "\n"
+    },
+    {
+      "id": "b000021",
+      "kind": "paragraph",
+      "start_line": 53,
+      "end_line": 53,
+      "raw": "인증된 계정의 `societyContainerDrive.hostDeviceId`와 `containerId`에 등록된 호스트·컨테이너만 연결 대상으로 사용한다. 등록이 없거나 현재 데스크톱의 식별자가 일치하지 않으면 호스트를 자동 선출하지 않는다. 다른 데스크톱, 휴대폰, 태블릿은 등록된 호스트에만 연결한다. 호스트는 한 번에 한 기기를 처리하고, 연결된 ID와 중복 발견은 다시 등록하지 않는다. 대기열은 메모리에만 존재하고 재실행 시 현재 기기로 다시 구성한다.\n"
+    },
+    {
+      "id": "b000022",
+      "kind": "blank",
+      "start_line": 54,
+      "end_line": 54,
+      "raw": "\n"
+    },
+    {
+      "id": "b000023",
+      "kind": "paragraph",
+      "start_line": 55,
+      "end_line": 55,
+      "raw": "최초 미러가 호스트 UUID를 채택하면 비동기 로컬 상태 재검증 중 동일한 등록 호스트와 TLS를 다시 연결할 수 있다. `LanPeer::paired`는 각 인증된 연결 완료를 알리므로 최초 실행 전체의 신호 수와 기기 수는 같지 않을 수 있다. 회귀 검사는 알림에 등장한 고유 기기 ID와 현재 연결된 정확한 두 세션, 각 클라이언트의 호스트 ID·Files 목록·완료된 수신 컨테이너를 함께 확인한다. 준비·재인증 이후 중복 발견을 보냈을 때 새 연결 알림이 추가되지 않는지도 별도로 검사한다. 계정 호스트 준비와 이 재연결 검사를 포함하는 `Society.Pairing` 전체 CTest 상한은 90초이며 개별 연결 시도의 20초 제한은 유지한다.\n"
+    },
+    {
+      "id": "b000024",
+      "kind": "blank",
+      "start_line": 56,
+      "end_line": 56,
+      "raw": "\n"
+    },
+    {
+      "id": "b000025",
+      "kind": "paragraph",
+      "start_line": 57,
+      "end_line": 57,
+      "raw": "각 시도는 최대 20초이다. 실패하면 0.25·0.5·1·2·4초 간격으로 LAN에서 재시도하면서 다른 후보를 진행한다. 이탈한 기기는 대기열에서 지우고 재발견 시 다시 시도한다. 계정 변경·로그아웃·로컬 권한 만료·모바일 백그라운드 실행 시간 만료는 자동 연결과 미완료 작업을 정리한다. 전경 복귀는 유효한 내부 상태를 사용하며 서버 요청을 매번 만들지 않는다.\n"
+    },
+    {
+      "id": "b000026",
+      "kind": "blank",
+      "start_line": 58,
+      "end_line": 58,
+      "raw": "\n"
+    },
+    {
+      "id": "b000027",
+      "kind": "paragraph",
+      "start_line": 59,
+      "end_line": 59,
+      "raw": "**Disconnect**, 명시적인 모드 변경, 수동 QR/초대 시작은 자동 작업을 일시 중지한다. **Resume automatic pairing**으로 재개한다. 패널 닫기는 자동 작업에 영향을 주지 않는다. 상태는 **Queued**, **Connecting…**, **Retrying…**, **Connected**로 표시한다.\n"
+    },
+    {
+      "id": "b000028",
+      "kind": "blank",
+      "start_line": 60,
+      "end_line": 60,
+      "raw": "\n"
+    },
+    {
+      "id": "b000029",
+      "kind": "paragraph",
+      "start_line": 61,
+      "end_line": 61,
+      "raw": "연결 형태는 한 호스트와 여러 클라이언트이다. 계정 증명을 검증하고 연결되면 iiSocietyHelper Sync가 각 기기의 8개 컨테이너 영역을 양방향으로 동기화한다. 모바일도 업로드·다운로드에 참여하되 클라이언트 전용이다. Files 공개 루트는 계속 `Files/`이다. 복제와 같은 기기 내 Helper 협업의 경계는 [Synchronization.md](Synchronization.md)를 따른다.\n"
+    },
+    {
+      "id": "b000030",
+      "kind": "blank",
+      "start_line": 62,
+      "end_line": 62,
+      "raw": "\n"
+    },
+    {
+      "id": "b000031",
+      "kind": "heading",
+      "start_line": 63,
+      "end_line": 63,
+      "raw": "## 인증\n",
+      "level": 2,
+      "title": "인증"
+    },
+    {
+      "id": "b000032",
+      "kind": "blank",
+      "start_line": 64,
+      "end_line": 64,
+      "raw": "\n"
+    },
+    {
+      "id": "b000033",
+      "kind": "paragraph",
+      "start_line": 65,
+      "end_line": 65,
+      "raw": "공개 계정 ID 해시만으로 접근을 허용하지 않는다. `AccountController`는 기존 HTTPS 쿠키 저장소를 사용하여 `/Account/GraphQL`의 `appSession` mutation에 `variables.input.intent: \"pairing\"`을 보낸다. Rails의 `app_pairing`은 활성 세션, 원래 등록된 기기 ID·유형과 `com.iisacc.society` 앱 ID를 검사하고 계정 subject와 서비스 origin에 묶인 LAN 전용 키를 발급한다. 이 키로 iisacc에 로그인할 수는 없다.\n"
+    },
+    {
+      "id": "b000034",
+      "kind": "blank",
+      "start_line": 66,
+      "end_line": 66,
+      "raw": "\n"
+    },
+    {
+      "id": "b000035",
+      "kind": "paragraph",
+      "start_line": 67,
+      "end_line": 67,
+      "raw": "현재 앱은 기기 요청에 `pairingVersion: 2`를 포함한다. 서버는 현재 UTC 날짜부터 최대 7일의 계정·origin 전용 일별 seed를 준비하고, 앱의 `SocietyPairingCredentials`가 해당 날짜 seed에서 5분 구간별 HMAC-SHA-256 키를 직접 계산한다. 기간이 바뀌거나 기기가 늘어날 때 서버에 질의하지 않는다. 새 권한은 여섯 번째 UTC 자정부터 준비하며 기존 권한의 만료까지 계속 LAN을 사용할 수 있다. 발급 세션 만료가 더 빠르면 그 시각까지만 유효하다.\n"
+    },
+    {
+      "id": "b000036",
+      "kind": "blank",
+      "start_line": 68,
+      "end_line": 68,
+      "raw": "\n"
+    },
+    {
+      "id": "b000037",
+      "kind": "paragraph",
+      "start_line": 69,
+      "end_line": 69,
+      "raw": "일별 seed는 `HMAC-SHA256(serverSecret, \"society-auto-pair-day-v2\\n\" + scope + \"\\n\" + UTC day)`이고 구간 키는 `HMAC-SHA256(seed, \"society-auto-pair-key-v2\\n\" + scope + \"\\n\" + five-minute epoch)`이다. 서버 비밀과 로그인 토큰을 앱의 LAN 프로토콜에 넣지 않는다. 공개 subject·이메일·기기 ID만으로 키를 만들지 않는다. 구형 앱에는 같은 계산으로 만든 현재·다음 구간 키를 반환하므로 기존 wire HMAC과 호환된다. 배포 이전 키를 캐시한 앱은 기존 키 갱신까지 최대 10분의 전환 시간이 생길 수 있다.\n"
+    },
+    {
+      "id": "b000038",
+      "kind": "blank",
+      "start_line": 70,
+      "end_line": 70,
+      "raw": "\n"
+    },
+    {
+      "id": "b000039",
+      "kind": "paragraph",
+      "start_line": 71,
+      "end_line": 71,
+      "raw": "seed·연결 기기 이력·자동 연결 설정과 계정 스냅샷은 모바일을 포함한 [그룹 컨테이너](GroupState.md)에 암호화한다. QML 속성·평문 설정·로그·Bonjour TXT·UDP에는 키를 넣지 않는다. 서버에도 새 키 저장소를 추가하지 않는다.\n"
+    },
+    {
+      "id": "b000040",
+      "kind": "blank",
+      "start_line": 72,
+      "end_line": 72,
+      "raw": "\n"
+    },
+    {
+      "id": "b000041",
+      "kind": "paragraph",
+      "start_line": 73,
+      "end_line": 73,
+      "raw": "기존 앱의 짧은 권한이 아직 유효하더라도 업데이트 후에는 로컬 권한으로 한 번 즉시 전환한다. 구형 서버가 짧은 권한만 반환하면 해당 권한의 실제 만료까지 기다리므로 전환 요청이 반복되지 않는다.\n"
+    },
+    {
+      "id": "b000042",
+      "kind": "blank",
+      "start_line": 74,
+      "end_line": 74,
+      "raw": "\n"
+    },
+    {
+      "id": "b000043",
+      "kind": "paragraph",
+      "start_line": 75,
+      "end_line": 75,
+      "raw": "발견 레코드의 ID·이름·역할·실행 nonce와 자동 초대·수락·거절·취소·연결 확인 메시지를 HMAC으로 검증한다. 요청 ID, 양쪽 nonce와 대상 ID를 검사한다. 클라이언트는 인증된 초대의 인증서 지문으로 TLS를 연결하고 해당 연결의 확인 코드를 서명하여 반환한다. 호스트는 자기 연결의 코드와 일치할 때만 `LanPeer::confirmDevice()`를 호출한다. 그 전에는 Files 목록·바이트를 제공하지 않는다. 다른 계정 키, 변조 레코드, 다른 대상, 만료 요청과 이전 실행 nonce는 자동 연결을 허용하지 않는다.\n"
+    },
+    {
+      "id": "b000044",
+      "kind": "blank",
+      "start_line": 76,
+      "end_line": 76,
+      "raw": "\n"
+    },
+    {
+      "id": "b000045",
+      "kind": "paragraph",
+      "start_line": 77,
+      "end_line": 77,
+      "raw": "최초 로그인과 seed 준비에는 서버가 필요하다. 계정 데이터 검증·인증 여부·계정 바인딩과 세션 수명은 iiAccountManager가 전담한다. Society는 SDK의 `authenticated`, `matchesSessionBinding()`, `acceptsSessionCredential()` 결과를 사용한다. 계정 스냅샷은 SDK가 같은 보안 그룹 저장소의 독립 레코드로 저장한다. 페어링 seed가 없거나 만료되어도 유효한 계정 캐시는 HTTP 없이 복원된다.\n"
+    },
+    {
+      "id": "b000046",
+      "kind": "blank",
+      "start_line": 78,
+      "end_line": 78,
+      "raw": "\n"
+    },
+    {
+      "id": "b000047",
+      "kind": "paragraph",
+      "start_line": 79,
+      "end_line": 79,
+      "raw": "로그인/SDK 서버 확인 완료, 페어링 캐시 복원으로 확인된 누락, 실제 권한 만료에만 seed가 필요하면 요청한다. SDK가 보고한 실제 변경과 명시적 새로고침은 실패한 준비를 다시 허용한다. `refreshAt`만 지났거나 앱이 전경으로 돌아왔다는 이유로 갱신하지 않는다. LAN의 5초 발견 갱신·HMAC 회전·페어링 큐·Sync는 계정 HTTP를 생성하지 않는다.\n"
+    },
+    {
+      "id": "b000048",
+      "kind": "blank",
+      "start_line": 80,
+      "end_line": 80,
+      "raw": "\n"
+    },
+    {
+      "id": "b000049",
+      "kind": "paragraph",
+      "start_line": 81,
+      "end_line": 81,
+      "raw": "하루/45분 계정 확인, 6일 seed 선갱신, 15분/1시간/6시간 실패 재시도를 제거했다. 실패한 seed 요청은 그룹 상태의 `requestBlocked`에 저장해 다음 실행에도 새 트리거를 기다린다. 유효한 권한은 일시적 네트워크 실패로 지우지 않고 만료 후에는 자동 연결을 중단한다. 서버의 인증 오류는 SDK에 전달하여 철회 판단과 세션 종료를 일원화한다. 서버에 접속하지 않는 동안 원격 철회를 즉시 알 수 없으며 LAN 권한은 발급된 seed와 SDK 세션의 유효기간까지만 사용한다.\n"
+    },
+    {
+      "id": "b000050",
+      "kind": "blank",
+      "start_line": 82,
+      "end_line": 82,
+      "raw": "\n"
+    },
+    {
+      "id": "b000051",
+      "kind": "paragraph",
+      "start_line": 83,
+      "end_line": 83,
+      "raw": "구형 페어링 캐시의 즉시 업그레이드 회귀 테스트는 서버 요청 수와 저장 형식 변경뿐 아니라 비동기 응답으로 새 자격 증명이 반영될 때까지 기다린다. 캐시 형식 변환은 응답 수신 전에 완료될 수 있으므로 형식 변경 자체를 인증 갱신 완료로 판단하지 않는다.\n"
+    },
+    {
+      "id": "b000052",
+      "kind": "blank",
+      "start_line": 84,
+      "end_line": 84,
+      "raw": "\n"
+    },
+    {
+      "id": "b000053",
+      "kind": "heading",
+      "start_line": 85,
+      "end_line": 85,
+      "raw": "## 구현·의존성·검증\n",
+      "level": 2,
+      "title": "구현·의존성·검증"
+    },
+    {
+      "id": "b000054",
+      "kind": "blank",
+      "start_line": 86,
+      "end_line": 86,
+      "raw": "\n"
+    },
+    {
+      "id": "b000055",
+      "kind": "paragraph",
+      "start_line": 87,
+      "end_line": 87,
+      "raw": "`AutomaticPairing`은 대기열·호스트 선택·재시도를, `NetworkDriveController`는 계정·컨테이너·앱 수명과 인증된 전송의 연결을, `iiSocietyHelper Sync`는 다른 기기의 Society와 Files 전송·컨테이너 복제를, `NearbyDevices`는 발견·서명·초대·연결 확인을 담당한다. `DevicePairing`은 수동 UI를 담당한다.\n"
+    },
+    {
+      "id": "b000056",
+      "kind": "blank",
+      "start_line": 88,
+      "end_line": 88,
+      "raw": "\n"
+    },
+    {
+      "id": "b000057",
+      "kind": "paragraph",
+      "start_line": 89,
+      "end_line": 89,
+      "raw": "기존 Qt 6.8 [QMessageAuthenticationCode](https://doc.qt.io/qt-6.8/qmessageauthenticationcode.html), Ruby [OpenSSL::HMAC](https://ruby-doc.org/3.2.4/exts/openssl/OpenSSL/HMAC.html), OS Bonjour/Android NSD 및 iiWebServer 0.4.1 TLS를 재사용한다. 새 암호 라이브러리·유료 서비스·자체 암호 알고리즘은 추가하지 않으며 기존 유지보수·라이선스 범위를 따른다.\n"
+    },
+    {
+      "id": "b000058",
+      "kind": "blank",
+      "start_line": 90,
+      "end_line": 90,
+      "raw": "\n"
+    },
+    {
+      "id": "b000059",
+      "kind": "paragraph",
+      "start_line": 91,
+      "end_line": 91,
+      "raw": "`Society.Discovery`는 로컬 구간·날짜 변경, 서버의 호환 키와 로컬 seed의 상호 인증, 서로 다른 키, 무서명·변조 레코드와 만료를 검사한다. `Society.Pairing`은 실제 로컬 TLS 다중 연결, 목록·다운로드 바이트, 중복 발견, 패널 종료, 연결 해제·재개, 호스트 선택과 재시도를 검사한다. `Society.Account`는 캐시 복원 후 HTTP 0회, 서버 장애 중 로컬 인증, 반복 발견 시 추가 호출 없음, 구형 권한의 즉시 전환·구형 서버 응답의 중복 억제와 실패 후 새 트리거 대기, 서버 철회 후 캐시 제거를 검사한다. 식별자와 키는 합성 값이며 물리 기기 검증은 별도로 기록한다. 이번 실행·배포 결과는 `build/local-autopairing/REPORT.md`에 기록한다.\n"
+    },
+    {
+      "id": "b000060",
+      "kind": "blank",
+      "start_line": 92,
+      "end_line": 92,
+      "raw": "\n"
+    },
+    {
+      "id": "b000061",
+      "kind": "paragraph",
+      "start_line": 93,
+      "end_line": 93,
+      "raw": "`Society.Account::accountVerifiedPairingAutomaticallySynchronizesContainers`는 합성 계정으로 두 Society가 자동 페어링된 뒤 실제 TLS에서 Models 내려받기와 Files 올리기를 완료하는지 검사한다. 서버 요청은 두 기기의 로그인·seed 준비 총 4회이며 동기화 때문에 증가하지 않는다. 로그인 그룹 상태·Helper 큐는 복제 대상이 아니다.\n"
+    },
+    {
+      "id": "b000062",
+      "kind": "blank",
+      "start_line": 94,
+      "end_line": 94,
+      "raw": "\n"
+    },
+    {
+      "id": "b000063",
+      "kind": "paragraph",
+      "start_line": 95,
+      "end_line": 116,
+      "raw": "The pairing integration fixtures log in through the synthetic account server and\nuse its device/session-bound credentials and registered host/container UUID.\nBoth automatic connections and manual invitations retain that authentication\nboundary. `registeredHostOutranksANewLowerIdDesktop` checks that device ID order\ncannot replace the account's registered host; the multi-device queue also uses\nserver-issued credentials that are two days old and checks that pairing does not\nrequest another grant. File-list assertions expose only the user-populated\n`Files/` section of each `.societycontainer` package. Separate in-memory session\nstores keep these synthetic accounts isolated from the user's login state.\nThe manual selection regression opens the QR-first panel, clicks its visible\nNearby devices tab, and then performs invitation, acceptance and code\nconfirmation through the actual QML buttons.\nThe QR download regression first verifies both authenticated manual connections,\nthe single QR completion notification on each side, and the public Files list.\nIt then ends the optional manual pairing state and resumes normal automatic pairing\non both devices before waiting for the receiver's real container bootstrap and\nregistered host readiness. UUID adoption may reauthenticate that same host;\nthese recovery events must not be counted as additional QR completions.\nThe test verifies the adopted UUID, exactly one current session on each side,\nthe downloaded bytes inside the receiver's Files, and rejection of the consumed\nQR code. It never creates a ready mirror manifest by hand. Runtime workers are\nclosed before either temporary package is removed, including on assertion failure.\n"
+    },
+    {
+      "id": "b000064",
+      "kind": "blank",
+      "start_line": 117,
+      "end_line": 117,
+      "raw": "\n"
+    },
+    {
+      "id": "b000065",
+      "kind": "heading",
+      "start_line": 118,
+      "end_line": 118,
+      "raw": "## 복수 LAN 주소\n",
+      "level": 2,
+      "title": "복수 LAN 주소"
+    },
+    {
+      "id": "b000066",
+      "kind": "blank",
+      "start_line": 119,
+      "end_line": 119,
+      "raw": "\n"
+    },
+    {
+      "id": "b000067",
+      "kind": "paragraph",
+      "start_line": 120,
+      "end_line": 120,
+      "raw": "같은 기기가 여러 인터페이스에서 발견되면 초대 패킷의 발신 주소·포트를 그 기기의 모든 최근 발견 endpoint와 대조한다. 목록 표시용으로 선택한 한 주소와 다르다는 이유로 정상 초대를 버리지 않는다. 발견되지 않은 발신 주소, 계정 증명, 인스턴스 nonce, 초대 수명과 TLS 지문 검사는 유지한다. `Society.Discovery`의 복수 endpoint 검사는 기존 임의 선택 경로에서 실패하고, 수정 경로에서 통과한다. 선택적 `SOCIETY_DISCOVERY_TRACE=1`은 패킷 내용·토큰 대신 송수신 및 거부 단계만 기록한다.\n"
+    },
+    {
+      "id": "b000068",
+      "kind": "blank",
+      "start_line": 121,
+      "end_line": 121,
+      "raw": "\n"
+    },
+    {
+      "id": "b000069",
+      "kind": "paragraph",
+      "start_line": 122,
+      "end_line": 122,
+      "raw": "Apple DNS-SD는 8초의 조회 창에서 여러 DNS 응답의 주소를 모두 수집하고, Linux는 조회된 모든 주소, Android 14 이상은 `getHostAddresses()`의 모든 IPv4 주소를 전달한다. Android 이전 버전은 OS가 제공하는 단일 주소 API를 유지한다. 동일 서비스의 여러 주소를 별도로 보관하며 서비스 이탈은 모든 주소를 정리한다. 프로세스 nonce 또는 포트 변경 시 이전 주소 기록도 제거한다. 진단 모드의 경로 불일치 로그는 사설 IP·포트만 기록한다.\n"
+    },
+    {
+      "id": "b000070",
+      "kind": "blank",
+      "start_line": 123,
+      "end_line": 123,
+      "raw": "\n"
+    },
+    {
+      "id": "b000071",
+      "kind": "heading",
+      "start_line": 124,
+      "end_line": 124,
+      "raw": "## 자동 연결의 기본 화면과 실행 수명\n",
+      "level": 2,
+      "title": "자동 연결의 기본 화면과 실행 수명"
+    },
+    {
+      "id": "b000072",
+      "kind": "blank",
+      "start_line": 125,
+      "end_line": 125,
+      "raw": "\n"
+    },
+    {
+      "id": "b000073",
+      "kind": "paragraph",
+      "start_line": 126,
+      "end_line": 126,
+      "raw": "Devices의 기본 동작은 같은 계정 로그인 후 자동 동기화이며, Sync now는 자동 연결을 재개하고 현재 변경을 즉시 확인한다. 수동 연결은 Connect manually 보조 동작으로 제공한다. 현재와 같은 모드의 재설정은 자동 연결을 멈추지 않는다. 발견 변경·TLS 단계 변경은 이벤트 루프의 다음 차례에 연결 큐를 실행하며, 기존 500ms 타이머는 이벤트 누락과 재시도를 보완한다. 인증·nonce·TLS 검사는 그대로 유지한다.\n"
+    },
+    {
+      "id": "b000074",
+      "kind": "blank",
+      "start_line": 127,
+      "end_line": 127,
+      "raw": "\n"
+    },
+    {
+      "id": "b000075",
+      "kind": "paragraph",
+      "start_line": 128,
+      "end_line": 128,
+      "raw": "데스크톱 GUI와 SocietyDaemon은 하나의 기기 실행 소유권을 공유한다. 창 종료 후 데몬이 계정 캐시와 선택된 컨테이너로 자동 재연결하며, 실행 소유권은 250ms마다 확인한다. 모바일의 UIKit background task와 Android dataSync foreground service는 현재 회차가 끝나거나 허용 시간이 끝날 때 반환한다. 자세한 수명과 제약은 [Synchronization.md](Synchronization.md)를 따른다.\n"
+    }
+  ],
+  "outline": [
+    {
+      "block_id": "b000003",
+      "parent_id": null,
+      "level": 1,
+      "title": "같은 iisacc 계정의 자동 LAN 페어링",
+      "anchor": "같은-iisacc-계정의-자동-lan-페어링",
+      "start_line": 3
+    },
+    {
+      "block_id": "b000005",
+      "parent_id": "b000003",
+      "level": 2,
+      "title": "저장된 호스트 재연결",
+      "anchor": "저장된-호스트-재연결",
+      "start_line": 5
+    },
+    {
+      "block_id": "b000019",
+      "parent_id": "b000003",
+      "level": 2,
+      "title": "연결 정책",
+      "anchor": "연결-정책",
+      "start_line": 51
+    },
+    {
+      "block_id": "b000031",
+      "parent_id": "b000003",
+      "level": 2,
+      "title": "인증",
+      "anchor": "인증",
+      "start_line": 63
+    },
+    {
+      "block_id": "b000053",
+      "parent_id": "b000003",
+      "level": 2,
+      "title": "구현·의존성·검증",
+      "anchor": "구현의존성검증",
+      "start_line": 85
+    },
+    {
+      "block_id": "b000065",
+      "parent_id": "b000003",
+      "level": 2,
+      "title": "복수 LAN 주소",
+      "anchor": "복수-lan-주소",
+      "start_line": 118
+    },
+    {
+      "block_id": "b000071",
+      "parent_id": "b000003",
+      "level": 2,
+      "title": "자동 연결의 기본 화면과 실행 수명",
+      "anchor": "자동-연결의-기본-화면과-실행-수명",
+      "start_line": 124
+    }
+  ],
+  "indexes": {
+    "directive_candidates": [
+      {
+        "block_id": "b000007",
+        "line": 12,
+        "text": "주소는 권한이 아니며 과거 QR이나 연결 nonce를 재사용하지 않는다. 호스트 주소나",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000009",
+        "line": 24,
+        "text": "호스트 검증을 요구하므로 오프라인을 Online으로 표시하지 않는다. 최초 설정,",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000011",
+        "line": 43,
+        "text": "설치 성공을 재실행 검증 성공으로 간주하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000021",
+        "line": 53,
+        "text": "인증된 계정의 `societyContainerDrive.hostDeviceId`와 `containerId`에 등록된 호스트·컨테이너만 연결 대상으로 사용한다. 등록이 없거나 현재 데스크톱의 식별자가 일치하지 않으면 호스트를 자동 선출하지 않는다. 다른 데스크톱, 휴대폰, 태블릿은 등록된 호스트에만 연결한다. 호스트는 한 번에 한 기기를 처리하고, 연결된 ID와 중복 발견은 다시 등록하지 않는다. 대기열은 메모리에만 존재하고 재실행 시 현재 기기로 다시 구성한다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000033",
+        "line": 65,
+        "text": "공개 계정 ID 해시만으로 접근을 허용하지 않는다. `AccountController`는 기존 HTTPS 쿠키 저장소를 사용하여 `/Account/GraphQL`의 `appSession` mutation에 `variables.input.intent: \"pairing\"`을 보낸다. Rails의 `app_pairing`은 활성 세션, 원래 등록된 기기 ID·유형과 `com.iisacc.society` 앱 ID를 검사하고 계정 subject와 서비스 origin에 묶인 LAN 전용 키를 발급한다. 이 키로 iisacc에 로그인할 수는 없다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000035",
+        "line": 67,
+        "text": "현재 앱은 기기 요청에 `pairingVersion: 2`를 포함한다. 서버는 현재 UTC 날짜부터 최대 7일의 계정·origin 전용 일별 seed를 준비하고, 앱의 `SocietyPairingCredentials`가 해당 날짜 seed에서 5분 구간별 HMAC-SHA-256 키를 직접 계산한다. 기간이 바뀌거나 기기가 늘어날 때 서버에 질의하지 않는다. 새 권한은 여섯 번째 UTC 자정부터 준비하며 기존 권한의 만료까지 계속 LAN을 사용할 수 있다. 발급 세션 만료가 더 빠르면 그 시각까지만 유효하다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000039",
+        "line": 71,
+        "text": "seed·연결 기기 이력·자동 연결 설정과 계정 스냅샷은 모바일을 포함한 [그룹 컨테이너](GroupState.md)에 암호화한다. QML 속성·평문 설정·로그·Bonjour TXT·UDP에는 키를 넣지 않는다. 서버에도 새 키 저장소를 추가하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000043",
+        "line": 75,
+        "text": "발견 레코드의 ID·이름·역할·실행 nonce와 자동 초대·수락·거절·취소·연결 확인 메시지를 HMAC으로 검증한다. 요청 ID, 양쪽 nonce와 대상 ID를 검사한다. 클라이언트는 인증된 초대의 인증서 지문으로 TLS를 연결하고 해당 연결의 확인 코드를 서명하여 반환한다. 호스트는 자기 연결의 코드와 일치할 때만 `LanPeer::confirmDevice()`를 호출한다. 그 전에는 Files 목록·바이트를 제공하지 않는다. 다른 계정 키, 변조 레코드, 다른 대상, 만료 요청과 이전 실행 nonce는 자동 연결을 허용하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000047",
+        "line": 79,
+        "text": "로그인/SDK 서버 확인 완료, 페어링 캐시 복원으로 확인된 누락, 실제 권한 만료에만 seed가 필요하면 요청한다. SDK가 보고한 실제 변경과 명시적 새로고침은 실패한 준비를 다시 허용한다. `refreshAt`만 지났거나 앱이 전경으로 돌아왔다는 이유로 갱신하지 않는다. LAN의 5초 발견 갱신·HMAC 회전·페어링 큐·Sync는 계정 HTTP를 생성하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000051",
+        "line": 83,
+        "text": "구형 페어링 캐시의 즉시 업그레이드 회귀 테스트는 서버 요청 수와 저장 형식 변경뿐 아니라 비동기 응답으로 새 자격 증명이 반영될 때까지 기다린다. 캐시 형식 변환은 응답 수신 전에 완료될 수 있으므로 형식 변경 자체를 인증 갱신 완료로 판단하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000061",
+        "line": 93,
+        "text": "`Society.Account::accountVerifiedPairingAutomaticallySynchronizesContainers`는 합성 계정으로 두 Society가 자동 페어링된 뒤 실제 TLS에서 Models 내려받기와 Files 올리기를 완료하는지 검사한다. 서버 요청은 두 기기의 로그인·seed 준비 총 4회이며 동기화 때문에 증가하지 않는다. 로그인 그룹 상태·Helper 큐는 복제 대상이 아니다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000063",
+        "line": 112,
+        "text": "these recovery events must not be counted as additional QR completions.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000063",
+        "line": 115,
+        "text": "QR code. It never creates a ready mirror manifest by hand. Runtime workers are",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      }
+    ],
+    "commands": [],
+    "links": [
+      {
+        "block_id": "b000001",
+        "label": "페어링",
+        "target": "Pairing.md",
+        "kind": "relative",
+        "line": 1
+      },
+      {
+        "block_id": "b000013",
+        "label": "계정 기반 자체 서버·NAS 호스팅",
+        "target": "SelfHosting.md",
+        "kind": "relative",
+        "line": 45
+      },
+      {
+        "block_id": "b000017",
+        "label": "SDK 상세 계약",
+        "target": "../../../SDK/iiSocietyHelper/docs/Sync/NearbySync.md",
+        "kind": "relative",
+        "line": 49
+      },
+      {
+        "block_id": "b000029",
+        "label": "Synchronization.md",
+        "target": "Synchronization.md",
+        "kind": "relative",
+        "line": 61
+      },
+      {
+        "block_id": "b000039",
+        "label": "그룹 컨테이너",
+        "target": "GroupState.md",
+        "kind": "relative",
+        "line": 71
+      },
+      {
+        "block_id": "b000057",
+        "label": "QMessageAuthenticationCode",
+        "target": "https://doc.qt.io/qt-6.8/qmessageauthenticationcode.html",
+        "kind": "external",
+        "line": 89
+      },
+      {
+        "block_id": "b000057",
+        "label": "OpenSSL::HMAC",
+        "target": "https://ruby-doc.org/3.2.4/exts/openssl/OpenSSL/HMAC.html",
+        "kind": "external",
+        "line": 89
+      },
+      {
+        "block_id": "b000075",
+        "label": "Synchronization.md",
+        "target": "Synchronization.md",
+        "kind": "relative",
+        "line": 128
+      }
+    ],
+    "tables": []
+  },
+  "provenance": {
+    "generator": "workspace-docs",
+    "version": "1.0.0",
+    "profile": "lossless-blocks-v1",
+    "derived": true
+  }
+}

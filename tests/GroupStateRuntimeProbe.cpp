@@ -1,9 +1,9 @@
 // Opt-in device validation. Uses one synthetic record and never exports credentials.
-#include "App/State/GroupSessionStore.h"
-#include "App/Account/AccountController.h"
-#include "App/Network/PairingCredentials.h"
-#include "App/Network/NetworkDriveController.h"
-#include "App/Drive/DriveController.h"
+#include "Society/State/GroupSessionStore.h"
+#include "Society/Account/AccountController.h"
+#include "Society/Network/PairingCredentials.h"
+#include "Society/Network/NetworkDriveController.h"
+#include "Society/Drive/DriveController.h"
 #include <QCryptographicHash>
 #include <QDir>
 #include <QGuiApplication>

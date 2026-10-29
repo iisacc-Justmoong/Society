@@ -1,0 +1,8 @@
+cmake_minimum_required(VERSION 3.24)
+project(SocietyIntegrationNames LANGUAGES CXX)
+include(CTest)
+add_executable(SocietyIntegrationNames main.cpp)
+target_compile_features(SocietyIntegrationNames PRIVATE cxx_std_23)
+target_include_directories(SocietyIntegrationNames PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../../App/Society/AI")
+set_target_properties(SocietyIntegrationNames PROPERTIES MACOSX_BUNDLE OFF CXX_EXTENSIONS OFF)
+add_test(NAME Society.IntegrationNames COMMAND SocietyIntegrationNames)

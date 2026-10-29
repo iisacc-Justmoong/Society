@@ -1,11 +1,11 @@
-#include "App/Network/NetworkDriveController.h"
+#include "Society/Network/NetworkDriveController.h"
 #include "AuthenticatedNetworkFixture.h"
 #include "MemorySessionStore.h"
 #include <QCryptographicHash>
-#include "App/Network/DevicePairing.h"
-#include "App/Network/PairingQr.h"
-#include "App/Network/QrScanner.h"
-#include "App/Network/MobileSyncActivity.h"
+#include "Society/Network/DevicePairing.h"
+#include "Society/Network/PairingQr.h"
+#include "Society/Network/QrScanner.h"
+#include "Society/Network/MobileSyncActivity.h"
 #include <QFile>
 #include <QFileInfo>
 #include <QJsonDocument>

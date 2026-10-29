@@ -1,0 +1,386 @@
+{
+  "format": "iisacc.agent-document",
+  "schema_version": 1,
+  "document_id": "urn:iisacc:document:74ef439aa10d32ad87282ead60fec254d341a512b9d51b2da03b5d9dbb62af5c",
+  "project": {
+    "id": "urn:iisacc:project:Product%2FSociety",
+    "name": "Society",
+    "root": "Product/Society",
+    "kind": "application"
+  },
+  "source": {
+    "path": "docs/StorageNavigation.md",
+    "sha256": "7ad63632f1d88efc2cdc47111428d8975f2f2104b0a3a7407d6e71389c96742b",
+    "bytes": 10234,
+    "line_count": 37,
+    "encoding": "utf-8",
+    "language": "ko"
+  },
+  "document": {
+    "title": "Storage 사이드바",
+    "role": "guide",
+    "authority": "markdown_source"
+  },
+  "blocks": [
+    {
+      "id": "b000001",
+      "kind": "heading",
+      "start_line": 1,
+      "end_line": 1,
+      "raw": "# Storage 사이드바\n",
+      "level": 1,
+      "title": "Storage 사이드바"
+    },
+    {
+      "id": "b000002",
+      "kind": "blank",
+      "start_line": 2,
+      "end_line": 2,
+      "raw": "\n"
+    },
+    {
+      "id": "b000003",
+      "kind": "paragraph",
+      "start_line": 3,
+      "end_line": 3,
+      "raw": "[Figma 39:1275](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=39-1275)의 사이드바를 `App/Society/Drive/StorageSidebar.qml`로 구성한다. 기존 LVRS Label·ListItem.Navigation·VStack과 Qt Flickable을 사용하며 추가 외부 의존성은 없다.\n"
+    },
+    {
+      "id": "b000004",
+      "kind": "blank",
+      "start_line": 4,
+      "end_line": 4,
+      "raw": "\n"
+    },
+    {
+      "id": "b000005",
+      "kind": "list",
+      "start_line": 5,
+      "end_line": 9,
+      "raw": "- 폭 228 px, 안쪽 여백 12 px, 항목 폭 204 px, 행 높이 32 px이다. 그룹 내부의 제목·행 사이 간격은 0 px, 그룹 사이 간격은 8 px이다. 그룹 제목은 Caption 11 px, 항목은 Body 13 px, 아이콘 영역은 18 px이다. LVRS ListItem의 상단·하단 패딩은 데스크톱·터치 행 모두 0 px이다. 내부 표시 영역은 행 높이 전체를 사용하며, 아이콘과 텍스트는 수직 중앙에 정렬한다. 패널 배경은 투명하며 기본 LV.ApplicationWindow 표면을 노출한다. 선택 배경은 panelBackground12, 맨 아래 1 px 구분선은 panelBackground08이다.\n- Files는 보라색 Database, Generation History는 profileCPU 시계, Published는 흰색 Application 아이콘을 사용한다. 설치된 LVRS 아이콘의 색상·도형·정규화된 뷰포트가 Figma와 다르므로 해당 세 SVG 원본은 `App/Society/Drive/icons/`에 보관하고 기존 ListItem의 leadingComponent·iconSource로 표시한다. Files 원본은 18 px 슬롯 안에서 `(2.3125, 1.1875)` 위치에 `13.375 × 15.6659` px로 배치하고, Generation History·Published 원본은 `18 × 18` px이다. 다른 항목은 기존 LVRS 아이콘을 유지한다.\n- My storage → Other devices → Guild → Organization 순서이다. My storage의 순서는 Files, Photos, Asset Library, Generation History, Models, Thinking Space, Forked, Published, Deleted이다.\n- Storage 탭은 데스크톱·모바일 모두 바로 Files 최상위 폴더를 연다. 탭 재선택이나 다른 탭에서 돌아올 때도 Files로 이동하며, 기존 Overview 영역 그리드는 제공하지 않는다. 다른 영역은 사이드바·모바일 탐색 시트로 선택한다. Dashboard의 특정 영역·폴더 바로가기는 지정한 목적지를 유지한다. Storage에서 뒤로 이동해 컨테이너 루트에 도달하거나 초기 동기화가 완료되면 Files를 표시한다.\n- 짧은 창과 긴 목록은 사이드바 안에서 세로 스크롤한다. 휠·트랙패드·드래그·스크롤바를 지원하며 키보드로 초점을 이동하면 해당 행을 보이게 한다. 목록 스크롤은 파일·모델 콘텐츠 스크롤과 독립적이다. 760 px 미만 모바일에서는 같은 항목을 탐색 시트로 제공한다.\n",
+      "items": [
+        {
+          "marker": "-",
+          "text": "폭 228 px, 안쪽 여백 12 px, 항목 폭 204 px, 행 높이 32 px이다. 그룹 내부의 제목·행 사이 간격은 0 px, 그룹 사이 간격은 8 px이다. 그룹 제목은 Caption 11 px, 항목은 Body 13 px, 아이콘 영역은 18 px이다. LVRS ListItem의 상단·하단 패딩은 데스크톱·터치 행 모두 0 px이다. 내부 표시 영역은 행 높이 전체를 사용하며, 아이콘과 텍스트는 수직 중앙에 정렬한다. 패널 배경은 투명하며 기본 LV.ApplicationWindow 표면을 노출한다. 선택 배경은 panelBackground12, 맨 아래 1 px 구분선은 panelBackground08이다.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Files는 보라색 Database, Generation History는 profileCPU 시계, Published는 흰색 Application 아이콘을 사용한다. 설치된 LVRS 아이콘의 색상·도형·정규화된 뷰포트가 Figma와 다르므로 해당 세 SVG 원본은 `App/Society/Drive/icons/`에 보관하고 기존 ListItem의 leadingComponent·iconSource로 표시한다. Files 원본은 18 px 슬롯 안에서 `(2.3125, 1.1875)` 위치에 `13.375 × 15.6659` px로 배치하고, Generation History·Published 원본은 `18 × 18` px이다. 다른 항목은 기존 LVRS 아이콘을 유지한다.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "My storage → Other devices → Guild → Organization 순서이다. My storage의 순서는 Files, Photos, Asset Library, Generation History, Models, Thinking Space, Forked, Published, Deleted이다.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Storage 탭은 데스크톱·모바일 모두 바로 Files 최상위 폴더를 연다. 탭 재선택이나 다른 탭에서 돌아올 때도 Files로 이동하며, 기존 Overview 영역 그리드는 제공하지 않는다. 다른 영역은 사이드바·모바일 탐색 시트로 선택한다. Dashboard의 특정 영역·폴더 바로가기는 지정한 목적지를 유지한다. Storage에서 뒤로 이동해 컨테이너 루트에 도달하거나 초기 동기화가 완료되면 Files를 표시한다.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "짧은 창과 긴 목록은 사이드바 안에서 세로 스크롤한다. 휠·트랙패드·드래그·스크롤바를 지원하며 키보드로 초점을 이동하면 해당 행을 보이게 한다. 목록 스크롤은 파일·모델 콘텐츠 스크롤과 독립적이다. 760 px 미만 모바일에서는 같은 항목을 탐색 시트로 제공한다.",
+          "checked": null
+        }
+      ]
+    },
+    {
+      "id": "b000006",
+      "kind": "blank",
+      "start_line": 10,
+      "end_line": 10,
+      "raw": "\n"
+    },
+    {
+      "id": "b000007",
+      "kind": "heading",
+      "start_line": 11,
+      "end_line": 11,
+      "raw": "## 탐색 객체와 실제 데이터\n",
+      "level": 2,
+      "title": "탐색 객체와 실제 데이터"
+    },
+    {
+      "id": "b000008",
+      "kind": "blank",
+      "start_line": 12,
+      "end_line": 12,
+      "raw": "\n"
+    },
+    {
+      "id": "b000009",
+      "kind": "paragraph",
+      "start_line": 13,
+      "end_line": 13,
+      "raw": "`StorageNavigation`은 QML에 노출되는 탐색 객체다. 화면과 공급자 사이에서 표시용 목록을 만들고 `activate(group, id)`를 실제 목록에 있는 식별자로 제한한다. `sections`, `devices`, `guilds`, `organizations`는 `{id, name, icon}` 목록이며, 로컬 영역은 SDK의 영역 키·디렉터리 이름을 사용한다. 선택 상태 `selectedSection`은 현재 디렉터리에 따라 바뀌므로 번역된 표시 이름이나 기기 이름으로 라우팅하지 않는다. Models 하위 폴더에서도 Models 선택을 유지한다.\n"
+    },
+    {
+      "id": "b000010",
+      "kind": "blank",
+      "start_line": 14,
+      "end_line": 14,
+      "raw": "\n"
+    },
+    {
+      "id": "b000011",
+      "kind": "paragraph",
+      "start_line": 15,
+      "end_line": 15,
+      "raw": "Main은 기존 AccountController·NetworkDriveController의 변경 신호를 받아 `replaceDevices(accountId, currentDeviceId, remembered, nearby, hosts)`로 전체 스냅샷을 한 번에 전달한다. 계정과 기기 목록의 개별 QML 바인딩 순서에 의존하지 않는다. `rememberedDevices`에는 해당 계정의 저장된 페어링 이력, `nearbyDevices`에는 검증되거나 이미 연결된 주변 기기, `hosts`에는 현재 Files를 제공하는 인증된 호스트가 들어간다. 기기 ID로 병합하고 현재 기기는 제외한다. 이름 변경은 최신 탐색·연결 정보를 우선하며 같은 이름의 서로 다른 기기는 유지한다. Figma의 데스크톱·휴대폰·태블릿 순서를 따르고 같은 종류는 이름과 ID 순으로 안정적으로 정렬한다. desktop·phone·tablet 아이콘은 Figma가 사용한 LVRS screens·iPhoneDevice·nodesdataColumn이다.\n"
+    },
+    {
+      "id": "b000012",
+      "kind": "blank",
+      "start_line": 16,
+      "end_line": 16,
+      "raw": "\n"
+    },
+    {
+      "id": "b000013",
+      "kind": "paragraph",
+      "start_line": 17,
+      "end_line": 17,
+      "raw": "기기가 LAN에서 사라져도 저장된 이력은 Offline으로 남는다. 화면에 노출하는 기기 이력은 ID·이름·종류 등 기존 페어링 기록이며 계정 인증 정보는 포함하지 않는다. `AccountController.rememberedDevices`는 로그아웃하면 빈 목록이다. 페어링 이력 추가는 전용 `rememberedDevicesChanged` 신호로 알리며, 연결 처리 도중 계정·탐색 갱신을 재진입시키지 않는다. 기기 선택은 기존 NetworkDevices 패널을 해당 기기 이름으로 열고 연결된 호스트이면 Files를 조회한다. 아직 Files를 제공하지 않는 기기는 연결 안내를 표시하며 이전에 열었던 다른 기기의 파일을 표시하지 않는다. 선택한 기기가 다시 호스트 목록에 나타나면 해당 기기를 조회한다. 연결·다운로드·자동 동기화는 기존 객체가 담당한다.\n"
+    },
+    {
+      "id": "b000014",
+      "kind": "blank",
+      "start_line": 18,
+      "end_line": 18,
+      "raw": "\n"
+    },
+    {
+      "id": "b000015",
+      "kind": "paragraph",
+      "start_line": 19,
+      "end_line": 19,
+      "raw": "Guild·Organization 목록은 `replaceMemberships(accountId, guilds, organizations)`로 계정에 속한 전체 `{id, name}` 스냅샷을 받는다. 각각의 ID 영역은 분리하며 빈 ID·이름 및 중복 ID를 제외한다. 계정 전환·로그아웃은 목록을 비우고 이전 계정의 늦은 결과를 거부한다. 동일한 스냅샷은 갱신 신호를 보내지 않아 행과 스크롤을 유지한다. 선택은 `workspaceRequested(kind, id, name)`으로 전달한다.\n"
+    },
+    {
+      "id": "b000016",
+      "kind": "blank",
+      "start_line": 20,
+      "end_line": 20,
+      "raw": "\n"
+    },
+    {
+      "id": "b000017",
+      "kind": "paragraph",
+      "start_line": 21,
+      "end_line": 21,
+      "raw": "현재 계정 SDK에는 Guild·Organization 저장소 멤버십 조회 서비스가 없다. 기본 목록은 비어 있으며 No guilds·No organizations를 표시한다. Figma의 Guild 1 등의 예시 항목은 테스트 데이터에만 사용한다. 저자 프로필의 organization은 저장소 멤버십·접근 권한으로 취급하지 않는다. 별도 공급자가 목록을 제공하더라도 저장소 서비스가 연결되기 전에는 선택한 이름의 안내창을 연다. 멤버십 서버·공유 저장소·접근 권한 정책은 이 UI 변경에 포함되지 않는다.\n"
+    },
+    {
+      "id": "b000018",
+      "kind": "blank",
+      "start_line": 22,
+      "end_line": 22,
+      "raw": "\n"
+    },
+    {
+      "id": "b000019",
+      "kind": "heading",
+      "start_line": 23,
+      "end_line": 23,
+      "raw": "## 검증\n",
+      "level": 2,
+      "title": "검증"
+    },
+    {
+      "id": "b000020",
+      "kind": "blank",
+      "start_line": 24,
+      "end_line": 24,
+      "raw": "\n"
+    },
+    {
+      "id": "b000021",
+      "kind": "paragraph",
+      "start_line": 25,
+      "end_line": 25,
+      "raw": "`SocietyDriveTests storageTabOpensFilesDirectly`는 실제 데스크톱·모바일 탭 클릭, 탭 재선택·왕복, Files 선택 표시, Overview 제거, 특정 영역 바로가기, 루트 복귀와 초기 동기화 완료 후 Files 표시를 검사한다.\n"
+    },
+    {
+      "id": "b000022",
+      "kind": "blank",
+      "start_line": 26,
+      "end_line": 26,
+      "raw": "\n"
+    },
+    {
+      "id": "b000023",
+      "kind": "paragraph",
+      "start_line": 27,
+      "end_line": 27,
+      "raw": "`SocietyDriveTests storageNavigationUsesStableIdentitiesAndAccountScopedMemberships`는 ID 병합·자기 기기 제외·미검증 기기 제외·오프라인 유지·계정 격리·변경 없는 스냅샷·선택 라우팅을 검사한다. `sidebarMatchesFigmaAndRoutesDynamicTargets`는 실제 Main에서 네 그룹의 좌표·크기·아이콘·기기 선택·빈 상태·워크스페이스 선택·짧은 창 스크롤·키보드 초점·모바일 숨김을 확인한다. `SOCIETY_SIDEBAR_SCREENSHOT_PATH`를 설정하면 합성 기기·멤버십을 사용하는 검증 화면을 저장한다. `Society.Account`는 기기 이력의 즉시 알림과 로그아웃 후 빈 목록을 확인한다. `Society.ClientOnlyNetwork`의 `deviceSelectionWaitsForTransfersAndTracksHostAvailability`는 두 테스트 호스트를 사용해 진행 중인 조회 이후 새 기기 선택, 호스트 재연결과 오프라인 기기의 이전 파일 숨김을 확인한다. 기존 Models·Files·동기화 회귀 테스트와 전체 빌드·QML 검사를 함께 실행한다.\n"
+    },
+    {
+      "id": "b000024",
+      "kind": "blank",
+      "start_line": 28,
+      "end_line": 28,
+      "raw": "\n"
+    },
+    {
+      "id": "b000025",
+      "kind": "paragraph",
+      "start_line": 29,
+      "end_line": 29,
+      "raw": "사이드바 회귀 검증은 모든 행의 32 px 높이와 연속 좌표, 18 px 아이콘 슬롯, SVG 로딩 완료 및 Files의 원본 배치 크기도 확인한다. 9개 영역 및 기기·Guild·Organization 행의 상단·하단 패딩이 0 px이고 내부 표시 영역이 행 높이 전체를 사용하며, 아이콘 전체 경계가 실제 `listItem_content`의 클리핑 영역 안에 포함되는지도 검사한다. 터치 모드에서는 9개 영역의 44 px 행에도 같은 패딩·아이콘 조건을 검증한다. 합성 계정·기기 목록이 실제 세션 복원·주변 기기 탐색에 의해 교체되지 않도록 `SOCIETY_DISABLE_SESSION_RESTORE=1`, `SOCIETY_DISABLE_PHOTOS=1`, `IISOCIETYSYNC_DISABLE_BLE=1`을 사용한다. 모바일 클릭 회귀는 CTest와 같은 `QT_QPA_PLATFORM=offscreen`, `QT_QUICK_BACKEND=software`, `QML_DISABLE_DISK_CACHE=1` 환경에서 실행한다.\n"
+    },
+    {
+      "id": "b000026",
+      "kind": "blank",
+      "start_line": 30,
+      "end_line": 30,
+      "raw": "\n"
+    },
+    {
+      "id": "b000027",
+      "kind": "paragraph",
+      "start_line": 31,
+      "end_line": 31,
+      "raw": "Photos의 안정 키는 `photos`이며 `Society.societycontainer/Photos/`로 직접 이동한다. 모바일 탐색 시트에서도 Files와 같은 계층이다.\n"
+    },
+    {
+      "id": "b000028",
+      "kind": "blank",
+      "start_line": 32,
+      "end_line": 32,
+      "raw": "\n"
+    },
+    {
+      "id": "b000029",
+      "kind": "paragraph",
+      "start_line": 33,
+      "end_line": 33,
+      "raw": "9개 My storage 행을 간격 없이 배치하므로 첫 행은 y=23 px, Models는 y=151 px이다. Figma의 예시 목록(기기 3개·Guild 3개·Organization 2개)에서 그룹 제목 y는 12, 319, 434, 549 px이다. 실제 하위 그룹 위치는 동적 항목 수에 따라 달라지며, 짧은 창의 사이드바 스크롤은 유지한다.\n"
+    },
+    {
+      "id": "b000030",
+      "kind": "blank",
+      "start_line": 34,
+      "end_line": 34,
+      "raw": "\n"
+    },
+    {
+      "id": "b000031",
+      "kind": "paragraph",
+      "start_line": 35,
+      "end_line": 35,
+      "raw": "모바일에서도 같은 `StorageNavigation`의 9개 영역·기기·Guild·Organization 항목을 사용한다. 760 px 미만에서는 상단 탐색 버튼으로 여는 LVRS 시트에 같은 `StorageSidebar`를 배치하고, 항목을 탭하면 시트를 닫아 본문을 표시한다. 760 px 이상에서는 사이드바를 유지하며 터치 행 높이는 44 px이다. 데스크톱은 32 px 행과 위의 간격·좌표 기준을 사용한다. Up·breadcrumb 표시줄은 모든 Storage 영역에서 제거한다. 모바일 가져오기·컨테이너 선택·OS 연결은 앱 상단 바의 `Storage actions` 버튼이 여는 시트에서 실행한다. 상세 기준과 검증은 [MobileViews.md](MobileViews.md)에 기록한다.\n"
+    },
+    {
+      "id": "b000032",
+      "kind": "blank",
+      "start_line": 36,
+      "end_line": 36,
+      "raw": "\n"
+    },
+    {
+      "id": "b000033",
+      "kind": "paragraph",
+      "start_line": 37,
+      "end_line": 37,
+      "raw": "Storage 본문 아래에는 고정 공통 푸터를 배치하지 않는다. 공통 모델 가져오기 줄, 시스템 연결 상태, 섹션 수, Reconnect·Open in Finder 버튼과 구분선을 제거하여 각 영역의 콘텐츠가 화면 하단까지 사용한다. 모델 가져오기·진행 상태·취소는 Models 화면 자체의 UI에서 제공하며, 창으로의 모델 드롭과 모바일 Storage actions 시트도 유지한다. 저장소 오류는 오류가 있을 때만 표시한다. `Society.Drive`는 공통 푸터 객체의 부재와 데스크톱 창 크기별 콘텐츠 하단 정렬을 실제 QML 화면에서 검증한다.\n"
+    }
+  ],
+  "outline": [
+    {
+      "block_id": "b000001",
+      "parent_id": null,
+      "level": 1,
+      "title": "Storage 사이드바",
+      "anchor": "storage-사이드바",
+      "start_line": 1
+    },
+    {
+      "block_id": "b000007",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "탐색 객체와 실제 데이터",
+      "anchor": "탐색-객체와-실제-데이터",
+      "start_line": 11
+    },
+    {
+      "block_id": "b000019",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "검증",
+      "anchor": "검증",
+      "start_line": 23
+    }
+  ],
+  "indexes": {
+    "directive_candidates": [
+      {
+        "block_id": "b000005",
+        "line": 8,
+        "text": "- Storage 탭은 데스크톱·모바일 모두 바로 Files 최상위 폴더를 연다. 탭 재선택이나 다른 탭에서 돌아올 때도 Files로 이동하며, 기존 Overview 영역 그리드는 제공하지 않는다. 다른 영역은 사이드바·모바일 탐색 시트로 선택한다. Dashboard의 특정 영역·폴더 바로가기는 지정한 목적지를 유지한다. Storage에서 뒤로 이동해 컨테이너 루트에 도달하거나 초기 동기화가 완료되면 Files를 표시한다.",
+        "basis": "lexical_match",
+        "context": "list"
+      },
+      {
+        "block_id": "b000009",
+        "line": 13,
+        "text": "`StorageNavigation`은 QML에 노출되는 탐색 객체다. 화면과 공급자 사이에서 표시용 목록을 만들고 `activate(group, id)`를 실제 목록에 있는 식별자로 제한한다. `sections`, `devices`, `guilds`, `organizations`는 `{id, name, icon}` 목록이며, 로컬 영역은 SDK의 영역 키·디렉터리 이름을 사용한다. 선택 상태 `selectedSection`은 현재 디렉터리에 따라 바뀌므로 번역된 표시 이름이나 기기 이름으로 라우팅하지 않는다. Models 하위 폴더에서도 Models 선택을 유지한다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000011",
+        "line": 15,
+        "text": "Main은 기존 AccountController·NetworkDriveController의 변경 신호를 받아 `replaceDevices(accountId, currentDeviceId, remembered, nearby, hosts)`로 전체 스냅샷을 한 번에 전달한다. 계정과 기기 목록의 개별 QML 바인딩 순서에 의존하지 않는다. `rememberedDevices`에는 해당 계정의 저장된 페어링 이력, `nearbyDevices`에는 검증되거나 이미 연결된 주변 기기, `hosts`에는 현재 Files를 제공하는 인증된 호스트가 들어간다. 기기 ID로 병합하고 현재 기기는 제외한다. 이름 변경은 최신 탐색·연결 정보를 우선하며 같은 이름의 서로 다른 기기는 유지한다. Figma의 데스크톱·휴대폰·태블릿 순서를 따르고 같은 종류는 이름과 ID 순으로 안정적으로 정렬한다. desktop·phone·tablet 아이콘은 Figma가 사용한 LVRS screens·iPhoneDevice·nodesdataColumn이다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000013",
+        "line": 17,
+        "text": "기기가 LAN에서 사라져도 저장된 이력은 Offline으로 남는다. 화면에 노출하는 기기 이력은 ID·이름·종류 등 기존 페어링 기록이며 계정 인증 정보는 포함하지 않는다. `AccountController.rememberedDevices`는 로그아웃하면 빈 목록이다. 페어링 이력 추가는 전용 `rememberedDevicesChanged` 신호로 알리며, 연결 처리 도중 계정·탐색 갱신을 재진입시키지 않는다. 기기 선택은 기존 NetworkDevices 패널을 해당 기기 이름으로 열고 연결된 호스트이면 Files를 조회한다. 아직 Files를 제공하지 않는 기기는 연결 안내를 표시하며 이전에 열었던 다른 기기의 파일을 표시하지 않는다. 선택한 기기가 다시 호스트 목록에 나타나면 해당 기기를 조회한다. 연결·다운로드·자동 동기화는 기존 객체가 담당한다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000017",
+        "line": 21,
+        "text": "현재 계정 SDK에는 Guild·Organization 저장소 멤버십 조회 서비스가 없다. 기본 목록은 비어 있으며 No guilds·No organizations를 표시한다. Figma의 Guild 1 등의 예시 항목은 테스트 데이터에만 사용한다. 저자 프로필의 organization은 저장소 멤버십·접근 권한으로 취급하지 않는다. 별도 공급자가 목록을 제공하더라도 저장소 서비스가 연결되기 전에는 선택한 이름의 안내창을 연다. 멤버십 서버·공유 저장소·접근 권한 정책은 이 UI 변경에 포함되지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000033",
+        "line": 37,
+        "text": "Storage 본문 아래에는 고정 공통 푸터를 배치하지 않는다. 공통 모델 가져오기 줄, 시스템 연결 상태, 섹션 수, Reconnect·Open in Finder 버튼과 구분선을 제거하여 각 영역의 콘텐츠가 화면 하단까지 사용한다. 모델 가져오기·진행 상태·취소는 Models 화면 자체의 UI에서 제공하며, 창으로의 모델 드롭과 모바일 Storage actions 시트도 유지한다. 저장소 오류는 오류가 있을 때만 표시한다. `Society.Drive`는 공통 푸터 객체의 부재와 데스크톱 창 크기별 콘텐츠 하단 정렬을 실제 QML 화면에서 검증한다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      }
+    ],
+    "commands": [],
+    "links": [
+      {
+        "block_id": "b000003",
+        "label": "Figma 39:1275",
+        "target": "https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=39-1275",
+        "kind": "external",
+        "line": 3
+      },
+      {
+        "block_id": "b000031",
+        "label": "MobileViews.md",
+        "target": "MobileViews.md",
+        "kind": "relative",
+        "line": 35
+      }
+    ],
+    "tables": []
+  },
+  "provenance": {
+    "generator": "workspace-docs",
+    "version": "1.0.0",
+    "profile": "lossless-blocks-v1",
+    "derived": true
+  }
+}

@@ -83,11 +83,12 @@ private slots:
         QFile file(QString::fromUtf8(SOCIETY_DIRECT_LINKS_FILE));
         QVERIFY(file.open(QIODevice::ReadOnly));
         const auto links = QString::fromUtf8(file.readAll()).split('\n', Qt::SkipEmptyParts);
+        QCOMPARE(links.count(QStringLiteral("iiPhotoLibrary::iiPhotoLibrary")), 1);
 #ifdef SOCIETY_TEST_WITH_LOCAL_MCP
         QVERIFY(links.contains(QStringLiteral("iiMultimodalAgent::iiMultimodalAgent")));
         QVERIFY(!links.contains(QStringLiteral("iiLocalLLM::iiLocalLLM")));
 #endif
-        for (const auto *target : {"iiAcountManager::Quick", "iiCalendar::iiCalendar",
+        for (const auto *target : {"iiAccountManager::Quick", "iiCalendar::iiCalendar",
                 "iiPhotoLibrary::iiPhotoLibrary", "iiSocietyContainer::Gui",
                 "iiSocietyHelper::iiSocietyHelper",
                 "iiFileProvider::Native", "SocietyModelPackaging"})

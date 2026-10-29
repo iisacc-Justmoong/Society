@@ -1,0 +1,561 @@
+{
+  "format": "iisacc.agent-document",
+  "schema_version": 1,
+  "document_id": "urn:iisacc:document:039f84436bde30fd87d3e8ab48bc29c1a3353aa69946f701aa21f86aaec0d663",
+  "project": {
+    "id": "urn:iisacc:project:Product%2FSociety",
+    "name": "Society",
+    "root": "Product/Society",
+    "kind": "application"
+  },
+  "source": {
+    "path": "docs/ResourceOptimization.md",
+    "sha256": "328c5697486776d8c5b99ecd609bd631d40cda17856a7b83cb96603e7418ada1",
+    "bytes": 10410,
+    "line_count": 143,
+    "encoding": "utf-8",
+    "language": "ko"
+  },
+  "document": {
+    "title": "모듈 의존성과 모델 목록 작업량",
+    "role": "guide",
+    "authority": "markdown_source"
+  },
+  "blocks": [
+    {
+      "id": "b000001",
+      "kind": "heading",
+      "start_line": 1,
+      "end_line": 1,
+      "raw": "# 모듈 의존성과 모델 목록 작업량\n",
+      "level": 1,
+      "title": "모듈 의존성과 모델 목록 작업량"
+    },
+    {
+      "id": "b000002",
+      "kind": "blank",
+      "start_line": 2,
+      "end_line": 2,
+      "raw": "\n"
+    },
+    {
+      "id": "b000003",
+      "kind": "heading",
+      "start_line": 3,
+      "end_line": 3,
+      "raw": "## 의존성 소유권\n",
+      "level": 2,
+      "title": "의존성 소유권"
+    },
+    {
+      "id": "b000004",
+      "kind": "blank",
+      "start_line": 4,
+      "end_line": 4,
+      "raw": "\n"
+    },
+    {
+      "id": "b000005",
+      "kind": "paragraph",
+      "start_line": 5,
+      "end_line": 18,
+      "raw": "Society의 MCP 도구는 `iiMultimodalAgent`의 도구·질문·로컬 서버 인터페이스를\n호출한다. 앱은 해당 연결 때문에 `iiLocalLLM`, `NativeImages`, 전체\n`iiLocalDiffusion` 런타임을 직접 링크하지 않는다. 추론은 GenerationHost와\nSDK가 소유하고 모델 패키징 기능은 별도 ModelPackaging 컴포넌트를 사용한다.\nSDK가 실제 사용하는 전이 의존성과 모델 생성 기능은 유지한다.\n동기화 수명을 담당하는 SocietyDiscovery는 GenerationHost를 공개 링크하지\n않는다. 추론 호스트는 실제 NetworkDriveController의 데스크톱 호스트 구현을\n컴파일하는 앱·데몬·통합 검사에서만 직접 링크한다. 클라이언트 전용 구성은\n호스트 멤버·호출도 컴파일하지 않는다. 관련 없는 Discovery 실행 파일에\niiLocalDiffusion이 들어오던 경로와 클라이언트의 불필요한 호스트 생성을 제거한다.\n`NativeImages`·`iiLocalLLM` 등의 macOS 런타임 탐색 입력은 직접 링크와\n구분한다. 동적 이미지 플러그인은 실제 배포 입력이므로 제거하지 않는다.\nSDK 목록과 앱 링크 양쪽에 있던 iiPhotoLibrary의 중복 직접 참조는 하나로\n통합한다. 최종 생성 링크 목록에서 정확히 한 번 선언되는지 검사한다.\n"
+    },
+    {
+      "id": "b000006",
+      "kind": "blank",
+      "start_line": 19,
+      "end_line": 19,
+      "raw": "\n"
+    },
+    {
+      "id": "b000007",
+      "kind": "paragraph",
+      "start_line": 20,
+      "end_line": 24,
+      "raw": "현재 Helper와 같은 iiSharedCanvas 0.32.0을 사용한다. 이름 변경 이전의\n`iiAcountManager`를 요구하는 오래된 빌드 캐시를 재사용하지 않는다. 앱 버전과\n패키지·ABI 선택은 별개의 값이며 SDK 전역 설치를 덮어쓰지 않는다.\n배포기는 선택한 Core 바이너리를 명시적인 탐색 입력으로 받아, 이전 번들의\n0.31 계열 라이브러리를 새 0.32 의존성의 대체물로 사용하지 않는다.\n"
+    },
+    {
+      "id": "b000008",
+      "kind": "blank",
+      "start_line": 25,
+      "end_line": 25,
+      "raw": "\n"
+    },
+    {
+      "id": "b000009",
+      "kind": "paragraph",
+      "start_line": 26,
+      "end_line": 34,
+      "raw": "`LIBRARY_PATH` 때문에 SDK 디렉터리가 CMake의 암묵적 링크 경로가 되면\n자동 실행 경로가 생략될 수 있다. 설치 패키지의 호환성 파사드만 실행 경로를\n전파하는 경우에도 Core 소비자가 독립적으로 실행되도록, Society 연결부는\nCore의 실제 라이브러리 디렉터리를 해당 컴포넌트의 링크 옵션으로 전달한다.\n하위 컴포넌트에 GUI·파사드 링크를 추가하거나 전역 DYLD 설정으로 가리지 않는다.\n`Society.ComponentRuntimeBoundary`는 Mach-O 실행 경로와 실제 헤드리스\n프로세스 시작을 loader 환경 변수 없이 확인한다.\n이 검사와 `Society.ClientRuntimeBoundary`는 추론 라이브러리가 직접 링크되지\n않는지도 확인한다. 실제 호스트의 작업 처리는 기존 NetworkDrive 회귀가 담당한다.\n"
+    },
+    {
+      "id": "b000010",
+      "kind": "blank",
+      "start_line": 35,
+      "end_line": 35,
+      "raw": "\n"
+    },
+    {
+      "id": "b000011",
+      "kind": "heading",
+      "start_line": 36,
+      "end_line": 36,
+      "raw": "## 선택적 ONNX 런타임의 시작 경계\n",
+      "level": 2,
+      "title": "선택적 ONNX 런타임의 시작 경계"
+    },
+    {
+      "id": "b000012",
+      "kind": "blank",
+      "start_line": 37,
+      "end_line": 37,
+      "raw": "\n"
+    },
+    {
+      "id": "b000013",
+      "kind": "paragraph",
+      "start_line": 38,
+      "end_line": 41,
+      "raw": "Pose와 iiDecision의 ONNX·Laya 추론은 `iiOnnxRuntime`을 통해 최초 명시적\n요청에 백엔드를 로딩한다. 기능 가용성 조회와 GUI·데몬 상태 확인은 실제\nONNX 공유 라이브러리를 초기화하지 않는다. 공통 로더는 모델이나 작업\n스케줄러를 소유하지 않으며, Pose와 의사결정 API의 기존 결과 계약을 유지한다.\n"
+    },
+    {
+      "id": "b000014",
+      "kind": "blank",
+      "start_line": 42,
+      "end_line": 42,
+      "raw": "\n"
+    },
+    {
+      "id": "b000015",
+      "kind": "paragraph",
+      "start_line": 43,
+      "end_line": 49,
+      "raw": "macOS 배포는 `iiOnnxRuntime_RUNTIME_LIBRARIES`를 명시적인 runtime plugin\n입력으로 전달한다. 따라서 강한 링크가 없어도 선택적 백엔드와 그 의존성을\n포함·서명하고, compact 정리가 이 파일을 삭제하지 않는다. 이전 번들의\n사용하지 않는 ONNX 버전은 기존 의존성 정리 규칙으로 제외한다.\n`verify_macos_runtime.py`는 개발 로더 경로를 제거한 상태·부트스트랩 검사에서\nSDK가 선언한 선택적 ONNX 백엔드가 이미 로딩되어 있으면 실패한다. SDK의 별도 실제 추론·설치 위치\n변경 검사는 첫 사용 이후의 기능을 확인하며, 이 시작 검사를 대신하지 않는다.\n"
+    },
+    {
+      "id": "b000016",
+      "kind": "blank",
+      "start_line": 50,
+      "end_line": 50,
+      "raw": "\n"
+    },
+    {
+      "id": "b000017",
+      "kind": "paragraph",
+      "start_line": 51,
+      "end_line": 54,
+      "raw": "음성 합성용 Piper는 별도의 ONNX 1.22를 실제 사용한다. 이 런타임은 음성\n기능의 의존성으로 보존하며, Pose·의사결정용 지연 백엔드의 파일 이름을 SDK\n메타데이터에서 검증기에 명시적으로 전달한다. 같은 접두사를 가진 다른 런타임을\n지연 백엔드로 오인하여 삭제하거나 검증을 실패시키지 않는다.\n"
+    },
+    {
+      "id": "b000018",
+      "kind": "blank",
+      "start_line": 55,
+      "end_line": 55,
+      "raw": "\n"
+    },
+    {
+      "id": "b000019",
+      "kind": "heading",
+      "start_line": 56,
+      "end_line": 56,
+      "raw": "## macOS 서비스 상태 조회\n",
+      "level": 2,
+      "title": "macOS 서비스 상태 조회"
+    },
+    {
+      "id": "b000020",
+      "kind": "blank",
+      "start_line": 57,
+      "end_line": 57,
+      "raw": "\n"
+    },
+    {
+      "id": "b000021",
+      "kind": "paragraph",
+      "start_line": 58,
+      "end_line": 62,
+      "raw": "실제 서비스 상태 검사에서 `SMAppService.status`의 ServiceManagement XPC 응답을\n기다리는 스택을 확인했다. GUI의 기존 서비스 등록 경로는 이미 활성화된 서비스도\n같은 호출 안에서 상태를 세 번 조회했다. 서비스별 최초 상태를 한 번 읽고, 실제\n등록·해제 요청을 보낸 경우에만 결과 상태를 다시 읽는다. 이미 활성화된 두 서비스를\n확인하는 경로는 여섯 번에서 두 번의 조회로 줄어든다.\n"
+    },
+    {
+      "id": "b000022",
+      "kind": "blank",
+      "start_line": 63,
+      "end_line": 63,
+      "raw": "\n"
+    },
+    {
+      "id": "b000023",
+      "kind": "paragraph",
+      "start_line": 64,
+      "end_line": 69,
+      "raw": "상태 문자열·성공 여부·오류·서비스 이름과 등록·해제 동작을 유지한다. `status`\n명령은 실제 OS 상태를 한 번 조회하므로 OS 서비스 응답 지연은 별도 경계이다.\n동일 호출의 상태 재사용을 프로세스 간 캐시나 오래된 상태의 반환으로 확장하지\n않는다. `Society.ServiceRegistrationPolicy`는 OS 접근 없이 96개 상태·명령·실패\n조합의 결과, 변경 호출 횟수와 상태 조회 한도를 확인한다. 이 검사에서 로그인\n서비스를 등록·해제하거나 실제 데몬을 종료하지 않는다.\n"
+    },
+    {
+      "id": "b000024",
+      "kind": "blank",
+      "start_line": 70,
+      "end_line": 70,
+      "raw": "\n"
+    },
+    {
+      "id": "b000025",
+      "kind": "heading",
+      "start_line": 71,
+      "end_line": 71,
+      "raw": "## 목록 새로고침의 자원 한도\n",
+      "level": 2,
+      "title": "목록 새로고침의 자원 한도"
+    },
+    {
+      "id": "b000026",
+      "kind": "blank",
+      "start_line": 72,
+      "end_line": 73,
+      "raw": "\n\n"
+    },
+    {
+      "id": "b000027",
+      "kind": "paragraph",
+      "start_line": 74,
+      "end_line": 78,
+      "raw": "`MergeModelCatalog`는 수락한 새로고침 횟수와 관계없이 실행 중이거나 작업\n풀에 제출된 스캔 하나만 보유한다. 추가 요청은 현재 작업에 취소 의도를\n전달하고 최신 디렉터리·세대 하나로 합친다. 이전 작업의 완료가 전달된 뒤에만\n최신 작업을 시작한다. 숨겨진 이전 목록이나 중간 디렉터리의 결과를 공개하지\n않는다. 빈 디렉터리는 현재 작업을 취소하고 목록과 loading을 즉시 비운다.\n"
+    },
+    {
+      "id": "b000028",
+      "kind": "blank",
+      "start_line": 79,
+      "end_line": 79,
+      "raw": "\n"
+    },
+    {
+      "id": "b000029",
+      "kind": "paragraph",
+      "start_line": 80,
+      "end_line": 83,
+      "raw": "헤더 읽기, 디렉터리 순회와 모델 분류는 기존 작업 풀에서 실행한다. 취소를\n헤더 읽기 전후·텐서 항목 순회 중에도 확인하여 이미 오래된 요청의 나머지\n분류를 생략한다. 진행 중인 OS 파일 읽기의 즉각적인 중단까지 보장하지는\n않는다. 소유자 제거는 작업자 완료를 GUI에서 기다리지 않는다.\n"
+    },
+    {
+      "id": "b000030",
+      "kind": "blank",
+      "start_line": 84,
+      "end_line": 84,
+      "raw": "\n"
+    },
+    {
+      "id": "b000031",
+      "kind": "heading",
+      "start_line": 85,
+      "end_line": 85,
+      "raw": "## 검증\n",
+      "level": 2,
+      "title": "검증"
+    },
+    {
+      "id": "b000032",
+      "kind": "blank",
+      "start_line": 86,
+      "end_line": 86,
+      "raw": "\n"
+    },
+    {
+      "id": "b000033",
+      "kind": "paragraph",
+      "start_line": 87,
+      "end_line": 93,
+      "raw": "`Society.ModelCatalog`는 실제 공용 작업 풀을 제어하여 202개의 새로고침 의도\n동안 제출된 스캔 하나를 확인한다. 풀을 재개하면 최신 디렉터리의 모델만\n한 번 공개해야 한다. 빈 경로 전환과 작업 대기 중 소유자 제거도 검사한다.\n이 검사는 Python 생성기·Torch·LVRS를 요구하지 않는 일반 실행 파일이다.\nQt Core 저장소와 헤더 전용 QML 등록 경계만 사용한다. macOS의\n`Society.ModelCatalogBoundary`는 실제 실행 파일의 Mach-O 링크에서 Qt\nQuick/QML·LVRS·추론 라이브러리가 없는지도 확인한다.\n"
+    },
+    {
+      "id": "b000034",
+      "kind": "blank",
+      "start_line": 94,
+      "end_line": 94,
+      "raw": "\n"
+    },
+    {
+      "id": "b000035",
+      "kind": "paragraph",
+      "start_line": 95,
+      "end_line": 98,
+      "raw": "`Society.Dependencies`는 최종 생성된 링크 속성을 검사하고,\n`Society.Mcp`와 패키지 실행 검사는 실제 앱 연결을 검증한다. 전후 로그와\n소스 기준선은 `build/optimization-20261027/`에 둔다. 목록 작업의 자원 한도와\n패키지 링크 검증을 전체 앱 RSS·실제 모델 추론 성능과 구분한다.\n"
+    },
+    {
+      "id": "b000036",
+      "kind": "blank",
+      "start_line": 99,
+      "end_line": 99,
+      "raw": "\n"
+    },
+    {
+      "id": "b000037",
+      "kind": "paragraph",
+      "start_line": 100,
+      "end_line": 107,
+      "raw": "의존성 이동 전후 Discovery 검사 실행 파일을 별도 프로세스로 세 번씩 교대로\n실행하여 동일한 QtTest 함수 목록을 확인했다. 최대 RSS 중앙값은\n21,757,952바이트에서 17,825,792바이트로 3.75MiB 감소했다. 제거된 직접\n동적 링크는 iiLocalDiffusion과 QtConcurrent이며 새 링크는 없다. 이 측정은\n함수 목록을 출력하는 검사 프로세스의 로더·초기화 범위이다. 전체 Society 앱의\n사용 중 메모리, 네트워크 탐색 또는 추론 성능을 대신하지 않는다. 원자료는\n`discovery-link-comparison.json`, `discovery-process-comparison.json` 및\n`discovery-paired-*.log`이다.\n"
+    },
+    {
+      "id": "b000038",
+      "kind": "blank",
+      "start_line": 108,
+      "end_line": 108,
+      "raw": "\n"
+    },
+    {
+      "id": "b000039",
+      "kind": "paragraph",
+      "start_line": 109,
+      "end_line": 110,
+      "raw": "현재 구현의 기능·실행 경계는 다음 명령으로 다시 확인한다. 시간 측정값을\n통과 조건으로 사용하지 않고 작업 개수와 실제 결과·동적 링크를 단언한다.\n"
+    },
+    {
+      "id": "b000040",
+      "kind": "blank",
+      "start_line": 111,
+      "end_line": 111,
+      "raw": "\n"
+    },
+    {
+      "id": "b000041",
+      "kind": "fenced_code",
+      "start_line": 112,
+      "end_line": 114,
+      "raw": "```sh\nctest --test-dir build --output-on-failure -R '^Society\\.(ModelCatalog|ModelCatalogBoundary|ComponentRuntimeBoundary|ClientRuntimeBoundary|Discovery|ClientOnlyNetwork|Dependencies)$'\n```\n",
+      "language": "sh",
+      "code": "ctest --test-dir build --output-on-failure -R '^Society\\.(ModelCatalog|ModelCatalogBoundary|ComponentRuntimeBoundary|ClientRuntimeBoundary|Discovery|ClientOnlyNetwork|Dependencies)$'\n",
+      "closed": true
+    },
+    {
+      "id": "b000042",
+      "kind": "blank",
+      "start_line": 115,
+      "end_line": 115,
+      "raw": "\n"
+    },
+    {
+      "id": "b000043",
+      "kind": "heading",
+      "start_line": 116,
+      "end_line": 116,
+      "raw": "## 2026-10-27 검증 범위\n",
+      "level": 2,
+      "title": "2026-10-27 검증 범위"
+    },
+    {
+      "id": "b000044",
+      "kind": "blank",
+      "start_line": 117,
+      "end_line": 117,
+      "raw": "\n"
+    },
+    {
+      "id": "b000045",
+      "kind": "paragraph",
+      "start_line": 118,
+      "end_line": 121,
+      "raw": "macOS arm64 Release에서 정식 앱 빌드·배포기 서명 검증과 단일 앱 감사를\n수행했다. 모델 목록, 목록 링크 경계, Core 실행 경계 두 개, Discovery,\nNetworkDrive, ClientOnlyNetwork 및 실제 앱의 MCP 검사가 통과했다. 직접\n의존성 선언 검사는 전체 묶음과 분리한 함수 실행에서도 통과했다.\n"
+    },
+    {
+      "id": "b000046",
+      "kind": "blank",
+      "start_line": 122,
+      "end_line": 122,
+      "raw": "\n"
+    },
+    {
+      "id": "b000047",
+      "kind": "paragraph",
+      "start_line": 123,
+      "end_line": 129,
+      "raw": "ONNX 지연 로딩과 서비스 상태 조회 변경을 포함한 최종 전체 CTest 결과는\n44개 묶음 중 37개 통과, 7개 실패이다. ModelCatalog와 관련 링크·실행 경계,\n새 ServiceRegistrationPolicy 검사는 통과했다. Pairing, Account, Daemon,\nModelMerge, Drive의 실패·시간 초과는 이전 전체 실행에서도 발생했다.\nMacRuntimeLaunch와 Mcp는 이전 전체 실행에서는 통과했으나 이번에는\n각각 서비스 상태 조회와 실제 앱 시작 대기에서 제한 시간을 초과했다.\n따라서 일곱 실패 전부를 기존 실패로 분류하지 않는다.\n"
+    },
+    {
+      "id": "b000048",
+      "kind": "blank",
+      "start_line": 130,
+      "end_line": 130,
+      "raw": "\n"
+    },
+    {
+      "id": "b000049",
+      "kind": "paragraph",
+      "start_line": 131,
+      "end_line": 135,
+      "raw": "독립 진단에서 서비스 상태 조회는 `SMAppService.status`의 XPC 응답을\n기다렸으며, MCP의 25초 앱 시작 재현은 로그 출력과 `main` 진입 이전의\ndyld 매핑 단계에서 제한 시간에 도달했다. 이 관찰은 해당 진단 프로세스의\n실패 위치를 나타낸다. 전체 회귀 통과나 모든 시작 지연의 해결을 의미하지\n않는다. 제한 시간을 늘리거나 저장소의 내구성 설정을 낮추지 않았다.\n"
+    },
+    {
+      "id": "b000050",
+      "kind": "blank",
+      "start_line": 136,
+      "end_line": 136,
+      "raw": "\n"
+    },
+    {
+      "id": "b000051",
+      "kind": "paragraph",
+      "start_line": 137,
+      "end_line": 143,
+      "raw": "이전 전체 결과는 43개 중 35개 통과, 8개 실패였으며\n`full-ctest-final.xml`에 보존한다. 최신 전체 원자료는\n`build/optimization-20261027/full-ctest-lazy-onnx-final.xml`과\n`full-ctest-lazy-onnx-final.log`이고, 비교 결과는\n`whole-regression-lazy-comparison.json`에 있다. 빌드 후보는\n`build/bin/Society.app` 하나이며 버전·빌드는 모두 0.1.0이다. 설치 앱 교체와\n기존 사용자 프로세스 재시작은 수행하지 않았다.\n"
+    }
+  ],
+  "outline": [
+    {
+      "block_id": "b000001",
+      "parent_id": null,
+      "level": 1,
+      "title": "모듈 의존성과 모델 목록 작업량",
+      "anchor": "모듈-의존성과-모델-목록-작업량",
+      "start_line": 1
+    },
+    {
+      "block_id": "b000003",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "의존성 소유권",
+      "anchor": "의존성-소유권",
+      "start_line": 3
+    },
+    {
+      "block_id": "b000011",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "선택적 ONNX 런타임의 시작 경계",
+      "anchor": "선택적-onnx-런타임의-시작-경계",
+      "start_line": 36
+    },
+    {
+      "block_id": "b000019",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "macOS 서비스 상태 조회",
+      "anchor": "macos-서비스-상태-조회",
+      "start_line": 56
+    },
+    {
+      "block_id": "b000025",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "목록 새로고침의 자원 한도",
+      "anchor": "목록-새로고침의-자원-한도",
+      "start_line": 71
+    },
+    {
+      "block_id": "b000031",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "검증",
+      "anchor": "검증",
+      "start_line": 85
+    },
+    {
+      "block_id": "b000043",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "2026-10-27 검증 범위",
+      "anchor": "2026-10-27-검증-범위",
+      "start_line": 116
+    }
+  ],
+  "indexes": {
+    "directive_candidates": [
+      {
+        "block_id": "b000005",
+        "line": 7,
+        "text": "`iiLocalDiffusion` 런타임을 직접 링크하지 않는다. 추론은 GenerationHost와",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000005",
+        "line": 13,
+        "text": "호스트 멤버·호출도 컴파일하지 않는다. 관련 없는 Discovery 실행 파일에",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000005",
+        "line": 16,
+        "text": "구분한다. 동적 이미지 플러그인은 실제 배포 입력이므로 제거하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000007",
+        "line": 21,
+        "text": "`iiAcountManager`를 요구하는 오래된 빌드 캐시를 재사용하지 않는다. 앱 버전과",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000007",
+        "line": 24,
+        "text": "0.31 계열 라이브러리를 새 0.32 의존성의 대체물로 사용하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000013",
+        "line": 40,
+        "text": "ONNX 공유 라이브러리를 초기화하지 않는다. 공통 로더는 모델이나 작업",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000015",
+        "line": 45,
+        "text": "포함·서명하고, compact 정리가 이 파일을 삭제하지 않는다. 이전 번들의",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000015",
+        "line": 49,
+        "text": "변경 검사는 첫 사용 이후의 기능을 확인하며, 이 시작 검사를 대신하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000023",
+        "line": 69,
+        "text": "서비스를 등록·해제하거나 실제 데몬을 종료하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000033",
+        "line": 89,
+        "text": "한 번 공개해야 한다. 빈 경로 전환과 작업 대기 중 소유자 제거도 검사한다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000037",
+        "line": 105,
+        "text": "사용 중 메모리, 네트워크 탐색 또는 추론 성능을 대신하지 않는다. 원자료는",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000047",
+        "line": 129,
+        "text": "따라서 일곱 실패 전부를 기존 실패로 분류하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      }
+    ],
+    "commands": [
+      {
+        "block_id": "b000041",
+        "language": "sh",
+        "code": "ctest --test-dir build --output-on-failure -R '^Society\\.(ModelCatalog|ModelCatalogBoundary|ComponentRuntimeBoundary|ClientRuntimeBoundary|Discovery|ClientOnlyNetwork|Dependencies)$'\n"
+      }
+    ],
+    "links": [],
+    "tables": []
+  },
+  "provenance": {
+    "generator": "workspace-docs",
+    "version": "1.0.0",
+    "profile": "lossless-blocks-v1",
+    "derived": true
+  }
+}

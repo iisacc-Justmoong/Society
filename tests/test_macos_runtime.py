@@ -12,6 +12,25 @@ ROOT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location("deployment", ROOT / "tools/deploy_macos_runtime.py")
 deployment = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(deployment)
+verify_spec = importlib.util.spec_from_file_location("runtime_verification", ROOT / "tests/verify_macos_runtime.py")
+runtime_verification = importlib.util.module_from_spec(verify_spec)
+verify_spec.loader.exec_module(runtime_verification)
+
+
+class RuntimeLoaderBoundaryTests(unittest.TestCase):
+    def test_status_and_bootstrap_reject_retired_and_eager_optional_inference(self):
+        bundle = Path('/bundle/Society.app')
+        ordinary = 'dyld[123]: <fixture> /bundle/Society.app/Contents/Frameworks/libiiLocalDiffusion.0.6.2.dylib\n'
+        names = {'liboptional.dylib'}
+        self.assertEqual(runtime_verification.check_loaded(ordinary, bundle, names), 1)
+        for name in ('libiiOnnxRuntime.0.1.dylib', 'libonnxruntime.1.22.0.dylib',
+                     'libonnxruntime.dylib', 'libopencv_dnn.414.dylib', 'libpiper.dylib'):
+            with self.subTest(runtime=name), self.assertRaisesRegex(AssertionError, 'Retired model runtime'):
+                runtime_verification.check_loaded(ordinary +
+                    f'dyld[123]: <fixture> /bundle/Society.app/Contents/Frameworks/{name}\n', bundle, names)
+        eager = ordinary + 'dyld[123]: <fixture> /bundle/Society.app/Contents/Frameworks/liboptional.dylib\n'
+        with self.assertRaisesRegex(AssertionError, 'without a request'):
+            runtime_verification.check_loaded(eager, bundle, names)
 
 
 @unittest.skipUnless(sys.platform == "darwin", "Mach-O deployment is macOS-only")

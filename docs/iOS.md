@@ -61,9 +61,9 @@ python3 -B tools/build_ios.py --platform ios-simulator
 python3 -B tools/build_ios.py --platform ios-device --team <Apple-team-id>
 ```
 
-스크립트는 Workspace의 SDK 소스에서 LVRS(static), iiAcountManager(static), iiWebServer, iiSocietyContainer, iiSocietyHelper를 각각 `build/ios-device` 또는 `build/ios-simulator`에 빌드하고, `Workspace/build/<대상>/install`에 설치한 뒤 Society와 확장을 Xcode로 빌드한다. `--qt`로 Qt 6.8.3 경로를 지정할 수 있다. 사전 점검 결과와 명령은 `Society/build/<대상>/preflight.json`에 기록한다. 개발자 경로 선택은 `DEVELOPER_DIR` 또는 기존 `xcode-select` 설정을 따른다.
+스크립트는 Workspace의 SDK 소스에서 LVRS(static), iiAccountManager(static), iiWebServer, iiSocietyContainer, iiSocietyHelper를 각각 `build/ios-device` 또는 `build/ios-simulator`에 빌드하고, `Workspace/build/<대상>/install`에 설치한 뒤 Society와 확장을 Xcode로 빌드한다. `--qt`로 Qt 6.8.3 경로를 지정할 수 있다. 사전 점검 결과와 명령은 `Society/build/<대상>/preflight.json`에 기록한다. 개발자 경로 선택은 `DEVELOPER_DIR` 또는 기존 `xcode-select` 설정을 따른다.
 
-현재 앱이 호출하는 계정·네트워크·저장소 SDK는 iiAcountManager, iiWebServer, iiSocietyContainer와 iiSocietyHelper이다. iOS는 이들과 LVRS를 필수로 연결한다. 나머지 SDK는 데스크톱의 기존 의존성·호환성 테스트로 유지한다. 설치 후 직접 `cmake --preset ios-device` 또는 `ios-simulator`를 사용해도 같은 설치 위치를 참조한다.
+현재 앱이 호출하는 계정·네트워크·저장소 SDK는 iiAccountManager, iiWebServer, iiSocietyContainer와 iiSocietyHelper이다. iOS는 이들과 LVRS를 필수로 연결한다. 나머지 SDK는 데스크톱의 기존 의존성·호환성 테스트로 유지한다. 설치 후 직접 `cmake --preset ios-device` 또는 `ios-simulator`를 사용해도 같은 설치 위치를 참조한다.
 
 앱 ID `com.iisacc.society`와 확장 ID `com.iisacc.society.fileprovider`는 동일 개발자 팀의 `group.com.iisacc.society` 권한으로 프로비저닝해야 한다. 스크립트는 Apple 계정의 식별자나 프로필을 임의 생성하지 않는다. [App Group 설정](https://developer.apple.com/documentation/xcode/configuring-app-groups)
 

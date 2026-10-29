@@ -1,0 +1,230 @@
+{
+  "format": "iisacc.agent-document",
+  "schema_version": 1,
+  "document_id": "urn:iisacc:document:b9e49ccb35a31a33055a40ad46c4e5a9a869cf79aed6b20a36601c33c0f7a727",
+  "project": {
+    "id": "urn:iisacc:project:Product%2FSociety",
+    "name": "Society",
+    "root": "Product/Society",
+    "kind": "application"
+  },
+  "source": {
+    "path": "docs/PanelBackgrounds.md",
+    "sha256": "aa15054313f53884d5186c4fed2f6f1fc697736793797949fa37b02b294ee466",
+    "bytes": 5772,
+    "line_count": 87,
+    "encoding": "utf-8",
+    "language": "ko"
+  },
+  "document": {
+    "title": "Panel backgrounds",
+    "role": "guide",
+    "authority": "markdown_source"
+  },
+  "blocks": [
+    {
+      "id": "b000001",
+      "kind": "heading",
+      "start_line": 1,
+      "end_line": 1,
+      "raw": "# Panel backgrounds\n",
+      "level": 1,
+      "title": "Panel backgrounds"
+    },
+    {
+      "id": "b000002",
+      "kind": "blank",
+      "start_line": 2,
+      "end_line": 2,
+      "raw": "\n"
+    },
+    {
+      "id": "b000003",
+      "kind": "paragraph",
+      "start_line": 3,
+      "end_line": 17,
+      "raw": "Society panels expose the default `LV.ApplicationWindow` background. They do not\npaint their own resting background or replace the window's material settings.\nThe LVRS default follows\n[Figma ApplicationWindow 997:3](https://www.figma.com/design/0GkItQYSNIR0lZ3iJhfJzc?node-id=997-3):\n`#141414` neutral paint at 66% opacity with a uniform 4% app accent overlay.\nSociety supplies green `#57965C` through `primaryColor`; Dreamscapes supplies\nblue `#0A84FF`. The default ApplicationWindow has no radial gradients.\nThe overlay follows live accent changes and auxiliary window accents through\nLVRS. Its 4% opacity applies to the accent layer, while content remains opaque.\nOn supported desktop platforms, `backgroundBlurEnabled` also remains at its\nLVRS default. On macOS, LVRS places an active, behind-window\n`NSVisualEffectView` under the transparent Qt surface. The tint opacity applies\nto the background alone; the window, text, and controls retain full opacity.\nThe native blur kernel is controlled by AppKit. LVRS's material blur value is\n64 logical pixels, not a private native blur-radius setting.\n"
+    },
+    {
+      "id": "b000004",
+      "kind": "blank",
+      "start_line": 18,
+      "end_line": 18,
+      "raw": "\n"
+    },
+    {
+      "id": "b000005",
+      "kind": "paragraph",
+      "start_line": 19,
+      "end_line": 24,
+      "raw": "This applies to the global toolbar, Dashboard and Storage sidebars, calendar\nmonth and detail panels, Dashboard file cards, model cards, selected-file\ninformation, Tools cards, model merge and packaging panels, the packaging\nsidebar, Environment navigation, launch docks, sections, app and device cards,\nthe account panel, and the Preferences sidebar. Full-view backgrounds in the\nmerge, packaging, and Environment views are transparent as well.\n"
+    },
+    {
+      "id": "b000006",
+      "kind": "blank",
+      "start_line": 25,
+      "end_line": 25,
+      "raw": "\n"
+    },
+    {
+      "id": "b000007",
+      "kind": "paragraph",
+      "start_line": 26,
+      "end_line": 31,
+      "raw": "Panel outlines, layout, content previews, icon badges, primary actions,\nselection, focus, and hover feedback retain their existing roles. Model and\ntool cards use transparent resting backgrounds and retain their interactive\nstate colors. File-card hover feedback remains visible in the LVRS outline.\nTable headers and alternating rows, input fields, menus, and the LVRS sheet\nmaterial continue to identify their controls and interaction states.\n"
+    },
+    {
+      "id": "b000008",
+      "kind": "blank",
+      "start_line": 32,
+      "end_line": 32,
+      "raw": "\n"
+    },
+    {
+      "id": "b000009",
+      "kind": "heading",
+      "start_line": 33,
+      "end_line": 33,
+      "raw": "## 패널 외곽선\n",
+      "level": 2,
+      "title": "패널 외곽선"
+    },
+    {
+      "id": "b000010",
+      "kind": "blank",
+      "start_line": 34,
+      "end_line": 34,
+      "raw": "\n"
+    },
+    {
+      "id": "b000011",
+      "kind": "paragraph",
+      "start_line": 35,
+      "end_line": 45,
+      "raw": "기존 캘린더 월·상세 패널, Environment의 정보 섹션과 계정 패널,\n모델 병합·패키징 작업 패널은 공통 `App/Society/PanelOutline.qml`의\n`panelBorderColor` 스타일 토큰을 외곽선으로 사용한다. 토큰은 불투명한\n`#0C0C0C`이다. 표면은 그대로 투명하며\n기존 패널의 선 두께와 모서리 반경을 유지한다. 카드와 버튼의 선택·포커스·\n호버 표시, 달력의 셀 구분선과 대화상자 테두리는 각자의 기존 색을 사용한다.\n`SocietyDriveTests panelsRevealApplicationWindowBackground`는 데스크톱과\n모바일에서 패널의 투명도와 외곽선이 이 토큰을 사용하는지 함께 검사한다.\nSociety Figma의 기존 패널 경계는 로컬 의미 변수 `Panel/Border`를 사용하며,\n이 변수는 같은 `#0C0C0C` 값을 가진 `Color/Neutral/12`에 연결된다.\n앱과 Figma 변수는 별도 정의이므로 변경 시 두 값을 함께 갱신해야 한다.\n"
+    },
+    {
+      "id": "b000012",
+      "kind": "blank",
+      "start_line": 46,
+      "end_line": 46,
+      "raw": "\n"
+    },
+    {
+      "id": "b000013",
+      "kind": "paragraph",
+      "start_line": 47,
+      "end_line": 56,
+      "raw": "The editable [Society Figma file](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society)\npreserves transparent nested panels across Dashboard, Tools, Storage, and Environment,\nincluding their existing prototypes and local default card components. Nested\npanel fills are empty. Desktop window previews still contain the earlier eight-gradient snapshot.\nThe current framework background follows the newer LVRS Figma 997:3\n66% neutral / 4% accent contract; this code change does not edit those product\nFigma previews.\nThe opacity belongs to the paint, not the entire\nframe, so text and controls remain legible. The mobile preview retains its opaque platform base.\nExisting library instances, text, layout, icons, and prototype links are retained.\n"
+    },
+    {
+      "id": "b000014",
+      "kind": "blank",
+      "start_line": 57,
+      "end_line": 57,
+      "raw": "\n"
+    },
+    {
+      "id": "b000015",
+      "kind": "paragraph",
+      "start_line": 58,
+      "end_line": 71,
+      "raw": "`SocietyDriveTests windowUsesFrameworkChromeAndContent` loads Society's actual\nmain window and checks its default tint, blur support and enabled state, and\nfull foreground opacity. A native Cocoa run additionally checks active blur,\na transparent Qt window color, and the actual nonopaque AppKit window with\none active behind-window backdrop. It also checks that the rendered resting\nbackground remains translucent, and compares edge and center pixels to require a uniform green 4% overlay.\nThe neutral base is 66%; overlay compositing produces about 67.36% alpha\nbefore an opaque platform fallback. Set\n`SOCIETY_TEST_APPLICATION_RENDERING=1` for the application's normal graphics\nbootstrap and render-quality defaults when running this test with Cocoa/Metal.\nThe native toolbar resize test waits for a presented frame before sending a\ndrag, so logical width changes cannot race the rendered hit geometry.\nAn offscreen run covers the material\ncontract and does not establish native window translucency.\n"
+    },
+    {
+      "id": "b000016",
+      "kind": "blank",
+      "start_line": 72,
+      "end_line": 72,
+      "raw": "\n"
+    },
+    {
+      "id": "b000017",
+      "kind": "paragraph",
+      "start_line": 73,
+      "end_line": 79,
+      "raw": "`SocietyDriveTests panelsRevealApplicationWindowBackground` checks desktop and\nmobile layouts, changes the window color twice, and verifies that the toolbar,\nsidebars, calendar, Environment view, account panel, and merge/packaging panels\nremain transparent. `globalToolbarMatchesFigmaAndRoutesActions` retains its\ngeometry and routing checks and now requires a transparent toolbar surface.\nThe calendar, sidebar, card, Environment, Preferences, and tool interaction\ntests continue to cover layout and control behavior.\n"
+    },
+    {
+      "id": "b000018",
+      "kind": "blank",
+      "start_line": 80,
+      "end_line": 80,
+      "raw": "\n"
+    },
+    {
+      "id": "b000019",
+      "kind": "paragraph",
+      "start_line": 81,
+      "end_line": 87,
+      "raw": "Set `SOCIETY_PANEL_CAPTURE_DIR` to an existing directory under `build/` to\ncapture the Dashboard, Storage, Environment, Tools, merge, and packaging views\nat both test sizes. This panel test deliberately disables native blur and uses\nan opaque tint while alternating synthetic window colors; its screenshots\nverify panel transparency, not the application's default window material.\nThe mobile captures exercise responsive QML on the host;\nthey do not establish physical-device execution.\n"
+    }
+  ],
+  "outline": [
+    {
+      "block_id": "b000001",
+      "parent_id": null,
+      "level": 1,
+      "title": "Panel backgrounds",
+      "anchor": "panel-backgrounds",
+      "start_line": 1
+    },
+    {
+      "block_id": "b000009",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "패널 외곽선",
+      "anchor": "패널-외곽선",
+      "start_line": 33
+    }
+  ],
+  "indexes": {
+    "directive_candidates": [
+      {
+        "block_id": "b000003",
+        "line": 3,
+        "text": "Society panels expose the default `LV.ApplicationWindow` background. They do not",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000011",
+        "line": 45,
+        "text": "앱과 Figma 변수는 별도 정의이므로 변경 시 두 값을 함께 갱신해야 한다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000019",
+        "line": 87,
+        "text": "they do not establish physical-device execution.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      }
+    ],
+    "commands": [],
+    "links": [
+      {
+        "block_id": "b000003",
+        "label": "Figma ApplicationWindow 997:3",
+        "target": "https://www.figma.com/design/0GkItQYSNIR0lZ3iJhfJzc?node-id=997-3",
+        "kind": "external",
+        "line": 6
+      },
+      {
+        "block_id": "b000013",
+        "label": "Society Figma file",
+        "target": "https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society",
+        "kind": "external",
+        "line": 47
+      }
+    ],
+    "tables": []
+  },
+  "provenance": {
+    "generator": "workspace-docs",
+    "version": "1.0.0",
+    "profile": "lossless-blocks-v1",
+    "derived": true
+  }
+}

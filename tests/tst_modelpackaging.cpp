@@ -1,4 +1,4 @@
-#include "App/Tools/ModelPackagingController.h"
+#include "Society/Tools/ModelPackagingController.h"
 #include "backend/runtime/appbootstrap.h"
 #include <QDir>
 #include <SharedStorage.h>
