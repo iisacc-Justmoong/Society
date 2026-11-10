@@ -2,7 +2,12 @@
 #include <QtQml/qqmlregistration.h>
 #include <iiAccountManager/LicenseManager.h>
 #include <QTcpServer>
+#include <QLocalServer>
 #include <iiSocietyHelper/AccountSession.h>
+#include <memory>
+#include <functional>
+#include <utility>
+namespace iiSocietyHelper { class LocalService; }
 class QTcpSocket;
 class AccountController : public AccountSession
 {
@@ -32,12 +37,19 @@ class AccountController : public AccountSession
     Q_INVOKABLE bool refreshLicenses() { return manager()->licenseManager()->refresh(); }
     bool startLicenseBroker(quint16 port = 49627);
     QUrl licenseBrokerUrl() const;
+    using BrokerAccountFactory = std::function<AccountController *(QObject *)>;
+    void setBrokerAccountFactory(BrokerAccountFactory factory) { brokerAccountFactory_ = std::move(factory); }
+    bool startLocalLicenseBroker(const QString &directory = {}, bool startHelper = true);
+    bool startLocalHelperBroker(const QString &directory = {});
+    QString localLicenseBrokerPath() const { return localBroker_.fullServerName(); }
+    QString localHelperBrokerPath() const;
   signals:
     void licensesChanged();
     void connectionsChanged();
 
   private:
     void mountLicenses();
+    void stopLocalLicenseBroker();
     void clearConnections();
     bool requestConnections(const QJsonObject &input, bool revoke);
     QPointer<QNetworkReply> connectionsReply_;
@@ -46,6 +58,12 @@ class AccountController : public AccountSession
     QVariantList connections_;
     QString connectionsCode_ = "sign_in_required";
     QTcpServer licenseBroker_;
+    int localBrokerLock_ = -1;
+    int localRequests_ = 0;
+    QLocalServer localBroker_;
+    std::unique_ptr<iiSocietyHelper::LocalService> localHelper_;
     int brokerRequests_ = 0;
     void authorizeApp(QTcpSocket*, const QJsonObject&);
+    void withBrokerAccount(QObject*, std::function<void(AccountController*)>);
+    BrokerAccountFactory brokerAccountFactory_;
 };

@@ -23,6 +23,7 @@
 #include <QProcess>
 #include <QSignalSpy>
 #include <QTcpServer>
+#include <QLocalSocket>
 #include <QTcpSocket>
 #include <QTemporaryDir>
 #include <QTest>
@@ -76,6 +77,18 @@ private slots:
         auto* reply=authorize(input);QTRY_VERIFY(reply->isFinished());auto answer=QJsonDocument::fromJson(reply->readAll()).object();reply->deleteLater();
         QVERIFY(answer.value("allowed").toBool());QVERIFY(!answer.value("licenseToken").toString().isEmpty());
         QCOMPARE(answer.value("requestId"),input.value("requestId"));QCOMPARE(server.licenseRequests,requests);
+        QTemporaryDir localDir(QStringLiteral(SOCIETY_TEST_RESOURCES) + "/local-account-XXXXXX");
+        QVERIFY(localDir.isValid());QVERIFY(account.startLocalLicenseBroker(localDir.path()));
+        QLocalSocket local;local.connectToServer(account.localLicenseBrokerPath());QVERIFY(local.waitForConnected(2000));
+        QJsonObject localInput=input;localInput.remove("subject");const auto localBody=QJsonDocument(localInput).toJson(QJsonDocument::Compact);
+        const auto size=quint32(localBody.size());QByteArray frame;frame.append(char(size>>24));frame.append(char(size>>16));frame.append(char(size>>8));frame.append(char(size));
+        QCOMPARE(local.write(frame+localBody),qint64(frame.size()+localBody.size()));
+        QByteArray response;QTRY_VERIFY_WITH_TIMEOUT((response+=local.readAll()).size()>=4,3000);
+        auto* raw=reinterpret_cast<const unsigned char*>(response.constData());const auto responseSize=(quint32(raw[0])<<24)|(quint32(raw[1])<<16)|(quint32(raw[2])<<8)|quint32(raw[3]);
+        QTRY_VERIFY_WITH_TIMEOUT((response+=local.readAll()).size()>=int(responseSize+4),3000);
+        const auto localAnswer=QJsonDocument::fromJson(response.mid(4)).object();
+        QVERIFY(localAnswer.value("allowed").toBool());QVERIFY(!localAnswer.value("licenseToken").toString().isEmpty());
+        QCOMPARE(localAnswer.value("requestId"),localInput.value("requestId"));QCOMPARE(server.licenseRequests,requests);
         auto foreign=input;foreign.insert("deviceId",QString(64,'b'));reply=authorize(foreign);QTRY_VERIFY(reply->isFinished());
         QVERIFY(!QJsonDocument::fromJson(reply->readAll()).object().value("allowed").toBool());reply->deleteLater();
         reply=authorize(input,true);QTRY_VERIFY(reply->isFinished());QCOMPARE(reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt(),400);reply->deleteLater();
@@ -91,7 +104,7 @@ private slots:
         QVERIFY(licenses->authorizationToken().isEmpty());QTRY_VERIFY(localTokens.values.isEmpty());
     }
     void qrPairingCannotBypassAccountRegistration() {
-        QTemporaryDir root(QString(QT_TESTCASE_BUILDDIR) + "/account-required-XXXXXX.societycontainer");
+        QTemporaryDir root(QString(SOCIETY_TEST_DIRECTORY) + "/account-required-XXXXXX.societycontainer");
         QVERIFY(iiSocietyContainer::SocietyDrive::create(root.path()));
         NetworkDriveController host; host.setContainerPath(root.path());
         QVERIFY(!host.startLocalHost());
@@ -121,7 +134,7 @@ private slots:
         if (pairingProof) { account.requestPairingCredentials(); QTRY_VERIFY(!account.pairingCredentials().isEmpty()); }
         else authority.status = 503; // No fresh discovery proof is available offline.
         const auto scope = authority.scope();
-        QTemporaryDir root(QString(QT_TESTCASE_BUILDDIR) + "/offline-namespace-XXXXXX.societycontainer");
+        QTemporaryDir root(QString(SOCIETY_TEST_DIRECTORY) + "/offline-namespace-XXXXXX.societycontainer");
         const auto drive = iiSocietyContainer::SocietyDrive::create(root.path()); QVERIFY(drive);
         FakeDiscoveryService discovery; NetworkDriveController host(&discovery, QHostAddress::LocalHost);
         host.setContainerPath(root.path()); host.setAccountSession(&account);
@@ -151,7 +164,7 @@ private slots:
         iiWebServer::RelayServer relay([&](const auto &credential, auto done) { verifier.authenticate(credential, std::move(done)); });
         QVERIFY(relay.listen(iiWebServer::Address::loopback()));
         const QString endpoint = QString("ws://127.0.0.1:%1/society").arg(relay.port());
-        QTemporaryDir root(QString(QT_TESTCASE_BUILDDIR) + "/headless-server-XXXXXX");
+        QTemporaryDir root(QString(SOCIETY_TEST_DIRECTORY) + "/headless-server-XXXXXX");
         QVERIFY(QDir().mkpath(root.filePath("host.societycontainer"))); QVERIFY(QDir().mkpath(root.filePath("client.societycontainer")));
         const auto original = iiSocietyContainer::SocietyDrive::create(root.filePath("host.societycontainer"));
         QVERIFY(original); QVERIFY(iiSocietyContainer::SocietyDrive::create(root.filePath("client.societycontainer")));
@@ -205,7 +218,7 @@ private slots:
             ++attempts; done({"another-account", QDateTime::currentDateTimeUtc().addSecs(60)});
         });
         QVERIFY(wrongAuthority.listen(iiWebServer::Address::loopback()));
-        QTemporaryDir root(QString(QT_TESTCASE_BUILDDIR) + "/server-wrong-account-XXXXXX.societycontainer");
+        QTemporaryDir root(QString(SOCIETY_TEST_DIRECTORY) + "/server-wrong-account-XXXXXX.societycontainer");
         QVERIFY(iiSocietyContainer::SocietyDrive::create(root.path()));
         QVERIFY(registerFixtureContainer(authority, root.path(), account.manager()->deviceInfo().value("id").toString()));
         bool refreshed = false;
@@ -235,8 +248,8 @@ private slots:
         iiWebServer::RelayServer relay([&](const auto &credential, auto done) { verifier.authenticate(credential, std::move(done)); });
         QVERIFY(relay.listen(iiWebServer::Address::loopback()));
         const QUrl endpoint(QString("ws://127.0.0.1:%1/society").arg(relay.port()));
-        QTemporaryDir hostRoot(QString(QT_TESTCASE_BUILDDIR) + "/server-host-XXXXXX.societycontainer");
-        QTemporaryDir clientRoot(QString(QT_TESTCASE_BUILDDIR) + "/server-client-XXXXXX.societycontainer");
+        QTemporaryDir hostRoot(QString(SOCIETY_TEST_DIRECTORY) + "/server-host-XXXXXX.societycontainer");
+        QTemporaryDir clientRoot(QString(SOCIETY_TEST_DIRECTORY) + "/server-client-XXXXXX.societycontainer");
         const auto original = iiSocietyContainer::SocietyDrive::create(hostRoot.path());
         QVERIFY(original); QVERIFY(iiSocietyContainer::SocietyDrive::create(clientRoot.path()));
         QVERIFY(registerFixtureContainer(authority, hostRoot.path(), QString(64, '1')));
@@ -386,7 +399,7 @@ private slots:
     }
     void groupContainerRestoresLoginPairingAndPauseAcrossLaunches() {
         AccountServer server; QVERIFY(server.server.listen(QHostAddress::LocalHost));
-        QTemporaryDir dir(QString(QT_TESTCASE_BUILDDIR) + "/account-group-XXXXXX.societycontainer"); QVERIFY(dir.isValid());
+        QTemporaryDir dir(QString(SOCIETY_TEST_DIRECTORY) + "/account-group-XXXXXX.societycontainer"); QVERIFY(dir.isValid());
         MemorySessionStore keys, legacy;
         QString pairingKey;
         {
@@ -607,7 +620,7 @@ private slots:
         const auto restore = qScopeGuard([] { qunsetenv("SOCIETY_TEST_ACCOUNT_DISCOVERY"); });
         AccountServer server; QVERIFY(server.server.listen(QHostAddress::LocalHost));
         FakeDiscoveryService discovery;
-        QTemporaryDir root(QString(QT_TESTCASE_BUILDDIR) + "/account-discovery-XXXXXX.societycontainer");
+        QTemporaryDir root(QString(SOCIETY_TEST_DIRECTORY) + "/account-discovery-XXXXXX.societycontainer");
         QVERIFY(iiSocietyContainer::SocietyDrive::create(root.path()));
         MemorySessionStore store; AccountController account(server.url(), &store, nullptr);
         QVERIFY(registerFixtureContainer(server, root.path(), account.manager()->deviceInfo().value("id").toString()));
@@ -631,7 +644,7 @@ private slots:
         qputenv("SOCIETY_TEST_ACCOUNT_DISCOVERY", "1");
         const auto restore = qScopeGuard([] { qunsetenv("SOCIETY_TEST_ACCOUNT_DISCOVERY"); });
         AccountServer server; QVERIFY(server.server.listen(QHostAddress::LocalHost));
-        QTemporaryDir a(QString(QT_TESTCASE_BUILDDIR) + "/account-sync-a-XXXXXX.societycontainer"), b(QString(QT_TESTCASE_BUILDDIR) + "/account-sync-b-XXXXXX.societycontainer");
+        QTemporaryDir a(QString(SOCIETY_TEST_DIRECTORY) + "/account-sync-a-XXXXXX.societycontainer"), b(QString(SOCIETY_TEST_DIRECTORY) + "/account-sync-b-XXXXXX.societycontainer");
         QVERIFY(iiSocietyContainer::SocietyDrive::create(a.path())); QVERIFY(iiSocietyContainer::SocietyDrive::create(b.path()));
         QFile original(a.filePath("Models/from-desktop.bin")); QVERIFY(original.open(QIODevice::WriteOnly)); original.write(QByteArray(700000, 's')); original.close();
         QFile fromClient(b.filePath("Files/client.txt")); QVERIFY(fromClient.open(QIODevice::WriteOnly)); fromClient.write("client bytes"); fromClient.close();

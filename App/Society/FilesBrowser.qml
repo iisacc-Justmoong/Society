@@ -11,6 +11,13 @@ Item {
     objectName: "filesBrowser"
     required property string path
     property var breadcrumbs: []
+    property bool modelsMode: false
+    property string modelRoot: ""
+    property var modelCategories: []
+    property var modelGroups: ({})
+    property bool modelCategoryEnabled: true
+    property bool modelImportEnabled: true
+    property bool touchNavigation: false
     property string query: ""
     property bool listMode: true
     property int sortColumn: 0
@@ -18,11 +25,20 @@ Item {
     property var entries: []
     property string selectedPath: ""
     property string downloadStatus: ""
-    readonly property StorageDirectoryModel directoryModel: modelLoader.item as StorageDirectoryModel
+    property real contentInset: LV.Theme.gap24
+    property real contentSpacing: LV.Theme.gap24
+    // The workspace can retain one directory model across Dashboard and Storage.
+    // Standalone callers still get their own on-demand model.
+    property StorageDirectoryModel sharedDirectoryModel: null
+    readonly property StorageDirectoryModel directoryModel: sharedDirectoryModel || (modelLoader.item as StorageDirectoryModel)
+    readonly property bool directoryMatches: !sharedDirectoryModel || (location.path === path
+        && sharedDirectoryModel.folder.toString() === location.folderUrl.toString())
     readonly property bool loading: directoryModel !== null && directoryModel.status === StorageDirectoryModel.Loading
+        || (sharedDirectoryModel !== null && path.length > 0 && !directoryMatches)
     readonly property int count: entries.length
     readonly property int folderCount: entries.filter(function(entry) { return entry.directory }).length
     readonly property var selectedEntry: entries.find(function(entry) { return entry.path === root.selectedPath }) || null
+    readonly property var selectedModel: findModel(selectedPath, modelGroups)
     readonly property var selectedDetails: location.details
     readonly property url selectedPreviewSource: selectedEntry && selectedEntry.resident && !selectedEntry.directory
         ? (selectedEntry.thumbnail || selectedDetails.previewSource || "") : ""
@@ -32,7 +48,24 @@ Item {
         return [entry.name, entry.modified, entry.kind, entry.directory ? null : entry.bytes]
     })
     signal activated(string path, bool isDirectory)
+    signal modelCategoryRequested(string path, string category)
+    signal modelImportRequested()
+    signal modelUpRequested()
+    signal modelModified(string path)
     Keys.onSpacePressed: togglePreview()
+
+    function findModel(path, groups) {
+        if (!modelsMode || !path || !groups) return null
+        const prefix = modelRoot + "/"
+        if (!modelRoot || !path.startsWith(prefix)) return null
+        const relative = path.substring(prefix.length)
+        const slash = relative.indexOf("/")
+        const key = slash < 0 ? "Other" : relative.substring(0, slash)
+        const rows = groups[key] || groups.Other || []
+        for (let i = 0; i < rows.length; ++i)
+            if (rows[i].path === path) return rows[i]
+        return null
+    }
     onSelectedEntryChanged: location.inspectFile(
         selectedEntry && selectedEntry.resident && !selectedEntry.directory ? selectedPath : "",
         selectedEntry ? String(selectedEntry.thumbnail || "") + ":" + selectedEntry.bytes + ":" + new Date(selectedEntry.modified).getTime() : "")
@@ -58,7 +91,7 @@ Item {
             { label: qsTr("Created"), value: formatDate(details.created), icon: "" },
             { label: qsTr("Contents"), value: details.contents || selectedEntry.kind, icon: "" },
             { label: qsTr("Location"), value: path, icon: "nodesfolder" },
-            { label: Qt.platform.os === "osx" ? qsTr("Finder access") : qsTr("File manager access"), value: selectedEntry.resident ? qsTr("Available on this device") : qsTr("Download when opened"), icon: "application" }
+            { label: Qt.platform.os === "osx" ? qsTr("Finder access") : qsTr("File manager access"), value: selectedEntry.resident ? qsTr("Available on this device") : selectedEntry.directory ? qsTr("Open folder") : qsTr("Download when opened"), icon: "application" }
         ]
         function add(label, value) { if (value !== undefined && value !== null && String(value).length) rows.push({ label: label, value: String(value), icon: "" }) }
         add(qsTr("Title"), details.title)
@@ -99,7 +132,7 @@ Item {
         return kinds[suffix] || (suffix ? qsTr("%1 file").arg(suffix.toUpperCase()) : qsTr("File"))
     }
     function rebuildEntries() {
-        if (!directoryModel) { entries = []; return }
+        if (!directoryModel || !directoryMatches || !path.length) { entries = []; return }
         const next = []
         const needle = query.trim().toLocaleLowerCase()
         for (let i = 0; i < directoryModel.count; ++i) {
@@ -138,7 +171,8 @@ Item {
     }
     function openSelected() {
         if (!selectedEntry || !directoryModel) return
-        downloadStatus = selectedEntry.resident ? "" : qsTr("Downloading from the Society host…")
+        downloadStatus = selectedEntry.resident ? "" : selectedEntry.directory
+            ? qsTr("Opening folder…") : qsTr("Downloading from the Society host…")
         directoryModel.activate(selectedEntry.sourceIndex)
     }
     function setSort(column) {
@@ -171,11 +205,26 @@ Item {
         entries = []; selectedPath = ""; query = ""; downloadStatus = ""
         filePreview.open = false
         fileMenu.close(); tableScroll.contentY = 0; tableScroll.contentX = 0
+        if (visible && sharedDirectoryModel) Qt.callLater(bindSharedDirectory)
     }
+    onVisibleChanged: if (visible && sharedDirectoryModel) Qt.callLater(bindSharedDirectory)
+    onSharedDirectoryModelChanged: if (visible && sharedDirectoryModel) Qt.callLater(bindSharedDirectory)
+    function bindSharedDirectory() {
+        if (!visible || !sharedDirectoryModel || location.path !== path) return
+        const folder = location.folderUrl
+        if (sharedDirectoryModel.folder.toString() !== folder.toString())
+            sharedDirectoryModel.folder = folder
+        rebuildEntries()
+    }
+    Component.onCompleted: if (visible && sharedDirectoryModel) Qt.callLater(bindSharedDirectory)
     DirectoryLocation { id: location; path: root.path }
+    Connections {
+        target: location
+        function onPathChanged() { if (root.visible && root.sharedDirectoryModel) Qt.callLater(root.bindSharedDirectory) }
+    }
     Loader {
         id: modelLoader
-        active: location.folderUrl.toString().length > 0
+        active: !root.sharedDirectoryModel && location.folderUrl.toString().length > 0
         sourceComponent: StorageDirectoryModel {
             folder: location.folderUrl
             showDirs: true
@@ -190,27 +239,38 @@ Item {
     }
     Connections {
         target: root.directoryModel
+        enabled: root.visible && root.directoryMatches
         function onContentsChanged() { root.rebuildEntries() }
+        function onFolderChanged() { if (root.directoryMatches) root.rebuildEntries() }
         function onActivated(path, directory) { root.downloadStatus = ""; root.activated(path, directory) }
         function onDownloadFailed(error) { root.downloadStatus = error }
     }
 
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: LV.Theme.gap24
-        spacing: LV.Theme.gap24
+        anchors.margins: root.contentInset
+        spacing: root.contentSpacing
         RowLayout {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            spacing: LV.Theme.gap24
+            spacing: root.contentSpacing
             ColumnLayout {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                spacing: LV.Theme.gap24
+                spacing: root.contentSpacing
                 RowLayout {
                     objectName: "filesToolbar"
                     Layout.fillWidth: true
                     spacing: LV.Theme.gap8
+                    LV.LabelButton {
+                        objectName: "modelsBack"
+                        Layout.minimumHeight: root.touchNavigation ? LV.Theme.controlHeightMd + LV.Theme.gap8 : 0
+                        visible: root.modelsMode && root.modelRoot.length > 0 && root.path.length > 0
+                            && root.path !== root.modelRoot
+                        text: qsTr("Back")
+                        Accessible.name: qsTr("Go to the parent model folder")
+                        onClicked: root.modelUpRequested()
+                    }
                     LV.LabelSegmentedControl {
                         objectName: "filesViewMode"
                         forceBorderlessTone: false
@@ -234,6 +294,15 @@ Item {
                         tone: LV.AbstractButton.Default
                         onClicked: sortMenu.openFor(sortButton, 0, sortButton.height)
                     }
+                    LV.LabelButton {
+                        objectName: "modelsImport"
+                        Layout.minimumHeight: root.touchNavigation ? LV.Theme.controlHeightMd + LV.Theme.gap8 : 0
+                        visible: root.modelsMode
+                        enabled: root.modelImportEnabled
+                        text: root.width < 600 ? qsTr("Import") : qsTr("Import models…")
+                        Accessible.name: qsTr("Import and automatically categorize models")
+                        onClicked: root.modelImportRequested()
+                    }
                     Item { Layout.fillWidth: true }
                     LV.InputField {
                         objectName: "filesSearch"
@@ -242,7 +311,7 @@ Item {
                         Layout.preferredWidth: 205
                         Layout.maximumWidth: 205
                         search: true
-                        placeholderText: qsTr("Search Files")
+                        placeholderText: root.modelsMode ? qsTr("Search Models") : qsTr("Search Files")
                         text: root.query
                         onTextEdited: root.query = text
                     }
@@ -320,7 +389,7 @@ Item {
                                     readonly property var entry: root.entries[modelData.rowIndex] || ({})
                                     objectName: "filesCell_" + modelData.rowIndex + "_" + modelData.columnIndex
                                     readonly property bool selected: entry.path === root.selectedPath
-                                    color: selected ? LV.Theme.accent
+                                    color: selected ? LV.Theme.accentRoleColor("Green", "Selected")
                                         : modelData.rowIndex % 2 ? LV.Theme.panelBackground04 : "transparent"
                                     RowLayout {
                                         anchors.fill: parent
@@ -450,7 +519,8 @@ Item {
                         dateText: root.selectedEntry ? root.formatDate(root.selectedEntry.modified) : ""
                         metadata1: root.selectedEntry && !root.selectedEntry.directory ? root.formatSize(root.selectedEntry.bytes) : "—"
                         metadata2: root.selectedEntry && root.selectedEntry.resident ? qsTr("Local") : qsTr("Remote")
-                        statusText: root.selectedEntry && root.selectedEntry.resident ? qsTr("Available locally") : qsTr("Download on open")
+                        statusText: root.selectedEntry && root.selectedEntry.resident ? qsTr("Available locally")
+                            : root.selectedEntry && root.selectedEntry.directory ? qsTr("Open folder") : qsTr("Download on open")
                         showMoreMenu: false
                         primaryAction: ({ text: qsTr("Open"), enabled: !!root.selectedEntry, onTriggered: function() { root.openSelected() } })
                         secondaryAction: ({ text: qsTr("Reveal"), tone: LV.AbstractButton.Default, enabled: !!root.selectedEntry, onTriggered: function() { root.revealSelected() } })
@@ -548,9 +618,16 @@ Item {
     FileActionMenu {
         id: fileMenu
         objectName: "filesContextMenu"
+        categoryOptions: root.modelsMode && root.selectedModel ? root.modelCategories : []
+        currentCategory: root.selectedModel ? root.selectedModel.type || "" : ""
+        categoryEnabled: root.modelCategoryEnabled && (!root.selectedModel || root.selectedModel.available !== false)
         onOpenRequested: root.openSelected()
         onRevealRequested: root.revealSelected()
-        onModified: if (root.directoryModel) root.directoryModel.refresh()
+        onModified: function(path) {
+            if (root.directoryModel) root.directoryModel.refresh()
+            if (root.modelsMode) root.modelModified(path)
+        }
+        onCategoryRequested: function(path, category) { root.modelCategoryRequested(path, category) }
     }
     Shortcut { sequences: [StandardKey.Copy]; enabled: root.visible && tableScroll.activeFocus && !!root.selectedEntry; onActivated: { fileMenu.filePath = root.selectedPath; fileMenu.actions.copy() } }
     Shortcut { sequences: [StandardKey.Paste]; enabled: root.visible && tableScroll.activeFocus && fileMenu.actions.canPaste; onActivated: fileMenu.actions.paste(root.path) }

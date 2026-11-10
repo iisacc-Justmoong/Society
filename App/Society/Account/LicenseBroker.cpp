@@ -52,23 +52,29 @@ void AccountController::authorizeApp(QTcpSocket* socket,const QJsonObject& input
     static const QRegularExpression nonce("\\A[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}\\z");
     const auto product=input.value("productId").toString(),id=input.value("requestId").toString();
     if(!apps.contains(product)||input.value("appId")!=apps.value(product)||!nonce.match(id).hasMatch()){respond(socket,{{"allowed",false},{"code","invalid_app_request"}},400);return;}
-    const auto binding=manager()->sessionBinding();
-    if(!signedIn()||input.value("subject").toString()!=binding.value("subject").toString()||input.value("deviceId").toString()!=manager()->deviceInfo().value("id").toString()) {
-        respond(socket,{{"allowed",false},{"code","society_account_required"},{"requestId",id}});return;
-    }
-    auto* licenses=manager()->licenseManager();
-    auto connection=std::make_shared<QMetaObject::Connection>();
-    auto finish=[this,socket=QPointer<QTcpSocket>(socket),input,product,id,binding,connection]{
-        if(!socket){disconnect(*connection);return;}
-        auto* licenses=manager()->licenseManager();if(licenses->busy())return;
-        disconnect(*connection);
-        const bool current=manager()->matchesSessionBinding(binding);
-        const auto token=current?licenses->authorizationToken():QByteArray{};
-        const bool allowed=current&&licenses->allows(product);
-        respond(socket,{{"allowed",allowed},{"requestId",id},{"licenseToken",QString::fromLatin1(token)},
-            {"code",token.isEmpty()?licenses->code():allowed?"licensed":"license_not_owned"},{"source",licenses->code()},{"expiresAt",current?licenses->expiresAt():0}});
-    };
-    *connection=connect(licenses,&iisacc::accounts::LicenseManager::changed,socket,finish);
-    if(input.value("refresh").toBool())licenses->refresh();else licenses->ensure();
-    finish();
+    withBrokerAccount(socket,[socket=QPointer<QTcpSocket>(socket),input,product,id](AccountController *account) {
+        if(!socket)return;
+        const auto binding=account?account->manager()->sessionBinding():QVariantMap{};
+        if(!account||!account->signedIn()||input.value("subject").toString()!=binding.value("subject").toString()
+            ||input.value("deviceId").toString()!=account->manager()->deviceInfo().value("id").toString()) {
+            respond(socket,{{"allowed",false},{"code","society_account_required"},{"requestId",id}});return;
+        }
+        const QPointer<AccountController> currentAccount(account);
+        auto* licenses=account->manager()->licenseManager();
+        auto connection=std::make_shared<QMetaObject::Connection>();auto completed=std::make_shared<bool>(false);
+        auto finish=[socket,currentAccount,product,id,binding,connection,completed]{
+            if(!socket||!currentAccount){QObject::disconnect(*connection);return;}
+            if(*completed)return;
+            auto* manager=currentAccount->manager();auto* licenses=manager->licenseManager();if(licenses->busy())return;
+            *completed=true;QObject::disconnect(*connection);
+            const bool current=manager->matchesSessionBinding(binding);
+            const auto token=current?licenses->authorizationToken():QByteArray{};
+            const bool allowed=current&&licenses->allows(product);
+            respond(socket,{{"allowed",allowed},{"requestId",id},{"licenseToken",QString::fromLatin1(token)},
+                {"code",token.isEmpty()?licenses->code():allowed?"licensed":"license_not_owned"},{"source",licenses->code()},{"expiresAt",current?licenses->expiresAt():0}});
+        };
+        *connection=QObject::connect(licenses,&iisacc::accounts::LicenseManager::changed,socket.data(),finish);
+        if(input.value("refresh").toBool())licenses->refresh();else licenses->ensure();
+        finish();
+    });
 }

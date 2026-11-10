@@ -3,9 +3,9 @@ import importlib.util
 import os
 from pathlib import Path
 import plistlib
+import resource_workspace
 import subprocess
 import sys
-import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -36,30 +36,42 @@ class RuntimeLoaderBoundaryTests(unittest.TestCase):
 @unittest.skipUnless(sys.platform == "darwin", "Mach-O deployment is macOS-only")
 class RuntimeDeploymentTests(unittest.TestCase):
     def setUp(self):
-        self.fixture = tempfile.TemporaryDirectory(prefix="runtime-deployment-", dir=ROOT / "build")
-        self.addCleanup(self.fixture.cleanup)
-        self.root = Path(self.fixture.name)
+        inputs = resource_workspace.temporary(ROOT, "runtime-deployment-input-")
+        self.inputs = inputs.__enter__()
+        self.addCleanup(inputs.__exit__, None, None, None)
+        output = resource_workspace.build(ROOT, "runtime-deployment-build-")
+        self.root = output.__enter__()
+        self.addCleanup(output.__exit__, None, None, None)
         self.app = self.root / "Fixture.bundle"
         self.executable = self.app / "Contents/MacOS/Fixture"
-        self.executable.parent.mkdir(parents=True)
-        with (self.app / "Contents/Info.plist").open("wb") as file:
-            plistlib.dump({"CFBundleIdentifier": "com.iisacc.society.runtime-test",
-                          "CFBundleExecutable": "Fixture", "CFBundlePackageType": "APPL"}, file)
+        resource_workspace.provider.mkdir(self.executable.parent, parents=True)
+        self.link_input(self.app / "Contents/Info.plist", "app-info.plist", plistlib.dumps(
+            {"CFBundleIdentifier": "com.iisacc.society.runtime-test",
+             "CFBundleExecutable": "Fixture", "CFBundlePackageType": "APPL"}))
+
+    def input_file(self, name, data):
+        source = self.inputs / name
+        resource_workspace.provider.mkdir(source.parent, parents=True, exist_ok=True)
+        resource_workspace.provider.write_bytes(source, data if isinstance(data, bytes) else data.encode())
+        return source
+
+    def link_input(self, destination, name, data):
+        source = self.input_file(name, data)
+        resource_workspace.provider.mkdir(destination.parent, parents=True, exist_ok=True)
+        os.link(source, destination)
 
     def library(self, directory, name, value, install_name=None):
-        directory.mkdir(parents=True, exist_ok=True)
-        source = directory / (name + ".c")
-        source.write_text(f"int {name}(void) {{ return {value}; }}\n")
+        resource_workspace.provider.mkdir(directory, parents=True, exist_ok=True)
+        source = self.input_file(Path("sources") / directory.relative_to(self.root) / (name + ".c"),
+                                 f"int {name}(void) {{ return {value}; }}\n")
         library = directory / ("lib" + name + ".dylib")
         deployment.run("cc", "-dynamiclib", source, "-o", library,
                        "-Wl,-headerpad_max_install_names", "-install_name",
                        install_name or "@rpath/" + library.name)
-        source.unlink()
         return library
 
     def link(self, library, expected):
-        source = self.root / "main.c"
-        source.write_text(f"extern int choice(void); int main(void) {{ return choice() != {expected}; }}")
+        source = self.input_file("main.c", f"extern int choice(void); int main(void) {{ return choice() != {expected}; }}")
         deployment.run("cc", source, library, "-o", self.executable,
                        "-Wl,-headerpad_max_install_names", "-Wl,-rpath," + str(library.parent))
 
@@ -69,20 +81,44 @@ class RuntimeDeploymentTests(unittest.TestCase):
 
     def seal(self):
         deployment.localize(self.app)
-        entitlements = self.root / "entitlements.plist"
-        with entitlements.open("wb") as file:
-            plistlib.dump({}, file)
+        entitlements = self.input_file("entitlements.plist", plistlib.dumps({}))
         deployment.sign(self.app, "-", entitlements)
+
+    def test_interrupted_native_tool_temporary_is_not_a_helper(self):
+        self.link_input(self.executable, "fixture-main", b"main")
+        helper = self.executable.with_name("Helper")
+        self.link_input(helper, "fixture-helper", b"helper")
+        temporary = self.executable.with_name("Fixture.XXXXXX")
+        self.link_input(temporary, "fixture-native-temporary", b"temporary")
+        self.assertEqual({path.name for path in deployment.binaries(self.app)}, {"Fixture", "Helper"})
+        removed = deployment.remove_signing_temporaries(self.app)
+        self.assertIn("Contents/MacOS/Fixture.XXXXXX", removed)
+        self.assertFalse(temporary.exists())
+        self.assertTrue(self.executable.is_file())
+        self.assertTrue(helper.is_file())
+
+    def test_license_daemon_shares_app_signing_identifier(self):
+        self.link(self.library(self.root / "vendor", "choice", 3), 3)
+        helper = self.executable.with_name("SocietyDaemon")
+        source = self.input_file("helper.c", "int main(void) { return 0; }")
+        deployment.run("cc", source, "-o", helper)
+        entitlements = self.input_file("entitlements.plist", plistlib.dumps({}))
+        deployment.sign(self.app, "-", entitlements)
+        def signing_identifier(path):
+            inspected = subprocess.run(["codesign", "-dv", str(path)],
+                                       capture_output=True, text=True, check=True)
+            return next(line.removeprefix("Identifier=") for line in inspected.stderr.splitlines()
+                        if line.startswith("Identifier="))
+        self.assertEqual(signing_identifier(helper), signing_identifier(self.app))
 
     def test_stale_signing_temporaries_are_removed_before_binary_discovery(self):
         self.link(self.library(self.root / "vendor", "choice", 3), 3)
         stale = self.executable.with_name("Fixture.cstemp")
-        stale.write_bytes(bytes.fromhex("cffaedfe"))
+        self.link_input(stale, "stale-signature", bytes.fromhex("cffaedfe"))
         resource = self.app / "Contents/Resources/old.cstemp"
-        resource.parent.mkdir(); resource.write_text("interrupted signature")
-        outside = self.root / "preserved.cstemp"; outside.write_text("outside bundle")
-        entitlements = self.root / "entitlements.plist"
-        entitlements.write_bytes(plistlib.dumps({}))
+        self.link_input(resource, "old-signature", "interrupted signature")
+        outside = self.input_file("preserved.cstemp", "outside bundle")
+        entitlements = self.input_file("entitlements.plist", plistlib.dumps({}))
         deployment.sign(self.app, "-", entitlements)
         self.assertFalse(stale.exists())
         self.assertFalse(resource.exists())
@@ -100,17 +136,17 @@ class RuntimeDeploymentTests(unittest.TestCase):
         (framework / "QtFixture").symlink_to("Versions/Current/QtFixture")
         (framework / "Resources").symlink_to("Versions/Current/Resources")
         resources = framework / "Versions/A/Resources"
-        resources.mkdir()
-        with (resources / "Info.plist").open("wb") as file:
-            plistlib.dump({"CFBundleIdentifier": "com.iisacc.fixture.framework",
-                          "CFBundleExecutable": "QtFixture", "CFBundlePackageType": "FMWK",
-                          "CFBundleVersion": "1"}, file)
+        resource_workspace.provider.mkdir(resources)
+        self.link_input(resources / "Info.plist", "framework-info.plist", plistlib.dumps(
+            {"CFBundleIdentifier": "com.iisacc.fixture.framework",
+             "CFBundleExecutable": "QtFixture", "CFBundlePackageType": "FMWK",
+             "CFBundleVersion": "1"}))
         for name in ("Headers", "PrivateHeaders", "Modules"):
             directory = framework / "Versions/A" / name
-            directory.mkdir()
-            (directory / "development.txt").write_text("build-time metadata")
+            resource_workspace.provider.mkdir(directory)
+            self.link_input(directory / "development.txt", "development-" + name + ".txt", "build-time metadata")
             (framework / name).symlink_to("Versions/Current/" + name)
-        (resources / "LICENSE.txt").write_text("Runtime license fixture")
+        self.link_input(resources / "LICENSE.txt", "framework-license.txt", "Runtime license fixture")
         self.link(framework_binary, 5)
         deployment.complete_frameworks(self.app, qt)
         deployment.prune_framework_development_files(self.app)
@@ -131,8 +167,7 @@ class RuntimeDeploymentTests(unittest.TestCase):
         library = self.library(self.root / "vendor", "choice", 4)
         self.link(library, 4)
         helper = self.executable.with_name("Helper")
-        import shutil
-        shutil.copy2(self.executable, helper)
+        resource_workspace.provider.copy2(self.executable, helper)
         deployment.prepare_native(self.app, [], [], helper)
         deployment.prepare_native(self.app, [], [])
         self.seal()
@@ -145,18 +180,16 @@ class RuntimeDeploymentTests(unittest.TestCase):
     def test_unused_runtime_is_pruned_but_plugins_and_helpers_remain_loadable(self):
         library = self.library(self.root / "vendor", "choice", 4)
         self.link(library, 4)
-        import shutil
         helper = self.executable.with_name("Helper")
-        shutil.copy2(self.executable, helper)
+        resource_workspace.provider.copy2(self.executable, helper)
         deployment.prepare_native(self.app, [], [])
         deployment.prepare_native(self.app, [], [], helper)
         unused = self.library(self.app / "Contents/Frameworks", "unused", 99)
         plugin_dependency = self.library(self.app / "Contents/Frameworks", "plugin_dependency", 9,
             "@loader_path/../../Frameworks/libplugin_dependency.dylib")
         plugin = self.app / "Contents/PlugIns/example/libplugin.dylib"
-        plugin.parent.mkdir(parents=True)
-        source = self.root / "plugin.c"
-        source.write_text("extern int plugin_dependency(void); int plugin(void) { return plugin_dependency(); }")
+        resource_workspace.provider.mkdir(plugin.parent, parents=True)
+        source = self.input_file("plugin.c", "extern int plugin_dependency(void); int plugin(void) { return plugin_dependency(); }")
         deployment.run("cc", "-dynamiclib", source, plugin_dependency, "-o", plugin,
                        "-Wl,-headerpad_max_install_names", "-install_name", "@rpath/libplugin.dylib")
         removed = deployment.prune_native(self.app)
@@ -194,7 +227,7 @@ class RuntimeDeploymentTests(unittest.TestCase):
     def test_gpu_resources_are_sealed_and_remain_colocated_for_mlx(self):
         library = self.library(self.root / "vendor", "choice", 3, "@rpath/libmlx.dylib")
         library = library.rename(library.with_name("libmlx.dylib"))
-        (library.parent / "mlx.metallib").write_bytes(b"GPU library fixture")
+        self.link_input(library.parent / "mlx.metallib", "mlx.metallib", b"GPU library fixture")
         self.link(library, 3)
         deployment.prepare_native(self.app, [library], [])
         self.seal()
@@ -223,8 +256,7 @@ class RuntimeDeploymentTests(unittest.TestCase):
     def test_removed_homebrew_transitive_dependency_uses_explicit_runtime_copy(self):
         stale = self.root / "removed-homebrew/lib/libchild.dylib"
         child = self.library(self.root / "runtime", "child", 9, str(stale))
-        source = self.root / "choice.c"
-        source.write_text("extern int child(void); int choice(void) { return child(); }")
+        source = self.input_file("choice.c", "extern int child(void); int choice(void) { return child(); }")
         library = self.root / "libchoice.dylib"
         deployment.run("cc", "-dynamiclib", source, child, "-o", library,
                        "-Wl,-headerpad_max_install_names", "-install_name", "@rpath/libchoice.dylib")
@@ -242,8 +274,7 @@ class RuntimeDeploymentTests(unittest.TestCase):
 
     def test_transitive_loader_paths_survive_removing_the_original_directory(self):
         child = self.library(self.root / "vendor", "child", 9)
-        source = child.parent / "choice.c"
-        source.write_text("extern int child(void); int choice(void) { return child(); }")
+        source = self.input_file("choice.c", "extern int child(void); int choice(void) { return child(); }")
         library = child.parent / "libchoice.dylib"
         deployment.run("cc", "-dynamiclib", source, child, "-o", library,
                        "-Wl,-headerpad_max_install_names", "-install_name", "@rpath/libchoice.dylib",

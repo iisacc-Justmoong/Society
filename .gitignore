@@ -3,3 +3,9 @@
 /.idea/
 /CMakeUserPresets.json
 .DS_Store
+
+/resources/.state/
+/resources/.recovery/
+/resources/dependencies/
+**/.iisacc-temporary.lock
+**/.*.iisacc-preview

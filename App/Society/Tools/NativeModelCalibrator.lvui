@@ -1,0 +1,31 @@
+import vm NativeModelCalibratorViewModel
+
+ApplicationWindow(title: "Model calibrator", width: 1000, height: 720,
+                  minimumWidth: 680, minimumHeight: 500, accent: .green) {
+    VStack(spacing: Metric.space12, padding: Metric.space18) {
+        Label(text: "Model calibrator", style: .header)
+        Label(text: "Inspect a model and create a separate corrected copy.", style: .description)
+        HStack(spacing: Metric.space18) {
+            VStack(spacing: Metric.space12, flex: 2) {
+                Label(text: "1. Choose a model", style: .body)
+                PushButton(text: vm.sourceLabel, tone: .default, onClick: vm.chooseSource)
+                Label(text: "2. Analyze compatibility and weight integrity", style: .body)
+                Label(text: "Checks package integrity and F16, BF16, F32 and F64 values.", style: .description)
+                PushButton(text: "Analyze model", tone: .default, enabled: vm.canAnalyze, onClick: vm.analyze)
+                CheckBox(text: "Replace non-finite values with zero", checked: vm.repairNonfinite,
+                         onToggled: vm.setRepair)
+                Label(text: "Numeric repair changes weights and does not guarantee better generation quality.", style: .description)
+                Label(text: "Quality evaluation requires reference data and a supported evaluator.", style: .description)
+            }
+            VStack(spacing: Metric.space12, flex: 1) {
+                Label(text: "Corrected copy", style: .body)
+                PushButton(text: vm.outputLabel, tone: .default, onClick: vm.chooseOutput)
+                Label(text: "The source is never overwritten.", style: .description)
+                Label(text: "Analysis", style: .body)
+                Label(text: vm.status, style: .description)
+                PushButton(text: "Create corrected copy", enabled: vm.canCalibrate, onClick: vm.calibrate)
+                PushButton(text: "Cancel operation", tone: .default, enabled: vm.busy, onClick: vm.cancel)
+            }
+        }
+    }
+}

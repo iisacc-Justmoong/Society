@@ -3,7 +3,7 @@ import importlib.util
 import json
 from pathlib import Path
 import subprocess
-import tempfile
+import resource_workspace
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -20,8 +20,9 @@ class PhotoLibraryIntegrationTests(unittest.TestCase):
             sdk_configure = next(i for i, step in enumerate(steps) if str(SDK) in step)
             app_configure = next(i for i, step in enumerate(steps) if str(ROOT) in step)
             self.assertLess(sdk_configure, app_configure)
-            self.assertIn(f'-DiiPhotoLibrary_DIR={ROOT.parents[1] / "build" / mode / "install"}/lib/cmake/iiPhotoLibrary', steps[app_configure])
-            self.assertIn(f'-DiiSocietyContainer_DIR={ROOT.parents[1] / "build" / mode / "install"}/lib/cmake/iiSocietyContainer', steps[sdk_configure])
+            prefix = ROOT / 'resources/dependencies/ios' / mode
+            self.assertIn(f'-DiiPhotoLibrary_DIR={prefix}/lib/cmake/iiPhotoLibrary', steps[app_configure])
+            self.assertIn(f'-DiiSocietyContainer_DIR={prefix}/lib/cmake/iiSocietyContainer', steps[sdk_configure])
         presets = json.loads((ROOT / 'CMakePresets.json').read_text())
         for preset in presets['configurePresets']:
             variables = preset.get('cacheVariables', {})
@@ -30,21 +31,21 @@ class PhotoLibraryIntegrationTests(unittest.TestCase):
                 self.assertIn('iiPhotoLibrary_DIR', variables)
 
     def test_android_packages_sdk_bridge_and_replaces_old_generated_copy(self):
-        with tempfile.TemporaryDirectory(prefix='photo-package-', dir=ROOT / 'build') as directory:
+        with resource_workspace.temporary(ROOT, 'photo-package-') as directory:
             base = Path(directory)
             package = base / 'package'
-            package.mkdir()
-            (package / 'AndroidManifest.xml').write_text('<manifest><application><activity android:name="org.qtproject.qt.android.bindings.QtActivity"></activity></application></manifest>')
+            resource_workspace.provider.mkdir(package)
+            resource_workspace.provider.write_text(package / 'AndroidManifest.xml', '<manifest><application><activity android:name="org.qtproject.qt.android.bindings.QtActivity"></activity></application></manifest>')
             obsolete = package / 'src/com/iisacc/society/SocietyPhotoLibrary.java'
-            obsolete.parent.mkdir(parents=True)
-            obsolete.write_text('old generated bridge')
+            resource_workspace.provider.mkdir(obsolete.parent, parents=True)
+            resource_workspace.provider.write_text(obsolete, 'old generated bridge')
             templates = base / 'qt/src/android/templates'
-            templates.mkdir(parents=True)
-            (templates / 'build.gradle').write_text('implementation fileTree')
+            resource_workspace.provider.mkdir(templates, parents=True)
+            resource_workspace.provider.write_text(templates / 'build.gradle', 'implementation fileTree')
             # Only target registration and Qt resource registration are mocked;
             # the real CMake helper performs manifest and Java file packaging.
             script = base / 'package.cmake'
-            script.write_text(f'''set(CMAKE_CURRENT_SOURCE_DIR "{ROOT.as_posix()}")
+            resource_workspace.provider.write_text(script, f'''set(CMAKE_CURRENT_SOURCE_DIR "{ROOT.as_posix()}")
 set(Qt6_DIR "{base.as_posix()}/qt/lib/cmake/Qt6")
 set(iiPhotoLibrary_ANDROID_SOURCE_DIR "{SDK.as_posix()}/platform/android/src")
 function(get_target_property output target property)

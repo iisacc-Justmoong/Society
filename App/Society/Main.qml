@@ -39,6 +39,22 @@ LV.ApplicationWindow {
             }
         }
         Platform.Menu { title: qsTr("Edit") }
+        Platform.Menu {
+            title: qsTr("View")
+            Platform.MenuItem {
+                objectName: "globalNativeFilesAction"
+                text: qsTr("Files (LVUI preview)")
+                visible: Qt.platform.os === "osx"
+                enabled: !root.onboardingRequired
+                onTriggered: if (!drive.openNativeFiles()) root.showNotice(qsTr("Files"), drive.errorString)
+            }
+            Platform.MenuItem {
+                objectName: "globalToolsAction"
+                text: qsTr("Tools")
+                enabled: !root.onboardingRequired
+                onTriggered: root.selectedTab = "Tools"
+            }
+        }
         Platform.Menu { title: qsTr("Window") }
         Platform.Menu { title: qsTr("Help") }
     }
@@ -122,13 +138,17 @@ LV.ApplicationWindow {
     nativeTitleBarHeight: onboardingRequired ? 56 : societyView.toolbarHeight
     windowDragHandleHeight: onboardingRequired ? 56 : societyView.toolbarHeight
     windowDragExclusionItems: onboardingRequired ? [] : societyView.toolbarInteractiveItems
-    onActiveChanged: if (active && selectedTab === "Dashboard" && dashboardFiles) dashboardFiles.refresh()
+    onActiveChanged: if (active && selectedTab === "Dashboard" && dashboardFiles && !dashboardFiles.loading) dashboardFiles.refresh()
     onSelectedTabChanged: {
         if (mobileLayout && (selectedTab !== "Dashboard" || !societyView || !societyView.searchHasFocus)) platformInputMethod.hide()
     }
 
     Component.onCompleted: {
         modelImporter.attachWindow(root)
+        notificationCenter.record(qsTr("Model import"), modelImporter.errorString)
+        notificationCenter.record(qsTr("Import history"), modelImporter.jobsError)
+        notificationCenter.record(qsTr("Storage"), drive.errorString)
+        notificationCenter.record(qsTr("Account"), networkDrive.authError)
         if (initialContainerPath.length > 0) {
             drive.openContainer(initialContainerPath)
             if (drive.managedContainer && drive.hasDrive)
@@ -283,14 +303,37 @@ LV.ApplicationWindow {
         onActivated: root.openPreferences()
     }
     Shortcut {
+        objectName: "toolsShortcut"
+        sequence: "Ctrl+2"
+        context: Qt.ApplicationShortcut
+        enabled: !root.mobileLayout && !root.onboardingRequired
+        onActivated: root.selectedTab = "Tools"
+    }
+    Shortcut {
         sequences: [StandardKey.Close]
         enabled: !root.preferencesWindow || !root.preferencesWindow.visible
         onActivated: root.close()
     }
 
+    NotificationCenter { id: notificationCenter }
+    Connections {
+        target: modelImporter
+        function onStateChanged() { notificationCenter.record(qsTr("Model import"), modelImporter.errorString) }
+        function onJobsChanged() { notificationCenter.record(qsTr("Import history"), modelImporter.jobsError) }
+    }
+    Connections {
+        target: drive
+        function onErrorChanged() { notificationCenter.record(qsTr("Storage"), drive.errorString) }
+    }
+    Connections {
+        target: networkDrive
+        function onAuthChanged() { notificationCenter.record(qsTr("Account"), networkDrive.authError) }
+    }
+
     ModelImporter {
         id: modelImporter
         objectName: "modelImporter"
+        backendManaged: Qt.platform.os === "osx" || Qt.platform.os === "linux"
         containerPath: drive.contentsAvailable ? drive.rootPath : ""
         onOrganized: function(containerPath, paths) {
             if (containerPath === drive.rootPath) {
@@ -354,6 +397,7 @@ LV.ApplicationWindow {
             cloudFiles: accountCloudFiles
             navigation: storageNavigation
             modelImporter: root.storageImporter
+            notifications: notificationCenter
             files: dashboardFiles
             network: networkDrive
             account: session
@@ -361,7 +405,6 @@ LV.ApplicationWindow {
             toolbarLeadingInset: root.nativeTitleBarControlsRect.width > 0
                 ? root.nativeTitleBarControlsRect.x + root.nativeTitleBarControlsRect.width : 0
             hostModeAvailable: networkDrive.hostModeAvailable
-            signedIn: session.signedIn
             selectedTab: root.selectedTab
             deviceStatus: networkDrive.connected ? qsTr("Online") : networkDrive.reconnecting ? qsTr("Reconnecting")
                 : drive.hasDrive ? qsTr("Local") : qsTr("Unavailable")
@@ -378,8 +421,6 @@ LV.ApplicationWindow {
             onNoticeRequested: (title, message) => root.showNotice(title, message)
             onPreferencesRequested: root.openPreferences()
             onAccountRequested: root.openAccount()
-            onNotificationsRequested: root.showNotice(qsTr("Notifications"),
-                drive.errorString || networkDrive.authError || qsTr("No new notifications."))
             onChooseContainerRequested: folderDialog.open()
             onImportModelsRequested: modelDialog.open()
             onSectionRequested: function(section) { root.showStorage(section) }

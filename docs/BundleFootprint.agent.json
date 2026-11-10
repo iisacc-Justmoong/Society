@@ -10,9 +10,9 @@
   },
   "source": {
     "path": "docs/BundleFootprint.md",
-    "sha256": "d27f8be39ed22e3a50448e0b79a9ad605564b5c2ceb1ba12c79edf2ac20c3913",
-    "bytes": 7102,
-    "line_count": 131,
+    "sha256": "d441131dcb6eb27d7190ab23fa69c1d9fc43eb9ed7b3000d546469562603cfc4",
+    "bytes": 7849,
+    "line_count": 141,
     "encoding": "utf-8",
     "language": "en"
   },
@@ -225,9 +225,9 @@
       "kind": "fenced_code",
       "start_line": 51,
       "end_line": 56,
-      "raw": "```sh\npython3 tools/build_macos_inference_sdk.py --sdk-source ../../SDK/iiLocalDiffusion\ncmake -S . -B build -DCMAKE_BUILD_TYPE=Release \\\n  -DiiLocalDiffusion_DIR=\"$PWD/build/runtime-sdk/iiLocalDiffusion/install/lib/cmake/iiLocalDiffusion\"\ncmake --build build --target Society --parallel 6\n```\n",
+      "raw": "```sh\npython3 tools/build_macos_inference_sdk.py --sdk-source ../../SDK/iiLocalDiffusion\ncmake -S . -B build -DCMAKE_BUILD_TYPE=Release \\\n  -DiiLocalDiffusion_DIR=\"$PWD/resources/dependencies/macos-runtime/iiLocalDiffusion-apple/lib/cmake/iiLocalDiffusion\"\ncmake --build build --target Society --parallel 6\n```\n",
       "language": "sh",
-      "code": "python3 tools/build_macos_inference_sdk.py --sdk-source ../../SDK/iiLocalDiffusion\ncmake -S . -B build -DCMAKE_BUILD_TYPE=Release \\\n  -DiiLocalDiffusion_DIR=\"$PWD/build/runtime-sdk/iiLocalDiffusion/install/lib/cmake/iiLocalDiffusion\"\ncmake --build build --target Society --parallel 6\n",
+      "code": "python3 tools/build_macos_inference_sdk.py --sdk-source ../../SDK/iiLocalDiffusion\ncmake -S . -B build -DCMAKE_BUILD_TYPE=Release \\\n  -DiiLocalDiffusion_DIR=\"$PWD/resources/dependencies/macos-runtime/iiLocalDiffusion-apple/lib/cmake/iiLocalDiffusion\"\ncmake --build build --target Society --parallel 6\n",
       "closed": true
     },
     {
@@ -241,35 +241,35 @@
       "id": "b000027",
       "kind": "paragraph",
       "start_line": 58,
-      "end_line": 62,
-      "raw": "The preparation tool builds and tests the existing SDK options, installs them\nonly below `build/runtime-sdk/iiLocalDiffusion/install`, and records `profile.json`.\nA standalone product checkout can instead consume a prebuilt package with the\nsame profile through `iiLocalDiffusion_DIR`. The configure step rejects a runtime\nthat loads LibTorch so a broad development SDK cannot silently inflate releases.\n"
+      "end_line": 64,
+      "raw": "The preparation tool builds the module and its tests in\n`SDK/iiLocalDiffusion/build/society-macos`, stages the matching package below\n`resources/dependencies/macos-runtime/iiLocalDiffusion-apple`, and prints the\nprofile to standard output. It does not build optional SDK command-line tools.\nA standalone product checkout can instead consume a prebuilt package with the\nsame profile through `iiLocalDiffusion_DIR`. The configure step rejects a runtime\nthat loads LibTorch so a broad development SDK cannot silently inflate releases.\n"
     },
     {
       "id": "b000028",
       "kind": "blank",
-      "start_line": 63,
-      "end_line": 63,
+      "start_line": 65,
+      "end_line": 65,
       "raw": "\n"
     },
     {
       "id": "b000029",
       "kind": "paragraph",
-      "start_line": 64,
-      "end_line": 69,
+      "start_line": 66,
+      "end_line": 71,
       "raw": "The current file-creation migration also requires iiFileProvider 0.6. Install\nthat SDK normally, or select its matching `iiFileProvider_DIR`,\n`iiFileProviderCatalog_DIR`, and `iiFileProviderTemporary_DIR` packages. Do not\ncombine the 0.6 Qt package with an older Catalog package. The verified Workspace\nbuild used `SDK/iiFileProvider/build/ownership-migration/install` without changing\nthe user's global SDK installation.\n"
     },
     {
       "id": "b000030",
       "kind": "blank",
-      "start_line": 70,
-      "end_line": 70,
+      "start_line": 72,
+      "end_line": 72,
       "raw": "\n"
     },
     {
       "id": "b000031",
       "kind": "heading",
-      "start_line": 71,
-      "end_line": 71,
+      "start_line": 73,
+      "end_line": 73,
       "raw": "## Deployment contract\n",
       "level": 2,
       "title": "Deployment contract"
@@ -277,30 +277,30 @@
     {
       "id": "b000032",
       "kind": "blank",
-      "start_line": 72,
-      "end_line": 72,
+      "start_line": 74,
+      "end_line": 74,
       "raw": "\n"
     },
     {
       "id": "b000033",
       "kind": "paragraph",
-      "start_line": 73,
-      "end_line": 74,
+      "start_line": 75,
+      "end_line": 76,
       "raw": "The shared deployment policy is vendored under `cmake/single-app/`. Society opts\ninto compact deployment with its actual Basic Controls style:\n"
     },
     {
       "id": "b000034",
       "kind": "blank",
-      "start_line": 75,
-      "end_line": 75,
+      "start_line": 77,
+      "end_line": 77,
       "raw": "\n"
     },
     {
       "id": "b000035",
       "kind": "list",
-      "start_line": 76,
-      "end_line": 91,
-      "raw": "- Copy imported QML modules separately; do not recursively copy unrelated child modules.\n- Keep QML, JavaScript, images, fonts, shaders, and native plugins.\n- Preserve private QML directories whose `qmldir` only specifies a resource\n  preference; they are not separate imported modules.\n- Exclude dSYM bundles, `.qmltypes` editor descriptions, and designer directories.\n- Keep Basic and its implementation modules; omit optional alternate styles.\n- Use the fonts, icons, and images already embedded in the LVRS shared library\n  instead of copying another filesystem set. Preserve accompanying filesystem\n  licenses. `Society.BundledResources` loads the actual bundled Qt Core and LVRS\n  and checks every omitted asset through its public Qt resource URL.\n- Remove stale native libraries/frameworks outside the dependency closure of the\n  app, plain helper executables, and runtime plugins.\n- Strip local/debug symbols in Release and MinSizeRel while preserving exported\n  symbols required by dynamic linking and plugins. Debug symbols remain in the\n  original SDK/build artifacts.\n- Relocate dependencies and sign the final self-contained bundle.\n",
+      "start_line": 78,
+      "end_line": 101,
+      "raw": "- Copy imported QML modules separately; do not recursively copy unrelated child modules.\n- Keep QML, JavaScript, images, fonts, shaders, and native plugins.\n- Preserve private QML directories whose `qmldir` only specifies a resource\n  preference; they are not separate imported modules.\n- Exclude dSYM bundles, `.qmltypes` editor descriptions, and designer directories.\n- Keep Basic and its implementation modules; omit optional alternate styles.\n- Use the fonts, icons, and images already embedded in the LVRS shared library\n  instead of copying another filesystem set. Preserve accompanying filesystem\n  licenses. `Society.BundledResources` loads the actual bundled Qt Core and LVRS\n  and checks every omitted asset through its public Qt resource URL. The probe\n  enumerates the installed SDK resources directly and does not generate an\n  input manifest in the application's build directory.\n- Remove stale native libraries/frameworks outside the dependency closure of the\n  app, plain helper executables, and runtime plugins.\n- Strip local/debug symbols in Release and MinSizeRel while preserving exported\n  symbols required by dynamic linking and plugins. Debug symbols remain in the\n  original SDK/build artifacts.\n- Relocate dependencies and sign the final self-contained bundle.\n- If an architecture probe is terminated by SIGKILL, restage that regular file\n  inside the generated bundle with a byte-preserving copy and atomic replacement,\n  then retry the probe once. Other errors and a second failure remain build\n  failures; files outside the bundle and symbolic links are never restaged.\n  `Society.MacDeploymentLayout` tests the retry, failure propagation, bundle\n  boundary and temporary-file cleanup without launching an application.\n",
       "items": [
         {
           "marker": "-",
@@ -346,35 +346,40 @@
           "marker": "-",
           "text": "Relocate dependencies and sign the final self-contained bundle.",
           "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "If an architecture probe is terminated by SIGKILL, restage that regular file",
+          "checked": null
         }
       ]
     },
     {
       "id": "b000036",
       "kind": "blank",
-      "start_line": 92,
-      "end_line": 92,
+      "start_line": 102,
+      "end_line": 102,
       "raw": "\n"
     },
     {
       "id": "b000037",
       "kind": "paragraph",
-      "start_line": 93,
-      "end_line": 95,
+      "start_line": 103,
+      "end_line": 105,
       "raw": "The canonical output remains `build/bin/Society.app`. The embedded\n`SocietyDaemon` and `SocietyContainerDaemon` remain plain executables in\n`Contents/MacOS`; no second application bundle is created below `build/`.\n"
     },
     {
       "id": "b000038",
       "kind": "blank",
-      "start_line": 96,
-      "end_line": 96,
+      "start_line": 106,
+      "end_line": 106,
       "raw": "\n"
     },
     {
       "id": "b000039",
       "kind": "heading",
-      "start_line": 97,
-      "end_line": 97,
+      "start_line": 107,
+      "end_line": 107,
       "raw": "## Verification\n",
       "level": 2,
       "title": "Verification"
@@ -382,15 +387,15 @@
     {
       "id": "b000040",
       "kind": "blank",
-      "start_line": 98,
-      "end_line": 98,
+      "start_line": 108,
+      "end_line": 108,
       "raw": "\n"
     },
     {
       "id": "b000041",
       "kind": "fenced_code",
-      "start_line": 99,
-      "end_line": 105,
+      "start_line": 109,
+      "end_line": 115,
       "raw": "```sh\npython3 tests/test_macos_runtime.py\ncmake --build build --target SocietyBundledResourcesTests --parallel 6\npython3 tests/verify_macos_footprint.py build/bin/Society.app\npython3 tests/verify_macos_runtime.py build/bin/Society.app --gui\nctest --test-dir build -R 'Society\\.(BundledResources|MacBundleFootprint|MacRuntimeDeployment|MacRuntimeLaunch|Mcp|ModelPackaging|ModelMerge|Network|Daemon)' --output-on-failure\n```\n",
       "language": "sh",
       "code": "python3 tests/test_macos_runtime.py\ncmake --build build --target SocietyBundledResourcesTests --parallel 6\npython3 tests/verify_macos_footprint.py build/bin/Society.app\npython3 tests/verify_macos_runtime.py build/bin/Society.app --gui\nctest --test-dir build -R 'Society\\.(BundledResources|MacBundleFootprint|MacRuntimeDeployment|MacRuntimeLaunch|Mcp|ModelPackaging|ModelMerge|Network|Daemon)' --output-on-failure\n",
@@ -399,57 +404,57 @@
     {
       "id": "b000042",
       "kind": "blank",
-      "start_line": 106,
-      "end_line": 106,
+      "start_line": 116,
+      "end_line": 116,
       "raw": "\n"
     },
     {
       "id": "b000043",
       "kind": "paragraph",
-      "start_line": 107,
-      "end_line": 110,
+      "start_line": 117,
+      "end_line": 120,
       "raw": "`Society.MacBundleFootprint` enforces a 512 MiB file-size budget and checks required\nhelpers, LVRS, Basic Controls, and native image-generation runtime. LibTorch,\nQt3D, virtual keyboard modules, alternate styles, and development resources are\nrejected. Build-time footprint validation runs after runtime deployment.\n"
     },
     {
       "id": "b000044",
       "kind": "blank",
-      "start_line": 111,
-      "end_line": 111,
+      "start_line": 121,
+      "end_line": 121,
       "raw": "\n"
     },
     {
       "id": "b000045",
       "kind": "paragraph",
-      "start_line": 112,
-      "end_line": 117,
+      "start_line": 122,
+      "end_line": 127,
       "raw": "The SDK profile tests cover native generation output/error contracts and model\nmetadata. Product tests additionally cover packaging, merge tooling, host/peer\ntransport, daemon behavior, MCP, and GUI loading. These are separate from a new\nlarge-model generation run. Installed-bundle signatures, runtime libraries,\ncontainer identity, and real application views must also be checked after an\ninstallation update.\n"
     },
     {
       "id": "b000046",
       "kind": "blank",
-      "start_line": 118,
-      "end_line": 118,
+      "start_line": 128,
+      "end_line": 128,
       "raw": "\n"
     },
     {
       "id": "b000047",
       "kind": "paragraph",
-      "start_line": 119,
-      "end_line": 125,
+      "start_line": 129,
+      "end_line": 135,
       "raw": "For this change, all ten selected packaging/runtime CTest groups passed, with\nthe dependency-presence group passing an isolated retry after its first\n30-second timeout; its deadline and assertions were unchanged. The Cocoa/Metal\nGUI checks passed eight cases. Shared deployment policy checks passed twelve\ntests, native deployment checks passed nine, and native SDK profile checks passed\nthree. The bundled-resource check validated all 2,886 embedded LVRS assets.\nInitial timeout failures and retry results are retained in the build report.\n"
     },
     {
       "id": "b000048",
       "kind": "blank",
-      "start_line": 126,
-      "end_line": 126,
+      "start_line": 136,
+      "end_line": 136,
       "raw": "\n"
     },
     {
       "id": "b000049",
       "kind": "paragraph",
-      "start_line": 127,
-      "end_line": 131,
+      "start_line": 137,
+      "end_line": 141,
       "raw": "The broader QuickGenerate group still reports the simulated iOS/Android search\ntoggle visibility assertion in `mobileViewsShareDesktopContentAndKeepState`.\nThe same assertion was reproduced with the full development inference SDK.\nIt is tracked separately from the package footprint checks; no mobile-device\nvalidation or new large-model generation run is claimed here.\n"
     }
   ],
@@ -492,7 +497,7 @@
       "level": 2,
       "title": "Deployment contract",
       "anchor": "deployment-contract",
-      "start_line": 71
+      "start_line": 73
     },
     {
       "block_id": "b000039",
@@ -500,42 +505,49 @@
       "level": 2,
       "title": "Verification",
       "anchor": "verification",
-      "start_line": 97
+      "start_line": 107
     }
   ],
   "indexes": {
     "directive_candidates": [
       {
         "block_id": "b000029",
-        "line": 66,
+        "line": 68,
         "text": "`iiFileProviderCatalog_DIR`, and `iiFileProviderTemporary_DIR` packages. Do not",
         "basis": "lexical_match",
         "context": "paragraph"
       },
       {
         "block_id": "b000035",
-        "line": 76,
+        "line": 78,
         "text": "- Copy imported QML modules separately; do not recursively copy unrelated child modules.",
         "basis": "lexical_match",
         "context": "list"
       },
       {
         "block_id": "b000035",
-        "line": 89,
+        "line": 93,
         "text": "symbols required by dynamic linking and plugins. Debug symbols remain in the",
         "basis": "lexical_match",
         "context": "list"
       },
       {
+        "block_id": "b000035",
+        "line": 99,
+        "text": "failures; files outside the bundle and symbolic links are never restaged.",
+        "basis": "lexical_match",
+        "context": "list"
+      },
+      {
         "block_id": "b000043",
-        "line": 107,
+        "line": 117,
         "text": "`Society.MacBundleFootprint` enforces a 512 MiB file-size budget and checks required",
         "basis": "lexical_match",
         "context": "paragraph"
       },
       {
         "block_id": "b000045",
-        "line": 116,
+        "line": 126,
         "text": "container identity, and real application views must also be checked after an",
         "basis": "lexical_match",
         "context": "paragraph"
@@ -545,7 +557,7 @@
       {
         "block_id": "b000025",
         "language": "sh",
-        "code": "python3 tools/build_macos_inference_sdk.py --sdk-source ../../SDK/iiLocalDiffusion\ncmake -S . -B build -DCMAKE_BUILD_TYPE=Release \\\n  -DiiLocalDiffusion_DIR=\"$PWD/build/runtime-sdk/iiLocalDiffusion/install/lib/cmake/iiLocalDiffusion\"\ncmake --build build --target Society --parallel 6\n"
+        "code": "python3 tools/build_macos_inference_sdk.py --sdk-source ../../SDK/iiLocalDiffusion\ncmake -S . -B build -DCMAKE_BUILD_TYPE=Release \\\n  -DiiLocalDiffusion_DIR=\"$PWD/resources/dependencies/macos-runtime/iiLocalDiffusion-apple/lib/cmake/iiLocalDiffusion\"\ncmake --build build --target Society --parallel 6\n"
       },
       {
         "block_id": "b000041",

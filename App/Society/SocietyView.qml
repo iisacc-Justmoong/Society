@@ -18,17 +18,39 @@ LV.VStack {
     property CloudFilesController cloudFiles: null
     required property StorageNavigation navigation
     required property ModelImporter modelImporter
+    property var notifications: null
+    readonly property string notificationCountText: notifications && notifications.count > 0
+        ? String(notifications.count) : ""
     required property DashboardFiles files
     required property bool desktop
     required property NetworkDriveController network
     required property AccountController account
-    function showEnvironmentDevices() { environment.showDevices() }
+    property bool toolsReady: false
+    property bool storageReady: false
+    property bool environmentReady: false
+    property bool pendingStorageActions: false
+    function openStorageActions(): void {
+        if (storageLoader.item) storageLoader.item.openActions()
+        else pendingStorageActions = true
+    }
+    readonly property string availableModelsDirectory: drive && drive.contentsAvailable ? drive.rootPath + "/Models" : ""
+    property string preloadedModelsDirectory: ""
+    function prepareStorageModels(): void {
+        if (availableModelsDirectory.length > 0) preloadedModelsDirectory = availableModelsDirectory
+    }
+    onAvailableModelsDirectoryChanged: if (preloadedModelsDirectory !== availableModelsDirectory)
+        preloadedModelsDirectory = ""
+    property bool pendingEnvironmentDevices: false
+    function showEnvironmentDevices() {
+        if (environmentLoader.item) environmentLoader.item.showDevices()
+        else pendingEnvironmentDevices = true
+    }
     signal addDeviceRequested()
     signal pairingRequested()
     signal browseDeviceRequested(string id, string name, string peerId)
     signal noticeRequested(string title, string message)
     property bool hostModeAvailable: false
-    property bool signedIn: false
+    property bool signedIn: account ? account.signedIn : false
     property string deviceStatus: ""
     property string synchronizationStatus: ""
     property var photos: null
@@ -38,18 +60,17 @@ LV.VStack {
     readonly property var platformInputMethod: Qt.inputMethod
     readonly property bool searchHasFocus: dashboardSearch.inputItem.activeFocus || mobileSearch.inputItem.activeFocus
     readonly property bool compactNavigation: !desktop && width < 760
-    readonly property bool navigationOpen: navigationSheet.visible || storage.actionsOpen
+    readonly property bool navigationOpen: navigationSheet.visible || (storageLoader.item ? storageLoader.item.actionsOpen : false)
     property real toolbarLeadingInset: 0
     readonly property real toolbarHeight: desktop && toolbar.visible ? 56 : 0
     readonly property var toolbarInteractiveItems: [toolbarNavigation, dashboardSearch, dashboardNotifications, dashboardAccount, wideStorageActions]
-    readonly property bool toolsCanGoBack: tools.canGoBack
-    function goBackTool(): void { tools.goBack() }
+    readonly property bool toolsCanGoBack: toolsLoader.item ? toolsLoader.item.canGoBack : false
+    function goBackTool(): void { if (toolsLoader.item) toolsLoader.item.goBack() }
 
     signal tabRequested(string tab)
     signal devicesRequested()
     signal preferencesRequested()
     signal accountRequested()
-    signal notificationsRequested()
     signal chooseContainerRequested()
     signal importModelsRequested()
     signal sectionRequested(string section)
@@ -59,9 +80,49 @@ LV.VStack {
     signal generateRequested(string prompt, string mediaType, string aspectRatio, int count)
 
     spacing: 0
-    onSelectedTabChanged: navigationSheet.close()
+    onSelectedTabChanged: {
+        navigationSheet.close()
+        if (selectedTab !== "Storage") pendingStorageActions = false
+        if (selectedTab !== "Environment") pendingEnvironmentDevices = false
+    }
     onCompactNavigationChanged: navigationSheet.close()
     onQueryChanged: if (query.length > 0 && selectedTab !== "Dashboard") root.tabRequested("Dashboard")
+
+    // Keep one metadata-only file model across Dashboard and Storage. It is
+    // populated by the first visible browser and reused when the path matches.
+    StorageDirectoryModel {
+        id: workspaceFilesDirectory
+        objectName: "sharedFilesDirectoryModel"
+    }
+    StorageModels {
+        id: sharedStorageModels
+        objectName: "modelCatalog"
+        directory: root.availableModelsDirectory.length > 0
+            && root.preloadedModelsDirectory === root.availableModelsDirectory ? root.availableModelsDirectory : ""
+    }
+    Connections {
+        target: sharedStorageModels
+        function onModelsChanged() {
+            if (root.notifications) root.notifications.record(qsTr("Models"), sharedStorageModels.errorString)
+        }
+    }
+    Timer {
+        id: modelPreloadTimer
+        objectName: "modelPreloadTimer"
+        interval: 1500
+        repeat: false
+        // Do not compete with startup, a visible file scan, an import, search,
+        // another page or a backgrounded application.
+        running: root.visible && root.selectedTab === "Dashboard" && Qt.application.state === Qt.ApplicationActive
+            && root.files && !root.files.loading && !dashboard.filesBrowserLoading
+            && !dashboard.calendarPageVisible && !dashboard.activityPageVisible && !dashboard.projectsPageVisible
+            && !dashboard.calendarModel.loading && !dashboard.projectWorkspace.busy
+            && !root.modelImporter.busy && !root.searchHasFocus && root.query.length === 0
+            && (!toolsLoader.item || !toolsLoader.item.preloadBusy)
+            && root.availableModelsDirectory.length > 0
+            && root.preloadedModelsDirectory !== root.availableModelsDirectory
+        onTriggered: root.prepareStorageModels()
+    }
 
     Item {
         id: toolbar
@@ -78,8 +139,10 @@ LV.VStack {
         LV.HStack {
             anchors.fill: parent
             anchors.margins: root.desktop ? 12 : 6
-            anchors.leftMargin: root.toolbarLeadingInset + 12
-            spacing: 12
+            anchors.topMargin: root.desktop ? 8 : 6
+            anchors.bottomMargin: root.desktop ? 8 : 6
+            anchors.leftMargin: root.toolbarLeadingInset + (root.toolbarLeadingInset > 0 ? 8 : 12)
+            spacing: 8
             Flickable {
                 id: toolbarNavigation
                 objectName: "dashboardTabViewport"
@@ -94,44 +157,47 @@ LV.VStack {
                 flickableDirection: Flickable.HorizontalFlick
                 boundsBehavior: Flickable.StopAtBounds
                 clip: true
-                LV.LabelSegmentedControl {
+                LV.IconSegmentedControl {
                     id: dashboardTabs
                     objectName: "dashboardTabs"
                     anchors.verticalCenter: parent.verticalCenter
                     anchors.alignWhenCentered: false
                     forceBorderlessTone: false
-                    LV.LabelButton {
-                        objectName: "dashboardTab"
-                        text: qsTr("Dashboard")
+                    LV.IconButton {
+                        objectName: "dashboardTab"; iconName: "database"
+                        Accessible.name: qsTr("Workspace")
                         tone: root.selectedTab === "Dashboard" ? LV.AbstractButton.Default : LV.AbstractButton.Borderless
                         Accessible.selected: root.selectedTab === "Dashboard"
                         onClicked: root.tabRequested("Dashboard")
                     }
-                    LV.LabelButton {
-                        objectName: "toolsTab"
-                        text: qsTr("Tools")
+                    LV.IconButton {
+                        objectName: "tasksTab"; iconName: "toolwindowrun"
+                        Accessible.name: qsTr("Tasks")
                         tone: root.selectedTab === "Tools" ? LV.AbstractButton.Default : LV.AbstractButton.Borderless
-                        Accessible.name: text
                         Accessible.selected: root.selectedTab === "Tools"
                         onClicked: root.tabRequested("Tools")
                     }
-                    LV.LabelButton {
-                        objectName: "storageTab"
-                        text: qsTr("Storage")
+                    LV.IconButton {
+                        objectName: "storageTab"; iconName: "serverObjectsGroup"
+                        Accessible.name: qsTr("Storage")
                         tone: root.selectedTab === "Storage" ? LV.AbstractButton.Default : LV.AbstractButton.Borderless
                         Accessible.selected: root.selectedTab === "Storage"
                         onClicked: root.tabRequested("Storage")
                     }
-                    LV.LabelButton {
-                        objectName: "browseTab"
-                        text: qsTr("Browse")
+                    LV.IconButton { objectName: "spaceTab"; iconName: "toolwindownewUI"; Accessible.name: qsTr("Space"); tone: LV.AbstractButton.Borderless; backgroundColorDisabled: "transparent"; enabled: false }
+                    LV.IconButton { objectName: "analysisTab"; iconName: "chartLine"; Accessible.name: qsTr("Analysis"); tone: LV.AbstractButton.Borderless; backgroundColorDisabled: "transparent"; enabled: false }
+                    LV.IconButton { objectName: "portfolioTab"; iconName: "pattern"; Accessible.name: qsTr("Portfolio"); tone: LV.AbstractButton.Borderless; backgroundColorDisabled: "transparent"; enabled: false }
+                    LV.IconButton {
+                        objectName: "browseTab"; iconName: "webApp"
+                        Accessible.name: qsTr("Browse")
                         tone: root.selectedTab === "Browse" ? LV.AbstractButton.Default : LV.AbstractButton.Borderless
                         Accessible.selected: root.selectedTab === "Browse"
                         onClicked: root.tabRequested("Browse")
                     }
-                    LV.LabelButton {
-                        objectName: "environmentTab"
-                        text: qsTr("Environment")
+                    LV.IconButton { objectName: "learningTab"; iconName: "toolwindowlearn"; Accessible.name: qsTr("Learning"); tone: LV.AbstractButton.Borderless; backgroundColorDisabled: "transparent"; enabled: false }
+                    LV.IconButton {
+                        objectName: "environmentTab"; iconName: "multiplatform"
+                        Accessible.name: qsTr("Environment")
                         tone: root.selectedTab === "Environment" ? LV.AbstractButton.Default : LV.AbstractButton.Borderless
                         Accessible.selected: root.selectedTab === "Environment"
                         onClicked: root.tabRequested("Environment")
@@ -139,13 +205,6 @@ LV.VStack {
                 }
             }
             LV.Spacer { Layout.fillWidth: true }
-            LV.LabelButton {
-                objectName: "desktopCloudFiles"
-                visible: root.desktop && root.selectedTab === "Storage"
-                text: qsTr("Cloud Files · 5 GB")
-                enabled: root.signedIn && root.cloudFiles !== null
-                onClicked: storage.openCloudFiles()
-            }
             LV.InputField {
                 id: dashboardSearch
                 objectName: "dashboardSearch"
@@ -177,21 +236,47 @@ LV.VStack {
                 iconName: "generalsettings"
                 tone: LV.AbstractButton.Borderless
                 Accessible.name: qsTr("Storage actions")
-                onClicked: storage.openActions()
+                onClicked: root.openStorageActions()
             }
             LV.IconButton {
                 id: dashboardNotifications
                 objectName: "dashboardNotifications"
                 tone: LV.AbstractButton.Default
                 iconSource: Qt.resolvedUrl("Toolbar/icons/notifications.svg")
-                Accessible.name: qsTr("Notifications")
-                onClicked: root.notificationsRequested()
+                text: root.notificationCountText
+                Accessible.name: root.notifications && root.notifications.count > 0
+                    ? qsTr("Notifications (%1)").arg(root.notifications.count) : qsTr("Notifications")
+                onClicked: notificationsPopup.visible ? notificationsPopup.close() : notificationsPopup.openFor(dashboardNotifications)
             }
-            LV.IconButton {
+            LV.AbstractButton {
                 id: dashboardAccount
                 objectName: "dashboardAccount"
-                tone: LV.AbstractButton.Default
-                iconSource: Qt.resolvedUrl("Toolbar/icons/account.svg")
+                implicitWidth: LV.Theme.scaleMetric(40)
+                implicitHeight: LV.Theme.scaleMetric(40)
+                Layout.preferredWidth: implicitWidth
+                Layout.preferredHeight: implicitHeight
+                horizontalPadding: 0
+                verticalPadding: 0
+                background: Item {}
+                contentItem: LV.Avatar {
+                    id: accountAvatar
+                    objectName: "dashboardAvatar"
+                    size: LV.Avatar.Medium
+                    source: root.signedIn && root.account && root.account.account
+                        ? root.account.account.avatarUrl : ""
+                    Accessible.ignored: true
+                    Image {
+                        objectName: "accountAvatarFallback"
+                        anchors.centerIn: parent
+                        width: LV.Theme.scaleMetric(20)
+                        height: LV.Theme.scaleMetric(20)
+                        source: Qt.resolvedUrl("Toolbar/icons/avatar-placeholder.svg")
+                        sourceSize: Qt.size(width * Screen.devicePixelRatio, height * Screen.devicePixelRatio)
+                        fillMode: Image.PreserveAspectFit
+                        visible: accountAvatar.status !== Image.Ready
+                        Accessible.ignored: true
+                    }
+                }
                 Accessible.name: root.signedIn ? qsTr("Your iisacc account") : qsTr("Sign in to iisacc")
                 onClicked: root.accountRequested()
             }
@@ -229,7 +314,7 @@ LV.VStack {
                 iconName: "generalsettings"
                 tone: LV.AbstractButton.Borderless
                 Accessible.name: qsTr("Storage actions")
-                onClicked: storage.openActions()
+                onClicked: root.openStorageActions()
             }
             LV.IconButton {
                 objectName: "mobileSearchToggle"
@@ -242,6 +327,16 @@ LV.VStack {
                     if (root.searchExpanded) Qt.callLater(function() { mobileSearch.inputItem.forceActiveFocus() })
                     else root.platformInputMethod.hide()
                 }
+            }
+            LV.IconButton {
+                id: mobileNotifications
+                objectName: "mobileNotifications"
+                iconSource: Qt.resolvedUrl("Toolbar/icons/notifications.svg")
+                tone: LV.AbstractButton.Default
+                text: root.notificationCountText
+                Accessible.name: root.notifications && root.notifications.count > 0
+                    ? qsTr("Notifications (%1)").arg(root.notifications.count) : qsTr("Notifications")
+                onClicked: notificationsPopup.visible ? notificationsPopup.close() : notificationsPopup.openFor(mobileNotifications)
             }
             LV.IconButton {
                 objectName: "mobileAccount"
@@ -269,6 +364,12 @@ LV.VStack {
         }
     }
 
+    NotificationPopover {
+        id: notificationsPopup
+        notifications: root.notifications
+        touchNavigation: !root.desktop
+    }
+
     Item {
         Layout.fillWidth: true
         Layout.fillHeight: true
@@ -277,7 +378,10 @@ LV.VStack {
             anchors.fill: parent
             visible: root.selectedTab === "Dashboard"
             touchNavigation: !root.desktop
+            drive: root.drive
             viewModel: root.files
+            sharedFilesDirectory: workspaceFilesDirectory
+            projectActorId: root.account.signedIn ? root.account.userId : ""
             navigation: root.navigation
             driveError: root.drive.errorString
             deviceStatus: root.deviceStatus
@@ -287,62 +391,107 @@ LV.VStack {
             onDevicesRequested: root.devicesRequested()
             onFeatureRequested: function(feature) { root.featureRequested(feature) }
         }
-        ToolsView {
-            id: tools
+        Loader {
+            id: toolsLoader
+            objectName: "toolsLoader"
             anchors.fill: parent
             visible: root.selectedTab === "Tools"
-            touchNavigation: !root.desktop
-            modelsDirectory: root.drive.contentsAvailable ? root.drive.rootPath + "/Models" : ""
-            modelsBusy: root.modelImporter.busy
-            onPackageCreated: function(path) {
-                root.files.refresh()
-                if (root.drive.contentsAvailable && path.startsWith(root.drive.rootPath + "/Models/"))
-                    root.modelImporter.organizeModels()
-            }
-            onGenerateRequested: function(prompt, mediaType, aspectRatio, count) {
-                root.generateRequested(prompt, mediaType, aspectRatio, count)
+            active: (root.visible && root.selectedTab === "Tools") || root.toolsReady
+            asynchronous: true
+            onLoaded: root.toolsReady = true
+            sourceComponent: ToolsView {
+                touchNavigation: !root.desktop
+                modelsDirectory: root.drive.contentsAvailable ? root.drive.rootPath + "/Models" : ""
+                modelsBusy: root.modelImporter.busy
+                preloadAllowed: root.selectedTab === "Tools" && !sharedStorageModels.loading
+                    && !root.files.loading && !dashboard.filesBrowserLoading && !root.modelImporter.busy
+                    && !dashboard.calendarModel.loading && !dashboard.projectWorkspace.busy
+                onPackageCreated: function(path) {
+                    root.files.refresh()
+                    if (root.drive.contentsAvailable && path.startsWith(root.drive.rootPath + "/Models/"))
+                        root.modelImporter.organizeModels()
+                }
+                onGenerateRequested: function(prompt, mediaType, aspectRatio, count) {
+                    root.generateRequested(prompt, mediaType, aspectRatio, count)
+                }
             }
         }
-        EnvironmentView {
-            id: environment
+        Loader {
+            id: environmentLoader
+            objectName: "environmentLoader"
             anchors.fill: parent
             visible: root.selectedTab === "Environment"
-            navigation: root.navigation
-            drive: root.drive
-            network: root.network
-            account: root.account
-            onAddDeviceRequested: root.addDeviceRequested()
-            onPairingRequested: root.pairingRequested()
-            onPreferencesRequested: root.preferencesRequested()
-            onAccountRequested: root.accountRequested()
-            onSocietyRequested: root.tabRequested("Dashboard")
-            onBrowseDeviceRequested: (id, name, peerId) => root.browseDeviceRequested(id, name, peerId)
-            onNoticeRequested: (title, message) => root.noticeRequested(title, message)
+            active: (root.visible && root.selectedTab === "Environment") || root.environmentReady
+            asynchronous: true
+            onLoaded: {
+                root.environmentReady = true
+                if (root.pendingEnvironmentDevices) {
+                    root.pendingEnvironmentDevices = false
+                    item.showDevices()
+                }
+            }
+            sourceComponent: EnvironmentView {
+                navigation: root.navigation
+                drive: root.drive
+                network: root.network
+                account: root.account
+                onAddDeviceRequested: root.addDeviceRequested()
+                onPairingRequested: root.pairingRequested()
+                onPreferencesRequested: root.preferencesRequested()
+                onAccountRequested: root.accountRequested()
+                onSocietyRequested: root.tabRequested("Dashboard")
+                onBrowseDeviceRequested: (id, name, peerId) => root.browseDeviceRequested(id, name, peerId)
+                onNoticeRequested: (title, message) => root.noticeRequested(title, message)
+            }
         }
         BrowseView {
             anchors.fill: parent
             visible: root.selectedTab === "Browse"
             network: root.network
-            onDevicesRequested: { root.tabRequested("Environment"); environment.showDevices() }
+            onDevicesRequested: { root.tabRequested("Environment"); root.showEnvironmentDevices() }
         }
-        StorageView {
-            id: storage
+        Loader {
+            id: storageLoader
+            objectName: "storageLoader"
             anchors.fill: parent
             visible: root.selectedTab === "Storage"
-            drive: root.drive
-            cloudFiles: root.cloudFiles
-            navigation: root.navigation
-            modelImporter: root.modelImporter
-            hostModeAvailable: root.hostModeAvailable
-            desktop: root.desktop
-            signedIn: root.signedIn
-            synchronizationStatus: root.synchronizationStatus
-            photos: root.photos
-            onDevicesRequested: root.devicesRequested()
-            onPreferencesRequested: root.preferencesRequested()
-            onAccountRequested: root.accountRequested()
-            onChooseContainerRequested: root.chooseContainerRequested()
-            onImportModelsRequested: root.importModelsRequested()
+            active: (root.visible && root.selectedTab === "Storage") || root.storageReady
+            asynchronous: true
+            onLoaded: {
+                root.storageReady = true
+                if (root.pendingStorageActions) {
+                    root.pendingStorageActions = false
+                    if (root.selectedTab === "Storage") item.openActions()
+                }
+            }
+            sourceComponent: StorageView {
+                drive: root.drive
+                cloudFiles: root.cloudFiles
+                navigation: root.navigation
+                modelImporter: root.modelImporter
+                notifications: root.notifications
+                models: sharedStorageModels
+                sharedFilesDirectory: workspaceFilesDirectory
+                hostModeAvailable: root.hostModeAvailable
+                desktop: root.desktop
+                signedIn: root.signedIn
+                synchronizationStatus: root.synchronizationStatus
+                photos: root.photos
+                onDevicesRequested: root.devicesRequested()
+                onPreferencesRequested: root.preferencesRequested()
+                onAccountRequested: root.accountRequested()
+                onChooseContainerRequested: root.chooseContainerRequested()
+                onImportModelsRequested: root.importModelsRequested()
+                onModelCatalogRequested: root.prepareStorageModels()
+            }
+        }
+        LV.Label {
+            anchors.centerIn: parent
+            visible: (root.selectedTab === "Tools" && toolsLoader.status === Loader.Loading)
+                || (root.selectedTab === "Storage" && storageLoader.status === Loader.Loading)
+                || (root.selectedTab === "Environment" && environmentLoader.status === Loader.Loading)
+            text: qsTr("Loading…")
+            style: description
         }
     }
 
@@ -389,6 +538,7 @@ LV.VStack {
             guilds: root.navigation.guilds
             organizations: root.navigation.organizations
             onCalendarRequested: { navigationSheet.close(); root.tabRequested("Dashboard"); dashboard.showCalendar("") }
+            onProjectsRequested: { navigationSheet.close(); root.tabRequested("Dashboard"); dashboard.showProjects() }
             onActivityRequested: { navigationSheet.close(); root.tabRequested("Dashboard"); dashboard.showCalendar("activity") }
             onFeatureRequested: function(feature) { navigationSheet.close(); root.featureRequested(feature) }
             onWorkspaceRequested: function(kind, id) { navigationSheet.close(); root.navigation.activate(kind, id) }

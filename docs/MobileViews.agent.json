@@ -10,8 +10,8 @@
   },
   "source": {
     "path": "docs/MobileViews.md",
-    "sha256": "1d08be5f15377e3be8bf4c4563e02a02b7906261ea82e2a49b6a611823c21b4e",
-    "bytes": 8351,
+    "sha256": "f14878a5b140c71346caab6bb371ec66783c72408e730f409194991f949fa9be",
+    "bytes": 8446,
     "line_count": 38,
     "encoding": "utf-8",
     "language": "ko"
@@ -57,7 +57,7 @@
       "kind": "table",
       "start_line": 5,
       "end_line": 14,
-      "raw": "| 영역 | 760 px 미만 모바일 | 넓은 모바일 화면 / 데스크톱 |\n| --- | --- | --- |\n| 주요 탐색 | LVRS MobileTabBar: Home·Tools·Storage·Browse·Environment 순서. iOS 70 px / Android 64 px + 외부 안전 영역 | 기존 상단 세그먼트 |\n| 검색·계정 | 상단 52 px 바 안의 22×22 px 아이콘 버튼, 검색 입력 높이 22 px | 상단 세그먼트·검색·계정 컨트롤 높이 22 px |\n| 사이드바 | 상단 탐색 버튼으로 Workspace 또는 Storage 시트 열기 | 기존 사이드바 표시 |\n|대시보드| 16 px 본문 여백, 22 px 제목 행, 140×160 px 파일 카드 | 24 px 본문 여백과 같은 컨트롤·카드 크기 |\n|도구| 모델 병합 카드 → 작업 화면. 한 열 카드, All tools·가장자리 뒤로 가기 | 모델 병합 카드 하나, 검색·작업 화면 |\n|Storage| Files로 바로 진입하고 탐색 시트로 영역 선택. 가장자리 뒤로 이동 지원. Up·breadcrumb 표시줄 없음 | Files로 바로 진입하고 사이드바로 영역 선택. Up·breadcrumb 표시줄 없음 |\n| Storage 작업 | 앱 상단 바의 Storage actions 버튼에서 작업 시트 열기 | 넓은 모바일도 앱 상단 바, 데스크톱은 기존 가져오기·OS 연결 영역 |\n|환경| Overview·Devices·Apps와 네 개 앱 컬렉션 탭 | 같은 페이지와 좌측 탐색·우측 계정 패널 |\n",
+      "raw": "| 영역 | 760 px 미만 모바일 | 넓은 모바일 화면 / 데스크톱 |\n| --- | --- | --- |\n| 주요 탐색 | LVRS MobileTabBar: Home·Tools·Storage·Browse·Environment 순서. iOS 70 px / Android 64 px + 외부 안전 영역 | 기존 상단 세그먼트 |\n| 검색·계정 | 상단 52 px 바 안의 22×22 px 아이콘 버튼, 검색 입력 높이 22 px | 가로 상단 세그먼트·검색 22 px, Avatar 40 px |\n| 사이드바 | 상단 탐색 버튼으로 Workspace 또는 Storage 시트 열기 | 기존 사이드바 표시 |\n|대시보드| 16 px 본문 여백, 22 px 제목 행, 140×160 px 파일 카드 | 24 px 본문 여백과 같은 컨트롤·카드 크기 |\n|도구| 모델 병합 카드 → 작업 화면. 한 열 카드, All tools·가장자리 뒤로 가기 | 모델 병합 카드 하나, 검색·작업 화면 |\n|Storage| Files로 바로 진입하고 탐색 시트로 영역 선택. 가장자리 뒤로 이동 지원. Up·breadcrumb 표시줄 없음 | Files로 바로 진입하고 사이드바로 영역 선택. Up·breadcrumb 표시줄 없음 |\n| Storage 작업 | 앱 상단 바의 Storage actions 버튼에서 작업 시트 열기 | 넓은 모바일도 앱 상단 바, 데스크톱은 기존 가져오기·OS 연결 영역 |\n|환경| Overview·Devices·Apps와 네 개 앱 컬렉션 탭 | 같은 페이지와 좌측 탐색·우측 계정 패널 |\n",
       "columns": [
         "영역",
         "760 px 미만 모바일",
@@ -72,7 +72,7 @@
         [
           "검색·계정",
           "상단 52 px 바 안의 22×22 px 아이콘 버튼, 검색 입력 높이 22 px",
-          "상단 세그먼트·검색·계정 컨트롤 높이 22 px"
+          "가로 상단 세그먼트·검색 22 px, Avatar 40 px"
         ],
         [
           "사이드바",
@@ -230,7 +230,7 @@
       "kind": "paragraph",
       "start_line": 32,
       "end_line": 32,
-      "raw": "상단의 탐색·검색·계정 버튼도 같은 크기 규칙을 따른다. Society에서 44×44 px로 강제하던 크기를 제거하고 LVRS `IconButton`의 기본 22×22 px 프레임과 18×18 px 아이콘을 사용한다. 검색 입력과 가로 화면의 상단 세그먼트·계정 버튼도 모바일용 44 px 최소/명시 높이를 적용하지 않는다. 플랫폼이나 화면 회전으로 상단 컨트롤의 논리 크기를 확대하지 않는다.\n"
+      "raw": "상단의 탐색·검색·계정 버튼도 같은 크기 규칙을 따른다. Society에서 44×44 px로 강제하던 크기를 제거하고 LVRS `IconButton`의 기본 22×22 px 프레임과 18×18 px 아이콘을 사용한다. 검색 입력과 가로 화면의 상단 세그먼트는 모바일용 44 px 최소/명시 높이를 적용하지 않는다. 가로 화면에서 공통 헤더를 표시할 때 계정은 Figma의 40×40 px Avatar를 사용한다. 플랫폼이나 화면 회전으로 상단 컨트롤의 논리 크기를 확대하지 않는다.\n"
     },
     {
       "id": "b000024",
@@ -272,7 +272,7 @@
       "kind": "paragraph",
       "start_line": 38,
       "end_line": 38,
-      "raw": "하단 탭바 회귀 검사는 `SocietyDriveTests mobileViewsShareDesktopContentAndKeepState`의 iOS·Android 두 행에 포함한다. PageTabList/PageTab 역할, Browse·Environment 페이지 전환과 선택 상태, 기존 화면·입력 보존, Storage 탭의 Files 복귀와 작은 화면의 레이블 경계를 확인한다. 같은 검사에서 상단 버튼의 22×22 px 화면 좌표 크기, 18×18 px 아이콘, 펼친 검색창과 가로 화면 컨트롤의 22 px 높이를 확인한다. 캡처 이름에도 플랫폼을 포함한다. LVRS의 세부 API는 `docs/components/navigation/Tabs.md`를 참조한다.\n"
+      "raw": "하단 탭바 회귀 검사는 `SocietyDriveTests mobileViewsShareDesktopContentAndKeepState`의 iOS·Android 두 행에 포함한다. PageTabList/PageTab 역할, Browse·Environment 페이지 전환과 선택 상태, 기존 화면·입력 보존, Storage 탭의 Files 복귀와 작은 화면의 레이블 경계를 확인한다. 같은 검사에서 상단 버튼의 22×22 px 화면 좌표 크기, 18×18 px 아이콘, 펼친 검색창과 가로 화면의 22 px 세그먼트·40 px Avatar를 확인한다. 캡처 이름에도 플랫폼을 포함한다. LVRS의 세부 API는 `docs/components/navigation/Tabs.md`를 참조한다.\n"
     }
   ],
   "outline": [
@@ -311,7 +311,7 @@
       {
         "block_id": "b000023",
         "line": 32,
-        "text": "상단의 탐색·검색·계정 버튼도 같은 크기 규칙을 따른다. Society에서 44×44 px로 강제하던 크기를 제거하고 LVRS `IconButton`의 기본 22×22 px 프레임과 18×18 px 아이콘을 사용한다. 검색 입력과 가로 화면의 상단 세그먼트·계정 버튼도 모바일용 44 px 최소/명시 높이를 적용하지 않는다. 플랫폼이나 화면 회전으로 상단 컨트롤의 논리 크기를 확대하지 않는다.",
+        "text": "상단의 탐색·검색·계정 버튼도 같은 크기 규칙을 따른다. Society에서 44×44 px로 강제하던 크기를 제거하고 LVRS `IconButton`의 기본 22×22 px 프레임과 18×18 px 아이콘을 사용한다. 검색 입력과 가로 화면의 상단 세그먼트는 모바일용 44 px 최소/명시 높이를 적용하지 않는다. 가로 화면에서 공통 헤더를 표시할 때 계정은 Figma의 40×40 px Avatar를 사용한다. 플랫폼이나 화면 회전으로 상단 컨트롤의 논리 크기를 확대하지 않는다.",
         "basis": "lexical_match",
         "context": "paragraph"
       }
@@ -350,7 +350,7 @@
           [
             "검색·계정",
             "상단 52 px 바 안의 22×22 px 아이콘 버튼, 검색 입력 높이 22 px",
-            "상단 세그먼트·검색·계정 컨트롤 높이 22 px"
+            "가로 상단 세그먼트·검색 22 px, Avatar 40 px"
           ],
           [
             "사이드바",

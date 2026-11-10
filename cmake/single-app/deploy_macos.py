@@ -1,12 +1,16 @@
 """Deploy and sign one application in place, including plain helper executables."""
 import argparse
 from contextlib import contextmanager
+import hashlib
 import json
 import os
 from pathlib import Path
+import plistlib
 import re
+import signal
 import shutil
 import subprocess
+import tempfile
 
 
 SYSTEM_PREFIXES = ("/System/", "/usr/lib/")
@@ -154,6 +158,18 @@ def prepare_native(app, libraries, search_paths, executable=None, runtime_plugin
     return sources
 
 
+def is_native_tool_temporary(path):
+    """Recognize interrupted native-tool output beside its real executable."""
+    name = path.name
+    return (name.endswith(".cstemp") or
+            (name.endswith(".XXXXXX") and path.with_name(name[:-7]).is_file()))
+
+
+def native_helpers(app):
+    return [path for path in (app / "Contents/MacOS").iterdir()
+            if path.is_file() and path.name != app.stem and not is_native_tool_temporary(path)]
+
+
 def binaries(app):
     result = {path.resolve() for path in app.rglob("*.dylib") if path.is_file()
               and not any(parent.name.endswith(".dSYM") for parent in path.parents)}
@@ -163,7 +179,7 @@ def binaries(app):
             result.add(binary.resolve())
     for bundle in [app] + list(app.rglob("*.app")):
         result.add(bundle / "Contents/MacOS" / bundle.stem)
-    result.update(path for path in (app / "Contents/MacOS").iterdir() if path.is_file())
+    result.update(native_helpers(app))
     return sorted(result)
 
 
@@ -195,7 +211,7 @@ def deploy_qml_modules(destination, modules, compact=False, quick_style=None, em
 
         def ignore(directory, names):
             if not compact:
-                return []
+                return [name for name in names if name.endswith(".dSYM")]
             directory = Path(directory)
             skipped = []
             for name in names:
@@ -279,13 +295,39 @@ def prune_framework_development_files(app):
     return removed
 
 
+def macho_architectures(binary, app):
+    """Retry a killed lipo probe once after restaging that bundle file."""
+    try:
+        return set(run("lipo", "-archs", binary).split())
+    except RuntimeError as error:
+        cause = error.__cause__
+        path = Path(binary)
+        root = Path(app).resolve()
+        if (not isinstance(cause, subprocess.CalledProcessError)
+                or cause.returncode != -signal.SIGKILL
+                or path.is_symlink()
+                or not path.is_file()
+                or not path.resolve().is_relative_to(root)):
+            raise
+        descriptor, name = tempfile.mkstemp(prefix="." + path.name + ".", suffix=".lipo",
+                                             dir=path.parent)
+        os.close(descriptor)
+        temporary = Path(name)
+        try:
+            shutil.copy2(path, temporary)
+            os.replace(temporary, path)
+        finally:
+            temporary.unlink(missing_ok=True)
+        return set(run("lipo", "-archs", path).split())
+
+
 def thin_native(app):
     """Keep only architectures supported by the enclosing product executable."""
     executable = app / "Contents/MacOS" / app.stem
-    required = set(run("lipo", "-archs", executable).split())
+    required = macho_architectures(executable, app)
     saved = 0
     for binary in binaries(app):
-        available = set(run("lipo", "-archs", binary).split())
+        available = macho_architectures(binary, app)
         if not required.issubset(available):
             raise RuntimeError(f"Runtime architectures do not match {sorted(required)}: {binary}")
         extra = available - required
@@ -322,6 +364,14 @@ def containing_app(binary):
     return next(parent for parent in binary.parents if (parent / "Contents/Info.plist").is_file())
 
 
+def framework_runtime_ignore(directory, names):
+    """Omit SDK-only framework directories while retaining runtime resources."""
+    path = Path(directory)
+    if path.name.endswith(".framework") or path.parent.name == "Versions":
+        return set(names) & {"Headers", "PrivateHeaders", "Modules"}
+    return set()
+
+
 def complete_frameworks(app, qt):
     """Complete plugin-only Qt dependencies without redeploying the app per plugin."""
     queue = list(binaries(app))
@@ -340,7 +390,8 @@ def complete_frameworks(app, qt):
                 source = qt / "lib" / framework
                 if not (source / relative).is_file():
                     raise RuntimeError(f"Missing Qt framework: {link}")
-                shutil.copytree(source, target, symlinks=True, dirs_exist_ok=True)
+                shutil.copytree(source, target, symlinks=True, dirs_exist_ok=True,
+                                ignore=framework_runtime_ignore)
             queue.append((target / relative).resolve())
 
 
@@ -382,9 +433,13 @@ def localize(app):
 
 
 def remove_signing_temporaries(app):
-    """Discard incomplete codesign output inside the generated bundle only."""
+    """Discard incomplete native-tool output inside the generated bundle only."""
     removed = []
-    for path in app.rglob("*.cstemp"):
+    candidates = list(app.rglob("*.cstemp"))
+    macos = app / "Contents/MacOS"
+    if macos.is_dir():
+        candidates += [path for path in macos.glob("*.XXXXXX") if is_native_tool_temporary(path)]
+    for path in candidates:
         if path.is_file() or path.is_symlink():
             removed.append(str(path.relative_to(app)))
             path.unlink()
@@ -397,8 +452,18 @@ def sign(app, identity, entitlements):
         if binary == app / "Contents/MacOS" / app.stem:
             continue  # The main executable is sealed with its bundle.
         if binary.parent.name == "MacOS":
+            # The daemon must satisfy the GUI's designated requirement when
+            # reading existing macOS file-keychain items. Both binaries are
+            # owned and signed by Society; other helpers retain their identity.
+            identifier = []
+            if binary == app / "Contents/MacOS/SocietyDaemon":
+                with (app / "Contents/Info.plist").open("rb") as source:
+                    bundle_id = plistlib.load(source).get("CFBundleIdentifier")
+                if not isinstance(bundle_id, str) or not bundle_id:
+                    raise RuntimeError("Society's signing identifier is missing.")
+                identifier = ["--identifier", bundle_id]
             run("codesign", "--force", "--sign", identity, "--timestamp=none",
-                *(["--entitlements", entitlements] if entitlements else []), binary)
+                *identifier, *(["--entitlements", entitlements] if entitlements else []), binary)
             continue
         run("codesign", "--force", "--sign", identity, "--timestamp=none", binary)
     for framework in sorted(app.rglob("*.framework"), key=lambda p: len(p.parts), reverse=True):
@@ -410,11 +475,21 @@ def sign(app, identity, entitlements):
 
 
 @contextmanager
-def deployment_lock(app):
-    """Serialize bundle writers using a persistent lock outside the bundle."""
+def deployment_lock(app, lock_dir=None):
+    """Serialize bundle writers with a persistent project-resource lock."""
     import fcntl
     app = app.resolve()
-    lock_path = app.parent / f".{app.name}.deploy.lock"
+    if lock_dir is None:
+        build_dir = next((parent for parent in app.parents if parent.name == "build"), None)
+        script_dir = Path(__file__).resolve().parent
+        if script_dir.name == "single-app" and script_dir.parent.name == "cmake":
+            script_dir = script_dir.parent.parent
+        lock_dir = (build_dir.parent if build_dir else script_dir) / "resources/.state/deploy-locks"
+    else:
+        lock_dir = Path(lock_dir)
+    lock_dir.mkdir(parents=True, exist_ok=True)
+    digest = hashlib.sha256(os.fsencode(app)).hexdigest()
+    lock_path = lock_dir / f"{digest}.lock"
     with lock_path.open("a") as lock:
         fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
         try:
@@ -424,18 +499,25 @@ def deployment_lock(app):
 
 
 def deploy(args):
-    with deployment_lock(args.app) as app:
+    with deployment_lock(args.app, getattr(args, "lock_dir", None)) as app:
         _deploy_locked(args, app)
+
+
+def emit_report(report, path=None):
+    output = json.dumps(report, indent=2) + "\n"
+    if path is None:
+        print(output, end="")
+    else:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(output)
 
 
 def _deploy_locked(args, app):
     removed_retired_runtimes = purge_retired_runtimes(app)
     removed_signing_temporaries = remove_signing_temporaries(app)
-    helpers = [path for path in (app / "Contents/MacOS").iterdir()
-               if path.is_file() and path.name != app.stem]
+    helpers = native_helpers(app)
     qt = args.macdeployqt.resolve().parent.parent
     search = args.search_path + [app / "Contents/Frameworks"]
-    args.log.parent.mkdir(parents=True, exist_ok=True)
     runtime_plugins = getattr(args, "runtime_plugin", [])
     sources = prepare_native(app, args.library, search, runtime_plugins=runtime_plugins)
     for helper in helpers:
@@ -488,7 +570,7 @@ def _deploy_locked(args, app):
     if list(app.rglob("*.app")):
         raise RuntimeError("Nested .app bundles violate the single application output contract")
     sign(app, args.identity, args.entitlements)
-    args.log.write_text(json.dumps(report, indent=2) + "\n")
+    emit_report(report, args.log)
 
 
 if __name__ == "__main__":
@@ -508,5 +590,6 @@ if __name__ == "__main__":
     parser.add_argument("--configuration", default="", help="Release/MinSizeRel enable symbol stripping with --compact")
     parser.add_argument("--embedded-resources-module", action="append", default=[],
                         help="Module whose fonts/images/icons are already embedded; retain filesystem licenses")
-    parser.add_argument("--log", type=Path, required=True)
+    parser.add_argument("--log", type=Path, help="Optional explicit report path; defaults to console output")
+    parser.add_argument("--lock-dir", type=Path, help="Persistent deployment lock directory")
     deploy(parser.parse_args())

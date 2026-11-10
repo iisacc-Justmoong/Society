@@ -10,9 +10,9 @@
   },
   "source": {
     "path": "docs/SingleAppBuild.md",
-    "sha256": "7379942e02cb3e28b3fe7be7e730b7279f7c6476c77952322beacd918f565065",
-    "bytes": 1994,
-    "line_count": 17,
+    "sha256": "a181fe1bcf08d8cfdac0031c0d719c6f21388d0289c6a2cc89a427b36767f753",
+    "bytes": 5649,
+    "line_count": 68,
     "encoding": "utf-8",
     "language": "ko"
   },
@@ -114,6 +114,143 @@
       "start_line": 13,
       "end_line": 17,
       "raw": "macOS releases use the [compact bundle profile](BundleFootprint.md). Prepare the\ndedicated native image SDK without optional LibTorch, then build the canonical\napp. Imported QML modules, Basic Controls, native dependency closure, and release\nsymbol stripping keep the package within the verified 512 MiB budget. Runtime\nand footprint checks run before an installed application is replaced.\n"
+    },
+    {
+      "id": "b000014",
+      "kind": "blank",
+      "start_line": 18,
+      "end_line": 18,
+      "raw": "\n"
+    },
+    {
+      "id": "b000015",
+      "kind": "paragraph",
+      "start_line": 19,
+      "end_line": 19,
+      "raw": "기존 `build/`에 남은 테스트 컨테이너, 이미지, 설치 이전 백업과 조사 기록은 정리 전에 `resources/.recovery/society-build-history-20261030/`에 보존한다. 활성 애플리케이션과 실제 Society 저장소는 별도로 유지한다.\n"
+    },
+    {
+      "id": "b000016",
+      "kind": "blank",
+      "start_line": 20,
+      "end_line": 20,
+      "raw": "\n"
+    },
+    {
+      "id": "b000017",
+      "kind": "paragraph",
+      "start_line": 21,
+      "end_line": 23,
+      "raw": "테스트용 컨테이너, 설정, 캡처와 MCP 시험 자료는 구성별 `resources/.state/tests-*`에 생성하며 CTest 종료 시 정리한다. 시험 실행 파일과 필요한 실제 앱 번들의 경로는 계속 `build/`에서 확인한다.\nPython 기반 이미지·모델 fixture도 전용 임시 리소스 위치를 사용하며, 임시 디렉터리의 상위 경로 누락을 자동 검사한다.\n배포 단계의 임시 보고서는 `resources/.state/`에서 생성하고 성공 시 제거하므로 `build/`에 별도 로그를 남기지 않는다.\n"
+    },
+    {
+      "id": "b000018",
+      "kind": "blank",
+      "start_line": 24,
+      "end_line": 24,
+      "raw": "\n"
+    },
+    {
+      "id": "b000019",
+      "kind": "heading",
+      "start_line": 25,
+      "end_line": 25,
+      "raw": "## Clean deployment layout\n",
+      "level": 2,
+      "title": "Clean deployment layout"
+    },
+    {
+      "id": "b000020",
+      "kind": "blank",
+      "start_line": 26,
+      "end_line": 26,
+      "raw": "\n"
+    },
+    {
+      "id": "b000021",
+      "kind": "paragraph",
+      "start_line": 27,
+      "end_line": 34,
+      "raw": "macOS deployment prints its report to the build console by default and stores\nper-bundle locks under `resources/.state/deploy-locks/`. Framework copies retain\nruntime binaries and resources without SDK headers or module maps. The\n`tests/deploy_layout_test.py` contract checks these behaviors with disposable\nresources and does not launch the application.\nInterrupted native-tool temporary executables are excluded from helper discovery\nand removed only when the corresponding real executable exists in the generated\nbundle. The deployment test covers this alongside real helper discovery.\n"
+    },
+    {
+      "id": "b000022",
+      "kind": "blank",
+      "start_line": 35,
+      "end_line": 35,
+      "raw": "\n"
+    },
+    {
+      "id": "b000023",
+      "kind": "paragraph",
+      "start_line": 36,
+      "end_line": 40,
+      "raw": "The selected iiSocietyContainer, GUI, sharing, FileTree, and maintenance\nlibraries are all explicit native deployment inputs. After deployment, the\nbuild compares each bundled Mach-O architecture UUID with its selected SDK\nbinary; an older transitive copy left by a previous build fails verification.\nThis check reads bundle files and does not start Society.\n"
+    },
+    {
+      "id": "b000024",
+      "kind": "blank",
+      "start_line": 41,
+      "end_line": 41,
+      "raw": "\n"
+    },
+    {
+      "id": "b000025",
+      "kind": "paragraph",
+      "start_line": 42,
+      "end_line": 47,
+      "raw": "When compatible macOS inference packages have been prepared under\n`resources/dependencies/macos-runtime/`, a clean Society configure selects\nthose packages and their matching MLX runtime by default. Explicit package\npaths supplied by the caller remain authoritative, and the macOS defaults do\nnot affect iOS. This keeps Society's build inputs independent of another\nproduct's transient build directory.\n"
+    },
+    {
+      "id": "b000026",
+      "kind": "blank",
+      "start_line": 48,
+      "end_line": 48,
+      "raw": "\n"
+    },
+    {
+      "id": "b000027",
+      "kind": "paragraph",
+      "start_line": 49,
+      "end_line": 56,
+      "raw": "iOS와 Android의 프로젝트 전용 SDK 설치 입력은\n`resources/dependencies/ios/`와 `resources/dependencies/android/<ABI>/`에 둔다.\n모바일 도구의 사전 점검과 빌드 출력은 표준 출력으로 전달한다. Android Gradle,\n사용자 설정, Java 임시 파일은 소유한 `resources/.state/` 작업 공간에서\n사용하고 성공·실패 시 정리한다. OpenSSL 소스 압축 파일은 리소스 의존성에\n보관하고, 검증 후 임시 리소스에 푼 원본을 `build/android/`의 별도 컴파일\n디렉터리에서 빌드한다. 소스와 작업 디렉터리는 빌드가 끝나면 정리한다.\nGradle 문제 보고서 파일은 만들지 않으며 경고와 오류는 콘솔에 표시한다.\n"
+    },
+    {
+      "id": "b000028",
+      "kind": "heading",
+      "start_line": 57,
+      "end_line": 57,
+      "raw": "## QML debug symbols\n",
+      "level": 2,
+      "title": "QML debug symbols"
+    },
+    {
+      "id": "b000029",
+      "kind": "blank",
+      "start_line": 58,
+      "end_line": 58,
+      "raw": "\n"
+    },
+    {
+      "id": "b000030",
+      "kind": "paragraph",
+      "start_line": 59,
+      "end_line": 60,
+      "raw": "Standard and compact macOS deployment keep QML `.dSYM` debug-symbol bundles\noutside the application while preserving the QML runtime files.\n"
+    },
+    {
+      "id": "b000031",
+      "kind": "blank",
+      "start_line": 61,
+      "end_line": 61,
+      "raw": "\n"
+    },
+    {
+      "id": "b000032",
+      "kind": "paragraph",
+      "start_line": 62,
+      "end_line": 68,
+      "raw": "The product-local macOS inference dependency uses a relocatable pkg-config\nprefix, so its metadata does not point into another product's build directory.\nThe build helper rejects symlinks in that pkg-config path before changing it.\nWhen the verified `resources/dependencies/macos-mlx-runtime/` pair is present,\nit is selected automatically for native macOS unless the caller has set an\nexplicit `SOCIETY_MLX_RUNTIME_DIR`. Compatible local SDK packages are likewise\nfound from `resources/dependencies/`, with explicit package choices preserved.\n"
     }
   ],
   "outline": [
@@ -124,6 +261,22 @@
       "title": "단일 앱 빌드 계약",
       "anchor": "단일-앱-빌드-계약",
       "start_line": 3
+    },
+    {
+      "block_id": "b000019",
+      "parent_id": "b000003",
+      "level": 2,
+      "title": "Clean deployment layout",
+      "anchor": "clean-deployment-layout",
+      "start_line": 25
+    },
+    {
+      "block_id": "b000028",
+      "parent_id": "b000003",
+      "level": 2,
+      "title": "QML debug symbols",
+      "anchor": "qml-debug-symbols",
+      "start_line": 57
     }
   ],
   "indexes": {

@@ -10,8 +10,8 @@
   },
   "source": {
     "path": "docs/iOS.md",
-    "sha256": "d4182418ddd95a9e9ae75e3bc7c54fc9284a214dce9c8750c723d92ec7f4f92a",
-    "bytes": 24607,
+    "sha256": "b89b699c4449b60728395b377874aa8d933eb4ba251fcaffe0ac68c2332dce02",
+    "bytes": 24632,
     "line_count": 154,
     "encoding": "utf-8",
     "language": "ko"
@@ -332,7 +332,7 @@
       "kind": "paragraph",
       "start_line": 64,
       "end_line": 64,
-      "raw": "스크립트는 Workspace의 SDK 소스에서 LVRS(static), iiAccountManager(static), iiWebServer, iiSocietyContainer, iiSocietyHelper를 각각 `build/ios-device` 또는 `build/ios-simulator`에 빌드하고, `Workspace/build/<대상>/install`에 설치한 뒤 Society와 확장을 Xcode로 빌드한다. `--qt`로 Qt 6.8.3 경로를 지정할 수 있다. 사전 점검 결과와 명령은 `Society/build/<대상>/preflight.json`에 기록한다. 개발자 경로 선택은 `DEVELOPER_DIR` 또는 기존 `xcode-select` 설정을 따른다.\n"
+      "raw": "스크립트는 Workspace의 SDK 소스에서 LVRS(static), iiAccountManager(static), iiWebServer, iiSocietyContainer, iiSocietyHelper, iiPhotoLibrary를 각각 `build/ios-device` 또는 `build/ios-simulator`에 빌드하고, Society의 `resources/dependencies/ios/<대상>/`에 준비한 뒤 Society를 Xcode로 빌드한다. `--qt`로 Qt 6.8.3 경로를 지정할 수 있다. 사전 점검 결과와 명령은 파일을 남기지 않고 표준 출력으로 제공한다. 개발자 경로 선택은 `DEVELOPER_DIR` 또는 기존 `xcode-select` 설정을 따른다.\n"
     },
     {
       "id": "b000038",

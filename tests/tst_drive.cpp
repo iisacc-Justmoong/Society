@@ -1,15 +1,21 @@
+#include "Society/Dashboard/CalendarDatabase.h"
 #include "native_link.h"
 #include "Society/Drive/DriveController.h"
 #include "Society/Drive/CloudFilesController.h"
 #include "Society/Environment/EnvironmentAppsModel.h"
+#include "Society/Account/AccountController.h"
 #include "AccountServer.h"
+#include "MemorySessionStore.h"
+#include <QBuffer>
 #include <QNetworkProxy>
 #include "Society/Drive/StorageNavigation.h"
 #include "Society/Dashboard/DashboardFiles.h"
 #include "Society/Dashboard/DashboardCalendar.h"
 #include "Society/Dashboard/CalendarWorkspace.h"
+#include "Society/Dashboard/ProjectWorkspace.h"
 #include "Society/Tools/ModelMergeController.h"
 #include "Society/Tools/ModelPackagingController.h"
+#include "Society/Tools/ModelCalibratorLauncher.h"
 #include "Society/Tools/MergeModelCatalog.h"
 #include "Society/Models/StorageModels.h"
 #include "Society/Files/DirectoryLocation.h"
@@ -17,10 +23,14 @@
 #include <StorageMap.h>
 #include <iiSocietyContainer/PreviewCache.h>
 #include <ModelType.h>
+#include <ModelStore.h>
+#include <FileRepository.h>
+#include <TemporaryLease.h>
 #include "backend/runtime/appbootstrap.h"
 
 #include <QDir>
 #include <QAbstractItemModel>
+#include <QColor>
 #include <QFile>
 #include <QDragEnterEvent>
 #include <QDropEvent>
@@ -63,6 +73,8 @@
 #include <ApplicationStorage.h>
 #include <QStorageInfo>
 #include <FilesView.h>
+#include <filesystem>
+#include <optional>
 
 #ifdef Q_OS_MACOS
 QRectF societyNativeTitleBarControlsRect(QQuickWindow *window);
@@ -105,6 +117,277 @@ class SocietyDriveTest final : public QObject
 {
     Q_OBJECT
 private slots:
+    void modelCardRenameUpdatesFileCompanionsAndView() {
+        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/model-rename-view-XXXXXX.societycontainer");
+        QVERIFY(fixture.isValid());
+        QVERIFY(iiSocietyContainer::SocietyDrive::create(fixture.path()));
+        const auto source = fixture.filePath("Models/Checkpoint/old.safetensors");
+        const auto renamed = fixture.filePath("Models/Checkpoint/new.safetensors");
+        const auto taken = fixture.filePath("Models/Checkpoint/taken.safetensors");
+        const auto other = fixture.filePath("Models/Other/other.safetensors");
+        QVERIFY(writeCatalogModel(source, {})); QVERIFY(writeCatalogModel(taken, {}));
+        QVERIFY(writeCatalogModel(other, {}));
+        QFile companion(source + ".model.json"); QVERIFY(companion.open(QIODevice::WriteOnly));
+        QVERIFY(companion.write("{\"type\":\"Checkpoint\"}") > 0); companion.close();
+        QFile preview(fixture.filePath("Models/Checkpoint/old.preview.png"));
+        QVERIFY(preview.open(QIODevice::WriteOnly)); QVERIFY(preview.write("preview") > 0); preview.close();
+        const auto storage = iiSocietyContainer::SharedStorage::open(fixture.path()); QVERIFY(storage);
+        QString error;
+        QVERIFY2(storage->recordFile(iiSocietyContainer::StoreSection::Models, "Checkpoint/old.safetensors", &error), qPrintable(error));
+        QVERIFY2(storage->recordFile(iiSocietyContainer::StoreSection::Models, "Other/other.safetensors", &error), qPrintable(error));
+        QVERIFY(QFileInfo::exists(other + ".iisacc.json"));
+        const auto before = storage->fileTracking(iiSocietyContainer::StoreSection::Models, "Checkpoint/old.safetensors");
+        QVERIFY(!before.value("objectKey").toString().isEmpty());
+
+        QQmlApplicationEngine engine;
+        engine.addImageProvider(QStringLiteral("society-preview"), new iiSocietyContainer::PreviewProvider);
+        QStringList warnings;
+        connect(&engine, &QQmlApplicationEngine::warnings, this, [&](const QList<QQmlError> &errors) {
+            for (const auto &entry : errors) warnings.append(entry.toString());
+        });
+        engine.addImportPath(QString::fromUtf8(SOCIETY_LVRS_QML_IMPORT_PATH));
+        engine.setInitialProperties({{"initialContainerPath", fixture.path()}, {"width", 1440}, {"height", 900}});
+        engine.load(QUrl::fromLocalFile(QString::fromUtf8(SOCIETY_QML_FILE)));
+        QCOMPARE(engine.rootObjects().size(), 1);
+        auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first()); QVERIFY(window);
+        QVERIFY(QTest::qWaitForWindowExposed(window));
+        auto *drive = window->findChild<DriveController *>("driveController"); QVERIFY(drive);
+        auto *importer = window->findChild<ModelImporter *>("modelImporter"); QVERIFY(importer);
+        QTRY_COMPARE(importer->containerPath(), fixture.path());
+        QTest::qWait(50);
+        QTRY_VERIFY_WITH_TIMEOUT(!importer->busy(), 30000);
+        QVERIFY(window->setProperty("selectedTab", "Storage"));
+        QQuickItem *storageView = nullptr;
+        QTRY_VERIFY_WITH_TIMEOUT((storageView = window->findChild<QQuickItem *>("storageView")), 30000);
+        QVERIFY(drive->openSection("models"));
+        QQuickItem *models = nullptr;
+        QTRY_VERIFY_WITH_TIMEOUT((models = window->findChild<QQuickItem *>("modelsView")) && models->isVisible(), 30000);
+        auto *catalog = window->findChild<StorageModels *>("modelCatalog"); QVERIFY(catalog);
+        QTRY_COMPARE_WITH_TIMEOUT(catalog->count(), 3, 30000);
+        const auto otherRows = catalog->groups().value("Other").toList();
+        QCOMPARE(otherRows.size(), 1);
+        QCOMPARE(otherRows.first().toMap().value("path").toString(), other);
+        for (const auto &group : catalog->groups()) for (const auto &row : group.toList())
+            QVERIFY(!row.toMap().value("path").toString().endsWith(".iisacc.json", Qt::CaseInsensitive));
+        auto *browser = models->findChild<QQuickItem *>("modelFilesBrowser"); QVERIFY(browser);
+        QVERIFY(drive->navigate(fixture.filePath("Models/Checkpoint")));
+        QTRY_COMPARE(browser->property("path").toString(), fixture.filePath("Models/Checkpoint"));
+        QTRY_COMPARE_WITH_TIMEOUT(browser->property("count").toInt(), 2, 30000);
+        QQuickItem *cell = nullptr;
+        QTRY_VERIFY_WITH_TIMEOUT((cell = visualItem(browser, "filesCell_0_0")), 30000);
+        QTest::mouseClick(window, Qt::RightButton, Qt::NoModifier, cell->mapToScene(cell->boundingRect().center()).toPoint());
+        auto *menu = browser->findChild<QObject *>("filesContextMenu"); QVERIFY(menu);
+        QTRY_VERIFY(menu->property("opened").toBool());
+        QCOMPARE(menu->property("filePath").toString(), source);
+        auto *actions = menu->property("handler").value<QObject *>(); QVERIFY(actions);
+        QSignalSpy completed(actions, SIGNAL(completed(QString))), failed(actions, SIGNAL(failed(QString)));
+        QVERIFY(completed.isValid() && failed.isValid());
+        QVERIFY(QMetaObject::invokeMethod(menu, "triggerEntry", Q_ARG(QVariant, 6)));
+        auto *sheet = menu->findChild<QObject *>("renameFileSheet"); QVERIFY(sheet);
+        QTRY_VERIFY(sheet->property("opened").toBool());
+        auto *input = sheet->findChild<QObject *>("fileNameInput"); QVERIFY(input);
+        auto *confirm = sheet->findChild<QObject *>("confirmFileRename"); QVERIFY(confirm);
+        auto *dismiss = sheet->findChild<QObject *>("dismissFileRename"); QVERIFY(dismiss);
+        QVERIFY(input->setProperty("text", "taken.safetensors"));
+        QVERIFY(QMetaObject::invokeMethod(confirm, "clicked"));
+        QTRY_COMPARE_WITH_TIMEOUT(failed.size(), 1, 30000);
+        QVERIFY(sheet->property("visible").toBool());
+        QVERIFY(QFileInfo::exists(source)); QVERIFY(QFileInfo::exists(taken));
+        const auto nativeDrive = iiSocietyContainer::SocietyDrive::open(fixture.path()); QVERIFY(nativeDrive);
+        const auto repositoryId = nativeDrive->storageKind() == iiSocietyContainer::SocietyDrive::StorageKind::LogicalDisk
+            ? nativeDrive->storageIdentifier() : nativeDrive->identifier();
+        const auto leasePath = iiSocietyContainer::FileRepository::packagePath(
+            std::filesystem::path(fixture.path().toStdU16String()), repositoryId.toStdString()) / "operations";
+        std::optional<iiFileProvider::TemporaryLease> lease;
+        lease.emplace(leasePath, iiFileProvider::TemporaryLease::Mode::TryExclusive); QVERIFY(lease->locked());
+        QVERIFY(input->setProperty("text", "new.safetensors"));
+        QVERIFY(QMetaObject::invokeMethod(confirm, "clicked"));
+        QTRY_VERIFY(actions->property("busy").toBool());
+        QTRY_COMPARE(dismiss->property("text").toString(), QStringLiteral("Close"));
+        QVERIFY(QFileInfo::exists(source)); QVERIFY(!QFileInfo::exists(renamed));
+        QVERIFY(QMetaObject::invokeMethod(dismiss, "clicked"));
+        QTRY_VERIFY(!sheet->property("visible").toBool());
+        QFile raced(renamed); QVERIFY(raced.open(QIODevice::WriteOnly));
+        QCOMPARE(raced.write("other model"), 11); raced.close();
+        lease.reset();
+        QTRY_COMPARE_WITH_TIMEOUT(failed.size(), 2, 30000);
+        QTRY_VERIFY(sheet->property("visible").toBool());
+        QVERIFY(QFileInfo::exists(source));
+        QVERIFY(raced.open(QIODevice::ReadOnly)); QCOMPARE(raced.readAll(), QByteArray("other model")); raced.close();
+        auto *status = sheet->findChild<QObject *>("renameStatus"); QVERIFY(status);
+        QTRY_VERIFY(status->property("visible").toBool());
+        QVERIFY(QFile::remove(renamed));
+        QVERIFY(QMetaObject::invokeMethod(confirm, "clicked"));
+        QTRY_COMPARE_WITH_TIMEOUT(completed.size(), 1, 30000);
+        QTRY_VERIFY(!sheet->property("visible").toBool());
+        QVERIFY(!QFileInfo::exists(source)); QVERIFY(QFileInfo::exists(renamed));
+        QVERIFY(QFileInfo::exists(renamed + ".model.json"));
+        QVERIFY(QFileInfo::exists(renamed + ".iisacc.json"));
+        QVERIFY(QFileInfo::exists(fixture.filePath("Models/Checkpoint/new.preview.png")));
+        QTRY_VERIFY_WITH_TIMEOUT(catalog->groups().value("Checkpoint").toList().first().toMap().value("path").toString() == renamed, 30000);
+        const auto after = storage->fileTracking(iiSocietyContainer::StoreSection::Models, "Checkpoint/new.safetensors", &error);
+        QVERIFY2(!after.isEmpty(), qPrintable(error));
+        QCOMPARE(after.value("objectKey"), before.value("objectKey"));
+        const auto store = iiSocietyContainer::ModelStore::open(fixture.path()); QVERIFY(store);
+        QCOMPARE(store->resolve("Checkpoint/old.safetensors", &error), renamed);
+        QVERIFY2(error.isEmpty(), qPrintable(error));
+        QVERIFY2(warnings.isEmpty(), qPrintable(warnings.join('\n')));
+        window->close();
+    }
+
+    void preloadedModelsAreSharedAndHeavyToolViewsAreDeferred() {
+        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/preloaded-viewmodels-XXXXXX.societycontainer");
+        QVERIFY(fixture.isValid());
+        QVERIFY(iiSocietyContainer::SocietyDrive::create(fixture.path()));
+        QVERIFY(writeCatalogModel(fixture.filePath("Models/Checkpoint/example.safetensors"), {}));
+        QFile file(fixture.filePath("Files/preload.txt"));
+        QVERIFY(file.open(QIODevice::WriteOnly)); QVERIFY(file.write("content") > 0); file.close();
+
+        QQmlApplicationEngine engine;
+        engine.addImageProvider(QStringLiteral("society-preview"), new iiSocietyContainer::PreviewProvider);
+        QStringList warnings;
+        connect(&engine, &QQmlApplicationEngine::warnings, this, [&](const QList<QQmlError> &errors) {
+            for (const auto &error : errors) warnings.append(error.toString());
+        });
+        engine.addImportPath(QString::fromUtf8(SOCIETY_LVRS_QML_IMPORT_PATH));
+        engine.setInitialProperties({{"initialContainerPath", fixture.path()}, {"mobileLayout", true}});
+        engine.load(QUrl::fromLocalFile(QString::fromUtf8(SOCIETY_QML_FILE)));
+        QCOMPARE(engine.rootObjects().size(), 1);
+        auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first()); QVERIFY(window);
+        QVERIFY(QTest::qWaitForWindowExposed(window));
+        auto *drive = window->findChild<DriveController *>("driveController"); QVERIFY(drive);
+        QTRY_VERIFY_WITH_TIMEOUT(drive->contentsAvailable(), 30000);
+        auto *dashboard = window->findChild<QQuickItem *>("dashboardView"); QVERIFY(dashboard);
+        auto *browser = window->findChild<QQuickItem *>("dashboardFilesBrowser");
+        QTRY_VERIFY_WITH_TIMEOUT((browser = window->findChild<QQuickItem *>("dashboardFilesBrowser")), 30000);
+        auto *directory = qvariant_cast<QAbstractItemModel *>(browser->property("directoryModel"));
+        QTRY_VERIFY_WITH_TIMEOUT((directory = qvariant_cast<QAbstractItemModel *>(browser->property("directoryModel"))), 30000);
+        QTRY_VERIFY_WITH_TIMEOUT(!browser->property("loading").toBool(), 30000);
+        auto *catalog = window->findChild<StorageModels *>("modelCatalog"); QVERIFY(catalog);
+        QTRY_COMPARE_WITH_TIMEOUT(catalog->directory(), fixture.filePath("Models"), 30000);
+        QTRY_VERIFY_WITH_TIMEOUT(!catalog->loading(), 30000);
+        QCOMPARE(catalog->count(), 1);
+        QVERIFY(!window->findChild<QQuickItem *>("storageView"));
+        QVERIFY(!window->findChild<QQuickItem *>("modelsView"));
+        QVERIFY(!window->findChild<QQuickItem *>("toolsView"));
+
+        // A rapid detour must not keep constructing an unvisited page.
+        for (const auto &tab : {QStringLiteral("Tools"), QStringLiteral("Storage"), QStringLiteral("Environment")}) {
+            auto *loader = window->findChild<QObject *>(tab.toLower() + "Loader"); QVERIFY(loader);
+            QVERIFY(window->setProperty("selectedTab", tab));
+            QVERIFY(window->setProperty("selectedTab", "Dashboard"));
+            QTRY_COMPARE(loader->property("status").toInt(), 0);
+        }
+        auto *projectsLoader = dashboard->findChild<QObject *>("dashboardProjectsLoader"); QVERIFY(projectsLoader);
+        QVERIFY(QMetaObject::invokeMethod(dashboard, "showProjects"));
+        QVERIFY(QMetaObject::invokeMethod(dashboard, "goHome"));
+        QTRY_COMPARE(projectsLoader->property("status").toInt(), 0);
+        auto *calendarLoader = dashboard->findChild<QObject *>("calendarWorkspaceLoader"); QVERIFY(calendarLoader);
+        QVERIFY(QMetaObject::invokeMethod(dashboard, "showCalendar", Q_ARG(QString, "")));
+        QVERIFY(QMetaObject::invokeMethod(dashboard, "goHome"));
+        QTRY_COMPARE(calendarLoader->property("status").toInt(), 0);
+
+        QSignalSpy folderChanges(directory, SIGNAL(folderChanged()));
+        QVERIFY(window->setProperty("selectedTab", "Storage"));
+        auto *content = window->findChild<QObject *>("societyContent"); QVERIFY(content);
+        auto *storageLoader = window->findChild<QObject *>("storageLoader"); QVERIFY(storageLoader);
+        const bool storageWasReady = qvariant_cast<QQuickItem *>(storageLoader->property("item")) != nullptr;
+        QVERIFY(QMetaObject::invokeMethod(content, "openStorageActions"));
+        if (!storageWasReady) QVERIFY(content->property("pendingStorageActions").toBool());
+        auto *storage = window->findChild<QQuickItem *>("storageView");
+        QTRY_VERIFY_WITH_TIMEOUT((storage = window->findChild<QQuickItem *>("storageView")), 30000);
+        QTRY_VERIFY(storage->isVisible());
+        QObject *actions = nullptr;
+        QTRY_VERIFY_WITH_TIMEOUT((actions = window->findChild<QObject *>("storageActions")), 30000);
+        QTRY_VERIFY_WITH_TIMEOUT(actions->property("visible").toBool(), 30000);
+        QVERIFY(QMetaObject::invokeMethod(actions, "close"));
+        QTRY_VERIFY(!actions->property("visible").toBool());
+        QTRY_COMPARE(drive->currentSection(), QString("Files"));
+        auto *storageBrowser = storage->findChild<QQuickItem *>("filesBrowser"); QVERIFY(storageBrowser);
+        QTRY_COMPARE(qvariant_cast<QAbstractItemModel *>(storageBrowser->property("directoryModel")), directory);
+        QTRY_VERIFY(!storageBrowser->property("loading").toBool());
+        QCOMPARE(folderChanges.count(), 0);
+        QCOMPARE(window->findChild<StorageModels *>("modelCatalog"), catalog);
+        QVERIFY(!window->findChild<QQuickItem *>("modelsView"));
+
+        QSignalSpy catalogLoading(catalog, SIGNAL(loadingChanged()));
+        QVERIFY(drive->openSection("models"));
+        QVERIFY(drive->openSection("files"));
+        auto *modelsLoader = storage->findChild<QObject *>("storageModelsLoader"); QVERIFY(modelsLoader);
+        QTRY_COMPARE(modelsLoader->property("status").toInt(), 0);
+        QVERIFY(!window->findChild<QQuickItem *>("modelsView"));
+        QVERIFY(drive->openSection("models"));
+        QQuickItem *models = nullptr;
+        QTRY_VERIFY_WITH_TIMEOUT((models = window->findChild<QQuickItem *>("modelsView")), 30000);
+        QTRY_VERIFY(models->isVisible());
+        QTest::qWait(100);
+        QCOMPARE(catalogLoading.count(), 0);
+        QCOMPARE(catalog->count(), 1);
+
+        QVERIFY(window->setProperty("selectedTab", "Tools"));
+        auto *tools = window->findChild<QQuickItem *>("toolsView");
+        QTRY_VERIFY_WITH_TIMEOUT((tools = window->findChild<QQuickItem *>("toolsView")), 30000);
+        QVERIFY(!window->findChild<QQuickItem *>("modelMergeTool"));
+        QVERIFY(!window->findChild<QQuickItem *>("modelPackagingTool"));
+        auto *mergeCatalog = window->findChild<MergeModelCatalog *>("mergeModelCatalog"); QVERIFY(mergeCatalog);
+        QTRY_COMPARE_WITH_TIMEOUT(mergeCatalog->directory(), fixture.filePath("Models"), 30000);
+        QTRY_COMPARE_WITH_TIMEOUT(mergeCatalog->models().size(), 1, 30000);
+        QTRY_VERIFY_WITH_TIMEOUT(!mergeCatalog->loading(), 30000);
+        QSignalSpy mergeLoading(mergeCatalog, &MergeModelCatalog::loadingChanged);
+        QVERIFY(QMetaObject::invokeMethod(tools, "openTool", Q_ARG(QString, "model-packaging")));
+        QVERIFY(QMetaObject::invokeMethod(tools, "openTool", Q_ARG(QString, "model-merge")));
+        auto *packagingLoader = tools->findChild<QObject *>("packagingToolLoader"); QVERIFY(packagingLoader);
+        QTRY_COMPARE(packagingLoader->property("status").toInt(), 0); // The abandoned incubation was cancelled.
+        QQuickItem *merge = nullptr;
+        QTRY_VERIFY_WITH_TIMEOUT((merge = window->findChild<QQuickItem *>("modelMergeTool")), 30000);
+        QVERIFY(merge->isVisible());
+        QCOMPARE(window->findChild<MergeModelCatalog *>("mergeModelCatalog"), mergeCatalog);
+        QVERIFY(!window->findChild<QQuickItem *>("modelPackagingTool"));
+        QTest::qWait(200);
+        QCOMPARE(mergeLoading.count(), 0);
+        QVERIFY2(warnings.isEmpty(), qPrintable(warnings.join('\n')));
+    }
+
+    void unvisitedTabsAreDeferredAndKeepTheirStateAfterNavigation() {
+        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/lazy-tabs-XXXXXX.societycontainer");
+        QVERIFY(iiSocietyContainer::SocietyDrive::create(fixture.path()));
+        QQmlApplicationEngine engine;
+        engine.addImageProvider(QStringLiteral("society-preview"), new iiSocietyContainer::PreviewProvider);
+        engine.addImportPath(QString::fromUtf8(SOCIETY_LVRS_QML_IMPORT_PATH));
+        engine.setInitialProperties({{"initialContainerPath", fixture.path()}});
+        engine.load(QUrl::fromLocalFile(QString::fromUtf8(SOCIETY_QML_FILE)));
+        QCOMPARE(engine.rootObjects().size(), 1);
+        auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first()); QVERIFY(window);
+        QVERIFY(window->findChild<QQuickItem *>("dashboardView"));
+        QVERIFY(!window->findChild<QQuickItem *>("toolsView"));
+        QVERIFY(!window->findChild<QQuickItem *>("storageView"));
+        QVERIFY(!window->findChild<QQuickItem *>("environmentView"));
+        auto *calendar = window->findChild<DashboardCalendar *>("dashboardCalendarModel"); QVERIFY(calendar);
+        QVERIFY(calendar->databasePath().isEmpty());
+        QVERIFY(window->setProperty("selectedTab", "Tools"));
+        auto *toolsLoader = window->findChild<QObject *>("toolsLoader"); QVERIFY(toolsLoader);
+        QTRY_COMPARE_WITH_TIMEOUT(toolsLoader->property("status").toInt(), 1, 15000); // Loader.Ready
+        auto *tools = window->findChild<QQuickItem *>("toolsView");
+        QVERIFY(tools->setProperty("query", "retained query"));
+        QVERIFY(window->setProperty("selectedTab", "Storage"));
+        auto *storageLoader = window->findChild<QObject *>("storageLoader"); QVERIFY(storageLoader);
+        QTRY_COMPARE_WITH_TIMEOUT(storageLoader->property("status").toInt(), 1, 15000);
+        auto *content = window->findChild<QObject *>("societyContent"); QVERIFY(content);
+        QVERIFY(QMetaObject::invokeMethod(content, "showEnvironmentDevices"));
+        QVERIFY(window->setProperty("selectedTab", "Environment"));
+        auto *environmentLoader = window->findChild<QObject *>("environmentLoader"); QVERIFY(environmentLoader);
+        QTRY_COMPARE_WITH_TIMEOUT(environmentLoader->property("status").toInt(), 1, 15000);
+        auto *environment = window->findChild<QQuickItem *>("environmentView"); QVERIFY(environment);
+        QCOMPARE(environment->property("page").toString(), QString("Devices"));
+        QVERIFY(window->setProperty("selectedTab", "Tools"));
+        QTRY_VERIFY(tools->isVisible());
+        QCOMPARE(window->findChild<QQuickItem *>("toolsView"), tools);
+        QCOMPARE(tools->property("query").toString(), QString("retained query"));
+        QVERIFY(window->setProperty("selectedTab", "Dashboard"));
+        auto *dashboard = window->findChild<QObject *>("dashboardView"); QVERIFY(dashboard);
+        QVERIFY(QMetaObject::invokeMethod(dashboard, "showCalendar", Q_ARG(QString, "")));
+        QTRY_VERIFY_WITH_TIMEOUT(!calendar->databasePath().isEmpty(), 10000);
+    }
     void suiteStorageIsDiscoveredAndAdoptedOnFirstLaunch() {
         QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/suite-default-drive-XXXXXX"); QVERIFY(fixture.isValid()); QString error;
         const auto shared = iiSocietyContainer::ApplicationStorage::openInGroup(fixture.path(), "com.iisacc.dreamscapes", &error);
@@ -152,9 +435,11 @@ private slots:
         qmlRegisterType<StorageNavigation>("Society", 1, 0, "StorageNavigation");
         qmlRegisterType<DashboardCalendar>("Society", 1, 0, "DashboardCalendar");
         qmlRegisterType<CalendarWorkspace>("Society", 1, 0, "CalendarWorkspace");
+        qmlRegisterType<ProjectWorkspace>("Society", 1, 0, "ProjectWorkspace");
         qmlRegisterType<DashboardFiles>("Society", 1, 0, "DashboardFiles");
         qmlRegisterType<ModelMergeController>("Society", 1, 0, "ModelMergeController");
         qmlRegisterType<ModelPackagingController>("Society", 1, 0, "ModelPackagingController");
+        qmlRegisterType<ModelCalibratorLauncher>("Society", 1, 0, "ModelCalibratorLauncher");
         qmlRegisterType<MergeModelCatalog>("Society", 1, 0, "MergeModelCatalog");
         qmlRegisterType<StorageModels>("Society", 1, 0, "StorageModels");
         qmlRegisterType<ModelImporter>("Society", 1, 0, "ModelImporter");
@@ -177,6 +462,9 @@ private slots:
         QCOMPARE(engine.rootObjects().size(), 1);
         auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first()); QVERIFY(window);
         auto *controller = window->findChild<CloudFilesController *>("cloudFilesController"); QVERIFY(controller);
+        QVERIFY(window->setProperty("selectedTab", "Storage"));
+        QTRY_COMPARE(window->findChild<QObject *>("storageLoader")->property("status").toInt(), 1);
+        QTRY_VERIFY(window->findChild<QQuickItem *>("storageView"));
         auto *storage = window->findChild<QQuickItem *>("storageView"); QVERIFY(storage);
         QCOMPARE(storage->property("cloudFiles").value<CloudFilesController *>(), controller);
         QVERIFY(!controller->busy());
@@ -886,37 +1174,71 @@ private slots:
             QVariantMap{{"id", "2"}, {"name", "GuildName"}},
             QVariantMap{{"id", "3"}, {"name", "GuildName"}}};
         QScopedPointer<QObject> object(component.createWithInitialProperties({
-            {"width", 204}, {"height", 844}, {"guilds", memberships}, {"organizations", memberships}}));
+            {"width", 170}, {"height", 844}, {"guilds", memberships}, {"organizations", memberships}}));
         QVERIFY2(object, qPrintable(component.errorString()));
         auto *sidebar = qobject_cast<QQuickItem *>(object.data()); QVERIFY(sidebar);
         QQuickWindow window;
-        window.resize(204, 844);
+        window.resize(170, 844);
         sidebar->setParentItem(window.contentItem());
         window.show(); QVERIFY(QTest::qWaitForWindowExposed(&window));
         const QStringList groups{"workspace", "guild", "organization"};
         const QStringList titles{"Workspace", "Guilds", "Organization"};
-        const QList<qreal> positions{12, 200, 324};
         for (int i = 0; i < groups.size(); ++i) {
             auto *heading = visualItem(sidebar, "dashboardHeading" + groups[i]); QVERIFY(heading);
             QCOMPARE(heading->property("text").toString(), titles[i]);
-            QTRY_COMPARE(heading->mapToItem(sidebar, QPointF()), QPointF(12, positions[i]));
-            QCOMPARE(heading->height(), 12.0);
+            QVERIFY(!heading->isVisible());
         }
         const QStringList keys{"home", "projects", "calendar", "activity", "people"};
-        const QStringList names{"Home", "Projects", "Calendar", "Activity", "People"};
+        const QStringList names{"Workspace", "Projects", "Calendar", "Activity", "People"};
+        const QStringList iconNames{"workspace", "projects", "calendar", "activity", "people"};
         for (int i = 0; i < keys.size(); ++i) {
             auto *row = visualItem(sidebar, "dashboardItemworkspace_" + keys[i]); QVERIFY(row);
             QCOMPARE(row->property("label").toString(), names[i]);
-            QCOMPARE(row->size(), QSizeF(180, 32));
-            QCOMPARE(row->mapToItem(sidebar, QPointF()), QPointF(12, 32 + i * 32));
+            QCOMPARE(row->size(), QSizeF(170, 32));
+            QCOMPARE(row->mapToItem(sidebar, QPointF()), QPointF(0, i * 32));
+            auto *icon = visualItem(row, "dashboardIconSlotworkspace_" + keys[i]); QVERIFY(icon);
+            QCOMPARE(icon->size(), QSizeF(18, 18));
+            QCOMPARE(icon->mapToItem(row, QPointF()), QPointF(12, 7));
+            auto *glyph = visualItem(row, "dashboardIconworkspace_" + keys[i]); QVERIFY(glyph);
+            const auto extent = keys[i] == "people" ? 16 : 18;
+            QCOMPARE(glyph->size(), QSizeF(extent, extent));
+            QCOMPARE(glyph->mapToItem(icon, QPointF()), QPointF(0, 0));
+            QVERIFY(glyph->property("source").toUrl().toString().endsWith("/" + iconNames[i] + ".svg"));
+            QTRY_COMPARE(glyph->property("status").toInt(), 1); // Image.Ready
+            auto *label = visualItem(row, "listItem_label"); QVERIFY(label);
+            const QPointF labelOrigin = label->mapToItem(row, QPointF());
+            QCOMPARE(labelOrigin.x(), 38.0);
+            QVERIFY(qAbs(labelOrigin.y() - 9.5) <= 0.5); // Qt may align text to whole pixels.
             QVERIFY(!row->property("showTrailingIcon").toBool());
             const auto *accessible = QAccessible::queryAccessibleInterface(row); QVERIFY(accessible);
             QCOMPARE(accessible->text(QAccessible::Name), names[i]);
         }
+        for (const auto &[group, top] : QList<QPair<QString, int>>{{"guild", 168}, {"organization", 272}}) {
+            for (int i = 0; i < memberships.size(); ++i) {
+                auto *row = visualItem(sidebar, "dashboardItem" + group + "_" + QString::number(i + 1)); QVERIFY(row);
+                QCOMPARE(row->size(), QSizeF(170, 32));
+                QCOMPARE(row->mapToItem(sidebar, QPointF()), QPointF(0, top + i * 32));
+                auto *glyph = visualItem(row, "dashboardIcon" + group + "_" + QString::number(i + 1)); QVERIFY(glyph);
+                QCOMPARE(glyph->size(), QSizeF(18, 18));
+                QCOMPARE(glyph->mapToItem(row, QPointF()), QPointF(12, 7));
+                QVERIFY(glyph->property("source").toUrl().toString().endsWith("/" + group + ".svg"));
+                QTRY_COMPARE(glyph->property("status").toInt(), 1);
+            }
+        }
+        auto *home = visualItem(sidebar, "dashboardItemworkspace_home"); QVERIFY(home);
+        auto *project = visualItem(sidebar, "dashboardItemworkspace_projects"); QVERIFY(project);
+        QVERIFY(home->property("selected").toBool());
+        QCOMPARE(home->property("backgroundColor").value<QColor>().name(), QString("#1d4c24"));
+        QVERIFY(sidebar->setProperty("activeKey", "projects"));
+        QTRY_VERIFY(project->property("selected").toBool());
+        QVERIFY(!home->property("selected").toBool());
+        QCOMPARE(project->property("backgroundColor").value<QColor>().name(), QString("#1d4c24"));
+        QVERIFY(sidebar->setProperty("activeKey", "home"));
         QVERIFY(!visualItem(sidebar, "dashboardLocal"));
         QVERIFY(!visualItem(sidebar, "dashboardThisDevice"));
         QSignalSpy homes(sidebar, SIGNAL(homeRequested()));
         QSignalSpy calendars(sidebar, SIGNAL(calendarRequested()));
+        QSignalSpy projects(sidebar, SIGNAL(projectsRequested()));
         QSignalSpy activity(sidebar, SIGNAL(activityRequested()));
         QSignalSpy features(sidebar, SIGNAL(featureRequested(QString)));
         QSignalSpy workspaces(sidebar, SIGNAL(workspaceRequested(QString,QString)));
@@ -925,17 +1247,17 @@ private slots:
             QTest::mouseClick(&window, Qt::LeftButton, Qt::NoModifier,
                 row->mapToScene(QPointF(row->width()/2, row->height()/2)).toPoint());
         }
-        QCOMPARE(homes.size(), 1); QCOMPARE(calendars.size(), 1); QCOMPARE(activity.size(), 1);
-        QCOMPARE(features, QList<QList<QVariant>>({{QString("Projects")}, {QString("People")}}));
+        QCOMPARE(homes.size(), 1); QCOMPARE(calendars.size(), 1); QCOMPARE(activity.size(), 1); QCOMPARE(projects.size(), 1);
+        QCOMPARE(features, QList<QList<QVariant>>({{QString("People")}}));
         auto *organization = visualItem(sidebar, "dashboardItemorganization_3"); QVERIFY(organization);
         organization->forceActiveFocus(); QTest::keyClick(&window, Qt::Key_Space);
         QTRY_COMPARE(workspaces.size(), 1);
         QCOMPARE(workspaces.first(), QVariantList({"organization", "3"}));
         sidebar->forceActiveFocus();
-        QTest::mouseMove(&window, QPoint(200, 800));
+        QTest::mouseMove(&window, QPoint(165, 800));
         const auto capture = qEnvironmentVariable("SOCIETY_DASHBOARD_SIDEBAR_SCREENSHOT_PATH");
         if (!capture.isEmpty()) { QTest::qWait(100); QVERIFY(window.grabWindow().save(capture)); }
-        window.resize(204, 240); sidebar->setHeight(240);
+        window.resize(170, 240); sidebar->setHeight(240);
         auto *viewport = visualItem(sidebar, "dashboardSidebarScroll"); QVERIFY(viewport);
         QTRY_VERIFY(viewport->property("contentHeight").toReal() > viewport->height());
         organization->forceActiveFocus();
@@ -952,6 +1274,10 @@ private slots:
     void dashboardSidebarOpensCalendarAndAccountMemberships()
     {
         QQmlEngine engine;
+        QStringList warnings;
+        connect(&engine, &QQmlEngine::warnings, this, [&](const QList<QQmlError> &errors) {
+            for (const auto &error : errors) warnings.append(error.toString());
+        });
         engine.addImageProvider(QStringLiteral("society-preview"), new iiSocietyContainer::PreviewProvider);
         engine.addImportPath(QString::fromUtf8(SOCIETY_LVRS_QML_IMPORT_PATH));
         const auto directory = QFileInfo(QString::fromUtf8(SOCIETY_QML_FILE)).dir();
@@ -967,17 +1293,80 @@ private slots:
         QVERIFY2(object, qPrintable(component.errorString()));
         auto *dashboard = qobject_cast<QQuickItem *>(object.data()); QVERIFY(dashboard);
         auto *calendar = visualItem(dashboard, "dashboardCalendarView"); QVERIFY(calendar);
+        QVERIFY(!calendar->isVisible());
+        auto *composer = visualItem(dashboard, "dashboardAgentComposer"); QVERIFY(composer);
+        auto *submit = visualItem(dashboard, "dashboardAgentSubmit"); QVERIFY(submit);
+        auto *prompt = visualItem(dashboard, "dashboardAgentPrompt"); QVERIFY(prompt);
+        QVERIFY(prompt->setProperty("text", "Keep this draft"));
+        QVERIFY(composer->isVisible());
+        QVERIFY(!submit->isEnabled()); // A model/session host is not configured.
+        QVERIFY(visualItem(dashboard, "dashboardFilesPanel"));
+        QVERIFY(visualItem(dashboard, "dashboardAgentActivity"));
         auto *activity = visualItem(dashboard, "dashboardItemworkspace_activity"); QVERIFY(activity);
         QVERIFY(QMetaObject::invokeMethod(activity, "clicked"));
         QCOMPARE(calendar->property("expandedSection").toString(), QString("activity"));
+        QVERIFY(calendar->isVisible());
         QVERIFY(QMetaObject::invokeMethod(visualItem(dashboard, "dashboardItemworkspace_calendar"), "clicked"));
         QCOMPARE(calendar->property("expandedSection").toString(), QString());
+        auto *projectsLoader = dashboard->findChild<QObject *>("dashboardProjectsLoader");
+        QVERIFY(projectsLoader); QVERIFY(projectsLoader->property("asynchronous").toBool());
+        QVERIFY(QMetaObject::invokeMethod(visualItem(dashboard, "dashboardItemworkspace_projects"), "clicked"));
+        QTRY_VERIFY(dashboard->property("projectsPageVisible").toBool());
+        QTRY_VERIFY(visualItem(dashboard, "projectsView"));
+        auto *projectsView = visualItem(dashboard, "projectsView");
+        QVERIFY(QMetaObject::invokeMethod(visualItem(dashboard, "dashboardItemworkspace_home"), "clicked"));
+        QVERIFY(!dashboard->property("projectsPageVisible").toBool());
+        QCOMPARE(prompt->property("text").toString(), QString("Keep this draft"));
+        QVERIFY(QMetaObject::invokeMethod(visualItem(dashboard, "dashboardItemworkspace_projects"), "clicked"));
+        QTRY_COMPARE(visualItem(dashboard, "projectsView"), projectsView);
         QSignalSpy requested(&navigation, &StorageNavigation::workspaceRequested);
         QVERIFY(QMetaObject::invokeMethod(visualItem(dashboard, "dashboardItemguild_real-id"), "clicked"));
         QCOMPARE(requested.size(), 1);
         QCOMPARE(requested.first(), QVariantList({"guild", "real-id", "My workspace"}));
         navigation.setAccountId("");
         QTRY_VERIFY(!visualItem(dashboard, "dashboardItemguild_real-id"));
+        QVERIFY2(warnings.isEmpty(), qPrintable(warnings.join('\n')));
+    }
+
+    void dashboardFilesUseReadyDriveAndNavigateWithinFiles()
+    {
+        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/dashboard-files-XXXXXX.societycontainer");
+        QVERIFY(iiSocietyContainer::SocietyDrive::create(fixture.path()));
+        QVERIFY(QDir().mkpath(fixture.filePath("Files/Frames")));
+        const auto previous = qgetenv("SOCIETY_STORAGE_SETTINGS_PATH");
+        const auto restore = qScopeGuard([&] { qputenv("SOCIETY_STORAGE_SETTINGS_PATH", previous); });
+        qputenv("SOCIETY_STORAGE_SETTINGS_PATH", fixture.filePath("test-settings.json").toUtf8());
+        DriveController drive; QVERIFY(drive.openContainer(fixture.path()));
+        DashboardFiles files;
+        files.setContainerPath(fixture.path());
+        QQmlEngine engine;
+        engine.addImageProvider(QStringLiteral("society-preview"), new iiSocietyContainer::PreviewProvider);
+        engine.addImportPath(QString::fromUtf8(SOCIETY_LVRS_QML_IMPORT_PATH));
+        const auto directory = QFileInfo(QString::fromUtf8(SOCIETY_QML_FILE)).dir();
+        QQmlComponent component(&engine, QUrl::fromLocalFile(directory.filePath("Dashboard/Dashboard.qml")));
+        QScopedPointer<QObject> object(component.createWithInitialProperties({
+            {"width", 1440}, {"height", 900}, {"viewModel", QVariant::fromValue(&files)},
+            {"drive", QVariant::fromValue(&drive)}}));
+        QVERIFY2(object, qPrintable(component.errorString()));
+        auto *dashboard = qobject_cast<QQuickItem *>(object.data()); QVERIFY(dashboard);
+        QQuickWindow window; window.resize(1440, 900); dashboard->setParentItem(window.contentItem());
+        window.show(); QVERIFY(QTest::qWaitForWindowExposed(&window));
+        const auto filesRoot = QDir(fixture.filePath("Files")).canonicalPath();
+        QTRY_COMPARE(dashboard->property("filesRoot").toString(), filesRoot);
+        QTRY_VERIFY(visualItem(dashboard, "dashboardFilesBrowser"));
+        auto *browser = visualItem(dashboard, "dashboardFilesBrowser");
+        QTRY_VERIFY(browser->property("folderCount").toInt() >= 1);
+        QVERIFY(QMetaObject::invokeMethod(dashboard, "navigateDashboard",
+                                          Q_ARG(QString, fixture.filePath("Files/Frames"))));
+        QTRY_COMPARE(dashboard->property("dashboardPath").toString(), QDir(fixture.filePath("Files/Frames")).canonicalPath());
+        QVERIFY(QMetaObject::invokeMethod(dashboard, "upDashboard"));
+        QTRY_COMPARE(dashboard->property("dashboardPath").toString(), filesRoot);
+        QVERIFY(QMetaObject::invokeMethod(dashboard, "navigateDashboard", Q_ARG(QString, fixture.path())));
+        QCOMPARE(dashboard->property("dashboardPath").toString(), filesRoot);
+        drive.setMirrorPending(true);
+        QTRY_VERIFY(dashboard->property("filesRoot").toString().isEmpty());
+        QTRY_VERIFY(!visualItem(dashboard, "dashboardFilesBrowser"));
+        dashboard->setParentItem(nullptr);
     }
 
     void sidebarMatchesFigmaAndRoutesDynamicTargets()
@@ -1190,16 +1579,19 @@ private slots:
         QVERIFY(!catalog.errorString().isEmpty()); QCOMPARE(catalog.count(), 0);
     }
 
-    void modelsShowTypesAndScrollEachCategoryIndependently()
+    void modelsBrowsePhysicalFoldersInListAndGrid()
     {
-        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/models-figma-XXXXXX.societycontainer");
+        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/models-tree-XXXXXX.societycontainer");
         QVERIFY(iiSocietyContainer::SocietyDrive::create(fixture.path()));
-        const QStringList modalities{"Checkpoint", "Embedding", "Hypernetwork", "Aesthetic Gradient"};
-        for (const auto &modality : modalities)
-            for (int i = 0; i < 9; ++i)
-                QVERIFY(writeCatalogModel(fixture.filePath(QString("Models/%1/sample-%2.safetensors").arg(modality).arg(i)),
-                    {{"society.modality", modality}, {"modelspec.architecture", "SDXL"},
-                     {"modelspec.title", QString("Studio Portrait %1").arg(i + 1, 2, 10, QChar('0'))}}));
+        const QStringList categories{"Checkpoint", "Embedding", "LLM", "LoRA"};
+        for (const auto &category : categories)
+            for (int i = 0; i < 2; ++i)
+                QVERIFY(writeCatalogModel(fixture.filePath(QString("Models/%1/sample-%2.safetensors").arg(category).arg(i)), {}));
+        const auto modelPath = fixture.filePath("Models/Checkpoint/sample-0.safetensors");
+        QFile metadata(modelPath + ".model.json"); QVERIFY(metadata.open(QIODevice::WriteOnly));
+        QVERIFY(metadata.write("{\"type\":\"Checkpoint\"}") > 0); metadata.close();
+        QFile previewFile(fixture.filePath("Models/Checkpoint/sample-0.preview.png"));
+        QVERIFY(previewFile.open(QIODevice::WriteOnly)); QVERIFY(previewFile.write("preview") > 0); previewFile.close();
         QQmlApplicationEngine engine;
         engine.addImageProvider(QStringLiteral("society-preview"), new iiSocietyContainer::PreviewProvider);
         QStringList warnings;
@@ -1213,138 +1605,71 @@ private slots:
         auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first()); QVERIFY(window);
         QVERIFY(QTest::qWaitForWindowExposed(window));
         auto *drive = window->findChild<DriveController *>("driveController"); QVERIFY(drive);
+        auto *importer = window->findChild<ModelImporter *>("modelImporter"); QVERIFY(importer);
+        QTRY_VERIFY_WITH_TIMEOUT(!importer->busy(), 30000);
+        importer->setBackendManaged(false);
         QVERIFY(window->setProperty("selectedTab", "Storage"));
-        auto *navigation = visualItem(window->contentItem(), "storageSectionmodels"); QVERIFY(navigation);
-        QTRY_VERIFY(navigation->isVisible());
-        QVERIFY(QMetaObject::invokeMethod(navigation, "clicked"));
-        QTRY_COMPARE(drive->currentSection(), QString("Models"));
-        auto *models = window->findChild<QQuickItem *>("modelsView"); QVERIFY(models);
-        QTRY_VERIFY(models->isVisible());
+        QVERIFY(drive->openSection("models"));
+        QQuickItem *models = nullptr;
+        QTRY_VERIFY_WITH_TIMEOUT((models = window->findChild<QQuickItem *>("modelsView")) && models->isVisible(), 30000);
+        auto *browser = models->findChild<QQuickItem *>("modelFilesBrowser"); QVERIFY(browser);
         auto *catalog = window->findChild<StorageModels *>("modelCatalog"); QVERIFY(catalog);
-        QTRY_COMPARE(catalog->count(), 36); QTRY_VERIFY(!catalog->loading());
-        auto *sidebar = window->findChild<QQuickItem *>("driveSidebar"); QVERIFY(sidebar);
-        QCOMPARE(sidebar->width(), 228.0); QCOMPARE(sidebar->mapToScene(QPointF()).y(), 56.0);
-        QCOMPARE(navigation->height(), 32.0);
-        QCOMPARE(navigation->width(), 204.0);
-        auto *filesNavigation = visualItem(window->contentItem(), "storageSectionfiles"); QVERIFY(filesNavigation);
-        QCOMPARE(navigation->mapToScene(QPointF()), filesNavigation->mapToScene(QPointF()) + QPointF(0, 4 * 32));
-        QCOMPARE(catalog->categories().size(), 23);
-        for (const auto type : iiSocietyContainer::allModelTypes())
-            QVERIFY(visualItem(models, "modelHeading" + iiSocietyContainer::modelTypeName(type)));
-        QVERIFY(!visualItem(models, "modelHeadingimage"));
-        const auto initialScreenshot = qEnvironmentVariable("SOCIETY_MODELS_SCREENSHOT_PATH");
-        if (!initialScreenshot.isEmpty()) { QTest::qWait(200); QVERIFY(window->grabWindow().save(initialScreenshot + "-initial.png")); }
-        QList<QQuickItem *> lists;
-        for (int index = 0; index < modalities.size(); ++index) {
-            const auto &modality = modalities[index];
-            auto *list = visualItem(models, "modelCards" + modality); QVERIFY(list); lists.append(list);
-            QTRY_COMPARE(list->property("count").toInt(), 9);
-            QTRY_COMPARE(list->size(), QSizeF(1164, 280));
-            QCOMPARE(list->mapToScene(QPointF()), QPointF(252, 164 + index * 388));
-            auto *card = visualItem(list, "modelCard" + modality + "0"); QVERIFY(card);
-            QCOMPARE(card->size(), QSizeF(256, 280));
-            QCOMPARE(card->property("rows").toList().size(), 3);
-            QVERIFY(!card->property("showAction").toBool());
-            auto *next = visualItem(list, "modelCard" + modality + "1"); QVERIFY(next);
-            QCOMPARE(next->x() - card->x(), 264.0);
-            auto *import = visualItem(models, "importModels" + modality); QVERIFY(import);
-            QSignalSpy requests(models, SIGNAL(importRequested())); QVERIFY(requests.isValid());
-            QVERIFY(QMetaObject::invokeMethod(import, "clicked")); QCOMPARE(requests.size(), 1);
-            auto *dialog = window->findChild<QObject *>("modelFileDialog"); QVERIFY(dialog);
-#ifdef Q_OS_WIN
-            QVERIFY(dialog->property("options").toInt() != 0);
-#endif
-            QVERIFY(QMetaObject::invokeMethod(dialog, "close"));
-        }
-        auto *card = visualItem(lists.first(), "modelCardCheckpoint0"); QVERIFY(card);
-        auto *menu = window->findChild<QObject *>("modelCardMenu"); QVERIFY(menu);
-        QSignalSpy menuOpened(menu, SIGNAL(opened())); QVERIFY(menuOpened.isValid());
-        auto *touch = QTest::createTouchDevice();
-        const auto touchPoint = card->mapToScene(QPointF(60, 80)).toPoint();
-        QTest::touchEvent(window, touch).press(0, touchPoint, window);
-        QTest::touchEvent(window, touch).release(0, touchPoint, window);
-        QTest::qWait(100);
-        QCOMPARE(menuOpened.size(), 0); // A touch tap is selection, not a mouse context click.
-        QVERIFY(!menu->property("visible").toBool());
-        QTest::mouseClick(window, Qt::LeftButton, Qt::NoModifier, card->mapToScene(QPointF(60, 80)).toPoint());
-        const auto selected = models->property("selectedPath").toString(); QVERIFY(!selected.isEmpty());
-        QTest::mouseClick(window, Qt::RightButton, Qt::NoModifier, card->mapToScene(QPointF(60, 80)).toPoint());
+        QTRY_COMPARE_WITH_TIMEOUT(catalog->count(), 8, 30000);
+        QTRY_COMPARE_WITH_TIMEOUT(browser->property("count").toInt(), 4, 30000);
+        QVERIFY(browser->property("listMode").toBool());
+        auto entries = [&] { return browser->property("entries").value<QJSValue>().toVariant().toList(); };
+        for (const auto &entry : entries()) QVERIFY(entry.toMap().value("directory").toBool());
+        int checkpoint = -1;
+        for (int i = 0; i < entries().size(); ++i)
+            if (entries().at(i).toMap().value("name").toString() == "Checkpoint") checkpoint = i;
+        QVERIFY(checkpoint >= 0);
+        auto *import = visualItem(browser, "modelsImport"); QVERIFY(import);
+        QSignalSpy requested(models, SIGNAL(importRequested())); QVERIFY(requested.isValid());
+        QVERIFY(QMetaObject::invokeMethod(import, "clicked")); QCOMPARE(requested.size(), 1);
+        auto *dialog = window->findChild<QObject *>("modelFileDialog"); QVERIFY(dialog);
+        QVERIFY(QMetaObject::invokeMethod(dialog, "close"));
+        QVERIFY(QMetaObject::invokeMethod(browser, "selectEntry", Q_ARG(QVariant, checkpoint)));
+        QVERIFY(QMetaObject::invokeMethod(browser, "openSelected"));
+        QTRY_COMPARE_WITH_TIMEOUT(drive->currentPath(), fixture.filePath("Models/Checkpoint"), 30000);
+        QTRY_COMPARE_WITH_TIMEOUT(browser->property("path").toString(), drive->currentPath(), 30000);
+        QTRY_COMPARE_WITH_TIMEOUT(browser->property("count").toInt(), 2, 30000);
+        for (const auto &entry : entries()) QVERIFY(!entry.toMap().value("directory").toBool());
+        QVERIFY(QMetaObject::invokeMethod(browser, "selectEntry", Q_ARG(QVariant, 0)));
+        QCOMPARE(browser->property("selectedPath").toString(), modelPath);
+        QVERIFY(browser->setProperty("listMode", false));
+        auto *grid = visualItem(browser, "filesBrowserGrid"); QVERIFY(grid);
+        QTRY_VERIFY(grid->isVisible());
+        QCOMPARE(browser->property("selectedPath").toString(), modelPath);
+        QVERIFY(browser->setProperty("listMode", true));
+        QQuickItem *cell = nullptr;
+        QTRY_VERIFY_WITH_TIMEOUT((cell = visualItem(browser, "filesCell_0_0")), 30000);
+        QTest::mouseClick(window, Qt::RightButton, Qt::NoModifier, cell->mapToScene(cell->boundingRect().center()).toPoint());
+        auto *menu = browser->findChild<QObject *>("filesContextMenu"); QVERIFY(menu);
         QTRY_VERIFY(menu->property("opened").toBool());
-        QCOMPARE(menu->property("filePath").toString(), selected);
-        const auto actions = menu->property("items").value<QJSValue>().toVariant().toList();
-        QCOMPARE(actions.size(), 9);
-        QVERIFY(actions.at(8).toMap().value("enabled").toBool());
-        QVERIFY(QMetaObject::invokeMethod(menu, "close"));
-        QTRY_VERIFY(!menu->property("visible").toBool());
-        const auto position = lists.first()->mapToScene(QPointF(300, 180));
-        QWheelEvent wheel(position, window->mapToGlobal(position.toPoint()), QPoint(), QPoint(-120, 0),
-            Qt::NoButton, Qt::NoModifier, Qt::ScrollUpdate, false);
-        QCoreApplication::sendEvent(window, &wheel);
-        QTRY_VERIFY(lists.first()->property("contentX").toReal() > 0);
-        const auto scroll = lists.first()->property("contentX").toReal();
-        for (int i = 1; i < lists.size(); ++i) QCOMPARE(lists[i]->property("contentX").toReal(), 0.0);
-        QVERIFY(writeCatalogModel(fixture.filePath("Models/Other/extra.safetensors"),
-            {{"society.modality", "audio"}, {"modelspec.title", "Newest model"}}));
-        QTRY_COMPARE(catalog->count(), 37);
-        QTRY_COMPARE(models->property("selectedPath").toString(), selected);
-        QTRY_COMPARE(lists.first()->property("contentX").toReal(), scroll);
-        const auto screenshot = qEnvironmentVariable("SOCIETY_MODELS_SCREENSHOT_PATH");
-        if (!screenshot.isEmpty()) { QTest::qWait(200); QVERIFY(window->grabWindow().save(screenshot)); }
-        auto *scrollView = window->findChild<QQuickItem *>("modelsScroll"); QVERIFY(scrollView);
-        auto *flickable = qvariant_cast<QQuickItem *>(scrollView->property("contentItem")); QVERIFY(flickable);
-        QVERIFY(QMetaObject::invokeMethod(flickable, "flick", Q_ARG(qreal, 0), Q_ARG(qreal, -2000)));
-        QTRY_VERIFY(flickable->property("contentY").toReal() > 0);
-        if (!screenshot.isEmpty()) {
-            QVERIFY(QMetaObject::invokeMethod(flickable, "cancelFlick"));
-            QVERIFY(flickable->setProperty("contentY", flickable->property("contentHeight").toReal() - flickable->height()));
-            QTest::qWait(200); QVERIFY(window->grabWindow().save(screenshot + "-lower.png"));
-        }
-        QVERIFY(QMetaObject::invokeMethod(flickable, "cancelFlick"));
-        QVERIFY(flickable->setProperty("contentY", 300.0));
-        QVERIFY(lists.first()->setProperty("contentX", scroll));
-        QTest::qWait(100);
-        QSignalSpy catalogChanges(catalog, &StorageModels::modelsChanged);
-        QSignalSpy loadingChanges(catalog, &StorageModels::loadingChanged);
-        const QPointer<QQuickItem> stableCard(visualItem(lists.first(), "modelCardCheckpoint0"));
-        QVERIFY(stableCard);
-        for (int i = 0; i < 4; ++i) { catalog->refresh(); QTest::qWait(250); }
-        QCOMPARE(catalogChanges.size(), 0);
-        QCOMPARE(loadingChanges.size(), 0);
-        QVERIFY(stableCard);
-        QCOMPARE(visualItem(lists.first(), "modelCardCheckpoint0"), stableCard.data());
-        QCOMPARE(flickable->property("contentY").toReal(), 300.0);
-        QCOMPARE(lists.first()->property("contentX").toReal(), scroll);
-        // Inserting ahead of the focused card must retain its keyboard selection and both axes.
-        QVERIFY(models->setProperty("importStatus", "Copying checkpoint to Models... 42%"));
-        QVERIFY(models->setProperty("importing", true));
-        auto *banner = visualItem(models, "modelImportBanner"); QVERIFY(banner);
-        QTRY_VERIFY(banner->isVisible());
-        QVERIFY(banner->mapToItem(models, QPointF()).y() >= 0);
-        QVERIFY(banner->mapToItem(models, QPointF()).y() + banner->height() < models->height());
-        QVERIFY(models->setProperty("importing", false));
-        const auto prepended = fixture.filePath("Models/Checkpoint/aaa-first.safetensors");
-        QVERIFY(writeCatalogModel(prepended, {{"society.modality", "image"}, {"modelspec.title", "A first model"}}));
-        catalog->refresh(); QTRY_COMPARE(catalog->count(), 38); QTRY_VERIFY(!catalog->loading());
-        QTRY_COMPARE(lists.first()->property("currentIndex").toInt(), 1);
-        QTRY_COMPARE(models->property("selectedPath").toString(), selected);
-        QTRY_COMPARE(lists.first()->property("contentX").toReal(), scroll);
-        QTRY_COMPARE(flickable->property("contentY").toReal(), 300.0);
-        QVERIFY(QFile::remove(prepended)); catalog->refresh();
-        QTRY_COMPARE(catalog->count(), 37); QTRY_VERIFY(!catalog->loading());
-        QTRY_COMPARE(lists.first()->property("currentIndex").toInt(), 0);
-        QTRY_COMPARE(lists.first()->property("contentX").toReal(), scroll);
-        QTRY_COMPARE(flickable->property("contentY").toReal(), 300.0);
-        window->resize(390, 844);
-        QTRY_VERIFY(!sidebar->isVisible());
-        for (auto *list : lists) QTRY_COMPARE(list->width(), 342.0);
-        window->resize(1440, 900);
-        QVERIFY(QMetaObject::invokeMethod(models, "browseFoldersRequested"));
-        auto *files = window->findChild<QQuickItem *>("fileGridView"); QVERIFY(files);
-        QTRY_VERIFY(files->isVisible());
-        // Only the four user-populated categories and Other exist physically;
-        // the catalog's 23 headings do not allocate empty type directories.
-        QTRY_COMPARE(files->property("count").toInt(), modalities.size() + 1);
-        QVERIFY(drive->openSection("models")); QTRY_VERIFY(models->isVisible());
+        QTRY_COMPARE(menu->property("currentCategory").toString(), QStringLiteral("Checkpoint"));
+        const auto categoryValue = menu->property("categoryOptions");
+        const auto categoryOptions = categoryValue.metaType() == QMetaType::fromType<QJSValue>()
+            ? categoryValue.value<QJSValue>().toVariant().toList() : categoryValue.toList();
+        QCOMPARE(categoryOptions.size(), 23);
+        int llmCategory = -1;
+        for (int i = 0; i < categoryOptions.size(); ++i)
+            if (categoryOptions.at(i).toMap().value("key").toString() == "LLM") llmCategory = i;
+        QVERIFY(llmCategory >= 0);
+        QSignalSpy moved(importer, SIGNAL(recategorized(QString,QString,QString))); QVERIFY(moved.isValid());
+        QVERIFY(QMetaObject::invokeMethod(menu, "triggerEntry", Q_ARG(QVariant, 9)));
+        auto *categoryMenu = menu->property("categoryMenu").value<QObject *>(); QVERIFY(categoryMenu);
+        QTRY_VERIFY(categoryMenu->property("opened").toBool());
+        QVERIFY(QMetaObject::invokeMethod(categoryMenu, "triggerEntry", Q_ARG(QVariant, llmCategory)));
+        QTRY_COMPARE_WITH_TIMEOUT(moved.size(), 1, 30000);
+        const auto destination = fixture.filePath("Models/LLM/sample-0 (1).safetensors");
+        QTRY_VERIFY_WITH_TIMEOUT(QFileInfo::exists(destination), 30000);
+        QVERIFY(QFileInfo::exists(destination + ".model.json"));
+        QVERIFY(QFileInfo::exists(fixture.filePath("Models/LLM/sample-0 (1).preview.png")));
+        QTRY_COMPARE_WITH_TIMEOUT(browser->property("count").toInt(), 1, 30000);
+        auto *back = visualItem(browser, "modelsBack"); QVERIFY(back); QVERIFY(back->isVisible());
+        QVERIFY(QMetaObject::invokeMethod(back, "clicked"));
+        QTRY_COMPARE(drive->currentPath(), fixture.filePath("Models"));
+        QTRY_COMPARE_WITH_TIMEOUT(browser->property("count").toInt(), 4, 30000);
         QVERIFY2(warnings.isEmpty(), qPrintable(warnings.join('\n')));
         window->close();
     }
@@ -1628,7 +1953,6 @@ private slots:
         auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first()); QVERIFY(window);
         QVERIFY(QTest::qWaitForWindowExposed(window));
         auto *drive = window->findChild<DriveController *>("driveController"); QVERIFY(drive);
-        auto *files = window->findChild<QQuickItem *>("filesBrowser"); QVERIFY(files);
         auto *navigation = window->findChild<StorageNavigation *>("storageNavigation"); QVERIFY(navigation);
         auto *storageTab = visualItem(window->contentItem(), mobile ? "mobileStorageTab" : "storageTab");
         auto *dashboardTab = visualItem(window->contentItem(), mobile ? "mobileDashboardTab" : "dashboardTab");
@@ -1639,6 +1963,8 @@ private slots:
         };
 
         click(storageTab);
+        QTRY_COMPARE(window->findChild<QObject *>("storageLoader")->property("status").toInt(), 1);
+        auto *files = window->findChild<QQuickItem *>("filesBrowser"); QVERIFY(files);
         QTRY_COMPARE(drive->currentPath(), fixture.filePath("Files"));
         QTRY_VERIFY(files->isVisible());
         QCOMPARE(navigation->selectedSection(), QString("files"));
@@ -1707,6 +2033,7 @@ private slots:
         QVERIFY(QTest::qWaitForWindowExposed(window));
         QTRY_COMPARE(window->size(), size);
         auto *drive = window->findChild<DriveController *>("driveController"); QVERIFY(drive);
+        QTRY_VERIFY(window->findChild<QQuickItem *>("storageView"));
         auto *storage = window->findChild<QQuickItem *>("storageView"); QVERIFY(storage);
         QTRY_VERIFY(storage->isVisible());
         QVERIFY(drive->errorString().isEmpty());
@@ -1721,14 +2048,15 @@ private slots:
             const auto name = section == iiSocietyContainer::StoreSection::Files ? "filesBrowser"
                 : section == iiSocietyContainer::StoreSection::Models ? "modelsView"
                 : section == iiSocietyContainer::StoreSection::Photos ? "photosView" : "fileGridView";
-            auto *view = visualItem(storage, name); QVERIFY(view);
+            QQuickItem *view = nullptr;
+            QTRY_VERIFY_WITH_TIMEOUT((view = visualItem(storage, name)), 30000);
             QTRY_VERIFY(view->isVisible());
             QTRY_VERIFY(view->width() > 0 && view->height() > 0);
             QTRY_COMPARE(view->mapToItem(storage, QPointF()).y(), 0.0);
             QTRY_COMPARE(view->mapToItem(storage, QPointF(0, view->height())).y(), storage->height());
             if (section == iiSocietyContainer::StoreSection::Models) {
-                QVERIFY(visualItem(view, "modelsStatus"));
-                QVERIFY(visualItem(view, "importModelsCheckpoint"));
+                QVERIFY(visualItem(view, "filesStatus"));
+                QVERIFY(visualItem(view, "modelsImport"));
             }
         }
         // The existing actions sheet remains available after removing the
@@ -1751,7 +2079,8 @@ private slots:
         QVERIFY(file.open(QIODevice::WriteOnly));
         file.write("example");
         file.close();
-        QFile privateFile(fixture.filePath("Models/App only.txt"));
+        QVERIFY(QDir().mkpath(fixture.filePath("Models/Wildcards")));
+        QFile privateFile(fixture.filePath("Models/Wildcards/App only.txt"));
         QVERIFY(privateFile.open(QIODevice::WriteOnly));
         privateFile.write("Available through Society");
         privateFile.close();
@@ -1770,16 +2099,11 @@ private slots:
         auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first());
         QVERIFY(window);
         QCOMPARE(window->title(), QString("Society"));
-        auto *driveTitle = window->findChild<QQuickItem *>("societyDriveTitle");
-        auto *driveHome = visualItem(window->contentItem(), "storageSectionfiles");
-        QVERIFY(driveTitle && driveHome);
-        QCOMPARE(driveTitle->property("text").toString(), QString("Society"));
-        QCOMPARE(driveHome->property("label").toString(), QString("Files"));
         auto *controller = window->findChild<DriveController *>("driveController");
-        auto *files = window->findChild<QQuickItem *>("filesBrowser");
-        auto *content = window->findChild<QQuickItem *>("driveContent");
-        QVERIFY(controller && files && content);
-        QVERIFY(!window->findChild<QQuickItem *>("sectionsGrid"));
+        QVERIFY(controller);
+        auto *importer = window->findChild<ModelImporter *>("modelImporter"); QVERIFY(importer);
+        QTRY_VERIFY_WITH_TIMEOUT(!importer->busy(), 30000);
+        importer->setBackendManaged(false);
         QTRY_VERIFY(window->isVisible());
         QVERIFY(QTest::qWaitForWindowExposed(window));
         QCOMPARE(controller->sections().size(), 9);
@@ -1788,6 +2112,16 @@ private slots:
         QTest::mouseClick(window, Qt::LeftButton, Qt::NoModifier,
             storageTab->mapToScene(QPointF(storageTab->width()/2, storageTab->height()/2)).toPoint());
         QTRY_COMPARE(window->property("selectedTab").toString(), QString("Storage"));
+        QQuickItem *driveTitle = nullptr, *driveHome = nullptr, *files = nullptr;
+        QQuickItem *modelGrid = nullptr, *content = nullptr;
+        QTRY_VERIFY_WITH_TIMEOUT((driveTitle = window->findChild<QQuickItem *>("societyDriveTitle"))
+            && (driveHome = visualItem(window->contentItem(), "storageSectionfiles"))
+            && (files = window->findChild<QQuickItem *>("filesBrowser"))
+            && (modelGrid = window->findChild<QQuickItem *>("fileGridView"))
+            && (content = window->findChild<QQuickItem *>("driveContent")), 30000);
+        QCOMPARE(driveTitle->property("text").toString(), QString("Society"));
+        QCOMPARE(driveHome->property("label").toString(), QString("Files"));
+        QVERIFY(!window->findChild<QQuickItem *>("sectionsGrid"));
         QTRY_COMPARE(controller->currentPath(), fixture.filePath("Files"));
         QTRY_VERIFY(files->isVisible());
         auto *storage = window->findChild<QQuickItem *>("storageView");
@@ -1810,16 +2144,15 @@ private slots:
         QTRY_COMPARE(files->property("path").toString(), QString());
         QTRY_COMPARE(files->property("count").toInt(), 0);
         QTRY_VERIFY(QFileInfo::exists(fixture.filePath("Models/Wildcards/App only.txt")));
-        auto *models = window->findChild<QQuickItem *>("modelsView"); QVERIFY(models);
+        QQuickItem *models = nullptr;
+        QTRY_VERIFY_WITH_TIMEOUT((models = window->findChild<QQuickItem *>("modelsView")), 15000);
         QTRY_VERIFY(models->isVisible());
         QVERIFY(!files->isVisible());
-        QVERIFY(QMetaObject::invokeMethod(models, "browseFoldersRequested"));
-        auto *modelGrid = window->findChild<QQuickItem *>("fileGridView"); QVERIFY(modelGrid);
-        QVERIFY(modelGrid->isVisible()); QVERIFY(!files->isVisible());
-        QTRY_COMPARE(modelGrid->property("path").toString(), fixture.filePath("Models"));
-        // Logical categories stay available without precreating unused
-        // folders; this fixture populates only Wildcards during organization.
-        QTRY_COMPARE(modelGrid->property("count").toInt(), 1);
+        auto *modelBrowser = models->findChild<QQuickItem *>("modelFilesBrowser"); QVERIFY(modelBrowser);
+        QVERIFY(modelBrowser->isVisible()); QVERIFY(!files->isVisible());
+        QTRY_COMPARE(modelBrowser->property("path").toString(), fixture.filePath("Models"));
+        // The fixture populates only Wildcards; unused categories are not created.
+        QTRY_COMPARE(modelBrowser->property("count").toInt(), 1);
         const auto modelsScreenshot = qEnvironmentVariable("SOCIETY_MODEL_TYPES_SCREENSHOT_PATH");
         if (!modelsScreenshot.isEmpty()) { QTest::qWait(200); QVERIFY(window->grabWindow().save(modelsScreenshot)); }
         controller->goHome();
@@ -1880,7 +2213,6 @@ private slots:
         // OS URL drops target Models from Files and a phone-size header.
         QTemporaryDir dropped(SOCIETY_TEST_DIRECTORY "/model-drop-XXXXXX.societycontainer");
         QVERIFY(dropped.isValid());
-        auto *importer = window->findChild<ModelImporter *>("modelImporter");
         auto *overlay = window->findChild<QQuickItem *>("modelDropOverlay");
         QVERIFY(importer && overlay);
         QSignalSpy imported(importer, &ModelImporter::finished);
@@ -2269,6 +2601,7 @@ private slots:
         };
         QVERIFY(click(visualItem(window->contentItem(), "dashboardItemworkspace_calendar")));
         QTRY_VERIFY(dashboard->property("calendarPageVisible").toBool());
+        QTRY_VERIFY(!calendar->databasePath().isEmpty() && !calendar->loading());
         QVERIFY(QQmlProperty::write(workspace, "active", true));
         QTRY_VERIFY(workspace->active());
         const auto review = workspace->saveEvent({{"title", "Tidal Archive review"}, {"startLocal", "2026-10-23 14:00"},
@@ -2295,9 +2628,11 @@ private slots:
             QTest::qWait(150);
             return capturePath.isEmpty() || window->grabWindow().save(QDir(capturePath).filePath(name + ".png"));
         };
-        auto *page = visualItem(window->contentItem(), "calendarWorkspaceView"); QVERIFY(page);
-        QTRY_COMPARE(page->mapToScene(QPointF()), QPointF(220, 56));
-        QCOMPARE(page->width(), 1380.0);
+        QQuickItem *page = nullptr;
+        QTRY_VERIFY_WITH_TIMEOUT((page = visualItem(window->contentItem(), "calendarWorkspaceView")), 15000);
+        auto *sidebar = visualItem(window->contentItem(), "dashboardSidebar"); QVERIFY(sidebar);
+        QTRY_COMPARE(page->mapToScene(QPointF()), QPointF(sidebar->width(), 56));
+        QCOMPARE(page->width(), window->width() - sidebar->width());
         for (const auto &mode : QStringList{"week", "day", "month", "year"}) {
             QVERIFY(click(visualItem(window->contentItem(), "calendarMode_" + mode)));
             QTRY_COMPARE(workspace->viewMode(), mode);
@@ -2319,7 +2654,7 @@ private slots:
         QVERIFY(capture("quick-add"));
         QVERIFY(click(visualItem(window->contentItem(), "calendarSaveEvent")));
         QTRY_VERIFY(!editor->property("visible").toBool());
-        iiCalendar::Store store(calendar->databasePath().toStdString());
+        iiCalendar::Store store(openSocietyCalendarDatabase(calendar->databasePath().toStdString()));
         const auto matches = [&] {
             auto events = store.query();
             std::erase_if(events, [](const auto &event) { return event.title != "Publish checklist"; });
@@ -2373,7 +2708,7 @@ private slots:
         calendar.setTimeZone("Asia/Seoul"); calendar.selectDate("2026-09-19"); calendar.setContainerPath(fixture.path());
         QTRY_VERIFY(!calendar.loading());
         {
-            Store store(calendar.databasePath().toStdString());
+            Store store(openSocietyCalendarDatabase(calendar.databasePath().toStdString()));
             const TimeZone zone("Asia/Seoul");
             for (int i = 0; i < 3; ++i) {
                 Event event; event.id = "meeting-" + std::to_string(i);
@@ -2417,19 +2752,15 @@ private slots:
         const auto item = [&](const QString &name) { return visualItem(dashboard, name); };
         auto *month = item("calendarMonthPanel"), *detail = item("calendarDetailPanel"), *view = item("dashboardCalendarView");
         QVERIFY(month && detail && view);
-        QTRY_COMPARE(month->size(), QSizeF(803, 370)); QTRY_COMPARE(detail->size(), QSizeF(355, 370));
-        QCOMPARE(month->mapToItem(dashboard, QPointF()), QPointF(238, 34));
-        QCOMPARE(detail->mapToItem(dashboard, QPointF()), QPointF(1051, 34));
+        QVERIFY(!view->isVisible());
+        QVERIFY(QMetaObject::invokeMethod(item("dashboardItemworkspace_activity"), "clicked"));
+        QTRY_VERIFY(view->isVisible());
+        QVERIFY(QMetaObject::invokeMethod(view, "resetDetails"));
+        QTRY_VERIFY(month->width() > 0 && detail->width() > 0);
+        QCOMPARE(month->height(), 370.0); QCOMPARE(detail->height(), 370.0);
+        QVERIFY(detail->mapToItem(dashboard, QPointF()).x() > month->mapToItem(dashboard, QPointF()).x());
         QVERIFY(item("calendarDot_2026-09-19")->isVisible());
         QCOMPARE(item("calendarDayTitle")->property("text").toString(), "Sat, Sep 19");
-        for (int i = 1; i < 7; ++i) {
-            auto *card = item("dashboardRecentFilesCard" + QString::number(i));
-            QVERIFY(card); QTRY_COMPARE(card->property("previewStatus").toInt(), 1);
-        }
-        for (int i = 0; i < 8; ++i) {
-            auto *card = item("dashboardGenerationHistoryCard" + QString::number(i));
-            if (card) QTRY_COMPARE(card->property("previewStatus").toInt(), 1);
-        }
         QTest::qWait(200); QVERIFY(window.grabWindow().save(QStringLiteral(SOCIETY_TEST_DIRECTORY "/calendar-dashboard.png")));
         const auto click = [&](const QString &name) {
             // Native rendering lays out recreated summary rows on the next frame.
@@ -2467,7 +2798,7 @@ private slots:
         for (int width : {390, 760}) {
             window.resize(width, 1000); dashboard->setWidth(width);
             QTRY_VERIFY(view->property("stacked").toBool());
-            QTRY_COMPARE(month->width(), width - (width >= 760 ? 204 : 0) - 68.0);
+            QTRY_COMPARE(month->width(), view->width());
             QCOMPARE(detail->width(), month->width());
             QVERIFY(detail->mapToItem(view, QPointF()).y() >= 380);
             QVERIFY(detail->mapToScene(QPointF(detail->width(), 0)).x() <= width);
@@ -2528,9 +2859,15 @@ private slots:
         QTRY_VERIFY(recent && history);
         QTRY_COMPARE(recent->property("count").toInt(), 6);
         QTRY_COMPARE(history->property("count").toInt(), 11);
-        QTRY_COMPARE(recent->size(), QSizeF(1188, 160));
-        QTRY_COMPARE(recent->mapToItem(dashboard, QPointF()), QPointF(228, 462));
-        QTRY_COMPARE(history->mapToItem(dashboard, QPointF()), QPointF(228, 680));
+        QTRY_VERIFY(recent->width() > 400);
+        QCOMPARE(recent->height(), 160.0);
+        QTRY_VERIFY(history->mapToItem(dashboard, QPointF()).y()
+                    > recent->mapToItem(dashboard, QPointF()).y() + recent->height());
+        auto *filesPanel = visualItem(dashboard, "dashboardFilesPanel"); QVERIFY(filesPanel);
+        QVERIFY(filesPanel->mapToItem(dashboard, QPointF()).y()
+                > recent->mapToItem(dashboard, QPointF()).y());
+        QVERIFY(history->mapToItem(dashboard, QPointF()).y()
+                > filesPanel->mapToItem(dashboard, QPointF()).y());
         QCOMPARE(recent->property("spacing").toReal(), 8.0);
         QVERIFY(recent->clip() && history->clip());
         auto *first = visualItem(recent, "dashboardRecentFilesCard0");
@@ -2604,6 +2941,7 @@ private slots:
         QVERIFY(dashboard->setProperty("touchNavigation", false));
         opened.clear();
 
+        revealDashboardItem(dashboard, history);
         history->forceActiveFocus(Qt::TabFocusReason);
         QTest::keyClick(&window, Qt::Key_End);
         QTRY_COMPARE(history->property("currentIndex").toInt(), 10);
@@ -2618,10 +2956,10 @@ private slots:
         for (int width : {760, 390, 1440}) {
             window.resize(width, 844);
             dashboard->setWidth(width);
-            const qreal contentWidth = width - (width >= 760 ? 204 : 0) - 48;
-            QTRY_COMPARE(recent->size(), QSizeF(contentWidth, 160));
-            QTRY_COMPARE(history->size(), QSizeF(contentWidth, 160));
-            QVERIFY(recent->mapToItem(dashboard, QPointF(recent->width(), 0)).x() <= width - 24);
+            QTRY_VERIFY(recent->width() > 0);
+            QTRY_COMPARE(recent->height(), 160.0);
+            QTRY_COMPARE(history->size(), recent->size());
+            QTRY_VERIFY(recent->mapToItem(dashboard, QPointF(recent->width(), 0)).x() <= width - 24 + 0.5);
         }
         files.setContainerPath("");
         QTRY_COMPARE(recent->property("count").toInt(), 0);
@@ -2763,20 +3101,20 @@ private slots:
         QVERIFY(QTest::qWaitForWindowExposed(window));
         auto *view = window->findChild<QQuickItem *>("societyContent");
         auto *dashboard = window->findChild<QQuickItem *>("dashboardView");
-        auto *tools = window->findChild<QQuickItem *>("toolsView");
-        auto *storage = window->findChild<QQuickItem *>("storageView");
+        QQuickItem *tools = nullptr;
+        QQuickItem *storage = nullptr;
         auto *drive = window->findChild<DriveController *>("driveController");
         auto *files = window->findChild<DashboardFiles *>("dashboardFiles");
-        auto *prompt = window->findChild<QQuickItem *>("promptField");
+        QQuickItem *prompt = nullptr;
         auto *tabs = window->findChild<QQuickItem *>("mobileTabBar");
-        QVERIFY(view && dashboard && tools && storage && drive && files && prompt && tabs);
+        QVERIFY(view && dashboard && drive && files && tabs);
         QVERIFY(tabs->setProperty("platformStyle", tabPlatformStyle));
         QTRY_COMPARE(tabs->property("count").toInt(), 5);
         QCOMPARE(tabs->property("autoSelect").toBool(), false);
         QCOMPARE(tabs->property("bottomSafeInset").toReal(), 0.0); // Main already owns the system safe area.
         auto *tabList = QAccessible::queryAccessibleInterface(tabs); QVERIFY(tabList);
         QCOMPARE(tabList->role(), QAccessible::PageTabList);
-        for (const QString name : {"mobileNavigationToggle", "mobileSearchToggle", "mobileAccount"}) {
+        for (const QString name : {"mobileNavigationToggle", "mobileSearchToggle", "mobileNotifications", "mobileAccount"}) {
             auto *button = visualItem(window->contentItem(), name); QVERIFY(button);
             QTRY_COMPARE(button->size(), QSizeF(22, 22));
             QCOMPARE(button->mapRectToScene(button->boundingRect()).size(), QSizeF(22, 22));
@@ -2788,8 +3126,8 @@ private slots:
         QTRY_COMPARE(files->containerPath(), fixture.path());
         QTRY_VERIFY(!files->loading() && !files->recentFiles().isEmpty() && !files->generationHistory().isEmpty());
         QCOMPARE(window->findChildren<QQuickItem *>("dashboardView").size(), 1);
-        QCOMPARE(window->findChildren<QQuickItem *>("toolsView").size(), 1);
-        QCOMPARE(window->findChildren<QQuickItem *>("storageView").size(), 1);
+        QCOMPARE(window->findChildren<QQuickItem *>("toolsView").size(), 0);
+        QCOMPARE(window->findChildren<QQuickItem *>("storageView").size(), 0);
         auto *touch = QTest::createTouchDevice();
         const auto tap = [&](const QString &name) {
             // Settle the previous page's layout before hit-testing the next tab.
@@ -2803,19 +3141,25 @@ private slots:
             QCoreApplication::processEvents();
             return true;
         };
+        QVERIFY(tap("mobileToolsTab"));
+        QTRY_COMPARE(window->findChild<QObject *>("toolsLoader")->property("status").toInt(), 1);
+        QTRY_VERIFY((tools = window->findChild<QQuickItem *>("toolsView")) && tools->isVisible());
+        QTRY_VERIFY((prompt = window->findChild<QQuickItem *>("promptField")));
         QVERIFY(prompt->setProperty("text", "Keep this mobile prompt"));
-        QVERIFY(tap("mobileToolsTab")); QTRY_VERIFY(tools->isVisible());
         QTRY_COMPARE(tabs->property("currentIndex").toInt(), 1);
         auto *toolsTab = visualItem(window->contentItem(), "mobileToolsTab"); QVERIFY(toolsTab);
         auto *accessibleTab = QAccessible::queryAccessibleInterface(toolsTab); QVERIFY(accessibleTab);
         QCOMPARE(accessibleTab->role(), QAccessible::PageTab);
         QTRY_VERIFY(accessibleTab->state().selected);
-        auto *merge = window->findChild<QQuickItem *>("modelMergeTool"); QVERIFY(merge);
-        QVERIFY(!merge->isVisible());
+        QVERIFY(!window->findChild<QQuickItem *>("modelMergeTool"));
         QVERIFY(tap("toolCard-model-merge"));
+        QQuickItem *merge = nullptr;
+        QTRY_VERIFY_WITH_TIMEOUT((merge = window->findChild<QQuickItem *>("modelMergeTool")), 15000);
         QTRY_VERIFY(merge->isVisible());
         QVERIFY(merge->setProperty("outputName", "mobile-session"));
-        QVERIFY(tap("mobileStorageTab")); QTRY_VERIFY(storage->isVisible());
+        QVERIFY(tap("mobileStorageTab"));
+        QTRY_COMPARE(window->findChild<QObject *>("storageLoader")->property("status").toInt(), 1);
+        QTRY_VERIFY((storage = window->findChild<QQuickItem *>("storageView")) && storage->isVisible());
         QVERIFY(drive->navigate(fixture.filePath("Files/Work")));
         QVERIFY(tap("mobileDashboardTab")); QTRY_VERIFY(dashboard->isVisible());
         QCOMPARE(prompt->property("text").toString(), QString("Keep this mobile prompt"));
@@ -2847,10 +3191,26 @@ private slots:
         QVERIFY(!devices->property("visible").toBool());
         QVERIFY(tap("mobileEnvironmentTab"));
         QCOMPARE(tabs->property("currentIndex").toInt(), 4);
+        QTRY_COMPARE(window->findChild<QObject *>("environmentLoader")->property("status").toInt(), 1);
+        QTRY_VERIFY(window->findChild<QQuickItem *>("environmentView"));
         auto *environment = window->findChild<QQuickItem *>("environmentView"); QVERIFY(environment);
         QTRY_VERIFY(environment->isVisible());
         QVERIFY(!window->findChild<QQuickWindow *>("preferencesWindow"));
         QVERIFY(tap("mobileDashboardTab"));
+        auto *mobileNotificationCenter = window->findChild<QObject *>("notificationCenter"); QVERIFY(mobileNotificationCenter);
+        QVERIFY(QMetaObject::invokeMethod(mobileNotificationCenter, "record",
+            Q_ARG(QVariant, QString("Models")), Q_ARG(QVariant, QString("Mobile warning"))));
+        auto *mobileNotificationButton = visualItem(window->contentItem(), "mobileNotifications"); QVERIFY(mobileNotificationButton);
+        QTRY_COMPARE(mobileNotificationButton->property("text").toString(), QString("1"));
+        QTRY_VERIFY(mobileNotificationButton->width() > 22);
+        QVERIFY(tap("mobileNotifications"));
+        auto *mobileNotifications = window->findChild<QObject *>("notificationPopover"); QVERIFY(mobileNotifications);
+        QTRY_VERIFY(mobileNotifications->property("visible").toBool());
+        QVERIFY(tap("notificationDismiss0"));
+        QTRY_COMPARE(mobileNotificationCenter->property("count").toInt(), 0);
+        QTRY_COMPARE(mobileNotificationButton->property("text").toString(), QString());
+        QVERIFY(QMetaObject::invokeMethod(mobileNotifications, "close"));
+        QTRY_VERIFY(!mobileNotifications->property("visible").toBool());
         QVERIFY(tap("mobileNavigationToggle"));
         auto *navigation = window->findChild<QObject *>("mobileNavigation"); QVERIFY(navigation);
         QTRY_VERIFY(navigation->property("visible").toBool());
@@ -2864,7 +3224,7 @@ private slots:
             QCOMPARE(tabs->isVisible(), size.width() < 760);
             QTest::qWait(60); // Let text and row layout settle before checking elision.
             if (tabs->isVisible()) {
-                for (const QString name : {"mobileNavigationToggle", "mobileSearchToggle", "mobileAccount"}) {
+                for (const QString name : {"mobileNavigationToggle", "mobileSearchToggle", "mobileNotifications", "mobileAccount"}) {
                     auto *button = visualItem(window->contentItem(), name); QVERIFY(button);
                     QTRY_COMPARE(button->mapRectToScene(button->boundingRect()).size(), QSizeF(22, 22));
                 }
@@ -2873,13 +3233,14 @@ private slots:
                     QTRY_VERIFY(!item->property("truncated").toBool());
                 }
             } else {
-                for (const QString name : {"dashboardTab", "toolsTab", "storageTab", "browseTab", "environmentTab",
-                                           "dashboardAccount", "dashboardSearch"}) {
+                for (const QString name : {"dashboardTab", "storageTab", "browseTab", "environmentTab",
+                                           "dashboardSearch"}) {
                     auto *control = visualItem(window->contentItem(), name); QVERIFY(control);
                     QTRY_COMPARE(control->mapRectToScene(control->boundingRect()).height(), 22.0);
                 }
                 auto *account = visualItem(window->contentItem(), "dashboardAccount");
-                QCOMPARE(account->width(), 22.0);
+                QVERIFY(account);
+                QCOMPARE(account->size(), QSizeF(40, 40));
             }
             for (const QString tab : {"Dashboard", "Tools", "Storage"}) {
                 QVERIFY(window->setProperty("selectedTab", tab));
@@ -2943,14 +3304,20 @@ private slots:
         QVERIFY(QTest::qWaitForWindowExposed(window));
         auto *drive = window->findChild<DriveController *>("driveController"); QVERIFY(drive);
         QVERIFY(!window->findChild<QQuickItem *>("sectionsGrid"));
-        auto *browser = window->findChild<QQuickItem *>("filesBrowser"); QVERIFY(browser);
+        QQuickItem *browser = nullptr;
+        QTRY_VERIFY_WITH_TIMEOUT((browser = window->findChild<QQuickItem *>("filesBrowser")), 15000);
         QTRY_VERIFY(browser->isVisible());
         QTRY_COMPARE(drive->currentPath(), fixture.filePath("Files"));
         QCOMPARE(drive->sections().size(), 9);
-        auto *actions = window->findChild<QObject *>("storageActions"); QVERIFY(actions);
-        auto *toggle = visualItem(window->contentItem(), "storageActionsToggle"); QVERIFY(toggle);
+        QObject *actions = nullptr;
+        QTRY_VERIFY_WITH_TIMEOUT((actions = window->findChild<QObject *>("storageActions")), 15000);
+        QQuickItem *toggle = nullptr;
+        QTRY_VERIFY_WITH_TIMEOUT((toggle = visualItem(window->contentItem(), "storageActionsToggle")), 15000);
+        QTRY_VERIFY(toggle->isVisible() && toggle->width() > 0 && toggle->height() > 0);
+        QSignalSpy toggleClicked(toggle, SIGNAL(clicked())); QVERIFY(toggleClicked.isValid());
         QTest::mouseClick(window, Qt::LeftButton, Qt::NoModifier,
             toggle->mapToScene(QPointF(toggle->width()/2, toggle->height()/2)).toPoint());
+        QTRY_COMPARE(toggleClicked.count(), 1);
         QTRY_VERIFY(actions->property("visible").toBool());
         auto *import = visualItem(window->contentItem(), "mobileImportModels"); QVERIFY(import);
         QTRY_VERIFY(import->isVisible() && import->height() >= 44);
@@ -2986,7 +3353,8 @@ private slots:
         drive->goUp(); QTRY_VERIFY(browser->isVisible());
         QTRY_COMPARE(drive->currentPath(), fixture.filePath("Files"));
         QVERIFY(drive->openSection("models"));
-        auto *models = window->findChild<QQuickItem *>("modelsView"); QVERIFY(models);
+        QQuickItem *models = nullptr;
+        QTRY_VERIFY_WITH_TIMEOUT((models = window->findChild<QQuickItem *>("modelsView")), 15000);
         QTRY_VERIFY(models->isVisible());
         QVERIFY(!visualItem(window->contentItem(), "driveUp"));
         QTest::keySequence(window, QKeySequence(QKeySequence::Back));
@@ -3078,7 +3446,9 @@ private slots:
             viewMounted |= content.at(i) == view;
         QVERIFY2(viewMounted, "SocietyView must be mounted in LV.ApplicationWindow.content.");
         QVERIFY(view->findChild<QQuickItem *>("dashboardView"));
-        QVERIFY(view->findChild<QQuickItem *>("storageView"));
+        QVERIFY(!view->findChild<QQuickItem *>("storageView"));
+        QVERIFY(window->setProperty("selectedTab", "Storage"));
+        QTRY_VERIFY(view->findChild<QQuickItem *>("storageView"));
         for (int i = 0; i < 3; ++i)
             QVERIFY(!visualItem(window->contentItem(), QString("windowControl%1").arg(i)));
         QTRY_COMPARE(view->mapToScene(QPointF()).y(), 0.0);
@@ -3115,6 +3485,12 @@ private slots:
         QCOMPARE(engine.rootObjects().size(), 1);
         auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first()); QVERIFY(window);
         QVERIFY(QTest::qWaitForWindowExposed(window));
+        for (const auto &tab : {"Storage", "Environment", "Tools"}) {
+            QVERIFY(window->setProperty("selectedTab", QString::fromLatin1(tab)));
+            const QString name = QString::fromLatin1(tab).toLower() + "View";
+            QTRY_VERIFY(window->findChild<QQuickItem *>(name));
+        }
+        QVERIFY(window->setProperty("selectedTab", "Dashboard"));
         const QStringList panels{"globalToolbarSurface", "dashboardSidebar", "driveSidebar",
             "calendarMonthPanel", "calendarDetailPanel", "environmentView", "environmentAccountPanel"};
         for (const auto &color : {QColor("#123447"), QColor("#452136")}) {
@@ -3187,6 +3563,107 @@ private slots:
         window->close();
     }
 
+    void globalToolbarShowsOnlyTheSelectedSegmentBackground()
+    {
+        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/toolbar-segment-background-XXXXXX.societycontainer");
+        QVERIFY(iiSocietyContainer::SocietyDrive::create(fixture.path()));
+        QQmlApplicationEngine engine;
+        engine.addImageProvider(QStringLiteral("society-preview"), new iiSocietyContainer::PreviewProvider);
+        engine.addImportPath(QString::fromUtf8(SOCIETY_LVRS_QML_IMPORT_PATH));
+        engine.setInitialProperties({{"initialContainerPath", fixture.path()}, {"width", 1440}, {"height", 900}});
+        engine.load(QUrl::fromLocalFile(QString::fromUtf8(SOCIETY_QML_FILE)));
+        QCOMPARE(engine.rootObjects().size(), 1);
+        auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first()); QVERIFY(window);
+        QVERIFY(QTest::qWaitForWindowExposed(window));
+        QTest::mouseMove(window, QPoint(2, window->height() - 2));
+        const QList<QPair<QString, QString>> available{
+            {"dashboardTab", "Dashboard"}, {"tasksTab", "Tools"}, {"storageTab", "Storage"},
+            {"browseTab", "Browse"}, {"environmentTab", "Environment"}};
+        const QStringList unavailable{"spaceTab", "analysisTab", "portfolioTab", "learningTab"};
+        for (const auto &selected : {QStringLiteral("Dashboard"), QStringLiteral("Storage"),
+                                     QStringLiteral("Browse"), QStringLiteral("Environment"), QStringLiteral("Tools")}) {
+            QVERIFY(window->setProperty("selectedTab", selected));
+            for (const auto &[name, tab] : available) {
+                auto *button = window->findChild<QQuickItem *>(name); QVERIFY(button);
+                QVERIFY(button->isEnabled());
+                auto *background = qvariant_cast<QQuickItem *>(button->property("background")); QVERIFY(background);
+                QTRY_COMPARE(background->property("color").value<QColor>().alpha() > 0, tab == selected);
+            }
+            for (const auto &name : unavailable) {
+                auto *button = window->findChild<QQuickItem *>(name); QVERIFY(button);
+                QVERIFY(!button->isEnabled());
+                auto *background = qvariant_cast<QQuickItem *>(button->property("background")); QVERIFY(background);
+                QCOMPARE(background->property("color").value<QColor>().alpha(), 0);
+            }
+        }
+        window->close();
+    }
+
+    void tasksSegmentOpensExistingTools()
+    {
+        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/tasks-navigation-XXXXXX.societycontainer");
+        QVERIFY(fixture.isValid());
+        QVERIFY(iiSocietyContainer::SocietyDrive::create(fixture.path()));
+        QQmlApplicationEngine engine;
+        engine.addImageProvider(QStringLiteral("society-preview"), new iiSocietyContainer::PreviewProvider);
+        engine.addImportPath(QString::fromUtf8(SOCIETY_LVRS_QML_IMPORT_PATH));
+        engine.setInitialProperties({{"initialContainerPath", fixture.path()}, {"width", 1440}, {"height", 900}});
+        engine.load(QUrl::fromLocalFile(QString::fromUtf8(SOCIETY_QML_FILE)));
+        QCOMPARE(engine.rootObjects().size(), 1);
+        auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first()); QVERIFY(window);
+        QVERIFY(QTest::qWaitForWindowExposed(window));
+        auto *dashboard = window->findChild<QQuickItem *>("dashboardTab");
+        auto *tasks = window->findChild<QQuickItem *>("tasksTab");
+        auto *storage = window->findChild<QQuickItem *>("storageTab");
+        auto *loader = window->findChild<QObject *>("toolsLoader");
+        QVERIFY(dashboard && tasks && storage && loader);
+        QVERIFY(tasks->isEnabled());
+        QVERIFY(dashboard->mapToScene(QPointF()).x() < tasks->mapToScene(QPointF()).x());
+        QVERIFY(tasks->mapToScene(QPointF()).x() < storage->mapToScene(QPointF()).x());
+        auto *accessible = QAccessible::queryAccessibleInterface(tasks); QVERIFY(accessible);
+        QCOMPARE(accessible->text(QAccessible::Name), QString("Tasks"));
+        QVERIFY(!accessible->state().selected);
+        QVERIFY(!window->findChild<QObject *>("toolsView"));
+
+        const auto click = [window](QQuickItem *item) {
+            QTest::mouseClick(window, Qt::LeftButton, Qt::NoModifier,
+                              item->mapToScene(item->boundingRect().center()).toPoint());
+        };
+        click(tasks);
+        QTRY_COMPARE(window->property("selectedTab").toString(), QString("Tools"));
+        QTRY_COMPARE_WITH_TIMEOUT(loader->property("status").toInt(), 1, 15000);
+        auto *tools = window->findChild<QQuickItem *>("toolsView"); QVERIFY(tools);
+        QTRY_VERIFY(tools->isVisible());
+        QTRY_VERIFY(accessible->state().selected);
+        QVERIFY(visualItem(tools, "quickGenerate"));
+        QTRY_VERIFY(visualItem(tools, "toolCard-model-merge"));
+        QVERIFY(visualItem(tools, "toolCard-model-packaging"));
+        QVERIFY(visualItem(tools, "toolCard-model-calibrator"));
+        const auto toolCatalog = tools->property("tools").value<QJSValue>().toVariant().toList();
+        QCOMPARE(toolCatalog.size(), 3);
+        QCOMPARE(toolCatalog.at(2).toMap().value("key").toString(), QString("model-calibrator"));
+        auto *toolSearch = visualItem(tools, "toolsSearch"); QVERIFY(toolSearch);
+        QVERIFY(toolSearch->setProperty("text", "calibrator"));
+        QTRY_COMPARE(tools->property("filteredTools").value<QJSValue>().toVariant().toList().size(), 1);
+        QVERIFY(toolSearch->setProperty("text", ""));
+        QTRY_COMPARE(tools->property("filteredTools").value<QJSValue>().toVariant().toList().size(), 3);
+        QTRY_VERIFY(visualItem(tools, "toolCard-model-merge") && visualItem(tools, "toolCard-model-merge")->isVisible());
+        QTest::qWait(100);
+        click(visualItem(tools, "toolCard-model-merge"));
+        QTRY_COMPARE(tools->property("activeTool").toString(), QString("model-merge"));
+
+        click(dashboard);
+        QTRY_COMPARE(window->property("selectedTab").toString(), QString("Dashboard"));
+        QTRY_VERIFY(!accessible->state().selected);
+        tasks->forceActiveFocus();
+        QTest::keyClick(window, Qt::Key_Space);
+        QTRY_COMPARE(window->property("selectedTab").toString(), QString("Tools"));
+        QCOMPARE(window->findChild<QQuickItem *>("toolsView"), tools);
+        QCOMPARE(tools->property("activeTool").toString(), QString("model-merge"));
+        QTRY_VERIFY(accessible->state().selected);
+        window->close();
+    }
+
     void globalToolbarMatchesFigmaAndRoutesActions()
     {
         QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/global-toolbar-XXXXXX.societycontainer");
@@ -3213,40 +3690,84 @@ private slots:
         auto *content = window->findChild<QQuickItem *>("societyContent");
         auto *drive = window->findChild<DriveController *>("driveController");
         auto *notice = window->findChild<QObject *>("dashboardNotice");
+        auto *notificationCenter = window->findChild<QObject *>("notificationCenter");
+        auto *notificationPopover = window->findChild<QObject *>("notificationPopover");
         QVERIFY(toolbar && surface && tabs && search && searchIcon && notifications && account && content && drive && notice);
+        QVERIFY(notificationCenter && notificationPopover);
         QTRY_COMPARE(toolbar->height(), 56.0);
         QCOMPARE(surface->property("color").value<QColor>().alpha(), 0);
-        QTRY_COMPARE(tabs->size(), QSizeF(360, 29));
+        QTRY_COMPARE(tabs->property("segmentCount").toInt(), 9);
+        QTRY_COMPARE(tabs->size(), QSizeF(222, 30));
         QTRY_VERIFY(qAbs(tabs->mapToItem(toolbar, QPointF()).x()
-            - window->property("nativeTitleBarControlsRect").toRectF().right() - 12.0) <= 0.5);
+            - window->property("nativeTitleBarControlsRect").toRectF().right()
+            - (window->property("nativeTitleBarControlsRect").toRectF().width() > 0 ? 8.0 : 12.0)) <= 0.5);
         QTRY_COMPARE(search->width(), 300.0);
         QCOMPARE(search->height(), 22.0);
-        QCOMPARE(search->mapToItem(toolbar, QPointF()), QPointF(1060, 17));
+        QCOMPARE(search->mapToItem(toolbar, QPointF()), QPointF(1050, 17));
         QCOMPARE(notifications->size(), QSizeF(22, 22));
-        QCOMPARE(notifications->mapToItem(toolbar, QPointF()), QPointF(1372, 17));
-        QCOMPARE(account->size(), QSizeF(22, 22));
-        QCOMPARE(account->mapToItem(toolbar, QPointF()), QPointF(1406, 17));
+        QCOMPARE(notifications->mapToItem(toolbar, QPointF()), QPointF(1358, 17));
+        QCOMPARE(account->size(), QSizeF(40, 40));
+        QCOMPARE(account->mapToItem(toolbar, QPointF()), QPointF(1388, 8));
         QCOMPARE(searchIcon->size(), QSizeF(12, 12));
         QTRY_COMPARE(searchIcon->property("status").toInt(), 1); // Image.Ready
         QVERIFY(searchIcon->property("source").toUrl().toString().endsWith("Toolbar/icons/search.svg"));
-        for (auto *button : {notifications, account}) {
-            auto *icon = visualItem(button, "iconButton_icon"); QVERIFY(icon);
-            QCOMPARE(icon->size(), QSizeF(18, 18));
-            QTRY_COMPARE(icon->property("status").toInt(), 1);
-            QCOMPARE(button->property("backgroundColor").value<QColor>().name(), QString("#313233"));
-        }
+        auto *icon = visualItem(notifications, "iconButton_icon"); QVERIFY(icon);
+        QCOMPARE(icon->size(), QSizeF(18, 18));
+        QTRY_COMPARE(icon->property("status").toInt(), 1);
+        QTest::mouseMove(window, QPoint(2, window->height() - 2));
+        QCoreApplication::processEvents();
+        QCOMPARE(notifications->property("backgroundColor").value<QColor>(),
+                 notifications->property("toneBackgroundColor").value<QColor>());
         QVERIFY(notifications->property("resolvedIconSource").toUrl().toString().endsWith("Toolbar/icons/notifications.svg"));
-        QVERIFY(account->property("resolvedIconSource").toUrl().toString().endsWith("Toolbar/icons/account.svg"));
+        auto *avatar = visualItem(account, "dashboardAvatar"); QVERIFY(avatar);
+        auto *fallback = visualItem(avatar, "accountAvatarFallback"); QVERIFY(fallback);
+        QCOMPARE(avatar->size(), QSizeF(40, 40));
+        QCOMPARE(fallback->size(), QSizeF(20, 20));
+        QVERIFY(fallback->isVisible());
+        QTRY_COMPARE(fallback->property("status").toInt(), 1);
+        const auto *accountAccessible = QAccessible::queryAccessibleInterface(account); QVERIFY(accountAccessible);
+        QCOMPARE(accountAccessible->role(), QAccessible::Button);
         const auto click = [window](QQuickItem *item) {
             QTest::mouseClick(window, Qt::LeftButton, Qt::NoModifier,
                 item->mapToScene(item->boundingRect().center()).toPoint());
         };
-        for (const QString tab : {"Dashboard", "Tools", "Storage", "Browse", "Environment"}) {
+        auto *workspaceTab = window->findChild<QQuickItem *>("dashboardTab");
+        auto *tasksTab = window->findChild<QQuickItem *>("tasksTab");
+        auto *storageTab = window->findChild<QQuickItem *>("storageTab");
+        QVERIFY(workspaceTab && tasksTab && storageTab);
+        QVERIFY(!window->findChild<QQuickItem *>("toolsTab"));
+        QTRY_VERIFY(storageTab->mapToScene(QPointF()).x() >=
+                    workspaceTab->mapToScene(QPointF(workspaceTab->width(), 0)).x());
+        for (const QString tab : {"Dashboard", "Storage", "Browse", "Environment"}) {
             auto *button = window->findChild<QQuickItem *>(tab.toLower() + "Tab"); QVERIFY(button);
             click(button);
             QTRY_COMPARE(window->property("selectedTab").toString(), tab);
+            if (tab == "Storage" || tab == "Environment")
+                QTRY_COMPARE(window->findChild<QObject *>(tab.toLower() + "Loader")->property("status").toInt(), 1);
+            QTest::mouseMove(window, QPoint(2, window->height() - 2));
+            QCoreApplication::processEvents();
             QCOMPARE(toolbar->height(), 56.0);
-            QCOMPARE(button->property("backgroundColor").value<QColor>().name(), QString("#313233"));
+            QCOMPARE(button->property("backgroundColor").value<QColor>(),
+                     button->property("toneBackgroundColor").value<QColor>());
+            auto *icon = visualItem(button, "iconButton_icon"); QVERIFY(icon);
+            QTRY_COMPARE(icon->property("status").toInt(), 1);
+        }
+        auto *toolsAction = window->findChild<QObject *>("globalToolsAction"); QVERIFY(toolsAction);
+        auto *nativeFilesAction = window->findChild<QObject *>("globalNativeFilesAction"); QVERIFY(nativeFilesAction);
+        QCOMPARE(nativeFilesAction->property("text").toString(),QStringLiteral("Files (LVUI preview)"));
+        click(tasksTab);
+        QTRY_COMPARE(window->property("selectedTab").toString(), QString("Tools"));
+        QTRY_COMPARE(window->findChild<QObject *>("toolsLoader")->property("status").toInt(), 1);
+        QVERIFY(window->setProperty("selectedTab", "Dashboard"));
+        QVERIFY(QMetaObject::invokeMethod(toolsAction, "triggered"));
+        QTRY_COMPARE(window->property("selectedTab").toString(), QString("Tools"));
+        QTRY_COMPARE(window->findChild<QObject *>("toolsLoader")->property("status").toInt(), 1);
+        QVERIFY(window->setProperty("selectedTab", "Dashboard"));
+        QTest::keyClick(window, Qt::Key_2, Qt::ControlModifier);
+        QTRY_COMPARE(window->property("selectedTab").toString(), QString("Tools"));
+        for (const auto *name : {"spaceTab", "analysisTab", "portfolioTab", "learningTab"}) {
+            auto *button = window->findChild<QQuickItem *>(QString::fromLatin1(name)); QVERIFY(button);
+            QVERIFY(!button->isEnabled());
         }
         QSignalSpy moves(window, SIGNAL(windowMoveAttempted(bool))); QVERIFY(moves.isValid());
         click(search); QTest::keyClick(window, Qt::Key_Q);
@@ -3256,20 +3777,111 @@ private slots:
         QTRY_VERIFY(clear->isVisible()); click(clear);
         QTRY_COMPARE(search->property("text").toString(), QString());
         click(notifications);
-        QTRY_VERIFY(notice->property("open").toBool());
-        QCOMPARE(notice->property("title").toString(), QString("Notifications"));
-        QCOMPARE(notice->property("message").toString(), QString("No new notifications."));
-        QVERIFY(notice->setProperty("open", false));
+        QTRY_VERIFY(notificationPopover->property("visible").toBool());
+        QVERIFY(!notice->property("open").toBool());
+        auto *empty = visualItem(window->contentItem(), "notificationEmptyState"); QVERIFY(empty);
+        QTRY_VERIFY(empty->isVisible());
+        click(notifications);
+        QTRY_VERIFY(!notificationPopover->property("visible").toBool());
+        click(notifications);
+        QTRY_VERIFY(notificationPopover->property("visible").toBool());
+        const auto record = [notificationCenter](const QString &source, const QString &message) {
+            return QMetaObject::invokeMethod(notificationCenter, "record",
+                Q_ARG(QVariant, source), Q_ARG(QVariant, message));
+        };
+        const QString longWarning = QStringLiteral("The moved asset for /Volumes/Storage/")
+            + QString(120, QLatin1Char('x')) + QStringLiteral(".safetensors.iisacc.json cannot be identified safely.");
+        const QString batch = longWarning + QStringLiteral("\nSecond model warning");
+        QVERIFY(record("Models", batch));
+        QTRY_COMPARE(notificationCenter->property("count").toInt(), 2);
+        QTRY_COMPARE(notifications->property("text").toString(), QString("2"));
+        auto *notificationCountLabel = visualItem(notifications, "labelButton_label"); QVERIFY(notificationCountLabel);
+        QTRY_VERIFY(notificationCountLabel->isVisible());
+        QTRY_COMPARE(notificationCountLabel->property("text").toString(), QString("2"));
+        auto *mobileNotificationButton = visualItem(window->contentItem(), "mobileNotifications"); QVERIFY(mobileNotificationButton);
+        QTRY_COMPARE(mobileNotificationButton->property("text").toString(), QString("2"));
+        QVERIFY(record("Models", batch));
+        QCOMPARE(notificationCenter->property("count").toInt(), 2);
+        QTRY_VERIFY(!empty->isVisible());
+        auto *notificationList = visualItem(window->contentItem(), "notificationList"); QVERIFY(notificationList);
+        QTRY_COMPARE(notificationList->property("count").toInt(), 2);
+        QQuickItem *firstNotification = nullptr;
+        QTRY_VERIFY((firstNotification = visualItem(window->contentItem(), "notificationMessage0")));
+        QCOMPARE(firstNotification->property("text").toString(), longWarning);
+        QTRY_VERIFY(firstNotification->property("lineCount").toInt() > 1);
+        QQuickItem *dismissFirst = nullptr;
+        QTRY_VERIFY((dismissFirst = visualItem(window->contentItem(), "notificationDismiss0")));
+        const auto *dismissAccessible = QAccessible::queryAccessibleInterface(dismissFirst); QVERIFY(dismissAccessible);
+        QVERIFY(dismissAccessible->text(QAccessible::Name).contains(longWarning));
+        click(dismissFirst);
+        QTRY_COMPARE(notificationCenter->property("count").toInt(), 1);
+        QTRY_COMPARE(notifications->property("text").toString(), QString("1"));
+        QQuickItem *remainingNotification = nullptr;
+        QTRY_VERIFY((remainingNotification = visualItem(window->contentItem(), "notificationMessage0")));
+        QTRY_COMPARE(remainingNotification->property("text").toString(), QString("Second model warning"));
+        QVERIFY(record("Models", batch));
+        QCOMPARE(notificationCenter->property("count").toInt(), 1);
+        QVERIFY(record("Models", ""));
+        QVERIFY(record("Models", batch));
+        QTRY_COMPARE(notificationCenter->property("count").toInt(), 2);
+        QString manyWarnings = batch;
+        for (int i = 0; i < 15; ++i) manyWarnings += QStringLiteral("\nAnother warning %1").arg(i);
+        QVERIFY(record("Models", manyWarnings));
+        QTRY_COMPARE(notificationList->property("count").toInt(), 17);
+        QTRY_COMPARE(notifications->property("text").toString(), QString("17"));
+        QTRY_VERIFY(notificationList->property("contentHeight").toReal() > notificationList->height());
+        QVERIFY(notificationList->setProperty("contentY", notificationList->property("contentHeight").toReal() - notificationList->height()));
+        QQuickItem *lastNotification = nullptr;
+        QTRY_VERIFY((lastNotification = visualItem(window->contentItem(), "notificationMessage16")));
+        QCOMPARE(lastNotification->property("text").toString(), QStringLiteral("Another warning 14"));
+        auto *clearNotifications = visualItem(window->contentItem(), "clearNotifications"); QVERIFY(clearNotifications);
+        click(clearNotifications);
+        QTRY_COMPARE(notificationCenter->property("count").toInt(), 0);
+        QTRY_COMPARE(notifications->property("text").toString(), QString());
+        QVERIFY(record("Models", manyWarnings));
+        QCOMPARE(notificationCenter->property("count").toInt(), 0);
+        QVERIFY(record("Models", ""));
+        QVERIFY(record("Models", batch));
+        QTRY_COMPARE(notificationCenter->property("count").toInt(), 2);
+        QTRY_VERIFY(notificationPopover->property("visible").toBool());
+        QTRY_VERIFY(clearNotifications->isVisible());
+        QTest::qWait(60); // Let the restored button finish its layout before hit testing.
+        click(clearNotifications);
+        QTRY_COMPARE(notificationCenter->property("count").toInt(), 0);
+        QVERIFY(QMetaObject::invokeMethod(notificationPopover, "close"));
         QVERIFY(!drive->navigate(fixture.filePath("Unavailable")));
         QVERIFY(!drive->errorString().isEmpty());
+        QTRY_COMPARE(notificationCenter->property("count").toInt(), 1);
+        auto *importer = window->findChild<ModelImporter *>("modelImporter"); QVERIFY(importer);
+        QVERIFY(!importer->importFiles({QUrl::fromLocalFile(fixture.filePath("not-a-model.txt"))}));
+        QVERIFY(!importer->errorString().isEmpty());
+        QTRY_COMPARE(notificationCenter->property("count").toInt(), 2);
         click(notifications);
-        QTRY_VERIFY(notice->property("open").toBool());
-        QCOMPARE(notice->property("message").toString(), drive->errorString());
-        QVERIFY(notice->setProperty("open", false));
+        QTRY_VERIFY(notificationPopover->property("visible").toBool());
+        QTRY_COMPARE(notificationList->property("count").toInt(), 2);
+        QQuickItem *importNotification = nullptr;
+        QTRY_VERIFY((importNotification = visualItem(window->contentItem(), "notificationMessage1")));
+        QCOMPARE(importNotification->property("text").toString(), importer->errorString());
+        QQuickItem *dismissImport = nullptr;
+        QTRY_VERIFY((dismissImport = visualItem(window->contentItem(), "notificationDismiss1")));
+        click(dismissImport);
+        QTRY_COMPARE(notificationCenter->property("count").toInt(), 1);
+        QTRY_COMPARE(notifications->property("text").toString(), QString("1"));
+        QTRY_VERIFY((dismissFirst = visualItem(window->contentItem(), "notificationDismiss0")));
+        click(dismissFirst);
+        QTRY_COMPARE(notificationCenter->property("count").toInt(), 0);
+        QTRY_COMPARE(notifications->property("text").toString(), QString());
+        QTRY_VERIFY(empty->isVisible());
+        QVERIFY(QMetaObject::invokeMethod(notificationPopover, "close"));
         QVERIFY(drive->openSection("files"));
         click(account);
         auto *accountViews = window->findChild<QObject *>("accountViews"); QVERIFY(accountViews);
         auto *accountPanel = accountViews->property("dialog").value<QObject *>(); QVERIFY(accountPanel);
+        QTRY_VERIFY(accountPanel->property("visible").toBool());
+        QVERIFY(QMetaObject::invokeMethod(accountPanel, "close"));
+        QTRY_VERIFY(!accountPanel->property("visible").toBool());
+        account->forceActiveFocus();
+        QTest::keyClick(window, Qt::Key_Space);
         QTRY_VERIFY(accountPanel->property("visible").toBool());
         QVERIFY(QMetaObject::invokeMethod(accountPanel, "close"));
         QTRY_VERIFY(!accountPanel->property("visible").toBool());
@@ -3289,6 +3901,56 @@ private slots:
         window->close();
     }
 
+    void toolbarAvatarTracksAccountProfileAndFallback()
+    {
+        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/toolbar-avatar-XXXXXX.societycontainer");
+        QVERIFY(iiSocietyContainer::SocietyDrive::create(fixture.path()));
+        AccountServer authority; QVERIFY(authority.server.listen(QHostAddress::LocalHost));
+        const QString avatarPath = "/media/avatars/" + QString(64, 'a') + ".webp";
+        authority.profile.insert("avatarUrl", avatarPath);
+        QImage image(32, 32, QImage::Format_RGB32); image.fill(Qt::magenta);
+        QBuffer bytes(&authority.avatarData); QVERIFY(bytes.open(QIODevice::WriteOnly));
+        QVERIFY(image.save(&bytes, "PNG")); bytes.close();
+        MemorySessionStore store;
+        AccountController account(authority.url(), &store, nullptr);
+        QQmlApplicationEngine engine;
+        engine.addImageProvider(QStringLiteral("society-preview"), new iiSocietyContainer::PreviewProvider);
+        engine.addImportPath(QString::fromUtf8(SOCIETY_LVRS_QML_IMPORT_PATH));
+        engine.setInitialProperties({{"initialContainerPath", fixture.path()}, {"width", 1440}, {"height", 900}});
+        engine.load(QUrl::fromLocalFile(QString::fromUtf8(SOCIETY_QML_FILE)));
+        QCOMPARE(engine.rootObjects().size(), 1);
+        auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first()); QVERIFY(window);
+        QVERIFY(QTest::qWaitForWindowExposed(window));
+        auto *content = window->findChild<QQuickItem *>("societyContent"); QVERIFY(content);
+        QVERIFY(content->setProperty("account", QVariant::fromValue(&account)));
+        auto *avatar = visualItem(content, "dashboardAvatar"); QVERIFY(avatar);
+        auto *fallback = visualItem(avatar, "accountAvatarFallback"); QVERIFY(fallback);
+        QVERIFY(fallback->isVisible());
+        QVERIFY(account.login("builder@example.com", "FixtureOnly1!"));
+        QTRY_VERIFY(account.signedIn());
+        QTRY_COMPARE(avatar->property("source").toUrl(), authority.url().resolved(QUrl(avatarPath)));
+        QTRY_COMPARE_WITH_TIMEOUT(avatar->property("status").toInt(), 1, 15000);
+        QTRY_VERIFY(!fallback->isVisible());
+
+        authority.profile.insert("avatarUrl", QJsonValue::Null);
+        QTRY_VERIFY(!account.busy());
+        QVERIFY(account.refresh());
+        QTRY_VERIFY(avatar->property("source").toUrl().isEmpty());
+        QTRY_VERIFY(fallback->isVisible());
+        QVERIFY(account.signedIn());
+        QTRY_VERIFY(!account.busy());
+        authority.avatarData.clear();
+        authority.profile.insert("avatarUrl", "/media/avatars/" + QString(64, 'b') + ".webp");
+        QVERIFY(account.refresh());
+        QTRY_COMPARE_WITH_TIMEOUT(avatar->property("status").toInt(), 3, 15000); // Image.Error
+        QTRY_VERIFY(fallback->isVisible());
+        QTRY_VERIFY(!account.busy());
+        QVERIFY(account.logout());
+        QTRY_VERIFY(!account.signedIn());
+        QVERIFY(fallback->isVisible());
+        window->close();
+    }
+
     void toolbarSharesWindowControlsRow()
     {
         QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/toolbar-row-XXXXXX.societycontainer");
@@ -3303,11 +3965,10 @@ private slots:
         QVERIFY(window);
         auto *toolbar = window->findChild<QQuickItem *>("dashboardToolbar");
         auto *tabs = window->findChild<QQuickItem *>("dashboardTabs");
-        auto *toolsTab = window->findChild<QQuickItem *>("toolsTab");
         auto *storageTab = window->findChild<QQuickItem *>("storageTab");
         auto *search = window->findChild<QQuickItem *>("dashboardSearch");
         auto *account = window->findChild<QQuickItem *>("dashboardAccount");
-        QVERIFY(toolbar && tabs && toolsTab && storageTab && search && account);
+        QVERIFY(toolbar && tabs && storageTab && search && account);
         QVERIFY(QTest::qWaitForWindowExposed(window));
         QTRY_COMPARE(toolbar->mapToScene(QPointF()).y(), 0.0);
         QCOMPARE(toolbar->height(), 56.0);
@@ -3359,7 +4020,7 @@ private slots:
                 QVERIFY(!search->isVisible());
             }
             QVERIFY(window->setProperty("selectedTab", "Dashboard"));
-            QTest::mouseClick(window, Qt::LeftButton, Qt::NoModifier, center(toolsTab).toPoint());
+            QTest::keyClick(window, Qt::Key_2, Qt::ControlModifier);
             QTRY_COMPARE(window->property("selectedTab").toString(), QString("Tools"));
             QTest::mouseClick(window, Qt::LeftButton, Qt::NoModifier, center(storageTab).toPoint());
             QTRY_COMPARE(window->property("selectedTab").toString(), QString("Storage"));
@@ -3414,28 +4075,25 @@ private slots:
         }
 
         auto *dashboard = window->findChild<QQuickItem *>("dashboardView");
-        auto *tools = window->findChild<QQuickItem *>("toolsView");
-        auto *storage = window->findChild<QQuickItem *>("storageView");
+        QQuickItem *tools = nullptr;
+        QQuickItem *storage = nullptr;
         auto *dashboardTab = window->findChild<QQuickItem *>("dashboardTab");
-        auto *toolsTab = window->findChild<QQuickItem *>("toolsTab");
         auto *storageTab = window->findChild<QQuickItem *>("storageTab");
-        auto *prompt = window->findChild<QQuickItem *>("promptField");
+        QQuickItem *prompt = nullptr;
         auto *drive = window->findChild<DriveController *>("driveController");
-        QVERIFY(dashboard && tools && storage && dashboardTab && toolsTab && storageTab && prompt && drive);
+        QVERIFY(dashboard && dashboardTab && storageTab && drive);
         QTRY_VERIFY(window->isVisible() && dashboard->isVisible());
-        QVERIFY(!tools->isVisible());
-        QVERIFY(!storage->isVisible());
+        QVERIFY(!window->findChild<QQuickItem *>("toolsView"));
+        QVERIFY(!window->findChild<QQuickItem *>("storageView"));
         QTRY_VERIFY(dashboardTab->mapToScene(QPointF(dashboardTab->width(), 0)).x()
-                    <= toolsTab->mapToScene(QPointF()).x());
-        QTRY_VERIFY(toolsTab->mapToScene(QPointF(toolsTab->width(), 0)).x()
                     <= storageTab->mapToScene(QPointF()).x());
-        const auto *toolsAccessibility = QAccessible::queryAccessibleInterface(toolsTab);
-        QVERIFY(toolsAccessibility);
-        QCOMPARE(toolsAccessibility->text(QAccessible::Name), QString("Tools"));
-        QVERIFY(!toolsAccessibility->state().selected);
+        const auto *workspaceAccessibility = QAccessible::queryAccessibleInterface(dashboardTab);
+        QVERIFY(workspaceAccessibility);
+        QCOMPARE(workspaceAccessibility->text(QAccessible::Name), QString("Workspace"));
+        QVERIFY(workspaceAccessibility->state().selected);
         const auto *localNavigation = QAccessible::queryAccessibleInterface(visualItem(dashboard, "dashboardItemworkspace_home"));
         QVERIFY(localNavigation);
-        QCOMPARE(localNavigation->text(QAccessible::Name), QString("Home"));
+        QCOMPARE(localNavigation->text(QAccessible::Name), QString("Workspace"));
         QVERIFY(localNavigation->text(QAccessible::Description).isEmpty());
         auto *files = window->findChild<DashboardFiles *>("dashboardFiles");
         QVERIFY(files); QTRY_VERIFY(!files->loading());
@@ -3447,8 +4105,11 @@ private slots:
             QTest::mouseClick(window, Qt::LeftButton, Qt::NoModifier,
                 item->mapToScene(QPointF(item->width()/2, item->height()/2)).toPoint());
         };
-        click(toolsTab);
-        QTRY_VERIFY(tools->isVisible());
+        const auto openTools = [&] { QTest::keyClick(window, Qt::Key_2, Qt::ControlModifier); };
+        openTools();
+        QTRY_COMPARE(window->findChild<QObject *>("toolsLoader")->property("status").toInt(), 1);
+        QTRY_VERIFY((tools = window->findChild<QQuickItem *>("toolsView")) && tools->isVisible());
+        QTRY_VERIFY((prompt = window->findChild<QQuickItem *>("promptField")));
         QVERIFY(prompt->setProperty("text", "A quiet lunar landscape"));
         auto *quickGenerate = window->findChild<QQuickItem *>("quickGenerate");
         QVERIFY(quickGenerate);
@@ -3468,21 +4129,22 @@ private slots:
         QVERIFY(files->generationHistory().isEmpty());
         search->setProperty("text", "");
         QTRY_COMPARE(files->recentFiles().size(), 3);
-        click(toolsTab);
+        openTools();
         QTRY_COMPARE(window->property("selectedTab").toString(), QString("Tools"));
-        QTRY_VERIFY(tools->isVisible() && !dashboard->isVisible() && !storage->isVisible());
-        QVERIFY(toolsAccessibility->state().selected);
+        QTRY_VERIFY(tools->isVisible() && !dashboard->isVisible() && (!storage || !storage->isVisible()));
+        QVERIFY(!workspaceAccessibility->state().selected);
         const auto toolsScreenshot = qEnvironmentVariable("SOCIETY_TOOLS_SCREENSHOT_PATH");
         if (!toolsScreenshot.isEmpty()) { QTest::qWait(200); QVERIFY(window->grabWindow().save(toolsScreenshot)); }
-        auto *merge = window->findChild<QQuickItem *>("modelMergeTool"); QVERIFY(merge);
-        QVERIFY(!merge->isVisible());
+        QVERIFY(!window->findChild<QQuickItem *>("modelMergeTool"));
         const auto catalog = tools->property("tools").value<QJSValue>().toVariant().toList();
-        QCOMPARE(catalog.size(), 2);
+        QCOMPARE(catalog.size(), 3);
         QCOMPARE(catalog.first().toMap().value("key").toString(), QString("model-merge"));
-        QCOMPARE(catalog.last().toMap().value("key").toString(), QString("model-packaging"));
+        QCOMPARE(catalog.at(1).toMap().value("key").toString(), QString("model-packaging"));
+        QCOMPARE(catalog.last().toMap().value("key").toString(), QString("model-calibrator"));
         auto *packagingCard = visualItem(tools, "toolCard-model-packaging"); QVERIFY(packagingCard);
         click(packagingCard);
-        auto *packaging = window->findChild<QQuickItem *>("modelPackagingTool"); QVERIFY(packaging);
+        QQuickItem *packaging = nullptr;
+        QTRY_VERIFY_WITH_TIMEOUT((packaging = window->findChild<QQuickItem *>("modelPackagingTool")), 15000);
         QTRY_VERIFY(packaging->isVisible());
         QVERIFY(packaging->setProperty("outputName", "retained-package-name"));
         QVERIFY(QMetaObject::invokeMethod(tools, "goBack"));
@@ -3491,6 +4153,8 @@ private slots:
         QVERIFY(QMetaObject::invokeMethod(tools, "goBack"));
         auto *mergeCard = visualItem(tools, "toolCard-model-merge"); QVERIFY(mergeCard);
         click(mergeCard);
+        QQuickItem *merge = nullptr;
+        QTRY_VERIFY_WITH_TIMEOUT((merge = window->findChild<QQuickItem *>("modelMergeTool")), 15000);
         QTRY_VERIFY(merge->isVisible());
         QVERIFY(merge->setProperty("outputName", "desktop-session"));
         QVERIFY(merge->setProperty("mode", "weighted-difference"));
@@ -3503,10 +4167,12 @@ private slots:
         QCOMPARE(merge->property("outputName").toString(), QString("desktop-session"));
         QCOMPARE(merge->property("mode").toString(), QString("weighted-difference"));
         click(storageTab);
-        QTRY_VERIFY(storage->isVisible() && !dashboard->isVisible() && !tools->isVisible());
-        QVERIFY(!toolsAccessibility->state().selected);
+        QTRY_COMPARE(window->findChild<QObject *>("storageLoader")->property("status").toInt(), 1);
+        QTRY_VERIFY((storage = window->findChild<QQuickItem *>("storageView"))
+                    && storage->isVisible() && !dashboard->isVisible() && !tools->isVisible());
+        QVERIFY(!workspaceAccessibility->state().selected);
         QVERIFY(drive->navigate(fixture.filePath("Files/Work")));
-        click(toolsTab);
+        openTools();
         QTRY_VERIFY(tools->isVisible() && !storage->isVisible());
         QCOMPARE(merge->property("outputName").toString(), QString("desktop-session"));
         QCOMPARE(merge->property("mode").toString(), QString("weighted-difference"));
@@ -3522,7 +4188,7 @@ private slots:
         click(dashboardTab);
         QTRY_VERIFY(visualItem(window->contentItem(), "viewAllRecentFiles"));
         auto *allFiles = visualItem(window->contentItem(), "viewAllRecentFiles");
-        QVERIFY(allFiles); click(allFiles);
+        QVERIFY(allFiles); revealDashboardItem(dashboard, allFiles); click(allFiles);
         QTRY_VERIFY(storage->isVisible());
         QCOMPARE(drive->currentSection(), QString("Files"));
         auto *fileGrid = window->findChild<QQuickItem *>("filesBrowser"); QVERIFY(fileGrid);
@@ -3532,7 +4198,7 @@ private slots:
         click(dashboardTab);
         QTRY_VERIFY(visualItem(window->contentItem(), "viewAllGenerationHistory"));
         auto *history = visualItem(window->contentItem(), "viewAllGenerationHistory");
-        QVERIFY(history); click(history);
+        QVERIFY(history); revealDashboardItem(dashboard, history); click(history);
         QTRY_VERIFY(storage->isVisible());
         QCOMPARE(drive->currentSection(), QString("Generation History"));
         const auto storageScreenshot = qEnvironmentVariable("SOCIETY_STORAGE_SCREENSHOT_PATH");
@@ -3545,7 +4211,7 @@ private slots:
         QTRY_VERIFY(storage->isVisible());
         QCOMPARE(drive->currentSection(), QString("Deleted"));
         click(dashboardTab);
-        click(toolsTab);
+        openTools();
         QVERIFY(QMetaObject::invokeMethod(tools, "goBack"));
         QSignalSpy submitted(window, SIGNAL(generateRequested(QString,QString,QString,int)));
         auto *generate = window->findChild<QQuickItem *>("generateButton");
@@ -3565,6 +4231,7 @@ private slots:
         QTRY_VERIFY(!accountPanel->property("visible").toBool());
         auto *environmentTab = window->findChild<QQuickItem *>("environmentTab");
         QVERIFY(environmentTab); click(environmentTab);
+        QTRY_COMPARE(window->findChild<QObject *>("environmentLoader")->property("status").toInt(), 1);
         auto *environment = window->findChild<QQuickItem *>("environmentView");
         QVERIFY(environment); QTRY_VERIFY(environment->isVisible());
         QVERIFY(!window->findChild<QQuickWindow *>("preferencesWindow"));

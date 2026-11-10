@@ -1,5 +1,9 @@
 #include <iiFileProviderDevice.h>
 #include "DaemonService.h"
+#include "BackendRuntime.h"
+#ifdef SOCIETY_DAEMON_MCP
+#include "DaemonMcp.h"
+#endif
 #include "Society/Services/SyncOwnership.h"
 #include "Society/Services/ContainerRuntimePath.h"
 #include "Society/State/GroupSessionStore.h"
@@ -13,7 +17,10 @@
 #include <QSqlDatabase>
 #include <QSslSocket>
 #include <QTimer>
+#include <QThread>
+#include <QStandardPaths>
 #include <csignal>
+#include <functional>
 
 namespace { volatile std::sig_atomic_t stopRequested = 0; }
 
@@ -26,6 +33,18 @@ int main(int argc, char **argv)
 #endif
     QCoreApplication::setApplicationName("SocietyDaemon");
     QCoreApplication::setApplicationVersion(SOCIETY_APP_VERSION);
+    // Keep existing desktop job history when ownership moves from the window
+    // to this executable. Isolated tests may provide their own explicit root.
+    if (qEnvironmentVariable("SOCIETY_JOB_STATE_ROOT").isEmpty()) {
+        const auto oldName = QCoreApplication::applicationName();
+        const auto oldOrganization = QCoreApplication::organizationName();
+        QCoreApplication::setApplicationName(QStringLiteral("Society"));
+        QCoreApplication::setOrganizationName(QStringLiteral("iisacc"));
+        const auto jobRoot = QDir(QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation)).filePath("jobs");
+        QCoreApplication::setApplicationName(oldName);
+        QCoreApplication::setOrganizationName(oldOrganization);
+        if (QDir::isAbsolutePath(jobRoot)) qputenv("SOCIETY_JOB_STATE_ROOT", jobRoot.toUtf8());
+    }
     QCommandLineParser parser;
     parser.setApplicationDescription("Runs Society collaboration and account-based container synchronization without a window.");
     parser.addHelpOption();
@@ -40,6 +59,7 @@ int main(int argc, char **argv)
     parser.addOption({"account-url", "Account authority for --login-file.", "url", "https://iisacc.com"});
     parser.addOption({"status-file", "Write credential-free diagnostic runtime state to this file.", "path"});
     parser.addOption({"check-runtime", "Check the packaged SQLite and TLS backends without starting services."});
+    parser.addOption({"license-broker", "Start the headless local license broker on demand."});
     parser.process(app);
     if (parser.isSet("check-runtime")) {
         const bool sqlite = QSqlDatabase::drivers().contains("QSQLITE"), tls = QSslSocket::supportsSsl();
@@ -52,6 +72,7 @@ int main(int argc, char **argv)
     if ((!parser.isSet("sync") && (parser.isSet("container") || parser.isSet("server") || parser.isSet("host") || parser.isSet("login-file")))
         || (parser.isSet("host") && !parser.isSet("server"))
         || (parser.isSet("server") && !NetworkDriveController::validServerUrl(QUrl(parser.value("server"))))) return 2;
+    if (parser.isSet("license-broker") && (parser.isSet("sync") || parser.isSet("directory") || parser.isSet("status-file"))) return 2;
     if (parser.isSet("container") && (!QDir::isAbsolutePath(parser.value("container"))
         || !iiSocietyContainer::SharedStorage::open(parser.value("container"), nullptr, true))) return 2;
     if (parser.isSet("container")) qputenv("SOCIETY_CONTAINER_PATH", parser.value("container").toUtf8());
@@ -71,99 +92,117 @@ int main(int argc, char **argv)
         const auto login = readLogin();
         if (login.value("email").toString().isEmpty() || login.value("password").toString().isEmpty()) return 2;
     }
-    // Maintenance stays available while the window is closed and while no
-    // account/network owner is active. SharedStorage rejects saved images.
-    const auto registerMaintenance = [&parser] {
-        iiSocietyContainer::SharedStorage::open(
-            parser.isSet("container") ? parser.value("container") : QString(), nullptr, true);
-    };
-    registerMaintenance();
-    QTimer maintenanceSelection;
-    QObject::connect(&maintenanceSelection, &QTimer::timeout, &app, registerMaintenance);
-    maintenanceSelection.start(5 * 60 * 1000);
-    SocietyDaemonService service;
-    if (parser.isSet("directory") && !service.start(parser.value("directory"))) {
-        QTextStream(stderr) << service.errorString() << Qt::endl;
-        return 1;
-    }
-    std::unique_ptr<AccountController> account;
-    std::unique_ptr<NetworkDriveController> network;
-    std::unique_ptr<SyncOwnership> ownership;
-    if (parser.isSet("sync")) {
-        const auto selectedStorage = iiSocietyContainer::SharedStorage::open({}, nullptr, true);
-        const auto directory = selectedStorage ? selectedStorage->runtimePath(QStringLiteral("sync")) : QString();
-        ownership = std::make_unique<SyncOwnership>(directory, false);
-        QObject::connect(ownership.get(), &SyncOwnership::ownershipChanged, &app, [&](bool owned) {
-            network.reset(); account.reset();
-            if (!owned) return;
-            const auto selected = iiSocietyContainer::SharedStorage::open(
-                parser.isSet("container") ? parser.value("container") : QString(), nullptr, true);
-            const auto path = selected ? selected->drive().rootPath() : ownership->storedContainer();
-            if (path.isEmpty() || !iiSocietyContainer::SharedStorage::open(path, nullptr, true)) return;
-            account = parser.isSet("login-file") ? std::make_unique<AccountController>(accountUrl) : std::make_unique<AccountController>();
-            network = std::make_unique<NetworkDriveController>();
-            network->setContainerPath(path); network->setAccountSession(account.get());
-            if (parser.isSet("server")) {
-                // Select the server path before login so no LAN discovery is
-                // started while the account profile is arriving.
-                network->setRelayUrl(QUrl(parser.value("server")));
-                const auto configured = std::make_shared<bool>(false);
-                const auto configure = [&, configured] {
-                    if (!*configured && account->signedIn() && !account->busy())
-                        *configured = network->configureServer(QUrl(parser.value("server")));
-                };
-                QObject::connect(account.get(), &AccountController::changed, network.get(), configure, Qt::QueuedConnection);
-                QObject::connect(account.get(), &AccountController::pairingStateRestored, network.get(), configure, Qt::QueuedConnection);
-            }
-            if (parser.isSet("login-file")) {
-                const auto login = readLogin();
-                if (!account->login(login.value("email").toString(), login.value("password").toString()))
-                    qWarning() << "Society headless account login could not start.";
-            }
+    // Local licensing remains responsive even when the selected storage is
+    // disconnected: backend I/O runs in a separate event-loop thread.
+    std::unique_ptr<AccountController> licenseBroker;
+    QTimer licenseBrokerRetry;
+    std::function<void()> startBackend;
+#if defined(Q_OS_UNIX)
+    bool localBrokerReady = false;
+    const bool isolatedTest = qEnvironmentVariableIsSet("SOCIETY_TEST_OUTPUT_DIR");
+    if (!isolatedTest || qEnvironmentVariableIsSet("SOCIETY_LOCAL_BROKER_DIR")) {
+        const QUrl origin(qEnvironmentVariable("SOCIETY_ACCOUNT_URL", "https://iisacc.com"));
+        licenseBroker = std::make_unique<AccountController>(origin);
+        licenseBroker->setBrokerAccountFactory([origin](QObject *scope) {
+            return new AccountController(origin, GroupSessionStore::create(scope), scope);
         });
-        if (parser.isSet("directory") && !ownership->start()) qWarning() << "Society background synchronization:" << ownership->errorString();
-        QObject::connect(&app, &QCoreApplication::aboutToQuit, &app, [&] { ownership->stop(); });
+        const auto startBrokers = [&] {
+            localBrokerReady = licenseBroker->startLocalLicenseBroker({}, false);
+            const bool legacy = isolatedTest || parser.isSet("license-broker") || licenseBroker->startLicenseBroker();
+            if (localBrokerReady && startBackend) startBackend();
+            if (localBrokerReady && legacy) licenseBrokerRetry.stop();
+        };
+        QObject::connect(&licenseBrokerRetry, &QTimer::timeout, &app, startBrokers);
+        licenseBrokerRetry.start(3000);
+        startBrokers();
     }
-    const auto selectRuntime = [&] {
-        if (parser.isSet("directory")) return;
-        const auto selected = iiSocietyContainer::SharedStorage::open(
-            parser.isSet("container") ? parser.value("container") : QString(), nullptr, true);
-        const auto helperDirectory = selected ? selected->runtimePath(QStringLiteral("helpers/v1")) : QString();
-        if (service.isRunning() && service.directory() != helperDirectory) service.stop();
-        if (!service.isRunning() && !helperDirectory.isEmpty()) service.start(helperDirectory);
-        if (ownership) ownership->setDirectory(selected ? selected->runtimePath(QStringLiteral("sync")) : QString());
-    };
-    QTimer runtimeSelection;
-    QObject::connect(&runtimeSelection, &QTimer::timeout, &app, selectRuntime);
-    runtimeSelection.start(1000);
-    selectRuntime();
-    QTimer status;
-    if (parser.isSet("status-file")) {
-        QObject::connect(&status, &QTimer::timeout, &app, [&] {
-            const QJsonObject state{{"updatedAt", QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs)},
-                {"pid", QString::number(QCoreApplication::applicationPid())}, {"ownsNetwork", ownership && ownership->owned()},
-                {"signedIn", account && account->signedIn()}, {"connected", network && network->connected()},
-                {"containerReady", network && network->containerReady()}, {"synchronizing", network && network->synchronizing()},
-                {"nearbyDevices", network ? network->nearbyDevices().size() : 0},
-                {"hosting", network && network->hosting()}, {"serverConfigured", network && !network->relayUrl().isEmpty()},
-                {"codeRequired", account && account->codeRequired()},
-                {"phase", network ? network->localPeer()->phase() : QString()},
-                {"status", network ? network->synchronizationStatus() : QString()}};
-            iiFileProvider::SaveFile file(parser.value("status-file"));
-            if (file.open(QIODevice::WriteOnly) && file.setPermissions(iiFileProvider::FileDevice::ReadOwner | iiFileProvider::FileDevice::WriteOwner)) {
-                file.write(QJsonDocument(state).toJson(QJsonDocument::Compact)); file.commit();
-            }
-        });
-        status.start(250);
-    }
-#ifdef Q_OS_UNIX
-    // Signal handlers only set a flag; Qt cleanup runs safely on the event loop.
+    if (parser.isSet("license-broker") && !localBrokerReady) return 1;
     std::signal(SIGTERM, [](int) { stopRequested = 1; });
     std::signal(SIGINT, [](int) { stopRequested = 1; });
     QTimer terminationPoll;
     QObject::connect(&terminationPoll, &QTimer::timeout, &app, [&app] { if (stopRequested) app.quit(); });
     terminationPoll.start(200);
+#else
+    if (parser.isSet("license-broker")) return 1;
 #endif
     if (duration > 0) QTimer::singleShot(duration, &app, &QCoreApplication::quit);
-    return app.exec();
+    BackendOptions options;
+    options.directory = parser.value("directory");
+    options.container = parser.value("container");
+    options.statusFile = parser.value("status-file");
+    options.loginFile = parser.value("login-file");
+    options.accountUrl = accountUrl;
+    options.server = QUrl(parser.value("server"));
+    options.sync = parser.isSet("sync") || parser.isSet("license-broker");
+    options.brokerDirectory = qEnvironmentVariable("SOCIETY_LOCAL_BROKER_DIR", QDir::homePath() + "/.iisacc-society-ipc-v1");
+
+    QThread backendThread;
+    SocietyDaemonService delivery;
+    BackendRuntime *backend = nullptr;
+#ifdef SOCIETY_DAEMON_MCP
+    std::unique_ptr<DaemonMcp> daemonMcp;
+#endif
+    bool backendStartupFailed = false;
+    startBackend = [&] {
+        if (backend || backendThread.isRunning()) return;
+        if (!options.directory.isEmpty() && !delivery.start(options.directory)) {
+            QTextStream(stderr) << delivery.errorString() << Qt::endl;
+            backendStartupFailed = true;
+            app.exit(1);
+            return;
+        }
+        auto runtimeOptions = options;
+#if defined(Q_OS_UNIX)
+        runtimeOptions.localApi = localBrokerReady;
+#elif defined(Q_OS_WIN)
+        runtimeOptions.localApi = true;
+#endif
+        backend = new BackendRuntime(runtimeOptions);
+        backend->moveToThread(&backendThread);
+#ifdef SOCIETY_DAEMON_MCP
+        QObject::connect(backend, &BackendRuntime::localApiAvailable, &app, [&](const QString &directory) {
+            if (qEnvironmentVariable("IILOCALLLM_DISABLE_APP_MCP") == "1") return;
+            if (qEnvironmentVariableIsSet("SOCIETY_TEST_OUTPUT_DIR")
+                && qEnvironmentVariable("SOCIETY_TEST_ENABLE_DAEMON_MCP") != "1") return;
+            if (!daemonMcp) daemonMcp = std::make_unique<DaemonMcp>(directory);
+            if (!daemonMcp->start()) qWarning() << "Society daemon MCP:" << daemonMcp->errorString();
+        });
+#endif
+        QObject::connect(backend, &BackendRuntime::deliveryDirectorySelected, &delivery, [&delivery](const QString &directory) {
+            // iiSocietyHelper requires its observer on the application thread.
+            if (delivery.isRunning() && delivery.directory() != directory) delivery.stop();
+            if (!delivery.isRunning() && !directory.isEmpty()) delivery.start(directory);
+        });
+        QObject::connect(&backendThread, &QThread::started, backend, &BackendRuntime::start);
+        QObject::connect(backend, &BackendRuntime::fatalError, &app, [&app](const QString &message) {
+            QTextStream(stderr) << message << Qt::endl;
+            app.exit(1);
+        });
+        QObject::connect(&backendThread, &QThread::finished, backend, &QObject::deleteLater);
+        backendThread.start();
+    };
+#if defined(Q_OS_UNIX)
+    // Unscoped desktop instances share the broker lease. If launchd starts
+    // while the on-demand instance is alive it waits; it takes over only after
+    // that instance releases its broker. Explicit headless configurations keep
+    // their existing independent container-scoped ownership locks.
+    const bool scoped = parser.isSet("directory") || parser.isSet("container")
+        || parser.isSet("server") || parser.isSet("login-file");
+    const bool brokerEnabled = !isolatedTest || qEnvironmentVariableIsSet("SOCIETY_LOCAL_BROKER_DIR");
+    if (scoped || !brokerEnabled || localBrokerReady) startBackend();
+#else
+    startBackend();
+#endif
+    if (backendStartupFailed) return 1;
+    const int result = app.exec();
+#ifdef SOCIETY_DAEMON_MCP
+    // MCP requests may be waiting on the backend socket. Close the endpoint
+    // while its event loop can still finish those requests.
+    if (daemonMcp) daemonMcp->stop();
+#endif
+    if (backendThread.isRunning()) {
+        backendThread.quit();
+        backendThread.wait();
+    }
+    return result;
 }

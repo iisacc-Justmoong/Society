@@ -51,12 +51,14 @@ From the Society repository:
 ```sh
 python3 tools/build_macos_inference_sdk.py --sdk-source ../../SDK/iiLocalDiffusion
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release \
-  -DiiLocalDiffusion_DIR="$PWD/build/runtime-sdk/iiLocalDiffusion/install/lib/cmake/iiLocalDiffusion"
+  -DiiLocalDiffusion_DIR="$PWD/resources/dependencies/macos-runtime/iiLocalDiffusion-apple/lib/cmake/iiLocalDiffusion"
 cmake --build build --target Society --parallel 6
 ```
 
-The preparation tool builds and tests the existing SDK options, installs them
-only below `build/runtime-sdk/iiLocalDiffusion/install`, and records `profile.json`.
+The preparation tool builds the module and its tests in
+`SDK/iiLocalDiffusion/build/society-macos`, stages the matching package below
+`resources/dependencies/macos-runtime/iiLocalDiffusion-apple`, and prints the
+profile to standard output. It does not build optional SDK command-line tools.
 A standalone product checkout can instead consume a prebuilt package with the
 same profile through `iiLocalDiffusion_DIR`. The configure step rejects a runtime
 that loads LibTorch so a broad development SDK cannot silently inflate releases.
@@ -82,13 +84,21 @@ into compact deployment with its actual Basic Controls style:
 - Use the fonts, icons, and images already embedded in the LVRS shared library
   instead of copying another filesystem set. Preserve accompanying filesystem
   licenses. `Society.BundledResources` loads the actual bundled Qt Core and LVRS
-  and checks every omitted asset through its public Qt resource URL.
+  and checks every omitted asset through its public Qt resource URL. The probe
+  enumerates the installed SDK resources directly and does not generate an
+  input manifest in the application's build directory.
 - Remove stale native libraries/frameworks outside the dependency closure of the
   app, plain helper executables, and runtime plugins.
 - Strip local/debug symbols in Release and MinSizeRel while preserving exported
   symbols required by dynamic linking and plugins. Debug symbols remain in the
   original SDK/build artifacts.
 - Relocate dependencies and sign the final self-contained bundle.
+- If an architecture probe is terminated by SIGKILL, restage that regular file
+  inside the generated bundle with a byte-preserving copy and atomic replacement,
+  then retry the probe once. Other errors and a second failure remain build
+  failures; files outside the bundle and symbolic links are never restaged.
+  `Society.MacDeploymentLayout` tests the retry, failure propagation, bundle
+  boundary and temporary-file cleanup without launching an application.
 
 The canonical output remains `build/bin/Society.app`. The embedded
 `SocietyDaemon` and `SocietyContainerDaemon` remain plain executables in

@@ -1,0 +1,19 @@
+import vm NativeModelChooserViewModel
+
+ApplicationWindow(title: "Choose models from Society", width: 860, height: 587,
+                  minimumWidth: 480, minimumHeight: 360, accent: .green) {
+    VStack(spacing: Metric.space12, padding: Metric.space18) {
+        Label(text: "Choose models from Society", style: .header)
+        Label(text: "Select a model, then add or remove it.", style: .description)
+        List(controller: vm.controller, modelRevision: vm.revision,
+             width: vm.listWidth, height: vm.listHeight, rowHeight: Metric.size56,
+             footerVisible: false, onItemActivated: vm.focus)
+        Label(text: vm.status, style: .caption)
+        HStack(spacing: Metric.space8) {
+            PushButton(text: "Choose external folder…", tone: .default, onClick: vm.browse)
+            PushButton(text: "Add or remove model", tone: .default, enabled: vm.canToggle, onClick: vm.toggleFocused)
+            PushButton(text: "Cancel", tone: .default, onClick: vm.cancel)
+            PushButton(text: "Use selected models", enabled: vm.canConfirm, onClick: vm.confirm)
+        }
+    }
+}

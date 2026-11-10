@@ -66,6 +66,8 @@ public:
     void setContainerPath(const QString &path);
     // Desktop GUI and background service must acquire one process lease first.
     void setRuntimeEnabled(bool enabled);
+    // Final process exit only; normal ownership handoff must still drain.
+    void shutdownForProcessExit();
     bool runtimeEnabled() const { return m_runtimeEnabled; }
     void setApplicationState(Qt::ApplicationState state);
     MobileSyncActivity *backgroundActivity() { return &m_background; }
@@ -192,6 +194,7 @@ private:
     bool m_accountSession = false;
     bool m_serverEnabled = false;
     bool m_suspended = false, m_runtimeEnabled = true;
+    bool m_exitShutdown = false;
     bool m_backgroundExpired = false;
     bool m_continuedSyncRequested = false;
     std::unique_ptr<iiFileProvider::LockFile> m_clientLease;

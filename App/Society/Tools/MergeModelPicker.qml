@@ -14,7 +14,8 @@ LV.VStack {
     property string path: ""
     property string detailText: ""
     property bool baseOnly: false
-    readonly property var choices: catalog.models.filter(model => !baseOnly || model.baseEligible)
+    readonly property var choices: catalog.models.filter(model =>
+        model.mergeEligible && (!baseOnly || model.baseEligible))
     readonly property int selectedIndex: choices.findIndex(model => model.path === path)
     readonly property var selectedModel: selectedIndex >= 0 ? choices[selectedIndex] : null
     signal edited(string value)

@@ -1,0 +1,113 @@
+import vm NativeFilesViewModel
+
+ApplicationWindow(title: "Society Files", width: 1100, height: 720,
+                  minimumWidth: 480, minimumHeight: 360, accent: .green) {
+    HStack(spacing: Metric.space12, padding: Metric.space18, alignment: .top) {
+        VStack(spacing: Metric.space8, width: vm.navigationWidth, alignment: .leading) {
+            Label(text: "My storage", style: .caption)
+            ListItem(type: .Navigation, label: "Files", iconName: "sqlFile", width: vm.navigationWidth,
+                     selected: vm.filesActive, showChevron: false, onClick: vm.showFiles)
+            ListItem(type: .Navigation, label: "Models", iconName: "warehouse", width: vm.navigationWidth,
+                     selected: vm.modelsActive, showChevron: false, onClick: vm.showModels)
+            ListItem(type: .Navigation, label: "Deleted", iconName: "generaldelete", width: vm.navigationWidth,
+                     selected: vm.deletedActive, showChevron: false, onClick: vm.showDeleted)
+        }
+        VStack(spacing: Metric.space12) {
+            HStack(spacing: Metric.space8) {
+                PushButton(text: "Up", tone: .default, enabled: vm.canUp, onClick: vm.up)
+                Label(text: vm.path, style: .header)
+                PushButton(text: "New folder", tone: .default, enabled: vm.canCreateFolder, onClick: vm.showCreateFolder)
+                PushButton(text: "Import files…", tone: .default, visible: vm.filesActive, enabled: vm.canImportFiles, onClick: vm.chooseFiles)
+                PushButton(text: "Import models…", tone: .default, visible: vm.modelsActive, enabled: vm.canImportModels, onClick: vm.chooseModels)
+                PushButton(text: "Check status", tone: .default, onClick: vm.refresh)
+                PushButton(text: "Reconnect", tone: .default, visible: vm.canReconnect, onClick: vm.reconnect)
+                PushButton(text: "List", tone: .default, onClick: vm.showList)
+                PushButton(text: "Grid", tone: .default, onClick: vm.showGrid)
+            }
+            HStack(spacing: Metric.space8) {
+                InputField(text: vm.searchDraft, placeholder: "Search files", onEdited: vm.searchEdited)
+                PushButton(text: "Search", tone: .default, onClick: vm.search)
+                Label(text: vm.sortLabel, style: .caption)
+                PushButton(text: "Name", tone: .default, onClick: vm.sortName)
+                PushButton(text: "Date", tone: .default, onClick: vm.sortDate)
+                PushButton(text: "Kind", tone: .default, onClick: vm.sortKind)
+                PushButton(text: "Size", tone: .default, onClick: vm.sortSize)
+            }
+            if (vm.gridActive) {
+                VStack(spacing: 0) {
+                    import nav NativeFilesNavigation
+                    for (item in vm.gridRows, key: item.id, id: "files-grid", itemHeight: Metric.size140,
+                         itemWidth: Metric.size140, spacing: Metric.space8, width: vm.tableWidth, height: vm.tableHeight,
+                         navigation: nav, selectionMode: .multiple, onSelectionChanged: vm.gridSelected,
+                         onActivate: vm.gridActivated) {
+                        VStack(spacing: Metric.space8, padding: Metric.space8, alignment: .leading) {
+                            Label(text: item.name, style: .body)
+                            Label(text: item.kind, style: .caption)
+                            Label(text: item.size, style: .caption)
+                            CheckBox(checked: nav.is_selected(item.id), enabled: false)
+                        }
+                    }
+                    ContextMenu(targetId: "files-grid", accessibilityName: "File actions") {
+                        ContextMenuItem(label: "Open", hasChildItems: false, enabled: vm.canOpen, onClick: vm.openSelected)
+                        ContextMenuItem(label: "Rename…", hasChildItems: false, enabled: vm.canRename, onClick: vm.showRename)
+                        ContextMenuItem(label: "Duplicate", hasChildItems: false, enabled: vm.canDuplicate, onClick: vm.duplicateSelected)
+                        ContextMenuItem(label: "Move to…", hasChildItems: false, enabled: vm.canMove, onClick: vm.showMove)
+                        ContextMenuItem(label: "Move to Deleted", hasChildItems: false, enabled: vm.canTrash, onClick: vm.trashSelected)
+                        ContextMenuItem(label: "Put back", hasChildItems: false, enabled: vm.canRestore, onClick: vm.restoreSelected)
+                        ContextMenuItem(label: "Delete permanently…", hasChildItems: false, enabled: vm.canRemove, onClick: vm.showRemove)
+                    }
+                }
+            } else {
+                VStack(spacing: 0) {
+                    Table(id: "files-table", model: vm.controller, modelRevision: vm.revision,
+                          width: vm.tableWidth, height: vm.tableHeight,
+                          editable: false, sortingEnabled: false, onSelectionChanged: vm.selected)
+                    ContextMenu(targetId: "files-table", accessibilityName: "File actions") {
+                        ContextMenuItem(label: "Open", hasChildItems: false, enabled: vm.canOpen, onClick: vm.openSelected)
+                        ContextMenuItem(label: "Rename…", hasChildItems: false, enabled: vm.canRename, onClick: vm.showRename)
+                        ContextMenuItem(label: "Duplicate", hasChildItems: false, enabled: vm.canDuplicate, onClick: vm.duplicateSelected)
+                        ContextMenuItem(label: "Move to…", hasChildItems: false, enabled: vm.canMove, onClick: vm.showMove)
+                        ContextMenuItem(label: "Move to Deleted", hasChildItems: false, enabled: vm.canTrash, onClick: vm.trashSelected)
+                        ContextMenuItem(label: "Put back", hasChildItems: false, enabled: vm.canRestore, onClick: vm.restoreSelected)
+                        ContextMenuItem(label: "Delete permanently…", hasChildItems: false, enabled: vm.canRemove, onClick: vm.showRemove)
+                    }
+                }
+            }
+            Modal(title: "Rename", open: vm.renameOpen, showIcon: false, buttonCount: 2,
+                  primaryText: "Rename", secondaryText: "Cancel", onPrimaryClicked: vm.renameSelected,
+                  onSecondaryClicked: vm.closeRename, onCanceled: vm.closeRename, onClosed: vm.closeRename) {
+                InputField(text: vm.renameDraft, onEdited: vm.renameEdited)
+            }
+            Modal(title: "New folder", open: vm.folderOpen, showIcon: false, buttonCount: 2,
+                  primaryText: "Create", secondaryText: "Cancel", onPrimaryClicked: vm.createFolder,
+                  onSecondaryClicked: vm.closeCreateFolder, onCanceled: vm.closeCreateFolder, onClosed: vm.closeCreateFolder) {
+                InputField(text: vm.folderDraft, onEdited: vm.folderEdited)
+            }
+            Modal(title: "Move to", open: vm.moveOpen, showIcon: false, buttonCount: 2,
+                  primaryText: "Move", secondaryText: "Cancel", onPrimaryClicked: vm.moveSelected,
+                  onSecondaryClicked: vm.closeMove, onCanceled: vm.closeMove, onClosed: vm.closeMove) {
+                InputField(text: vm.moveDraft, placeholder: "Destination path", onEdited: vm.moveEdited)
+            }
+            Modal(title: "Delete permanently", open: vm.removeOpen, showIcon: false, buttonCount: 2,
+                  primaryText: "Delete", secondaryText: "Cancel", onPrimaryClicked: vm.removeSelected,
+                  onSecondaryClicked: vm.closeRemove, onCanceled: vm.closeRemove, onClosed: vm.closeRemove) {
+                Label(text: vm.removePrompt, style: .body)
+            }
+            HStack(spacing: Metric.space8) {
+                Label(text: vm.status, style: .caption)
+                PushButton(text: "Open", tone: .default, enabled: vm.canOpen, onClick: vm.openSelected)
+                PushButton(text: "Previous", tone: .default, enabled: vm.canPrevious, onClick: vm.previous)
+                PushButton(text: "Next", tone: .default, enabled: vm.canNext, onClick: vm.next)
+            }
+            Label(text: vm.activity, style: .caption)
+            Label(text: vm.modelImportStatus, style: .caption)
+            Label(text: vm.currentError, style: .caption, visible: vm.hasErrors)
+            HStack(spacing: Metric.space8, visible: vm.hasErrors) {
+                Label(text: vm.errorCountLabel, style: .caption)
+                PushButton(text: "Previous error", tone: .default, enabled: vm.canPreviousError, onClick: vm.previousError)
+                PushButton(text: "Next error", tone: .default, enabled: vm.canNextError, onClick: vm.nextError)
+                PushButton(text: "Clear errors", tone: .default, onClick: vm.clearErrors)
+            }
+        }
+    }
+}

@@ -198,12 +198,28 @@ NetworkDriveController::NetworkDriveController(Mode deviceMode, DiscoveryService
 }
 NetworkDriveController::~NetworkDriveController() {
     m_background.release();
-    m_discoveryTimer.stop(); m_nearby.clear(); disconnectSessionImpl(false);
+    m_discoveryTimer.stop();
+    if (!m_exitShutdown) { m_nearby.clear(); disconnectSessionImpl(false); }
     if (!hostModeAvailable()) m_sync.shutdownAsync();
     // Members emit their final stop signals before QObject clears external
     // QPointers. No UI may inspect the already-destroyed discovery member then.
     m_local.disconnect(); m_peer.disconnect(); m_nearby.disconnect();
     m_sync.disconnect(); m_remote.disconnect();
+}
+void NetworkDriveController::shutdownForProcessExit() {
+    if (m_exitShutdown) return;
+    m_exitShutdown = true;
+    m_runtimeEnabled = false;
+#if !defined(Q_OS_IOS) && !defined(Q_OS_ANDROID) && !defined(Q_OS_WASM) && !defined(SOCIETY_CLIENT_ONLY)
+    m_generationHost.shutdownAsync();
+#endif
+    m_photos->shutdownAsync();
+    m_discoveryTimer.stop();
+    m_nearby.clear();
+    disconnectSessionImpl(false);
+    // The owning process keeps its network lease until it has exited. That
+    // lets the worker retire asynchronously without another owner entering.
+    m_sync.shutdownAsync();
 }
 void NetworkDriveController::setApplicationState(Qt::ApplicationState state) {
     m_photos->setApplicationActive(state == Qt::ApplicationActive);
@@ -524,6 +540,7 @@ bool NetworkDriveController::hostModeAvailable() const {
     return m_mode == HostMode;
 }
 void NetworkDriveController::setRuntimeEnabled(bool enabled) {
+    if (m_exitShutdown) return;
     if (m_runtimeEnabled == enabled) return;
     m_runtimeEnabled = enabled;
     if (!enabled) {

@@ -40,7 +40,7 @@ def preflight(qt, sdk, team):
 
 def commands(mode, qt, team, configuration):
     sdk = 'iphoneos' if mode == 'ios-device' else 'iphonesimulator'
-    prefix = WORKSPACE / 'build' / mode / 'install'
+    prefix = PRODUCT / 'resources/dependencies/ios' / mode
     common = [f'-DCMAKE_TOOLCHAIN_FILE={qt}/ios/lib/cmake/Qt6/qt.toolchain.cmake',
               f'-DQT_HOST_PATH={qt}/macos', f'-DCMAKE_OSX_SYSROOT={sdk}',
               '-DCMAKE_OSX_ARCHITECTURES=arm64', '-DCMAKE_OSX_DEPLOYMENT_TARGET=16.0',
@@ -91,20 +91,17 @@ def main():
     args = parser.parse_args()
     sdk = 'iphoneos' if args.platform == 'ios-device' else 'iphonesimulator'
     report = preflight(args.qt.resolve(), sdk, args.team)
-    output = PRODUCT / 'build' / args.platform
-    output.mkdir(parents=True, exist_ok=True)
     report['commands'] = commands(args.platform, args.qt.resolve(), args.team, args.configuration)
-    (output / 'preflight.json').write_text(json.dumps(report, indent=2) + '\n')
+    print(json.dumps(report, indent=2), flush=True)
     if report['problems']:
         for problem in report['problems']:
             print(problem, file=sys.stderr)
         return 1
     if args.check:
-        print(f"Ready: {report['sdkPath']}")
         return 0
     for command in report['commands']:
         subprocess.run(command, cwd=WORKSPACE, check=True)
-    print(f'Society {args.platform} built in {output}. Device/Files runtime checks are separate.')
+    print(f'Society {args.platform} built in {PRODUCT / "build" / args.platform}. Device/Files runtime checks are separate.')
     return 0
 
 

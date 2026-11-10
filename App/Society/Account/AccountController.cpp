@@ -1,4 +1,5 @@
 #include "AccountController.h"
+#include <iiSocietyHelper/LocalService.h>
 #include <QDateTime>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -27,7 +28,7 @@ void AccountController::mountLicenses()
 {
     manager()->licenseManager()->configure({"congregation", "dreamscapes", "vincent"});
     connect(manager(), &iisacc::accounts::AccountManager::authenticatedChanged, this, [this] {
-        if(licenseBroker_.isListening()&&signedIn()) QTimer::singleShot(0, this, [this]{manager()->licenseManager()->ensure();});
+        if((licenseBroker_.isListening()||localBroker_.isListening()||localHelper_)&&signedIn()) QTimer::singleShot(0, this, [this]{manager()->licenseManager()->ensure();});
     });
     connect(manager()->licenseManager(), &iisacc::accounts::LicenseManager::changed, this,
             &AccountController::licensesChanged);
@@ -49,7 +50,21 @@ void AccountController::mountLicenses()
             &AccountController::clearConnections);
 }
 
-AccountController::~AccountController() { clearConnections(); }
+AccountController::~AccountController() { clearConnections(); stopLocalLicenseBroker(); }
+void AccountController::withBrokerAccount(QObject *scope, std::function<void(AccountController *)> done)
+{
+    if (!brokerAccountFactory_) { done(this); return; }
+    const QPointer<AccountController> account(brokerAccountFactory_(scope));
+    if (!account) { done(nullptr); return; }
+    const auto completed = std::make_shared<bool>(false);
+    const auto finish = [account, completed, done = std::move(done)] {
+        if (!account || *completed || account->busy()) return;
+        *completed = true;
+        done(account.data());
+    };
+    connect(account.data(), &AccountSession::changed, scope, [scope, finish] { QTimer::singleShot(0, scope, finish); });
+    if (!account->manager()->restoreSession() && !account->busy()) QTimer::singleShot(0, scope, finish);
+}
 void AccountController::clearConnections()
 {
     connectionsDeadline_.stop();

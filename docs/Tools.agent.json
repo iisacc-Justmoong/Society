@@ -10,9 +10,9 @@
   },
   "source": {
     "path": "docs/Tools.md",
-    "sha256": "35d80f8173159b32dd655951947162e2ae4b53be677c0e86f50ce7138d2f2511",
-    "bytes": 1981,
-    "line_count": 15,
+    "sha256": "112ff13299d2293a9087239fd60ad00c39e4d4b4af46a036eb48c9d6b575ec88",
+    "bytes": 2714,
+    "line_count": 17,
     "encoding": "utf-8",
     "language": "ko"
   },
@@ -57,7 +57,7 @@
       "kind": "paragraph",
       "start_line": 5,
       "end_line": 5,
-      "raw": "Tools 탭은 최상단에 **QuickGenerate**를 표시하고 그 아래에 도구 제목·검색과 **Model merge**, **Model Packaging** 카드를 제공한다. QuickGenerate는 대시보드에서 이동했으며 입력·선택 상태와 기존 생성 요청 동작을 유지한다. 이름·설명·종류 검색과 All tools, 뒤로 가기 단축키, 모바일 왼쪽 가장자리 제스처를 지원한다.\n"
+      "raw": "기존 Tools 화면은 데스크톱 상단의 두 번째 **Tasks** 세그먼트로 연다. Tasks의 개편안이 결정되기 전까지 같은 Tools 화면과 도구를 사용하며, View → Tools 메뉴와 단축키, 모바일 Tools 탭도 유지한다. 화면은 최상단에 **QuickGenerate**를 표시하고 그 아래에 도구 제목·검색과 **Model merge**, **Model Packaging**, **Model calibrator** 카드를 제공한다. QuickGenerate는 대시보드에서 이동했으며 입력·선택 상태와 기존 생성 요청 동작을 유지한다. 이름·설명·종류 검색과 All tools, 뒤로 가기 단축키, 모바일 왼쪽 가장자리 제스처를 지원한다.\n"
     },
     {
       "id": "b000006",
@@ -99,7 +99,7 @@
       "kind": "paragraph",
       "start_line": 11,
       "end_line": 11,
-      "raw": "Society.Drive는 두 도구 카드, 실제 카드 클릭·목록 복귀·탭 전환 후 설정 유지와 모바일 화면 크기별 배치를 검사한다. Society.ModelMerge는 기존 병합 실행을 검증한다. Society.ModelPackaging은 네이티브 패키징과 UI 연결을 검증한다. iOS UI 테스트도 모델 병합 카드로 진입하고 목록에 돌아오는 흐름을 사용한다.\n"
+      "raw": "Society.Drive는 도구 카드, 기존 도구의 실제 카드 클릭·목록 복귀·탭 전환 후 설정 유지와 모바일 화면 크기별 배치를 검사한다. Society.TasksNavigation은 세 카드의 순서와 교정기 검색을 확인한다. Society.ModelMerge는 기존 병합 실행을 검증한다. Society.ModelPackaging은 네이티브 패키징과 UI 연결을 검증한다. iOS UI 테스트도 모델 병합 카드로 진입하고 목록에 돌아오는 흐름을 사용한다.\n"
     },
     {
       "id": "b000012",
@@ -113,7 +113,7 @@
       "kind": "paragraph",
       "start_line": 13,
       "end_line": 13,
-      "raw": "Model Packaging은 [Figma 297:511](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=297-511)에 따라 구현하였다. 폴더 검사, 선택 구성요소, 실측 진행과 취소, 단일 Safetensors 저장·재검증은 [모델 패키징](ModelPackaging.md)을 참조한다.\n"
+      "raw": "Model Packaging은 [Figma 297:511](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=297-511)에 따라 구현하였다. Model Merge와 공유하는 목록에서 Society 드라이브의 모델을 고르거나 외부 폴더를 선택할 수 있다. 선택 구성요소, 실측 진행과 취소, 단일 Safetensors 저장·재검증은 [모델 패키징](ModelPackaging.md)을 참조한다.\n"
     },
     {
       "id": "b000014",
@@ -127,6 +127,20 @@
       "kind": "paragraph",
       "start_line": 15,
       "end_line": 15,
+      "raw": "Model calibrator는 [모델 교정기](ModelCalibration.md)에서 지원 범위와 제한을 확인한다. macOS에서는 별도 LVUI·iiGUI 네이티브 창을 열며, 다른 장치에서 실행 파일을 찾지 못하면 오류를 표시한다.\n"
+    },
+    {
+      "id": "b000016",
+      "kind": "blank",
+      "start_line": 16,
+      "end_line": 16,
+      "raw": "\n"
+    },
+    {
+      "id": "b000017",
+      "kind": "paragraph",
+      "start_line": 17,
+      "end_line": 17,
       "raw": "모델 병합 상세 본문은 [Figma 121:752](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=121-752)의 카드형 두 열 배치로 교체했다. All tools 버튼도 상세 본문에 포함한다. 이 교체는 Tools 목록의 다른 신규 도구나 시안의 사이드바를 추가하지 않는다.\n"
     }
   ],
@@ -143,8 +157,8 @@
   "indexes": {
     "directive_candidates": [
       {
-        "block_id": "b000015",
-        "line": 15,
+        "block_id": "b000017",
+        "line": 17,
         "text": "모델 병합 상세 본문은 [Figma 121:752](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=121-752)의 카드형 두 열 배치로 교체했다. All tools 버튼도 상세 본문에 포함한다. 이 교체는 Tools 목록의 다른 신규 도구나 시안의 사이드바를 추가하지 않는다.",
         "basis": "lexical_match",
         "context": "paragraph"
@@ -175,10 +189,17 @@
       },
       {
         "block_id": "b000015",
+        "label": "모델 교정기",
+        "target": "ModelCalibration.md",
+        "kind": "relative",
+        "line": 15
+      },
+      {
+        "block_id": "b000017",
         "label": "Figma 121:752",
         "target": "https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=121-752",
         "kind": "external",
-        "line": 15
+        "line": 17
       }
     ],
     "tables": []

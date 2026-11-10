@@ -4,13 +4,17 @@
 #include <TemporaryLease.h>
 
 #include <QClipboard>
+#include <QCoreApplication>
 #include <QDesktopServices>
 #include <QDir>
 #include <QFileInfo>
 #include <QGuiApplication>
+#include <QHash>
 #include <QJsonDocument>
+#include <QJsonArray>
 #include <QJsonObject>
 #include <QRegularExpression>
+#include <QSet>
 #include <QScopeGuard>
 #include <QUuid>
 #include <QFile>
@@ -18,7 +22,7 @@
 #include <chrono>
 #include <algorithm>
 #ifdef SOCIETY_HAS_MODEL_PACKAGING
-#include <ModelPackaging/ModelPackaging.hpp>
+#include "ModelPackaging/ModelPackaging.hpp"
 #endif
 
 ModelPackagingController::ModelPackagingController(QObject *parent) : QObject(parent)
@@ -57,7 +61,8 @@ QString ModelPackagingController::status() const
     if (m_phase == "complete") return tr("Model package ready");
     if (m_phase == "cancelled") return tr("Cancelled · Original files preserved");
     if (m_phase == "error") return tr("Packaging needs attention");
-    return m_report.value("ready").toBool() ? tr("Ready to package") : tr("Choose a model folder");
+    if (assignmentsDirty()) return tr("Apply assignments to update the package preview");
+    return m_report.value("ready").toBool() ? tr("Ready to package") : tr("Choose models or a model folder");
 }
 
 bool ModelPackagingController::fail(const QString &error)
@@ -96,10 +101,252 @@ QString ModelPackagingController::formatSize(double bytes) const
 bool ModelPackagingController::scanFolder(const QString &directory)
 {
     if (m_busy) return false;
+    m_input.clear(); m_selected.clear(); m_scanned.clear(); m_report.clear(); m_excluded.clear();
+    m_assignments.clear(); m_appliedAssignments.clear();
+    emit assignmentsChanged();
     if (!QDir::isAbsolutePath(directory) || !QFileInfo(directory).isDir())
         return fail(tr("Choose an existing local model folder."));
     m_input = QDir::cleanPath(directory);
-    m_scanned.clear(); m_report.clear(); m_excluded.clear();
+    return start(false);
+}
+
+bool ModelPackagingController::scanSelection(const QString &modelsDirectory, const QStringList &paths)
+{
+    if (m_busy) return false;
+    m_input.clear(); m_selected.clear(); m_scanned.clear(); m_report.clear(); m_excluded.clear();
+    m_assignments.clear(); m_appliedAssignments.clear();
+    emit assignmentsChanged();
+    const auto storage = iiSocietyContainer::SharedStorage::open();
+    const auto root = QDir::cleanPath(modelsDirectory);
+    if (!storage || paths.isEmpty() || root != storage->drive().sectionPath(iiSocietyContainer::StoreSection::Models))
+        return fail(tr("Choose models from the currently open Society drive."));
+    const iiSocietyContainer::FileOperations files(storage->drive());
+    QStringList selected;
+    for (const auto &path : paths) {
+        const auto clean = QDir::cleanPath(path);
+        const QFileInfo info(clean);
+        if (!QDir::isAbsolutePath(path) || !clean.startsWith(root + '/') || !files.editable(clean)
+            || (!info.isFile() && !info.isDir()) || info.isSymLink() || info.isJunction())
+            return fail(tr("A selected model is unavailable or outside this Society drive."));
+        const auto relative = QDir(root).relativeFilePath(clean);
+        if (!selected.contains(relative)) selected.append(relative);
+    }
+    m_input = root; m_selected = selected;
+    return start(false);
+}
+
+bool ModelPackagingController::chooseModels(const QString &modelsDirectory, const QVariantList &catalog,
+                                             const QStringList &selected)
+{
+    if (m_busy || m_chooser) return false;
+    const auto storage = iiSocietyContainer::SharedStorage::open();
+    const auto root = QDir::cleanPath(modelsDirectory);
+    if (!storage || root != storage->drive().sectionPath(iiSocietyContainer::StoreSection::Models))
+        return fail(tr("Open a Society drive to choose models."));
+    const QString executable = QDir(QCoreApplication::applicationDirPath()).absoluteFilePath(
+#if defined(Q_OS_WIN)
+        "SocietyModelChooser.exe");
+#else
+        "SocietyModelChooser");
+#endif
+    if (!QFileInfo(executable).isExecutable())
+        return fail(tr("The model chooser is unavailable in this installation."));
+
+    QJsonArray models, current;
+    QSet<QString> offered;
+    for (const auto &value : catalog) {
+        const auto model = value.toMap();
+        const auto path = QDir::cleanPath(model.value("path").toString());
+        const auto name = model.value("name").toString();
+        if (!model.value("packagingEligible").toBool() || name.isEmpty()
+            || !path.startsWith(root + '/') || offered.contains(path)) continue;
+        offered.insert(path);
+        const auto category = QDir(root).relativeFilePath(path).section('/', 0, 0);
+        models.append(QJsonObject{{"path", path}, {"name", name}, {"category", category}});
+    }
+    for (const auto &path : selected) if (offered.contains(path)) current.append(path);
+    const auto request = QJsonDocument(QJsonObject{{"models", models}, {"selected", current}}).toJson(QJsonDocument::Compact);
+    if (request.size() > 16 * 1024 * 1024 || models.size() > 65536)
+        return fail(tr("The model catalogue is too large to open."));
+
+    auto *process = new QProcess(this);
+    m_chooser = process;
+    const auto revision = ++m_chooserRevision;
+    m_error.clear();
+    connect(process, &QProcess::started, process, [process, request] {
+        process->write(request);
+        process->closeWriteChannel();
+    });
+    connect(process, &QProcess::errorOccurred, this, [this, process, revision](QProcess::ProcessError error) {
+        if (error != QProcess::FailedToStart || revision != m_chooserRevision) return;
+        m_chooser.clear();
+        process->deleteLater();
+        fail(tr("Could not open the model chooser."));
+    });
+    connect(process, &QProcess::finished, this,
+            [this, process, revision, root, offered](int exitCode, QProcess::ExitStatus status) {
+        const auto response = process->readAllStandardOutput();
+        process->deleteLater();
+        if (revision != m_chooserRevision) return;
+        m_chooser.clear();
+        emit changed();
+        if (status != QProcess::NormalExit || exitCode != 0 || response.size() > 16 * 1024 * 1024) {
+            fail(tr("The model chooser did not finish successfully."));
+            return;
+        }
+        const auto storage = iiSocietyContainer::SharedStorage::open();
+        if (!storage || root != storage->drive().sectionPath(iiSocietyContainer::StoreSection::Models)) return;
+        QJsonParseError parseError;
+        const auto document = QJsonDocument::fromJson(response, &parseError);
+        if (parseError.error != QJsonParseError::NoError || !document.isObject()) {
+            fail(tr("The model chooser returned an invalid selection."));
+            return;
+        }
+        const auto result = document.object();
+        const auto action = result.value("action").toString();
+        if (action == "cancel") return;
+        if (action == "folder") {
+            const auto folder = result.value("path").toString();
+            if (QDir::isAbsolutePath(folder) && QFileInfo(folder).isDir()) emit folderChosen(folder);
+            else fail(tr("The selected folder is no longer available."));
+            return;
+        }
+        if (action == "selected" && result.value("paths").isArray()) {
+            QStringList paths;
+            QSet<QString> seen;
+            for (const auto &value : result.value("paths").toArray()) {
+                const auto path = value.toString();
+                if (!value.isString() || !offered.contains(path) || seen.contains(path)) {
+                    fail(tr("The model chooser returned an invalid selection."));
+                    return;
+                }
+                seen.insert(path); paths.append(path);
+            }
+            if (!paths.isEmpty()) emit modelsChosen(paths);
+            return;
+        }
+        fail(tr("The model chooser returned an invalid selection."));
+    });
+    process->start(executable);
+    emit changed();
+    return true;
+}
+
+void ModelPackagingController::clearInput()
+{
+    ++m_chooserRevision;
+    if (m_chooser) { m_chooser->kill(); m_chooser.clear(); }
+    if (m_busy) { m_clearPending = true; cancel(); return; }
+    m_input.clear(); m_selected.clear(); m_scanned.clear(); m_report.clear(); m_excluded.clear();
+    m_assignments.clear(); m_appliedAssignments.clear();
+    m_error.clear(); m_output.clear(); m_phase.clear(); m_detail.clear(); m_progress = 0;
+    emit assignmentsChanged(); emit changed();
+}
+
+QVariantList ModelPackagingController::roleOptions() const
+{
+    return {QVariantMap{{"value", ""}, {"label", tr("Automatic")}},
+        QVariantMap{{"value", "model"}, {"label", tr("Model")}},
+        QVariantMap{{"value", "text_encoder"}, {"label", tr("Text encoder")}},
+        QVariantMap{{"value", "video_vae"}, {"label", tr("VAE / decoder")}},
+        QVariantMap{{"value", "audio_vae"}, {"label", tr("Audio decoder")}},
+        QVariantMap{{"value", "projections"}, {"label", tr("Text projections")}},
+        QVariantMap{{"value", "upscaler"}, {"label", tr("Upscaler")}},
+        QVariantMap{{"value", "lora"}, {"label", tr("LoRA")}},
+        QVariantMap{{"value", "other"}, {"label", tr("Other component")}}};
+}
+
+QVariantList ModelPackagingController::positionOptions() const
+{
+    return {QVariantMap{{"value", ""}, {"label", tr("Automatic")}},
+        QVariantMap{{"value", "main"}, {"label", tr("Main")}},
+        QVariantMap{{"value", "component"}, {"label", tr("Component")}}};
+}
+
+QVariantList ModelPackagingController::assignableFiles() const
+{
+    QVariantList result;
+    const auto files = m_scanned.value("files").toList();
+    QHash<QString, QString> groups;
+    for (const auto &value : files) {
+        const auto file = value.toMap();
+        groups.insert(file.value("id").toString(), file.value("group").toString());
+    }
+    QHash<QString, QVariantMap> choices;
+    for (auto it = m_assignments.cbegin(); it != m_assignments.cend(); ++it) {
+        if (!groups.contains(it.key())) continue;
+        auto &choice = choices[groups.value(it.key())];
+        const auto fields = it.value().toMap();
+        if (fields.contains("role")) choice["role"] = fields.value("role");
+        if (fields.contains("position")) choice["position"] = fields.value("position");
+    }
+    for (const auto &value : files) {
+        auto file = value.toMap();
+        const auto format = file.value("format").toString();
+        const auto status = file.value("status").toString();
+        if ((format != "safetensors" && format != "gguf") || status == "invalid" || status == "ignored") continue;
+        const auto choice = choices.value(file.value("group").toString());
+        file["roleChoice"] = choice.value("role");
+        file["positionChoice"] = choice.value("position");
+        file["effectiveRole"] = choice.value("role", file.value("detected_role"));
+        result.append(file);
+    }
+    return result;
+}
+
+bool ModelPackagingController::setFileRole(const QString &id, const QString &role)
+{
+    if (m_busy) return false;
+    const auto options = roleOptions();
+    if (std::none_of(options.cbegin(), options.cend(), [&](const QVariant &v) { return v.toMap().value("value").toString() == role; })) return false;
+    const auto files = assignableFiles();
+    const auto found = std::find_if(files.cbegin(), files.cend(), [&](const QVariant &v) { return v.toMap().value("id").toString() == id; });
+    if (found == files.cend()) return false;
+    const auto group = found->toMap().value("group").toString();
+    const auto effectiveRole = role.isEmpty() ? found->toMap().value("detected_role").toString() : role;
+    for (const auto &value : files) {
+        const auto file = value.toMap();
+        if (file.value("group").toString() != group) continue;
+        const auto key = file.value("id").toString(); auto choice = m_assignments.value(key).toMap();
+        choice.remove("role");
+        if (effectiveRole != "model") choice.remove("position");
+        if (choice.isEmpty()) m_assignments.remove(key); else m_assignments[key] = choice;
+        if (!role.isEmpty() && role != "upscaler" && role != "lora") m_excluded.removeAll(key);
+    }
+    if (!role.isEmpty()) { auto choice = m_assignments.value(id).toMap(); choice["role"] = role; m_assignments[id] = choice; }
+    rebuildSelection(); m_error.clear(); emit assignmentsChanged(); emit changed(); return true;
+}
+
+bool ModelPackagingController::setFilePosition(const QString &id, const QString &position)
+{
+    if (m_busy || (position != "" && position != "main" && position != "component")) return false;
+    const auto files = assignableFiles();
+    const auto found = std::find_if(files.cbegin(), files.cend(), [&](const QVariant &v) { return v.toMap().value("id").toString() == id; });
+    if (found == files.cend() || (position == "main" && found->toMap().value("effectiveRole").toString() != "model")) return false;
+    const auto group = found->toMap().value("group").toString();
+    for (const auto &value : files) {
+        const auto file = value.toMap(); const auto key = file.value("id").toString();
+        auto choice = m_assignments.value(key).toMap();
+        if (file.value("group").toString() == group) choice.remove("position");
+        else if (position == "main" && choice.value("position").toString() == "main") choice["position"] = "component";
+        if (choice.isEmpty()) m_assignments.remove(key); else m_assignments[key] = choice;
+    }
+    if (!position.isEmpty()) {
+        auto choice = m_assignments.value(id).toMap(); choice["position"] = position;
+        const auto file = found->toMap();
+        // A standalone GGUF can be promoted automatically to the main model.
+        // Preserve that effective role when the user explicitly pins it.
+        if (position == "main" && file.value("format").toString() == "gguf"
+            && file.value("role_source").toString() == "detected" && file.value("role").toString() == "model")
+            choice["role"] = "model";
+        m_assignments[id] = choice;
+    }
+    m_error.clear(); emit assignmentsChanged(); emit changed(); return true;
+}
+
+bool ModelPackagingController::applyAssignments()
+{
+    if (m_busy || !assignmentsDirty() || m_input.isEmpty()) return false;
     return start(false);
 }
 
@@ -113,8 +360,14 @@ bool ModelPackagingController::setComponentIncluded(const QString &id, bool incl
             && file.value("status").toString() == "included";
     });
     if (found == files.end()) return false;
-    m_excluded.removeAll(id);
-    if (!included) m_excluded.append(id);
+    const auto group = found->toMap().value("group").toString();
+    for (const auto &value : files) {
+        const auto file = value.toMap();
+        if (!file.value("optional").toBool() || file.value("group").toString() != group) continue;
+        const auto key = file.value("id").toString();
+        m_excluded.removeAll(key);
+        if (!included) m_excluded.append(key);
+    }
     rebuildSelection(); emit changed();
     return true;
 }
@@ -124,23 +377,37 @@ void ModelPackagingController::rebuildSelection()
     m_report = m_scanned;
     auto files = m_report.value("files").toList();
     auto components = m_report.value("components").toList();
+    QSet<QString> excludedGroups, excludedFiles;
+    for (const auto &value : files) {
+        const auto file = value.toMap();
+        if (file.value("optional").toBool() && m_excluded.contains(file.value("id").toString()))
+            excludedGroups.insert(file.value("group").toString());
+    }
     double removed = 0; int included = 0, componentCount = 0;
     for (auto &value : files) {
         auto file = value.toMap();
-        if (m_excluded.contains(file.value("id").toString())) {
+        const auto id = file.value("id").toString();
+        const auto group = file.value("group").toString();
+        const bool shardIndex = id == group && id.endsWith(".safetensors.index.json") && file.value("format").toString() == "asset";
+        if (excludedGroups.contains(group) && (file.value("optional").toBool() || shardIndex)) {
             file["status"] = "excluded"; file["reason"] = tr("Optional component excluded");
             removed += file.value("size").toDouble();
+            excludedFiles.insert(id);
         }
         if (file.value("status").toString() == "included") ++included;
         value = file;
     }
+    QVariantList visibleComponents;
     for (auto &value : components) {
         auto component = value.toMap();
-        if (m_excluded.contains(component.value("id").toString())) component["included"] = false;
+        if (excludedFiles.contains(component.value("id").toString())
+            && !component.value("optional").toBool()
+            && component.value("id").toString().endsWith(".safetensors.index.json")) continue;
+        if (excludedFiles.contains(component.value("id").toString())) component["included"] = false;
         if (component.value("included").toBool()) ++componentCount;
-        value = component;
+        visibleComponents.append(component);
     }
-    m_report["files"] = files; m_report["components"] = components;
+    m_report["files"] = files; m_report["components"] = visibleComponents;
     m_report["included_file_count"] = included; m_report["component_count"] = componentCount;
     m_report["estimated_size_bytes"] = std::max(0.0, m_scanned.value("estimated_size_bytes").toDouble() - removed);
 }
@@ -148,7 +415,8 @@ void ModelPackagingController::rebuildSelection()
 bool ModelPackagingController::createPackage(const QString &output)
 {
     if (m_busy) return false;
-    if (!m_report.value("ready").toBool()) return fail(tr("Inspect a complete model folder before packaging."));
+    if (assignmentsDirty()) return fail(tr("Apply model assignments before packaging."));
+    if (!m_report.value("ready").toBool()) return fail(tr("Inspect the selected models before packaging."));
     const QFileInfo target(output);
     if (output.isEmpty() || outputPathForName(target.fileName(), target.absolutePath()) != output)
         return fail(tr("Enter a valid model name and choose an output folder."));
@@ -180,14 +448,19 @@ bool ModelPackagingController::start(bool packaging, const QString &output)
     m_stop = std::make_shared<std::stop_source>();
     const auto stop = m_stop;
     const auto input = m_input;
+    const auto selected = m_selected;
     const auto excluded = m_excluded;
+    const auto assignments = m_assignments;
+    if (!packaging) m_inflightAssignments = assignments;
     const auto revision = ++m_revision;
     emit changed(); emit elapsedChanged();
-    m_watcher.setFuture(QtConcurrent::run([this, stop, input, excluded, output, packaging, revision] {
+    m_watcher.setFuture(QtConcurrent::run([this, stop, input, selected, excluded, assignments, output, packaging, revision] {
         QVariantMap result;
 #ifdef SOCIETY_HAS_MODEL_PACKAGING
         try {
-            const auto storage = packaging ? iiSocietyContainer::SharedStorage::open() : std::nullopt;
+            const auto storage = (packaging || !selected.isEmpty()) ? iiSocietyContainer::SharedStorage::open() : std::nullopt;
+            if (!selected.isEmpty() && (!storage || input != storage->drive().sectionPath(iiSocietyContainer::StoreSection::Models)))
+                throw std::runtime_error("The selected Society model library is no longer open.");
             QString staged = output, workspace;
             std::unique_ptr<iiFileProvider::TemporaryLease> lease;
             if (packaging) {
@@ -206,7 +479,15 @@ bool ModelPackagingController::start(bool packaging, const QString &output)
                     QDir(workspace).removeRecursively();
             });
             std::vector<std::string> exclusions;
-            for (const auto &file : excluded) exclusions.push_back(file.toStdString());
+            if (packaging) for (const auto &file : excluded) exclusions.push_back(file.toStdString());
+            std::vector<std::filesystem::path> selection;
+            for (const auto &file : selected) selection.emplace_back(file.toStdU16String());
+            std::vector<iild::ModelPackagingAssignment> choices;
+            for (auto it = assignments.cbegin(); it != assignments.cend(); ++it) {
+                const auto fields = it.value().toMap();
+                choices.push_back({std::filesystem::path(it.key().toStdU16String()),
+                    fields.value("role").toString().toStdString(), fields.value("position").toString().toStdString()});
+            }
             auto last = std::chrono::steady_clock::time_point{};
             std::string previousPhase;
             const auto observer = [this, revision, &last, &previousPhase](const iild::ModelPackagingProgress &value) {
@@ -222,9 +503,13 @@ bool ModelPackagingController::start(bool packaging, const QString &output)
                     emit changed();
                 }, Qt::QueuedConnection);
             };
-            const auto json = packaging
-                ? iild::createModelPackage(std::filesystem::path(input.toStdString()), std::filesystem::path(staged.toStdString()), exclusions, stop->get_token(), observer)
-                : iild::scanModelFolder(std::filesystem::path(input.toStdString()), exclusions, stop->get_token(), observer);
+            const auto source = std::filesystem::path(input.toStdU16String());
+            const auto target = std::filesystem::path(staged.toStdU16String());
+            const auto json = selected.isEmpty()
+                ? (packaging ? iild::createModelPackageWithAssignments(source, target, choices, exclusions, stop->get_token(), observer)
+                             : iild::scanModelFolderWithAssignments(source, choices, exclusions, stop->get_token(), observer))
+                : (packaging ? iild::createModelPackageFromSelectionWithAssignments(source, selection, target, choices, exclusions, stop->get_token(), observer)
+                             : iild::scanModelSelectionWithAssignments(source, selection, choices, exclusions, stop->get_token(), observer));
             QJsonParseError error;
             const auto document = QJsonDocument::fromJson(QByteArray::fromStdString(json), &error);
             if (error.error != QJsonParseError::NoError || !document.isObject())
@@ -266,12 +551,22 @@ void ModelPackagingController::finish()
         if (success) { m_report = result; m_report["output"] = m_requestedOutput; m_output = m_requestedOutput; m_phase = "complete"; m_progress = 1; }
         else { m_phase = "error"; m_error = tr("The SDK did not confirm a saved and verified model package."); }
     } else {
-        m_scanned = result; rebuildSelection(); m_phase = success ? "ready" : "error";
+        m_scanned = result; m_appliedAssignments = m_inflightAssignments;
+        for (const auto &value : m_scanned.value("files").toList()) {
+            const auto file = value.toMap();
+            if (!file.value("optional").toBool()) m_excluded.removeAll(file.value("id").toString());
+        }
+        rebuildSelection(); m_phase = success ? "ready" : "error";
         QStringList errors;
         for (const auto &error : result.value("errors").toList()) errors.append(error.toString());
         m_error = errors.join('\n');
     }
-    m_stop.reset(); emit changed(); emit elapsedChanged(); emit finished(success, m_packaging);
+    if (m_clearPending) {
+        m_clearPending = false; m_input.clear(); m_selected.clear(); m_scanned.clear(); m_report.clear(); m_excluded.clear();
+        m_assignments.clear(); m_appliedAssignments.clear();
+        success = false;
+    }
+    m_stop.reset(); emit assignmentsChanged(); emit changed(); emit elapsedChanged(); emit finished(success, m_packaging);
 }
 
 void ModelPackagingController::cancel()

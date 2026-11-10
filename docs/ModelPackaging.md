@@ -1,19 +1,44 @@
 # Model Packaging
 
 Tools → Model Packaging은 [Figma 297:511](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=297-511)을 기준으로 구현하였다.
-로컬 모델 폴더를 검증된 단일 `.safetensors` 파일로 패키징한다.
+Society 드라이브에서 선택한 모델과 구성요소 또는 로컬 모델 폴더를 검증된 단일
+`.safetensors` 파일로 패키징한다.
 넓은 화면에서는 Model merge 옆에 카드가 배치된다. 두 도구 모두 목록으로
 돌아가거나 앱 탭을 전환해도 입력과 작업 상태를 유지한다.
 
-원본 폴더 선택, 자동 감지된 구성요소 확인, 파일명과 저장 위치 지정 후
+Model Merge와 같은 저장소 목록을 사용하는 네이티브 선택 창에서 서로 다른 카테고리의
+원본 행을 선택하고 **Add or remove model**로 포함 여부를 바꾼 뒤
+**Use selected models**를 누르면 자동으로 검사한다. 선택 창에서는 기존 외부 폴더
+방식도 사용할 수 있다.
+드라이브를 열지 않았을 때는 기존 폴더 선택을 제공한다.
+자동 감지된 구성요소 확인, 파일명과 저장 위치 지정 후
 **Package model**을 실행한다. 컨테이너 기본 저장 위치는 `Models/Checkpoint`이다.
 **View all files and skipped reasons**에서 모든 입력과 제외 사유를 확인한다.
 선택 구성요소는 제외할 수 있으며 필수 구성요소는 제외할 수 없다.
 선택에 따라 파일·구성요소 수와 예상 크기가 갱신된다.
 원본 dtype과 GGUF 양자화를 유지하며 원본 파일은 읽기만 한다.
 
-본문은 설치된 LVRS의 Card, Label, ListItem, InputField, ToggleSwitch,
-ProgressBar와 버튼을 사용한다. Figma의 어두운 패널과 녹색 강조를 적용하였다.
+[Figma 수동 지정 설계](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=854-2)에
+따라 선택한 각 모델 파일의 Role과 Position을 별도로 지정할 수 있다. Role은 자동
+감지 또는 모델·텍스트 인코더·디코더 등으로 지정한다. Position의 Main은 패키지의
+주 모델이며 Component는 나머지 구성요소이다. 검사에 포함된 샤드 인덱스로 식별한
+파일은 하나의 모델로 취급하고 제외하거나 다시 포함할 때 인덱스와 모든 샤드를 함께
+다룬다. 개별 샤드만 선택하면 그룹을 식별할 수 없으므로 인덱스나 모델 디렉터리를
+함께 선택해야 한다. 같은 그룹의 자동 감지 역할이 일치하지 않으면 공통 역할을
+지정해야 한다. 여러 선택을 바꾼 뒤 **Apply assignments**를 누르면 비동기로 재검사하여
+실제 구성과 충돌을 다시 계산하며, 적용하지 않은 변경이 있으면 패키징할 수 없다.
+적용한 선택은 패키지 manifest에 저장되어 후속 보정에서도 유지된다. 역할 지정은
+해당 모델이 특정 추론 엔진과 호환된다는 보증은 아니다.
+진행, 감지된 파일과 완료 모달의 표면은 현재 ApplicationWindow의 불투명 배경색을
+따른다. 창의 악센트나 배경색이 바뀌면 모달도 함께 갱신하며, 본문의 일반 패널은
+기존 투명 표면을 유지한다.
+저장소 선택은 선택된 파일 또는 모델 디렉터리만 직접 읽으며 다른 파일이나 내부
+`.iisacc.json`을 포함하지 않는다. 선택 중인 드라이브가 바뀌거나 원본이 사라지면
+이전 검사로 패키징하지 않는다. 이동식·원격 저장소의 실제 가용성이 없으면 검사가 실패한다.
+
+기존 패키징 화면은 LVRS를 사용한다. 새 선택 창은 Figma 설계를 기준으로 LVUI의
+네이티브 List와 버튼을 사용하며 독립 뷰모델을 갖는다. 기존 Qt 창과 iiGUI 창은
+각각의 프로세스에서 실행한다. 자세한 경계는 [선택기 명세](ModelPackagingNativeChooser.md)를 따른다.
 1440 px 화면의 사이드바는 228 px, 콘텐츠 여백은 32 px, 열 간격은 24 px,
 출력 열은 348 px이다. 좁은 화면에서는 사이드바를 숨기고 하나의 스크롤 열로
 배치한다. 탐색 개수는 실제 구현된 도구 두 개를 반영한다.
@@ -23,6 +48,15 @@ ProgressBar와 버튼을 사용한다. Figma의 어두운 패널과 녹색 강�
 `iiLocalDiffusion::ModelPackaging` 모듈이 형식 검사, 스트리밍 복사, SHA-256 검사,
 원본 복원과 원자적 저장을 담당한다. macOS 빌드는 해당 SDK 모듈을 필수로
 요구한다. 모듈이 없는 다른 플랫폼 빌드는 이용 불가 상태를 표시하고 실행을 막는다.
+
+macOS 앱은 `resources/dependencies/macos-runtime/iiLocalDiffusion-apple`에 준비된
+SDK 스냅샷의 헤더와 정적 라이브러리를 함께 사용한다. 패키징 SDK를 수정한 뒤에는
+`SDK/iiLocalDiffusion/build/`에서 `iiModelPackaging`을 빌드하고 해당 스냅샷의
+`include/ModelPackaging/ModelPackaging.hpp`와 `lib/libiiModelPackaging.a`를 같은
+빌드의 산출물로 갱신한 다음 Society를 다시 빌드한다. 컨트롤러 컴파일은 연결한
+SDK의 헤더를 우선하여 개발 환경 `CPATH`의 오래된 헤더와 섞이지 않도록 한다.
+모델 보정 도구가 수동 지정값을 보존하도록 `resources/dependencies/model-calibrator-iild`의
+동일 헤더·라이브러리 스냅샷도 함께 갱신한다.
 
 검사는 Safetensors/GGUF 구조, 샤드 인덱스와 필수 구성요소를 확인한다.
 중복 VAE·projection은 shape, dtype과 실제 내용이 모두 일치해야 제외한다.
@@ -51,6 +85,8 @@ ctest --test-dir build -R 'Society\.(ModelPackaging|Drive|MacRuntimeLaunch)$' --
 ```
 
 `Society.ModelPackaging`은 실제 소형 모델 형식을 네이티브 컨트롤러로 처리하여
+서로 다른 카테고리의 선택, GGUF, 내부 메타데이터 제외, 선택 결과의 검사와 드라이브
+변경 시 이전 검사 무효화 및
 선택 구성요소, 필수 구성요소 누락, 이식 가능한 파일명, 비로컬 URL 차단,
 취소 정리, 검증된 출력, 덮어쓰기 방지, QML 조작과 360 px 반응형 배치를 검사한다.
 SDK 테스트는 샤드 체크포인트, 바이트 단위 원본 복원, 손상과 텐서 충돌도 검사한다.

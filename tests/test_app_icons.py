@@ -5,10 +5,14 @@ from pathlib import Path
 import struct
 import subprocess
 import tempfile
+import os
+import sys
 import unittest
 import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT.parent.parent / 'SDK/iiFileProvider/python'))
+import ii_file_provider as fp
 ICONS = ROOT / 'resources/Appicon/generated'
 
 
@@ -87,12 +91,12 @@ class AppIconsTest(unittest.TestCase):
         self.assertEqual({s['purpose'] for s in manifest['icons']}, {'any', 'maskable'})
 
     def test_web_packaging_preserves_the_app_and_is_repeatable(self):
-        build = ROOT / 'build'
-        build.mkdir(exist_ok=True)
-        with tempfile.TemporaryDirectory(prefix='icon-web-', dir=build) as temporary:
+        fixture_root = Path(os.environ.get('SOCIETY_TEST_OUTPUT_DIR', ROOT / 'resources/.state'))
+        fp.mkdir(fixture_root, parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory(prefix='icon-web-', dir=fixture_root) as temporary:
             output = Path(temporary)
             page = output / 'Society.html'
-            page.write_text('<!doctype html><html><head><title>Society</title></head>'
+            fp.write_text(page, '<!doctype html><html><head><title>Society</title></head>'
                             '<body><script src="Society.js"></script></body></html>')
             command = ['cmake', f'-DSOCIETY_WEB_OUTPUT={output}',
                        f'-DSOCIETY_WEB_ICONS={ICONS / "web"}', '-P', str(ROOT / 'cmake/WebIcons.cmake')]

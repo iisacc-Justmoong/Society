@@ -1,20 +1,8 @@
-#include <iiFileProviderDevice.h>
 #include "ModelImporter.h"
-
-#include <SocietyDrive.h>
-#include <SharedStorage.h>
-#include <ModelStore.h>
-#include <TemporaryLease.h>
-#include <QDateTime>
 #include <QDir>
-#include <QElapsedTimer>
 #include <QFileInfo>
-#include <QSet>
-#include <QTimer>
+#include <QJsonArray>
 #include <algorithm>
-#include <exception>
-#include <filesystem>
-#include <optional>
 #ifdef Q_OS_ANDROID
 #include <AndroidStorage.h>
 #endif
@@ -24,9 +12,6 @@
 #endif
 
 namespace {
-using iiSocietyContainer::SocietyDrive;
-using iiSocietyContainer::StoreSection;
-
 bool isModelUrl(const QUrl &url)
 {
 #ifdef Q_OS_ANDROID
@@ -43,102 +28,98 @@ bool isModelUrl(const QUrl &url)
             || suffix.compare("safetensors", Qt::CaseInsensitive) == 0);
 }
 
-struct ImportResult {
-    QStringList paths;
-    QStringList errors;
-    QString lastCopiedPath;
-    int copied = 0;
-    int existing = 0;
-};
+}
 
-QString publishCopy(iiFileProvider::TemporaryFile &copy, const QString &directory, const QString &name)
+ModelImporter::ModelImporter(QObject *parent) : iiSocietyContainer::ModelImportService(parent)
 {
-    const QFileInfo original(name);
-    for (int index = 0; index < 10000; ++index) {
-        const auto candidate = QDir(directory).filePath(index == 0 ? name
-            : QString("%1 (%2).%3").arg(original.completeBaseName()).arg(index).arg(original.suffix()));
-        const QFileInfo destination(candidate);
-        if (destination.exists() || destination.isSymLink())
-            continue;
-        // iiFileProvider::TemporaryFile only renames on the same filesystem and never overwrites.
-        // The final filename becomes visible only after the complete copy is flushed.
-        if (copy.rename(candidate)) {
-            copy.setAutoRemove(false);
-            return candidate;
+    connect(&m_backend, &ModelBackendClient::connectedChanged, this, [this] {
+        if (m_backendManaged && !m_backend.connected()) {
+            m_backendState = {};
+            if (m_backendError.isEmpty()) {
+                m_backendError = tr("The Society background service disconnected. Reconnecting…");
+                m_connectionError = true;
+            }
+            emit stateChanged(); emit jobsChanged();
         }
-        const QFileInfo racedDestination(candidate);
-        if (!racedDestination.exists() && !racedDestination.isSymLink())
-            return {};
-    }
-    return {};
-}
-}
-
-ModelImporter::ModelImporter(QObject *parent) : QObject(parent)
-{
+        emit backendConnectedChanged();
+    });
+    connect(&m_backend, &ModelBackendClient::pendingChanged, this, &ModelImporter::stateChanged);
+    connect(&m_backend, &ModelBackendClient::requestError, this, [this](const QString &error) {
+        m_connectionError = false; m_backendError = error; emit stateChanged();
+    });
+    connect(&m_backend, &ModelBackendClient::stateReceived, this, [this](const QJsonObject &state) {
+        if (m_connectionError) { m_connectionError = false; m_backendError.clear(); }
+        m_backendState = state; emit stateChanged(); emit jobsChanged();
+    });
+    connect(&m_backend, &ModelBackendClient::eventReceived, this, [this](const QJsonObject &event) {
+        const auto type = event.value("type").toString();
+        const auto root = event.value("container").toString();
+        if (type == "finished" || type == "organized") {
+            QStringList paths;
+            for (const auto &path : event.value("paths").toArray()) paths.append(path.toString());
+            if (type == "finished") emit finished(root, paths); else emit organized(root, paths);
+        } else if (type == "recategorized") {
+            emit recategorized(root, event.value("previousPath").toString(), event.value("path").toString());
+        }
+    });
 #ifdef Q_OS_IOS
     observeIosImportLifecycle(this);
 #endif
 }
-ModelImporter::~ModelImporter()
+
+void ModelImporter::setBackendManaged(bool managed)
 {
-    cancel();
-    if (m_worker) {
-        m_worker->wait();
-        delete m_worker;
+    if (m_backendManaged == managed) return;
+    if (busy() || organizing()) {
+        inputError(tr("Wait for the current model operation before changing its owner.")); return;
     }
+    const auto path = containerPath();
+    if (managed) iiSocietyContainer::ModelImportService::setContainerPath({});
+    else m_backend.stop();
+    m_backendManaged = managed; m_containerPath = path; m_backendState = {}; m_backendError.clear(); m_connectionError = false;
+    if (managed) { m_backend.setContainerPath(path); m_backend.start(); }
+    else iiSocietyContainer::ModelImportService::setContainerPath(path);
+    emit backendManagedChanged(); emit backendConnectedChanged(); emit stateChanged(); emit jobsChanged();
 }
-QString ModelImporter::containerPath() const { return m_containerPath; }
+QString ModelImporter::containerPath() const { return m_backendManaged ? m_containerPath : iiSocietyContainer::ModelImportService::containerPath(); }
 void ModelImporter::setContainerPath(const QString &path)
 {
-    if (m_containerPath == path)
-        return;
-    cancel();
-    m_containerPath = path;
-    m_needsOrganization = !path.isEmpty();
-    if (!busy()) {
-        m_status.clear();
-        m_error.clear();
-        emit stateChanged();
-    }
-    emit containerPathChanged();
-    QTimer::singleShot(0, this, [this] { if (m_needsOrganization && !busy()) organizeModels(); });
+    if (!m_backendManaged) { iiSocietyContainer::ModelImportService::setContainerPath(path); return; }
+    if (m_containerPath == path) return;
+    m_containerPath = path; m_backendState = {}; m_backendError.clear(); m_connectionError = false;
+    m_backend.setContainerPath(path);
+    emit containerPathChanged(); emit stateChanged(); emit jobsChanged();
 }
-
-bool ModelImporter::organizeModels()
+bool ModelImporter::busy() const { return m_backendManaged ? m_backend.pendingMutation() || m_backendState.value("busy").toBool() : iiSocietyContainer::ModelImportService::busy(); }
+bool ModelImporter::organizing() const { return m_backendManaged ? m_backendState.value("organizing").toBool() : iiSocietyContainer::ModelImportService::organizing(); }
+double ModelImporter::progress() const { return m_backendManaged ? m_backendState.value("progress").toDouble() : iiSocietyContainer::ModelImportService::progress(); }
+QString ModelImporter::status() const { return m_backendManaged ? m_backendState.value("status").toString() : iiSocietyContainer::ModelImportService::status(); }
+QString ModelImporter::errorString() const { return m_backendManaged ? (m_backendError.isEmpty() ? m_backendState.value("errorString").toString() : m_backendError) : iiSocietyContainer::ModelImportService::errorString(); }
+bool ModelImporter::choosingFiles() const { return m_backendManaged ? false : iiSocietyContainer::ModelImportService::choosingFiles(); }
+QString ModelImporter::currentJobId() const { return m_backendManaged ? m_backendState.value("currentJobId").toString() : iiSocietyContainer::ModelImportService::currentJobId(); }
+QString ModelImporter::selectedJobId() const { return m_backendManaged ? m_backendState.value("selectedJobId").toString() : iiSocietyContainer::ModelImportService::selectedJobId(); }
+QVariantList ModelImporter::jobs() const { return m_backendManaged ? m_backendState.value("jobs").toArray().toVariantList() : iiSocietyContainer::ModelImportService::jobs(); }
+QVariantList ModelImporter::jobItems() const { return m_backendManaged ? m_backendState.value("jobItems").toArray().toVariantList() : iiSocietyContainer::ModelImportService::jobItems(); }
+bool ModelImporter::hasMoreJobItems() const { return m_backendManaged ? m_backendState.value("hasMoreJobItems").toBool() : iiSocietyContainer::ModelImportService::hasMoreJobItems(); }
+QString ModelImporter::jobsError() const { return m_backendManaged ? m_backendState.value("jobsError").toString() : iiSocietyContainer::ModelImportService::jobsError(); }
+void ModelImporter::inputError(const QString &error)
 {
-    if (busy() || choosingFiles() || m_containerPath.isEmpty()) return false;
-    const auto root = m_containerPath;
-    m_needsOrganization = false;
-    m_cancelled = std::make_shared<std::atomic_bool>(false);
-    const auto cancelled = m_cancelled;
-    const auto report = std::make_shared<iiSocietyContainer::ModelOrganization>();
-    m_progress = 0;
-    m_error.clear();
-    m_status = tr("Organizing models by type…");
-    m_worker = QThread::create([root, report, cancelled] {
-        QString error;
-        const auto store = iiSocietyContainer::ModelStore::open(root, &error);
-        if (store) *report = store->organize(cancelled.get());
-        else report->errors.append(error);
-    });
-    connect(m_worker, &QThread::finished, this, [this, root, report] {
-        m_worker->deleteLater(); m_worker = nullptr; m_cancelled.reset();
-        m_error = report->errors.join('\n');
-        m_progress = report->cancelled ? 0 : 1;
-        m_status = report->cancelled ? tr("Model organization cancelled.") : tr("Organized %1 model(s) by type.").arg(report->moved.size());
-        QStringList paths;
-        for (const auto &move : report->moved) paths.append(move.path);
-        emit stateChanged();
-        emit organized(root, paths);
-        if (m_needsOrganization) QTimer::singleShot(0, this, [this] { organizeModels(); });
-    });
-    m_worker->start(); emit stateChanged(); return true;
+    if (m_backendManaged) { m_connectionError = false; m_backendError = error; emit stateChanged(); }
+    else reportInputError(error);
 }
-bool ModelImporter::busy() const { return m_worker != nullptr; }
-double ModelImporter::progress() const { return m_progress; }
-QString ModelImporter::status() const { return m_status; }
-QString ModelImporter::errorString() const { return m_error; }
+bool ModelImporter::backendRequest(const QString &operation, QJsonObject arguments, bool mutation)
+{
+    if (mutation) { m_connectionError = false; m_backendError.clear(); }
+    return m_backend.request(operation, std::move(arguments), mutation);
+}
+void ModelImporter::cancel() { if (m_backendManaged) backendRequest("cancel", {}, true); else iiSocietyContainer::ModelImportService::cancel(); }
+bool ModelImporter::organizeModels() { return m_backendManaged ? backendRequest("organize", {}, true) : iiSocietyContainer::ModelImportService::organizeModels(); }
+bool ModelImporter::recategorize(const QString &path, const QString &category) { return m_backendManaged ? backendRequest("recategorize", {{"path", path}, {"category", category}}, true) : iiSocietyContainer::ModelImportService::recategorize(path, category); }
+void ModelImporter::refreshJobs() { if (m_backendManaged) backendRequest("refreshJobs"); else iiSocietyContainer::ModelImportService::refreshJobs(); }
+void ModelImporter::selectJob(const QString &jobId) { if (m_backendManaged) backendRequest("selectJob", {{"jobId", jobId}}); else iiSocietyContainer::ModelImportService::selectJob(jobId); }
+void ModelImporter::loadMoreJobItems() { if (m_backendManaged) backendRequest("loadMoreJobItems"); else iiSocietyContainer::ModelImportService::loadMoreJobItems(); }
+bool ModelImporter::retryFailed(const QString &jobId) { return m_backendManaged ? backendRequest("retryFailed", {{"jobId", jobId}}, true) : iiSocietyContainer::ModelImportService::retryFailed(jobId); }
+
 bool ModelImporter::nativeDragActive() const { return m_nativeDragActive; }
 void ModelImporter::setNativeDragActive(bool active)
 {
@@ -157,20 +138,12 @@ void ModelImporter::attachWindow(QWindow *window)
 #endif
 }
 
-void ModelImporter::setChoosingFiles(bool choosing)
-{
-    if (m_choosingFiles == choosing) return;
-    m_choosingFiles = choosing;
-    emit stateChanged();
-}
-
 bool ModelImporter::chooseFiles()
 {
-    if (busy() || choosingFiles() || m_containerPath.isEmpty()) return false;
+    if (busy() || choosingFiles() || containerPath().isEmpty()) return false;
 #ifdef Q_OS_IOS
     if (presentIosModelPicker(m_window, this)) return true;
-    m_error = tr("Open Society's window to choose model files.");
-    emit stateChanged();
+    inputError(tr("Open Society's window to choose model files."));
 #endif
     return false;
 }
@@ -178,22 +151,27 @@ bool ModelImporter::chooseFiles()
 bool ModelImporter::accepts(const QList<QUrl> &urls) const
 {
     // Drag hover only classifies names. Filesystem validation runs off the GUI thread.
-    return !busy() && !choosingFiles() && !m_containerPath.isEmpty() && !urls.isEmpty()
+    return !busy() && !choosingFiles() && !containerPath().isEmpty() && !urls.isEmpty()
         && std::all_of(urls.cbegin(), urls.cend(), isModelUrl);
 }
 
 bool ModelImporter::importFiles(const QList<QUrl> &urls)
 {
-    if (busy())
+    if (busy()) {
+        inputError(tr("Another model operation is running. Try again when it finishes."));
         return false;
+    }
     if (!accepts(urls)) {
-        m_error = m_containerPath.isEmpty() ? tr("Open a Society drive before importing models.")
-            : tr("Drop local .safetensor or .safetensors files. Other file types are not supported yet.");
-        m_status.clear();
-        emit stateChanged();
+        inputError(containerPath().isEmpty() ? tr("Open a Society drive before importing models.")
+            : tr("Drop local .safetensor or .safetensors files. Other file types are not supported yet."));
         return false;
     }
 
+    if (m_backendManaged) {
+        QJsonArray paths;
+        for (const auto &url : urls) paths.append(url.toLocalFile());
+        return backendRequest("import", {{"sources", paths}}, true);
+    }
     QList<ModelImportSource> sources;
     for (const auto &url : urls) {
 #ifdef Q_OS_ANDROID
@@ -209,220 +187,7 @@ bool ModelImporter::importFiles(const QList<QUrl> &urls)
         sources.append({QFileInfo(path).fileName(), [path](const auto &consume, const auto &) {
             consume(path);
             return QString();
-        }});
+        }, path});
     }
     return importSources(sources);
-}
-
-bool ModelImporter::importSources(const QList<ModelImportSource> &sources)
-{
-    if (busy() || choosingFiles() || m_containerPath.isEmpty() || sources.isEmpty())
-        return false;
-    for (const auto &source : sources) {
-        if (!source.read || QFileInfo(source.name).fileName() != source.name
-            || !isModelUrl(QUrl::fromLocalFile(QDir(m_containerPath).filePath(source.name)))) {
-            m_error = tr("The file provider must supply a .safetensor or .safetensors filename.");
-            emit stateChanged();
-            return false;
-        }
-    }
-
-    const auto root = m_containerPath;
-    const bool organizeFirst = m_needsOrganization;
-    m_needsOrganization = false;
-    const auto result = std::make_shared<ImportResult>();
-    const auto cancelled = std::make_shared<std::atomic_bool>(false);
-    m_cancelled = cancelled;
-    m_recordingCancellation = std::stop_source{};
-    const auto recordingStop = m_recordingCancellation.get_token();
-    m_progress = 0;
-    m_error.clear();
-    m_status = tr("Preparing models…");
-    m_worker = QThread::create([this, root, sources, result, cancelled, organizeFirst, recordingStop] {
-        QString driveError;
-        const auto drive = SocietyDrive::open(root, &driveError);
-        if (!drive) {
-            result->errors.append(driveError);
-            return;
-        }
-        const auto models = drive->sectionPath(StoreSection::Models);
-        const auto storage = iiSocietyContainer::SharedStorage::open(root, &driveError);
-        if (!storage) { result->errors.append(driveError); return; }
-        const auto store = iiSocietyContainer::ModelStore::open(root, &driveError);
-        if (!store || !store->ensureLayout(&driveError)) { result->errors.append(driveError); return; }
-        if (organizeFirst) {
-            const auto organized = store->organize(cancelled.get());
-            if (!organized.errors.isEmpty()) { result->errors.append(organized.errors); return; }
-        }
-        QSet<QString> seen;
-        qsizetype completed = 0;
-        QElapsedTimer throttle;
-        throttle.start();
-        const auto reportProgress = [&](const QString &name, double fileProgress, bool force = false) {
-            if (!force && throttle.elapsed() < 80)
-                return;
-            throttle.restart();
-            const double fraction = std::clamp((completed + fileProgress) / sources.size(), 0.0, 1.0);
-            QMetaObject::invokeMethod(this, [this, name, fraction] {
-                m_progress = fraction;
-                m_status = tr("Copying %1 to Models… %2%").arg(name).arg(qRound(fraction * 100));
-                emit stateChanged();
-            }, Qt::QueuedConnection);
-        };
-        QByteArray buffer(1024 * 1024, Qt::Uninitialized);
-        for (const auto &entry : sources) {
-            if (cancelled->load())
-                break;
-            // Native providers may need to download or materialize a file first.
-            QMetaObject::invokeMethod(this, [this, name = entry.name] {
-                m_status = tr("Preparing %1…").arg(name);
-                emit stateChanged();
-            }, Qt::QueuedConnection);
-            const auto readError = entry.read([&](const QString &path) {
-                QString actualPath = path;
-                if (actualPath.startsWith(models + '/') && !QFileInfo::exists(actualPath)) {
-                    const auto resolved = store->resolve(QDir(models).relativeFilePath(actualPath));
-                    if (!resolved.isEmpty()) actualPath = resolved;
-                }
-                const QFileInfo input(actualPath);
-                const QString name = entry.name;
-                bool content = false;
-#ifdef Q_OS_ANDROID
-                content = QUrl(path).scheme() == "content";
-#endif
-                if (!isModelUrl(QUrl::fromLocalFile(QDir(models).filePath(name)))
-                    || QFileInfo(name).fileName() != name || (!content && (!input.isFile()
-                    || input.isSymLink() || !input.isReadable()))) {
-                    result->errors.append(tr("%1: the source must be a readable .safetensor or .safetensors file.").arg(name));
-                    return;
-                }
-                if (cancelled->load())
-                    return;
-                if (!content) {
-                    const auto validation = iiSocietyContainer::ModelClassifier::validateSafetensors(actualPath);
-                    if (!validation.isEmpty()) {
-                        result->errors.append(tr("%1: incomplete or invalid model (%2). Download the complete file and try again.").arg(name, validation));
-                        return;
-                    }
-                }
-                const auto canonical = content ? path : input.canonicalFilePath();
-                if (seen.contains(canonical))
-                    return;
-                seen.insert(canonical);
-                // Revalidate the original drive identity and section paths before each write.
-                if (!drive->isValid()) {
-                    result->errors.append(tr("The Society drive changed or Models is unavailable."));
-                    return;
-                }
-                if (canonical.startsWith(models + '/')) {
-                    QString error;
-                    const auto placed = store->place(canonical, {}, &error);
-                    if (placed.isEmpty()) result->errors.append(error);
-                    else if (!storage->recordFile(StoreSection::Models, QDir(models).relativeFilePath(placed), &error, {}, recordingStop)) result->errors.append(error);
-                    else { result->paths.append(placed); ++result->existing; }
-                    return;
-                }
-                iiFileProvider::FileDevice source(content ? path : input.absoluteFilePath());
-                std::optional<iiFileProvider::TemporaryLease> activity;
-                try {
-                    activity.emplace(std::filesystem::path(models.toStdU16String()),
-                        iiFileProvider::TemporaryLease::Mode::Shared);
-                } catch (const std::exception &failure) {
-                    result->errors.append(tr("%1: %2").arg(name, QString::fromUtf8(failure.what())));
-                    return;
-                }
-                iiFileProvider::TemporaryFile copy(QDir(models).filePath(".society-import-XXXXXX"));
-                if (!source.open(QIODevice::ReadOnly) || !copy.open()) {
-                    result->errors.append(tr("%1: %2").arg(name, source.isOpen() ? copy.errorString() : source.errorString()));
-                    return;
-                }
-                QString error;
-                qint64 copied = 0;
-                reportProgress(name, 0, true);
-                while (!cancelled->load()) {
-                    const auto count = source.read(buffer.data(), buffer.size());
-                    if (count < 0) {
-                        error = source.errorString();
-                        break;
-                    }
-                    if (count == 0)
-                        break;
-                    qint64 written = 0;
-                    while (written < count) {
-                        const auto chunk = copy.write(buffer.constData() + written, count - written);
-                        if (chunk <= 0) {
-                            error = copy.errorString();
-                            break;
-                        }
-                        written += chunk;
-                    }
-                    if (!error.isEmpty())
-                        break;
-                    copied += count;
-                    reportProgress(name, input.size() > 0 ? double(copied) / input.size() : 0);
-                }
-                if (cancelled->load())
-                    return;
-                if (error.isEmpty() && (copied != input.size()
-                    || QFileInfo(source).lastModified() != input.lastModified()))
-                    error = tr("The source changed while it was being copied. Try importing it again.");
-                if (error.isEmpty() && !copy.flush())
-                    error = copy.errorString();
-                if (error.isEmpty())
-                    error = iiSocietyContainer::ModelClassifier::validateSafetensors(copy.fileName());
-                if (error.isEmpty() && !drive->isValid())
-                    error = tr("The Society drive changed while the model was being copied.");
-                if (error.isEmpty()) {
-                    const auto classification = iiSocietyContainer::ModelClassifier::classify(content ? copy.fileName() : input.absoluteFilePath(), name);
-                    const auto category = store->categoryPath(classification.type, &error);
-                    const auto destination = category.isEmpty() ? QString() : publishCopy(copy, category, name);
-                    if (destination.isEmpty())
-                        error = tr("Could not save a complete model without replacing an existing item: %1").arg(copy.errorString());
-                    else {
-                        if (!storage->recordFile(StoreSection::Models, QDir(models).relativeFilePath(destination), &error, {}, recordingStop)) {
-                            result->errors.append(tr("%1 was saved; its managed index needs retry: %2").arg(name, error));
-                            return;
-                        }
-                        result->paths.append(destination);
-                        result->lastCopiedPath = destination;
-                        ++result->copied;
-                    }
-                }
-                if (!error.isEmpty())
-                    result->errors.append(tr("%1: %2").arg(name, error));
-            }, cancelled);
-            if (!readError.isEmpty() && !cancelled->load())
-                result->errors.append(tr("%1: %2").arg(entry.name, readError));
-            ++completed;
-        }
-    });
-    connect(m_worker, &QThread::finished, this, [this, root, result, cancelled] {
-        m_worker->deleteLater();
-        m_worker = nullptr;
-        m_cancelled.reset();
-        m_error = result->errors.join('\n');
-        if (cancelled->load())
-            m_status = tr("Import cancelled. %1 model(s) copied to Models.").arg(result->copied);
-        else if (result->copied == 0 && result->existing > 0)
-            m_status = tr("%1 model(s) already in Models.").arg(result->existing);
-        else if (result->copied == 1)
-            m_status = tr("Imported %1 to Models.").arg(QFileInfo(result->lastCopiedPath).fileName());
-        else
-            m_status = tr("%1 model(s) imported to Models.").arg(result->copied);
-        if (!cancelled->load() && m_error.isEmpty())
-            m_progress = 1;
-        emit stateChanged();
-        emit finished(root, result->paths);
-        if (m_needsOrganization) QTimer::singleShot(0, this, [this] { organizeModels(); });
-    });
-    m_worker->start();
-    emit stateChanged();
-    return true;
-}
-
-void ModelImporter::cancel()
-{
-    m_recordingCancellation.request_stop();
-    if (m_cancelled)
-        m_cancelled->store(true);
 }

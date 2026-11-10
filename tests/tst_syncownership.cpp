@@ -7,10 +7,34 @@
 #include <QTextStream>
 #include <QTemporaryDir>
 #include <QTest>
+#include <QElapsedTimer>
+#include <QSemaphore>
+#include <QScopeGuard>
+#include <atomic>
 
 class SyncOwnershipTests : public QObject {
     Q_OBJECT
 private slots:
+    void destroyingAnOwnerDoesNotWaitForAnInFlightValidation() {
+        QTemporaryDir root(SOCIETY_TEST_DIRECTORY "/sync-slow-validation-XXXXXX.societycontainer");
+        QVERIFY(iiSocietyContainer::SocietyDrive::create(root.path()));
+        qputenv("SOCIETY_CONTAINER_PATH", root.path().toUtf8());
+        auto entered = std::make_shared<QSemaphore>();
+        auto release = std::make_shared<QSemaphore>();
+        auto finished = std::make_shared<std::atomic_bool>(false);
+        const auto unblock = qScopeGuard([release] { release->release(); });
+        auto owner = std::make_unique<SyncOwnership>(root.filePath(".society-runtime/sync"), true, nullptr,
+            [entered, release, finished](const QString &) {
+                entered->release(); release->acquire(); *finished = true; return true;
+            });
+        QVERIFY(owner->start());
+        QTRY_VERIFY_WITH_TIMEOUT(entered->available() > 0, 3000);
+        QElapsedTimer elapsed; elapsed.start();
+        owner.reset();
+        QVERIFY2(elapsed.elapsed() < 500, "Owner destruction waited for storage validation");
+        release->release();
+        QTRY_VERIFY_WITH_TIMEOUT(finished->load(), 3000);
+    }
     void selectingAnotherRuntimeReleasesThePreviousContainerLease() {
         QTemporaryDir parent(SOCIETY_TEST_DIRECTORY "/sync-container-switch-XXXXXX");
         const auto firstRoot = parent.filePath("first.societycontainer");
@@ -40,6 +64,21 @@ private slots:
         SyncOwnership daemon(runtime, false); QVERIFY(daemon.start()); QVERIFY(!daemon.owned());
         gui.kill(); QVERIFY(gui.waitForFinished(3000));
         QTRY_VERIFY_WITH_TIMEOUT(daemon.owned(), 1500);
+    }
+    void finalExitRetainsTheLeaseUntilTheProcessHasEnded() {
+        QTemporaryDir directory(SOCIETY_TEST_DIRECTORY "/sync-owner-exit-XXXXXX.societycontainer");
+        QVERIFY(iiSocietyContainer::SocietyDrive::create(directory.path()));
+        qputenv("SOCIETY_CONTAINER_PATH", directory.path().toUtf8());
+        const auto runtime = directory.filePath(".society-runtime/sync");
+        QProcess gui;
+        gui.start(QCoreApplication::applicationFilePath(), {"--retire-foreground", runtime});
+        QVERIFY(gui.waitForStarted()); QVERIFY(gui.waitForReadyRead(3000));
+        QVERIFY(gui.readAllStandardOutput().contains("retired"));
+        SyncOwnership daemon(runtime, false); QVERIFY(daemon.start());
+        QVERIFY(!daemon.owned());
+        QVERIFY(gui.state() != QProcess::NotRunning);
+        QVERIFY(gui.waitForFinished(7000)); QCOMPARE(gui.exitCode(), 0);
+        QTRY_VERIFY_WITH_TIMEOUT(daemon.owned(), 3000);
     }
     void foregroundTakesOverAndDaemonResumesWithoutOverlappingOwners() {
         QTemporaryDir directory(SOCIETY_TEST_DIRECTORY "/sync-owner-XXXXXX.societycontainer");
@@ -78,10 +117,18 @@ private slots:
 };
 int main(int argc, char **argv) {
     QCoreApplication app(argc, argv);
-    if (app.arguments().size() == 3 && app.arguments()[1] == "--hold-foreground") {
+    if (app.arguments().size() == 3 && (app.arguments()[1] == "--hold-foreground"
+                                        || app.arguments()[1] == "--retire-foreground")) {
         SyncOwnership owner(app.arguments()[2], true);
-        QObject::connect(&owner, &SyncOwnership::ownershipChanged, &app, [](bool active) { if (active) QTextStream(stdout) << "owned" << Qt::endl; });
+        if (app.arguments()[1] == "--hold-foreground")
+            QObject::connect(&owner, &SyncOwnership::ownershipChanged, &app, [](bool active) { if (active) QTextStream(stdout) << "owned" << Qt::endl; });
         if (!owner.start()) return 1;
+        if (app.arguments()[1] == "--retire-foreground") {
+            owner.retainUntilProcessExit();
+            if (owner.start() || owner.setDirectory(app.arguments()[2])) return 3;
+            QTextStream(stdout) << "retired" << Qt::endl;
+            QTimer::singleShot(4000, &app, &QCoreApplication::quit);
+        }
         return app.exec();
     }
     SyncOwnershipTests tests; return QTest::qExec(&tests, argc, argv);

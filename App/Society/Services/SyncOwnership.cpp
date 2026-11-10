@@ -3,18 +3,23 @@
 #include "ContainerRuntimePath.h"
 #include <QJsonDocument>
 #include <QJsonObject>
-SyncOwnership::SyncOwnership(QString directory, bool foreground, QObject *parent)
-    : QObject(parent), m_directory(std::move(directory)), m_foreground(foreground) {
+#include <QPromise>
+#include <thread>
+SyncOwnership::SyncOwnership(QString directory, bool foreground, QObject *parent, Validator validator)
+    : QObject(parent), m_directory(std::move(directory)), m_foreground(foreground),
+      m_validator(validator ? std::move(validator) : Validator(societyContainerRuntimePath)) {
     m_timer.setInterval(250);
     connect(&m_timer, &QTimer::timeout, this, &SyncOwnership::reconcile);
 }
 SyncOwnership::~SyncOwnership() { stop(); }
 bool SyncOwnership::setDirectory(const QString &directory) {
+    if (m_retired) return false;
     if (m_directory == directory && m_timer.isActive()) return true;
     stop(); m_directory = directory;
     return !m_directory.isEmpty() && start();
 }
 bool SyncOwnership::start() {
+    if (m_retired) return false;
     if (m_timer.isActive()) return true;
     if (!societyContainerRuntimePath(m_directory) || m_directory.isEmpty() || !iiFileProvider::Directory::isAbsolutePath(m_directory) || QFileInfo(m_directory).isSymLink()
         || !iiFileProvider::Directory().mkpath(m_directory) || !iiFileProvider::FileDevice::setPermissions(m_directory, iiFileProvider::FileDevice::ReadOwner | iiFileProvider::FileDevice::WriteOwner | iiFileProvider::FileDevice::ExeOwner)) {
@@ -35,19 +40,41 @@ void SyncOwnership::stop() {
     ++m_generation;
     m_timer.stop(); release(); m_owner.reset(); m_priority.reset();
 }
+void SyncOwnership::retainUntilProcessExit() {
+    if (m_retired) return;
+    m_retired = true;
+    ++m_generation;
+    m_timer.stop();
+    m_owned = false;
+    // QLockFile owns a PID-marked on-disk lease. Releasing it while an async
+    // sync worker is still draining would admit another writer too early.
+    // Keep locked objects alive for the remaining process lifetime; the next
+    // process recovers their stale markers once this PID has actually exited.
+    if (m_owner && m_owner->isLocked()) (void)m_owner.release();
+    else m_owner.reset();
+    if (m_priority && m_priority->isLocked()) (void)m_priority.release();
+    else m_priority.reset();
+}
 void SyncOwnership::reconcile() {
-    if (m_validation.valid()) {
-        if (m_validation.wait_for(std::chrono::seconds(0)) != std::future_status::ready) return;
-        const bool valid = m_validation.get();
+    if (m_validating) {
+        if (!m_validation.isFinished()) return;
+        const bool valid = m_validation.result();
+        m_validating = false;
         if (m_validationGeneration == m_generation) {
             if (!valid) { stop(); return; }
             updateOwnership();
         }
     }
     m_validationGeneration = m_generation;
-    m_validation = std::async(std::launch::async, [directory = m_directory] {
-        return societyContainerRuntimePath(directory);
-    });
+    m_validating = true;
+    auto promise = std::make_shared<QPromise<bool>>();
+    promise->start();
+    m_validation = promise->future();
+    std::thread([directory = m_directory, validator = m_validator, promise] {
+        try { promise->addResult(validator(directory)); }
+        catch (...) { promise->addResult(false); }
+        promise->finish();
+    }).detach();
 }
 void SyncOwnership::updateOwnership() {
     if (m_foreground) {

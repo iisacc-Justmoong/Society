@@ -9,7 +9,8 @@
 
 Q_LOGGING_CATEGORY(daemonLog, "iisacc.society.daemon")
 
-SocietyDaemonService::SocietyDaemonService(QObject *parent) : QObject(parent)
+SocietyDaemonService::SocietyDaemonService(QObject *parent)
+    : QObject(parent), m_helper(iiSocietyHelper::FileSystem::Initialization::Deferred)
 {
     m_timer.setInterval(250);
     connect(&m_timer, &QTimer::timeout, this, &SocietyDaemonService::drain);

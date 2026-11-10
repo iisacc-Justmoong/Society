@@ -137,20 +137,26 @@ Snapshot scan(const QString &path, const std::shared_ptr<std::atomic_bool> &canc
     Snapshot result;
     if (cancel->load()) return result;
     const auto entries = iiSocietyContainer::ModelStore::scanDirectory(path, &result.error, cancel.get());
-    const QStringList suffixes{"safetensors", "safetensor", "ckpt", "pt", "pth", "bin", "iildmodel"};
+    const QStringList suffixes{"safetensors", "safetensor", "ckpt", "pt", "pth", "bin", "iildmodel", "gguf"};
     for (const auto &entry : entries) {
         if (cancel->load()) return {};
         if (entry.kind == "file" && (!suffixes.contains(entry.format) || QFileInfo(entry.path).size() == 0)) continue;
         const bool wrapped = !MergeModelCatalog::checkpointPath(entry.path).isEmpty()
             && QFileInfo(entry.path).suffix().compare("iildmodel", Qt::CaseInsensitive) == 0;
-        if (entry.kind != "file" && entry.kind != "adapter" && !wrapped) continue;
+        const bool mergeEligible = (entry.kind == "file" && entry.format != "gguf") || entry.kind == "adapter" || wrapped;
+        const bool packagingEligible = (entry.kind == "file" && entry.format != "iildmodel")
+            || entry.kind == "adapter"
+            || (entry.kind == "diffusers" && QFileInfo(entry.path).suffix().compare("iildmodel", Qt::CaseInsensitive) != 0)
+            || wrapped;
+        if (!mergeEligible && !packagingEligible) continue;
         using iiSocietyContainer::ModelType;
         const auto type = entry.classification.type;
         const bool adapter = entry.kind == "adapter" || type == ModelType::LoRA || type == ModelType::DoRA || type == ModelType::LyCORIS;
         const auto ecosystems = ecosystemsForPath(entry.path, *cancel);
         result.models.append(QVariantMap{{"path", entry.path}, {"name", entry.name},
             {"relativePath", entry.relativePath}, {"kind", wrapped ? QString("checkpoint-package") : entry.kind}, {"format", wrapped ? QString("IILDMODEL") : entry.format.toUpper()},
-            {"modelType", iiSocietyContainer::modelTypeName(type)}, {"baseEligible", !adapter},
+            {"modelType", iiSocietyContainer::modelTypeName(type)}, {"baseEligible", mergeEligible && !adapter},
+            {"mergeEligible", mergeEligible}, {"packagingEligible", packagingEligible},
             {"ecosystems", ecosystems}, {"ecosystemLabel", ecosystemLabel(ecosystems)}});
     }
     return result;
@@ -196,6 +202,7 @@ void MergeModelCatalog::setDirectory(const QString &directory)
 {
     if (m_directory == directory) return;
     m_directory = directory;
+    m_hasSnapshot = false;
     m_models.clear();
     m_error.clear();
     const QPointer<MergeModelCatalog> owner(this);
@@ -209,7 +216,16 @@ bool MergeModelCatalog::contains(const QString &path, bool baseOnly) const
 {
     return std::any_of(m_models.cbegin(), m_models.cend(), [&](const QVariant &entry) {
         const auto model = entry.toMap();
-        return model.value("path").toString() == path && (!baseOnly || model.value("baseEligible").toBool());
+        return model.value("path").toString() == path && model.value("mergeEligible").toBool()
+            && (!baseOnly || model.value("baseEligible").toBool());
+    });
+}
+
+bool MergeModelCatalog::containsForPackaging(const QString &path) const
+{
+    return std::any_of(m_models.cbegin(), m_models.cend(), [&](const QVariant &entry) {
+        const auto model = entry.toMap();
+        return model.value("path").toString() == path && model.value("packagingEligible").toBool();
     });
 }
 
@@ -281,6 +297,11 @@ void MergeModelCatalog::refresh()
     if (owner && m_refreshPending && !m_scanRunning) startScan();
 }
 
+void MergeModelCatalog::ensureLoaded()
+{
+    if (!m_hasSnapshot && !m_loading) refresh();
+}
+
 void MergeModelCatalog::startScan()
 {
     m_refreshPending = false;
@@ -297,7 +318,7 @@ void MergeModelCatalog::startScan()
             return;
         }
         const bool changed = m_models != result.models || m_error != result.error;
-        m_models = result.models; m_error = result.error; m_loading = false;
+        m_models = result.models; m_error = result.error; m_hasSnapshot = true; m_loading = false;
         const QPointer<MergeModelCatalog> owner(this);
         if (changed) emit modelsChanged();
         if (owner) emit loadingChanged();

@@ -5,15 +5,15 @@
 #include <QPointer>
 #include <iiAccountManager/AccountManager.h>
 #include <QTimer>
-#if defined(Q_OS_WIN) || (defined(Q_OS_LINUX) && !defined(Q_OS_ANDROID))
-#define SOCIETY_DESKTOP_MOUNT
-#endif
-#if defined(Q_OS_MACOS) || defined(SOCIETY_DESKTOP_MOUNT)
-#include <QProcess>
+#if defined(Q_OS_MACOS) || defined(Q_OS_WIN) || (defined(Q_OS_LINUX) && !defined(Q_OS_ANDROID))
+#define SOCIETY_DESKTOP_BACKEND
 #endif
 #include <QUrl>
 #include <QVariantList>
 #include <QtQml/qqmlregistration.h>
+
+class ModelBackendClient;
+class QJsonObject;
 
 class DriveController : public QObject
 {
@@ -78,6 +78,7 @@ public:
     Q_INVOKABLE void goHome();
     Q_INVOKABLE void goUp();
     Q_INVOKABLE bool openFile(const QString &path);
+    Q_INVOKABLE bool openNativeFiles();
     Q_INVOKABLE void connectToSystem();
     Q_INVOKABLE void refreshSystem();
     Q_INVOKABLE void revealInSystem();
@@ -102,13 +103,17 @@ private:
     QString m_accountDriveStatus, m_accountDriveRevision, m_pendingAccountSubject;
     bool m_publishToAccount = false;
 
-#if defined(Q_OS_MACOS) || defined(SOCIETY_DESKTOP_MOUNT)
-    struct Command { QString program; QStringList arguments; };
-    void runNextCommand();
+#ifdef SOCIETY_DESKTOP_BACKEND
+    void synchronizeSystemSelection();
+    void applySystemDriveState(const QJsonObject &state);
+    ModelBackendClient *m_systemBackend = nullptr;
+    QString m_boundSystemSource, m_boundSystemIdentifier;
+    bool m_openWhenConnected = false;
 #endif
+#if defined(Q_OS_IOS) || defined(Q_OS_ANDROID)
     void startNative(const QString &action, bool registerBundle = false);
     void finishNative(bool success, const QByteArray &output = {});
-    QString nativeExecutable() const;
+#endif
 
     std::optional<iiSocietyContainer::SocietyDrive> m_drive;
     QString m_currentPath;
@@ -117,13 +122,12 @@ private:
     QString m_diskImagePath;
     QString m_systemStatus;
     QString m_action;
-#if defined(Q_OS_MACOS) || defined(SOCIETY_DESKTOP_MOUNT)
-    QList<Command> m_commands;
-    QProcess m_process;
-#endif
+#if defined(Q_OS_IOS) || defined(Q_OS_ANDROID)
     quint64 m_requestGeneration = 0;
+    QTimer m_timeout;
+    bool m_nativeRebind = false;
+#endif
     quint64 m_reloadRevision = 0;
     bool m_reloadRunning = false, m_reloadPending = false;
-    QTimer m_timeout;
-    bool m_mirrorPending = false, m_nativeRebind = false;
+    bool m_mirrorPending = false;
 };

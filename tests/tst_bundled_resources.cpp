@@ -3,11 +3,11 @@
 #endif
 #include <QCoreApplication>
 #include <QDir>
+#include <QDirIterator>
 #include <QFile>
 #include <QFileInfo>
 #include <QJsonDocument>
 #include <QJsonObject>
-#include <QTextStream>
 #include <dlfcn.h>
 #include <cstdio>
 
@@ -28,13 +28,13 @@ int main(int argc, char **argv)
         std::fprintf(stderr, "%s\n", dlerror());
         return 4;
     }
-    QFile manifest(QString::fromLocal8Bit(argv[2]));
-    if (!manifest.open(QIODevice::ReadOnly | QIODevice::Text)) return 5;
-    QTextStream stream(&manifest);
+    const QDir source(QString::fromLocal8Bit(argv[2]));
+    if (!source.exists("resources")) return 5;
+    QDirIterator assets(source.filePath("resources"), {"*.svg", "*.ttf", "*.png"},
+                        QDir::Files | QDir::Hidden, QDirIterator::Subdirectories);
     int count = 0;
-    while (!stream.atEnd()) {
-        const auto relative = stream.readLine().trimmed();
-        if (relative.isEmpty()) continue;
+    while (assets.hasNext()) {
+        const auto relative = source.relativeFilePath(assets.next());
         const auto resource = ":/qt/qml/LVRS/" + relative;
         if (!QFileInfo::exists(resource) || QFileInfo(resource).size() <= 0) {
             std::fprintf(stderr, "Missing embedded LVRS resource: %s\n", qPrintable(resource));

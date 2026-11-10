@@ -5,7 +5,7 @@
 | 영역 | 760 px 미만 모바일 | 넓은 모바일 화면 / 데스크톱 |
 | --- | --- | --- |
 | 주요 탐색 | LVRS MobileTabBar: Home·Tools·Storage·Browse·Environment 순서. iOS 70 px / Android 64 px + 외부 안전 영역 | 기존 상단 세그먼트 |
-| 검색·계정 | 상단 52 px 바 안의 22×22 px 아이콘 버튼, 검색 입력 높이 22 px | 상단 세그먼트·검색·계정 컨트롤 높이 22 px |
+| 검색·계정 | 상단 52 px 바 안의 22×22 px 아이콘 버튼, 검색 입력 높이 22 px | 가로 상단 세그먼트·검색 22 px, Avatar 40 px |
 | 사이드바 | 상단 탐색 버튼으로 Workspace 또는 Storage 시트 열기 | 기존 사이드바 표시 |
 |대시보드| 16 px 본문 여백, 22 px 제목 행, 140×160 px 파일 카드 | 24 px 본문 여백과 같은 컨트롤·카드 크기 |
 |도구| 모델 병합 카드 → 작업 화면. 한 열 카드, All tools·가장자리 뒤로 가기 | 모델 병합 카드 하나, 검색·작업 화면 |
@@ -29,10 +29,10 @@ Dashboard 본문의 크기는 Qt 논리 px를 기준으로 한다. Tools 탭 Qui
 
 Recent files는 `Files/` 및 하위 폴더에서, Generation history는 `Generation History/`에서 각각 최신 20개까지 표시한다. 검색도 각 출처 안에서 같은 상한을 적용하며 데스크톱과 동일한 `DashboardFiles` 데이터 모델을 사용한다. [조회·검증 기준](Dashboard.md)을 따른다.
 
-상단의 탐색·검색·계정 버튼도 같은 크기 규칙을 따른다. Society에서 44×44 px로 강제하던 크기를 제거하고 LVRS `IconButton`의 기본 22×22 px 프레임과 18×18 px 아이콘을 사용한다. 검색 입력과 가로 화면의 상단 세그먼트·계정 버튼도 모바일용 44 px 최소/명시 높이를 적용하지 않는다. 플랫폼이나 화면 회전으로 상단 컨트롤의 논리 크기를 확대하지 않는다.
+상단의 탐색·검색·계정 버튼도 같은 크기 규칙을 따른다. Society에서 44×44 px로 강제하던 크기를 제거하고 LVRS `IconButton`의 기본 22×22 px 프레임과 18×18 px 아이콘을 사용한다. 검색 입력과 가로 화면의 상단 세그먼트는 모바일용 44 px 최소/명시 높이를 적용하지 않는다. 가로 화면에서 공통 헤더를 표시할 때 계정은 Figma의 40×40 px Avatar를 사용한다. 플랫폼이나 화면 회전으로 상단 컨트롤의 논리 크기를 확대하지 않는다.
 
 `SocietyDriveTests mobileDashboardKeepsLogicalControlSizes`는 iOS 테마와 430·320·932 px 폭에서 데스크톱 대비 입력·버튼 높이, 섹션 간격, 카드 크기, 화면 경계와 실제 터치 제출을 검사한다. 실기기 XCTest의 `testDashboardUsesLogicalControlSizesInBothOrientations`는 iPhone 세로·가로 화면의 접근성 좌표에서 22 pt 높이를 확인하며, `testDashboardMenusKeepTheirSelectionAtLogicalSize`는 터치 메뉴 선택과 탭 왕복 후 상태 보존을 검사한다.
 
 검증은 `SocietyDriveTests mobileViewsShareDesktopContentAndKeepState mobileStorageKeepsSectionsActionsAndGalleryReachable`로 실행한다. 320×568·390×844·844×390·1024×768의 실제 Main 화면에서 터치 탭·검색 데이터·상태 보존·패널·가용 높이·버튼 범위를 확인한다. 기존 데스크톱 상단 창 버튼 정렬, 카드·Models·Storage·갤러리 회귀 검사도 함께 실행한다. `SOCIETY_MOBILE_SCREENSHOT_DIRECTORY`를 지정하면 합성 파일을 사용하는 화면 캡처를 저장한다. 호스트에서의 모바일 레이아웃 검증과 iPhone/Android 실기기 검증·설치 완료는 각각 별도로 기록한다. 실기기 회귀 시나리오는 `tests/ios/InteractionsTests.swift`에 포함한다.
 
-하단 탭바 회귀 검사는 `SocietyDriveTests mobileViewsShareDesktopContentAndKeepState`의 iOS·Android 두 행에 포함한다. PageTabList/PageTab 역할, Browse·Environment 페이지 전환과 선택 상태, 기존 화면·입력 보존, Storage 탭의 Files 복귀와 작은 화면의 레이블 경계를 확인한다. 같은 검사에서 상단 버튼의 22×22 px 화면 좌표 크기, 18×18 px 아이콘, 펼친 검색창과 가로 화면 컨트롤의 22 px 높이를 확인한다. 캡처 이름에도 플랫폼을 포함한다. LVRS의 세부 API는 `docs/components/navigation/Tabs.md`를 참조한다.
+하단 탭바 회귀 검사는 `SocietyDriveTests mobileViewsShareDesktopContentAndKeepState`의 iOS·Android 두 행에 포함한다. PageTabList/PageTab 역할, Browse·Environment 페이지 전환과 선택 상태, 기존 화면·입력 보존, Storage 탭의 Files 복귀와 작은 화면의 레이블 경계를 확인한다. 같은 검사에서 상단 버튼의 22×22 px 화면 좌표 크기, 18×18 px 아이콘, 펼친 검색창과 가로 화면의 22 px 세그먼트·40 px Avatar를 확인한다. 캡처 이름에도 플랫폼을 포함한다. LVRS의 세부 API는 `docs/components/navigation/Tabs.md`를 참조한다.

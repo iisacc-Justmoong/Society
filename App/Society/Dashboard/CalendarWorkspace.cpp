@@ -1,3 +1,4 @@
+#include "CalendarDatabase.h"
 #include "CalendarWorkspace.h"
 #include <QCryptographicHash>
 #include <QDate>
@@ -356,7 +357,7 @@ void CalendarWorkspace::load() {
         Snapshot data;
         data.generation = generation;
         try {
-          Store store(path);
+          Store store(openSocietyCalendarDatabase(path));
           CalendarRegistry registry;
           const TimeZone zone(zoneName);
           const auto date = Date::parse(dateTextValue);
@@ -544,7 +545,7 @@ QVariantMap CalendarWorkspace::eventDraft(const QString &id) const {
             {"meetingUrl", ""}};
   }
   try {
-    Store store(checkedDatabase().toStdString());
+    Store store(openSocietyCalendarDatabase(checkedDatabase().toStdString()));
     const auto e = store.get(id.toStdString());
     auto draft = e ? metadata(*e) : QVariantMap();
     if (e)
@@ -672,7 +673,7 @@ QString CalendarWorkspace::saveEvent(const QVariantMap &draft) {
         draft.value("storageKey").toString() != QFileInfo(path).fileName())
       throw std::invalid_argument("The Society container changed; reopen this "
                                   "event in the current container");
-    Store store(path.toStdString());
+    Store store(openSocietyCalendarDatabase(path.toStdString()));
     const auto id = draft.value("id").toString();
     Event event;
     const bool editing = !id.isEmpty();
@@ -805,7 +806,7 @@ bool CalendarWorkspace::removeEvent(const QString &id,
     const auto version = revision.toULongLong(&ok);
     if (!ok)
       throw std::invalid_argument("Invalid event revision");
-    Store store(checkedDatabase().toStdString());
+    Store store(openSocietyCalendarDatabase(checkedDatabase().toStdString()));
     if (!store.erase(id.toStdString(), version))
       throw std::invalid_argument("Event no longer exists");
     m_error.clear();

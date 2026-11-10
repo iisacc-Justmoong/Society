@@ -15,13 +15,13 @@ Item {
     property CloudFilesController cloudFiles: null
     required property StorageNavigation navigation
     required property ModelImporter modelImporter
+    property var notifications: null
+    required property StorageModels models
+    property StorageDirectoryModel sharedFilesDirectory: null
     required property bool hostModeAvailable
     property bool desktop: true
     readonly property bool actionsOpen: storageActions.visible
     function openActions(): void { storageActions.open() }
-    function openCloudFiles(): void {
-        if (root.cloudFiles) { cloudPanel.open(); root.cloudFiles.refresh() }
-    }
     function openFilesAtRoot(): void {
         if (visible && drive.contentsAvailable && drive.atRoot) drive.openSection("files")
     }
@@ -39,16 +39,24 @@ Item {
     signal preferencesRequested()
     signal chooseContainerRequested()
     signal importModelsRequested()
-    property bool browsingModelFolders: false
-    readonly property bool modelsOverview: drive.contentsAvailable && drive.currentPath === drive.rootPath + "/Models" && !browsingModelFolders
-    function browseModelFolder(path) {
-        if (drive.navigate(path)) browsingModelFolders = true
+    signal modelCatalogRequested()
+    property bool modelsReady: false
+    readonly property bool browsingModels: drive.contentsAvailable && drive.currentSection === "Models"
+    function prepareModelsOverview(): void {
+        if (!browsingModels) return
+        modelCatalogRequested()
     }
-    StorageModels {
-        id: models
-        objectName: "modelCatalog"
-        directory: root.drive.contentsAvailable ? root.drive.rootPath + "/Models" : ""
-        onObjectReady: function(path, directory) {
+    onBrowsingModelsChanged: prepareModelsOverview()
+    Component.onCompleted: {
+        prepareModelsOverview()
+        if (visible) Qt.callLater(root.openFilesAtRoot)
+    }
+    function browseModelFolder(path) {
+        drive.navigate(path)
+    }
+    Connections {
+        target: root.models
+        function onObjectReady(path, directory) {
             if (directory) root.browseModelFolder(path)
             else root.drive.openFile(path)
         }
@@ -56,18 +64,17 @@ Item {
     Connections {
         target: root.drive
         function onLocationChanged() {
-            root.browsingModelFolders = false
             Qt.callLater(root.openFilesAtRoot)
         }
         function onContentsChanged() {
             Qt.callLater(root.openFilesAtRoot)
-            models.refresh()
+            root.models.refresh()
         }
     }
     Connections {
         target: root.modelImporter
-        function onFinished() { models.refresh() }
-        function onOrganized() { models.refresh() }
+        function onFinished() { root.models.refresh() }
+        function onOrganized() { root.models.refresh() }
     }
 
     ColumnLayout {
@@ -174,6 +181,7 @@ Item {
                         anchors.fill: parent
                         visible: root.browsingFiles
                         path: visible ? root.drive.currentPath : ""
+                        sharedDirectoryModel: root.sharedFilesDirectory
                         breadcrumbs: root.drive.breadcrumbs
                         onActivated: function(path, isDirectory) {
                             if (isDirectory) root.drive.navigate(path)
@@ -185,9 +193,10 @@ Item {
                         id: filesGrid
                         objectName: "fileGridView"
                         anchors.fill: parent
-                        visible: root.drive.contentsAvailable && !root.drive.atRoot && !root.browsingFiles && !root.modelsOverview && !root.photosOverview
+                        visible: root.drive.contentsAvailable && !root.drive.atRoot && !root.browsingFiles && !root.browsingModels && !root.photosOverview
                         path: visible ? root.drive.currentPath : ""
                         heading: root.drive.currentSection
+                        deletedView: root.drive.currentSection === "Deleted"
                         imagesOnly: root.drive.currentSection === "Generation History"
                         chronological: root.drive.currentSection === "Files" || filesGrid.imagesOnly
                         touchNavigation: !root.desktop
@@ -206,39 +215,49 @@ Item {
                         visible: root.photosOverview
                         controller: root.photos
                     }
-                    ModelsView {
+                    Loader {
+                        id: modelsLoader
+                        objectName: "storageModelsLoader"
                         anchors.fill: parent
-                        visible: root.modelsOverview
-                        catalog: models
-                        touchNavigation: !root.desktop
-                        importing: root.modelImporter.busy
-                        importEnabled: !root.modelImporter.busy && !root.modelImporter.choosingFiles && !root.drive.busy
-                        importStatus: root.modelImporter.status
-                        importError: root.modelImporter.errorString
-                        onImportRequested: {
-                            if (Qt.platform.os === "ios") root.modelImporter.chooseFiles()
-                            else root.importModelsRequested()
+                        visible: root.browsingModels
+                        // Abandon an unfinished incubation when the user moves on.
+                        // Once ready, keep the page and its selection state.
+                        active: (root.visible && root.browsingModels) || root.modelsReady
+                        asynchronous: true
+                        onLoaded: root.modelsReady = true
+                        sourceComponent: ModelsView {
+                            catalog: root.models
+                            modelImporter: root.modelImporter
+                            path: root.browsingModels ? root.drive.currentPath : ""
+                            modelRoot: root.drive.rootPath + "/Models"
+                            breadcrumbs: root.drive.breadcrumbs
+                            notifications: root.notifications
+                            touchNavigation: !root.desktop
+                            importing: root.modelImporter.busy
+                            organizing: root.modelImporter.organizing
+                            importEnabled: !root.modelImporter.busy && !root.modelImporter.choosingFiles && !root.drive.busy
+                            importStatus: root.modelImporter.status
+                            importError: root.modelImporter.errorString
+                            onImportRequested: {
+                                if (Qt.platform.os === "ios") root.modelImporter.chooseFiles()
+                                else root.importModelsRequested()
+                            }
+                            onCancelImportRequested: root.modelImporter.cancel()
+                            onFileRequested: function(path) { root.drive.openFile(path) }
+                            onFolderRequested: function(path) { root.browseModelFolder(path) }
+                            onUpRequested: root.drive.goUp()
                         }
-                        onCancelImportRequested: root.modelImporter.cancel()
-                        onFileRequested: function(path) { models.activatePath(path, true) }
-                        onFolderRequested: function(path) { root.browseModelFolder(path) }
-                        onBrowseFoldersRequested: root.browseModelFolder(root.drive.rootPath + "/Models")
+                    }
+                    LV.Label {
+                        anchors.centerIn: parent
+                        visible: root.browsingModels && modelsLoader.status === Loader.Loading
+                        text: qsTr("Loading models…")
+                        style: description
                     }
                 }
             }
         }
 
-        LV.Label {
-            objectName: "driveError"
-            visible: root.drive.errorString.length > 0
-            Layout.fillWidth: true
-            Layout.margins: 12
-            style: description
-            text: root.drive.errorString
-            textFormat: Text.PlainText
-            wrapMode: Text.WordWrap
-            sizeToContentHeight: true
-        }
 
     }
 
@@ -260,14 +279,6 @@ Item {
         LV.VStack {
             width: parent.width
             spacing: 12
-            LV.LabelButton {
-                objectName: "openCloudFiles"
-                Layout.fillWidth: true
-                Layout.minimumHeight: 44
-                text: qsTr("Cloud Files · 5 GB free")
-                enabled: root.signedIn && root.cloudFiles !== null
-                onClicked: { storageActions.close(); root.openCloudFiles() }
-            }
             LV.Label {
                 Layout.fillWidth: true
                 text: root.drive.hasDrive ? root.drive.rootPath : qsTr("Your Society drive")
@@ -303,8 +314,8 @@ Item {
             }
             LV.Label {
                 Layout.fillWidth: true
-                visible: text.length > 0
-                text: root.modelImporter.errorString || root.modelImporter.status
+                visible: (root.modelImporter.busy || root.modelImporter.organizing) && text.length > 0
+                text: root.modelImporter.status
                 textFormat: Text.PlainText
                 wrapMode: Text.Wrap
                 sizeToContentHeight: true
@@ -344,9 +355,5 @@ Item {
                 onClicked: root.drive.revealInSystem()
             }
         }
-    }
-    CloudFilesPanel {
-        id: cloudPanel
-        controller: root.cloudFiles
     }
 }

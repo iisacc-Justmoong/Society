@@ -1,3 +1,4 @@
+#include "CalendarDatabase.h"
 #include "DashboardCalendar.h"
 #include <SocietyDrive.h>
 #include <QCryptographicHash>
@@ -175,7 +176,7 @@ void DashboardCalendar::refresh() {
             request.today = zone.at(Clock::sample().wallTime).local.date;
             const auto view = makeView(request, registry);
             result.days = dayRows(view, date);
-            Store store(path);
+            Store store(openSocietyCalendarDatabase(path));
             const auto start = zone.dayRange(view.days.front().date).start;
             const auto end = zone.dayRange(view.days.back().date).end;
             const auto scheduled = store.scheduled({start, end});
@@ -224,7 +225,7 @@ bool DashboardCalendar::setTaskCompleted(const QString &id, const QString &revis
             throw std::runtime_error("The Society container has changed; refresh the calendar");
         bool ok = false; const auto version = revision.toULongLong(&ok);
         if (!ok) throw std::invalid_argument("Invalid task revision");
-        Store store(m_databasePath.toStdString()); auto event = store.get(id.toStdString());
+        Store store(openSocietyCalendarDatabase(m_databasePath.toStdString())); auto event = store.get(id.toStdString());
         if (!event || event->kind != EventKind::Task) throw std::invalid_argument("Task no longer exists");
         // The SDK currently has series-level status, not per-occurrence completion.
         if (event->recurrence.frequency != Frequency::None || !event->recurrence.additional.empty())

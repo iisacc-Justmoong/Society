@@ -1,11 +1,13 @@
 #include "Society/ApplicationLifetime.h"
 #include "Society/ContainerFileOpenHandler.h"
 #include "Society/Drive/DriveController.h"
+#include "Society/Semantics/SemanticRepository.h"
 #include "Society/Files/CanvasFilePreview.h"
 #include "backend/runtime/appentry.h"
 #include <iiSocietyHelper.h>
 #include <iiSocietyContainer/SocietyApplication.h>
 #include <iiSocietyContainer/PreviewCache.h>
+#include <FileOperations.h>
 #include <QQuickWindow>
 #include <QGuiApplication>
 #include <QIcon>
@@ -22,6 +24,13 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QTextStream>
+#include <QtConcurrent/QtConcurrentRun>
+#ifdef SOCIETY_LIFECYCLE_RUNTIME_PROBE
+#include <chrono>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#endif
 #include "Society/Network/NetworkDriveController.h"
 #if defined(Q_OS_IOS) || defined(Q_OS_ANDROID)
 #include "Society/Network/MobileSyncActivity.h"
@@ -39,6 +48,9 @@ void societyDashboardRuntimeProbe(QObject *root);
 #ifdef SOCIETY_FILES_RUNTIME_PROBE
 void societyFilesRuntimeProbe(QObject *root);
 #endif
+#ifdef SOCIETY_LIFECYCLE_RUNTIME_PROBE
+void societyLifecycleRuntimeProbe(QQmlApplicationEngine &engine);
+#endif
 #ifdef SOCIETY_IOS_FILES_INTEGRATION_TEST
 #include <QTimer>
 extern "C" void society_ios_files_integration_test();
@@ -52,6 +64,14 @@ void qml_register_types_Society();
 
 int main(int argc, char *argv[])
 {
+#ifdef SOCIETY_LIFECYCLE_RUNTIME_PROBE
+    if (const auto *probe = std::getenv("SOCIETY_LIFECYCLE_PROBE"); probe && std::strcmp(probe, "1") == 0) {
+        const auto now = std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count();
+        std::fprintf(stderr, "SOCIETY_LIFECYCLE main_ms=%lld\n", static_cast<long long>(now));
+        std::fflush(stderr);
+    }
+#endif
 #ifdef Q_OS_ANDROID
     qputenv("ANDROID_OPENSSL_SUFFIX", "_3");
 #endif
@@ -68,6 +88,15 @@ int main(int argc, char *argv[])
 #endif
     QCoreApplication::setOrganizationName(QStringLiteral("iisacc"));
     QCoreApplication::setOrganizationDomain(QStringLiteral("iisacc.com"));
+    iiSocietyContainer::FileOperations::setRelocationHandler(
+        [](const QString &container, const QString &source, const QString &destination,
+           iiSocietyContainer::FileOperations::RelocationPhase phase) {
+            SemanticRepository repository(container, QStringLiteral("urn:iisacc:society:file-operation"));
+            using Phase = iiSocietyContainer::FileOperations::RelocationPhase;
+            if (phase == Phase::Prepare) repository.prepareRelocation(source, destination);
+            else if (phase == Phase::Commit) repository.commitRelocation(source, destination);
+            else repository.cancelRelocation(source, destination);
+        });
     qml_register_types_Society();
     lvrs::QmlAppLaunchSpec launchSpec;
     launchSpec.bootstrap.applicationName = QStringLiteral("Society");
@@ -76,11 +105,23 @@ int main(int argc, char *argv[])
     launchSpec.rootObject = QStringLiteral("Main");
     launchSpec.qmlImportPaths.append(QString::fromUtf8(SOCIETY_LVRS_QML_IMPORT_PATH));
     launchSpec.configureEngine = [](QQmlApplicationEngine &engine) {
+#ifdef SOCIETY_LIFECYCLE_RUNTIME_PROBE
+        societyLifecycleRuntimeProbe(engine);
+#endif
         auto *fileOpen = new ContainerFileOpenHandler(&engine);
         qGuiApp->installEventFilter(fileOpen);
         QObject::connect(&engine, &QQmlApplicationEngine::objectCreated, fileOpen,
             [fileOpen](QObject *root, const QUrl &) {
                 if (!root) return;
+                const QPointer<QObject> guardedRoot(root);
+                fileOpen->setAccountOpener([guardedRoot] {
+                    if (!guardedRoot) return;
+                    QMetaObject::invokeMethod(guardedRoot, "openAccount");
+                    if (auto *window = qobject_cast<QQuickWindow *>(guardedRoot.data())) {
+                        if (window->visibility() == QWindow::Minimized) window->showNormal();
+                        window->raise(); window->requestActivate();
+                    }
+                });
                 auto *drive = root->findChild<DriveController *>();
                 if (!drive) return;
                 const QPointer<DriveController> guarded(drive);
@@ -168,7 +209,10 @@ int main(int argc, char *argv[])
                                 if (ownership->owned() && !network->containerPath().isEmpty()) ownership->rememberContainer(network->containerPath());
                             };
                             QObject::connect(network, &NetworkDriveController::configurationChanged, ownership, selectRuntime);
-                            QObject::connect(qGuiApp, &QCoreApplication::aboutToQuit, ownership, &SyncOwnership::stop);
+                            QObject::connect(qGuiApp, &QCoreApplication::aboutToQuit, ownership, [ownership, network] {
+                                ownership->retainUntilProcessExit();
+                                network->shutdownForProcessExit();
+                            });
                             selectRuntime();
                         }
                     }
@@ -188,7 +232,7 @@ int main(int argc, char *argv[])
 #endif
                     if (auto *account = root->findChild<AccountController *>(QStringLiteral("societyAccount"))) {
                         helper->setAccountManager(account->manager());
-                        if (!account->startLicenseBroker()) qWarning() << "Society license authorization service is already in use.";
+                        if (!account->startLocalHelperBroker()) qWarning() << "Society local helper service is unavailable.";
                     }
 #ifdef SOCIETY_ACCOUNT_RUNTIME_PROBE
                     societyAccountRuntimeProbe(root);
@@ -212,10 +256,14 @@ int main(int argc, char *argv[])
 #ifdef Q_OS_MACOS
         // Isolated SDK/app tests must not change the user's login services.
         if (!qEnvironmentVariableIsSet("SOCIETY_HELPER_DIRECTORY")) {
-            const auto result = societyDaemonRegistration("register");
-            if (!result.value("ok").toBool()) qWarning() << "Society daemon service" << result;
-            const auto monitor = societyContainerMonitorRegistration("register");
-            if (!monitor.value("ok").toBool()) qWarning() << "Society container monitor service" << monitor;
+            // ServiceManagement may contact launchd or wait for a system
+            // response. It must not delay QML creation on the GUI thread.
+            (void)QtConcurrent::run([] {
+                const auto result = societyDaemonRegistration("register");
+                if (!result.value("ok").toBool()) qWarning() << "Society daemon service" << result;
+                const auto monitor = societyContainerMonitorRegistration("register");
+                if (!monitor.value("ok").toBool()) qWarning() << "Society container monitor service" << monitor;
+            });
         }
 #endif
     };

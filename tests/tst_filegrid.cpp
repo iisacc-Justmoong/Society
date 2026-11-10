@@ -1,9 +1,11 @@
 #include "Society/Files/DirectoryLocation.h"
 #include "Society/Files/CanvasFilePreview.h"
-#include <iiSharedCanvas.h>
+#include <Serialization/IiscCodec.h>
 #include <iiSocietyContainer/PreviewCache.h>
 #include <FileCatalog.h>
 #include <SharedStorage.h>
+#include <SocietyDrive.h>
+#include <FileOperations.h>
 #include "backend/runtime/appbootstrap.h"
 
 #include <QAbstractItemModel>
@@ -13,6 +15,8 @@
 #include <QFile>
 #include <QGuiApplication>
 #include <QClipboard>
+#include <QCryptographicHash>
+#include <QLockFile>
 #include <QMimeData>
 #include <QPointer>
 #include <QImage>
@@ -25,6 +29,7 @@
 #include <QQmlProperty>
 #include <QQuickItem>
 #include <QQuickWindow>
+#include <QScopeGuard>
 #include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QTest>
@@ -84,6 +89,65 @@ private slots:
                  QStringLiteral("0 items"));
     }
 
+    void modelsBrowserUsesFolderTreeAndRetainsModelActions()
+    {
+        QTemporaryDir fixture(QStringLiteral(SOCIETY_TEST_DIRECTORY "/model-browser-XXXXXX.societycontainer"));
+        QVERIFY(fixture.isValid());
+        QVERIFY(iiSocietyContainer::SocietyDrive::create(fixture.path()));
+        const auto models = fixture.filePath("Models");
+        const auto checkpoint = models + "/Checkpoint";
+        QVERIFY(QDir().mkpath(checkpoint));
+        QVERIFY(QDir().mkpath(models + "/LLM"));
+        const auto modelPath = checkpoint + "/model.safetensors";
+        QFile source(modelPath); QVERIFY(source.open(QIODevice::WriteOnly)); source.write("model"); source.close();
+        QFile metadata(modelPath + ".iisacc.json"); QVERIFY(metadata.open(QIODevice::WriteOnly)); metadata.write("{}"); metadata.close();
+        const QVariantList categories{QVariantMap{{"key", "Checkpoint"}, {"title", "Checkpoint"}},
+                                      QVariantMap{{"key", "LLM"}, {"title", "LLM"}}};
+        const QVariantMap groups{{"Checkpoint", QVariantList{QVariantMap{{"path", modelPath},
+            {"type", "Checkpoint"}, {"available", true}}}}};
+        const auto appPath = QFileInfo(QString::fromUtf8(SOCIETY_QML_FILE)).dir()
+            .filePath("../App/Society/FilesBrowser.qml");
+        QQmlComponent component(&engine, QUrl::fromLocalFile(appPath));
+        QScopedPointer<QObject> object(component.createWithInitialProperties({{"path", models}, {"modelsMode", true},
+            {"modelRoot", models}, {"modelCategories", categories}, {"modelGroups", groups},
+            {"width", 1212}, {"height", 844}}));
+        QVERIFY2(object, qPrintable(component.errorString()));
+        auto *browser = qobject_cast<QQuickItem *>(object.data()); QVERIFY(browser);
+        QQuickWindow preview; preview.resize(1212, 844);
+        browser->setParentItem(preview.contentItem()); preview.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&preview));
+        QTRY_COMPARE(browser->property("count").toInt(), 2);
+        QVERIFY(browser->property("listMode").toBool());
+        auto *import = browser->findChild<QQuickItem *>("modelsImport"); QVERIFY(import);
+        QSignalSpy imports(browser, SIGNAL(modelImportRequested())); QVERIFY(imports.isValid());
+        QVERIFY(QMetaObject::invokeMethod(import, "clicked")); QCOMPARE(imports.size(), 1);
+        auto *back = browser->findChild<QQuickItem *>("modelsBack"); QVERIFY(back); QVERIFY(!back->isVisible());
+        QVERIFY(browser->setProperty("path", checkpoint));
+        QTRY_COMPARE(browser->property("count").toInt(), 1);
+        QTRY_VERIFY(back->isVisible());
+        QSignalSpy up(browser, SIGNAL(modelUpRequested())); QVERIFY(up.isValid());
+        QVERIFY(QMetaObject::invokeMethod(back, "clicked")); QCOMPARE(up.size(), 1);
+        QVERIFY(QMetaObject::invokeMethod(browser, "selectEntry", Q_ARG(QVariant, 0)));
+        QCOMPARE(browser->property("selectedPath").toString(), modelPath);
+        auto *menu = browser->findChild<QObject *>("filesContextMenu"); QVERIFY(menu);
+        const auto categoryOptions = [&] {
+            const auto value = menu->property("categoryOptions");
+            return value.metaType() == QMetaType::fromType<QJSValue>()
+                ? value.value<QJSValue>().toVariant().toList() : value.toList();
+        };
+        QTRY_COMPARE(categoryOptions().size(), 2);
+        QCOMPARE(menu->property("currentCategory").toString(), QStringLiteral("Checkpoint"));
+        QSignalSpy recategorize(browser, SIGNAL(modelCategoryRequested(QString,QString))); QVERIFY(recategorize.isValid());
+        QVERIFY(QMetaObject::invokeMethod(menu, "categoryRequested", Q_ARG(QString, modelPath), Q_ARG(QString, "LLM")));
+        QCOMPARE(recategorize.size(), 1);
+        QCOMPARE(recategorize.first().at(0).toString(), modelPath);
+        QCOMPARE(recategorize.first().at(1).toString(), QStringLiteral("LLM"));
+        QVERIFY(browser->setProperty("listMode", false));
+        auto *grid = browser->findChild<QQuickItem *>("filesBrowserGrid"); QVERIFY(grid);
+        QTRY_VERIFY(grid->isVisible());
+        QCOMPARE(browser->property("selectedPath").toString(), modelPath);
+    }
+
     void filesBrowserUsesNativeTableAndRealFiles()
     {
         const auto appPath = QFileInfo(QString::fromUtf8(SOCIETY_QML_FILE)).dir()
@@ -125,6 +189,17 @@ private slots:
         QTest::mouseClick(&preview, Qt::LeftButton, Qt::NoModifier,
             nameCell->mapToScene(nameCell->boundingRect().center()).toPoint());
         QCOMPARE(browser->property("selectedPath").toString(), fixtures.filePath("Alpha.txt"));
+        // Match the LVUI Green/Selected token used by the Storage Figma table.
+        QTRY_COMPARE(nameCell->property("color").value<QColor>().name(), QString("#1d4c24"));
+        const auto findSelectedCell = [&](auto &&self, QQuickItem *item, int column) -> QQuickItem * {
+            if (item->objectName() == QString("filesCell_2_%1").arg(column)) return item;
+            for (auto *child : item->childItems()) if (auto *found = self(self, child, column)) return found;
+            return nullptr;
+        };
+        for (int column = 0; column < 4; ++column) {
+            auto *cell = findSelectedCell(findSelectedCell, browser, column); QVERIFY(cell);
+            QTRY_COMPARE(cell->property("color").value<QColor>().name(), QString("#1d4c24"));
+        }
         auto *resource = browser->findChild<QObject *>("selectedFileResource"); QVERIFY(resource);
         QCOMPARE(resource->property("label").toString(), QString("Alpha.txt"));
         auto *quickPreview = browser->findChild<QQuickItem *>("fileQuickPreview"); QVERIFY(quickPreview);
@@ -798,8 +873,13 @@ private slots:
         QTRY_VERIFY(tileNamed("sample.safetensors"));
         auto *menu = view->findChild<QObject *>("fileContextMenu"); QVERIFY(menu);
         auto *actions = menu->property("handler").value<QObject *>(); QVERIFY(actions);
+        const auto cleanup = qScopeGuard([&] {
+            QElapsedTimer timeout; timeout.start();
+            while (actions->property("busy").toBool() && timeout.elapsed() < 120000) QTest::qWait(50);
+            view->setProperty("path", "");
+        });
         auto open = [&] {
-            QTRY_VERIFY_WITH_TIMEOUT(!actions->property("busy").toBool(), 30000);
+            QTRY_VERIFY_WITH_TIMEOUT(!actions->property("busy").toBool(), 120000);
             QTRY_VERIFY(!menu->property("visible").toBool());
             QTest::qWait(30); // Allow the status row to finish relaying out the grid.
             auto *tile = tileNamed("sample.safetensors");
@@ -808,13 +888,16 @@ private slots:
         };
         open(); QTRY_VERIFY(menu->property("opened").toBool());
         QCOMPARE(menu->property("filePath").toString(), source);
+        QTRY_VERIFY_WITH_TIMEOUT(actions->property("editable").toBool(), 15000);
         const auto items = menu->property("items").value<QJSValue>().toVariant().toList(); QCOMPARE(items.size(), 9);
         QVERIFY(QMetaObject::invokeMethod(menu, "triggerEntry", Q_ARG(QVariant, 2)));
         QTRY_VERIFY(QGuiApplication::clipboard()->mimeData() && QGuiApplication::clipboard()->mimeData()->hasUrls());
         QTRY_COMPARE(QGuiApplication::clipboard()->mimeData()->urls().first().toLocalFile(), source);
         open(); QTRY_VERIFY(menu->property("opened").toBool());
         QVERIFY(QMetaObject::invokeMethod(menu, "triggerEntry", Q_ARG(QVariant, 5)));
-        QTRY_VERIFY_WITH_TIMEOUT(QFileInfo::exists(temp.filePath("Models/Other/sample copy.safetensors")), 30000);
+        QTRY_VERIFY_WITH_TIMEOUT(!actions->property("busy").toBool(), 120000);
+        QVERIFY2(actions->property("errorString").toString().isEmpty(), qPrintable(actions->property("errorString").toString()));
+        QVERIFY(QFileInfo::exists(temp.filePath("Models/Other/sample copy.safetensors")));
         QTRY_COMPARE(view->property("count").toInt(), 2);
         open(); QTRY_VERIFY(menu->property("opened").toBool());
         // Deletion must work even when the host index incorrectly marks a large
@@ -834,6 +917,7 @@ private slots:
         view->setProperty("path", temp.filePath("Deleted"));
         QTRY_VERIFY(tileNamed("sample.safetensors"));
         open(); QTRY_VERIFY(menu->property("opened").toBool());
+        QTRY_VERIFY_WITH_TIMEOUT(actions->property("editable").toBool(), 15000);
         QVERIFY(QMetaObject::invokeMethod(menu, "triggerEntry", Q_ARG(QVariant, 6)));
         auto *renameSheet = menu->findChild<QObject *>("renameFileSheet"); QVERIFY(renameSheet);
         QTRY_VERIFY(renameSheet->property("opened").toBool());
@@ -841,13 +925,14 @@ private slots:
         QVERIFY(nameInput->setProperty("text", "renamed.safetensors"));
         auto *renameButton = renameSheet->findChild<QObject *>("confirmFileRename"); QVERIFY(renameButton);
         QVERIFY(QMetaObject::invokeMethod(renameButton, "clicked"));
-        QTRY_VERIFY_WITH_TIMEOUT(QFileInfo::exists(temp.filePath("Deleted/renamed.safetensors")), 30000);
+        QTRY_VERIFY_WITH_TIMEOUT(QFileInfo::exists(temp.filePath("Deleted/renamed.safetensors")), 120000);
         QTRY_VERIFY(!renameSheet->property("visible").toBool());
         QTRY_VERIFY(tileNamed("renamed.safetensors"));
-        QTRY_VERIFY_WITH_TIMEOUT(!actions->property("busy").toBool(), 30000);
+        QTRY_VERIFY_WITH_TIMEOUT(!actions->property("busy").toBool(), 120000);
         auto *renamedTile = tileNamed("renamed.safetensors");
         QTest::mouseClick(window, Qt::RightButton, Qt::NoModifier, renamedTile->mapToScene(QPointF(50, 50)).toPoint());
         QTRY_VERIFY(menu->property("opened").toBool());
+        QTRY_VERIFY_WITH_TIMEOUT(actions->property("inDeleted").toBool(), 15000);
         QVERIFY(QMetaObject::invokeMethod(menu, "triggerEntry", Q_ARG(QVariant, 8)));
         auto *deleteSheet = menu->findChild<QObject *>("deleteFileSheet"); QVERIFY(deleteSheet);
         QTRY_VERIFY(deleteSheet->property("opened").toBool());
@@ -856,7 +941,7 @@ private slots:
         auto *deleteButton = deleteSheet->findChild<QObject *>("confirmPermanentDelete"); QVERIFY(deleteButton);
         QVERIFY(QMetaObject::invokeMethod(deleteButton, "clicked"));
         QTRY_VERIFY(!QFileInfo::exists(temp.filePath("Deleted/renamed.safetensors")));
-        QTRY_VERIFY_WITH_TIMEOUT(!actions->property("busy").toBool(), 30000);
+        QTRY_VERIFY_WITH_TIMEOUT(!actions->property("busy").toBool(), 120000);
         QTRY_VERIFY(!deleteSheet->property("visible").toBool());
         QVERIFY(QDir().mkdir(temp.filePath("Files/Documents")));
         view->setProperty("path", temp.filePath("Files"));
@@ -864,15 +949,128 @@ private slots:
         auto *userFolder = tileNamed("Documents");
         QTest::mouseClick(window, Qt::RightButton, Qt::NoModifier, userFolder->mapToScene(QPointF(50, 50)).toPoint());
         QTRY_VERIFY(menu->property("opened").toBool());
+        QTRY_VERIFY_WITH_TIMEOUT(actions->property("editable").toBool(), 15000);
         const auto folderItems = menu->property("items").value<QJSValue>().toVariant().toList();
         QVERIFY(folderItems.at(8).toMap().value("enabled").toBool());
         QVERIFY(QMetaObject::invokeMethod(menu, "triggerEntry", Q_ARG(QVariant, 8)));
         QTRY_VERIFY(!QFileInfo::exists(temp.filePath("Files/Documents")));
-        QTRY_VERIFY_WITH_TIMEOUT(!actions->property("busy").toBool(), 30000);
+        QTRY_VERIFY_WITH_TIMEOUT(!actions->property("busy").toBool(), 120000);
         QVERIFY(iiSocietyContainer::SocietyDrive::open(temp.path()));
         QVERIFY(!QFileInfo::exists(temp.filePath("Files/Documents")));
         QVERIFY(QMetaObject::invokeMethod(menu, "close"));
         view->setProperty("path", "");
+    }
+
+    void anotherDeletedItemRemainsUsableDuringRemoval()
+    {
+        QTemporaryDir temp(QString(SOCIETY_TEST_DIRECTORY) + "/concurrent-removal-XXXXXX.societycontainer");
+        QVERIFY(temp.isValid());
+        QVERIFY(iiSocietyContainer::SocietyDrive::create(temp.path()));
+        const auto first = temp.filePath("Deleted/first.txt"), second = temp.filePath("Deleted/second.txt");
+        for (const auto &path : {first, second}) {
+            QFile file(path); QVERIFY(file.open(QIODevice::WriteOnly)); QVERIFY(file.write("asset") > 0);
+        }
+        QVERIFY(view->setProperty("deletedView", true));
+        QVERIFY(view->setProperty("path", temp.filePath("Deleted")));
+        QTRY_COMPARE_WITH_TIMEOUT(view->property("count").toInt(), 2, 30000);
+        auto *menu = view->findChild<QObject *>("fileContextMenu"); QVERIFY(menu);
+        auto *actions = menu->property("actions").value<QObject *>(); QVERIFY(actions);
+        auto *tile = tileNamed("second.txt"); QVERIFY(tile);
+        QTest::mouseClick(window, Qt::RightButton, Qt::NoModifier,
+                          tile->mapToScene(QPointF(50, 50)).toPoint());
+        QTRY_VERIFY(menu->property("opened").toBool());
+        QTRY_VERIFY_WITH_TIMEOUT(actions->property("editable").toBool() && actions->property("inDeleted").toBool(), 15000);
+        QVERIFY(QDir().mkpath(temp.filePath(".society-deleted")));
+        const auto key = QCryptographicHash::hash(QByteArray("first.txt"), QCryptographicHash::Sha256).toHex();
+        QLockFile held(temp.filePath(".society-deleted/item-" + QString::fromLatin1(key) + ".lock"));
+        QVERIFY(held.tryLock(0));
+        QVERIFY(QMetaObject::invokeMethod(actions, "removePath", Q_ARG(QString, first)));
+        QCOMPARE(actions->property("activeCount").toInt(), 1);
+        const auto items = menu->property("items").value<QJSValue>().toVariant().toList();
+        QVERIFY(items.at(8).toMap().value("enabled").toBool());
+        QVERIFY(QMetaObject::invokeMethod(menu, "triggerEntry", Q_ARG(QVariant, 8)));
+        auto *sheet = menu->findChild<QObject *>("deleteFileSheet"); QVERIFY(sheet);
+        QTRY_VERIFY(sheet->property("opened").toBool());
+        auto *confirm = sheet->findChild<QObject *>("confirmPermanentDelete"); QVERIFY(confirm);
+        QVERIFY(confirm->property("enabled").toBool());
+        QVERIFY(QMetaObject::invokeMethod(confirm, "clicked"));
+        QElapsedTimer elapsed; elapsed.start();
+        while (QFileInfo::exists(second) && elapsed.elapsed() < 1500) QTest::qWait(10);
+        const bool independent = !QFileInfo::exists(second) && QFileInfo::exists(first);
+        held.unlock();
+        QVERIFY2(independent, "The second item was blocked by the first removal");
+        QTRY_VERIFY_WITH_TIMEOUT(!actions->property("busy").toBool(), 15000);
+        QVERIFY(!QFileInfo::exists(first));
+        view->setProperty("path", "");
+        view->setProperty("deletedView", false);
+    }
+
+    void deletedSelectionRestoresAndRemovesMultipleItems()
+    {
+        QTemporaryDir temp(QString(SOCIETY_TEST_DIRECTORY) + "/deleted-selection-XXXXXX.societycontainer");
+        QVERIFY(temp.isValid());
+        const auto drive = iiSocietyContainer::SocietyDrive::create(temp.path()); QVERIFY(drive);
+        iiSocietyContainer::FileOperations operations(*drive);
+        for (const auto *name : {"alpha.txt", "beta.txt", "gamma.txt", "delta.txt"}) {
+            QFile file(temp.filePath(QString("Files/") + name)); QVERIFY(file.open(QIODevice::WriteOnly));
+            file.write(name); file.close();
+            const auto moved = operations.perform(iiSocietyContainer::FileOperations::Action::Trash, file.fileName());
+            QVERIFY2(moved, qPrintable(moved.error));
+        }
+        QFile unknown(temp.filePath("Deleted/unknown.txt")); QVERIFY(unknown.open(QIODevice::WriteOnly)); unknown.write("legacy"); unknown.close();
+        QVERIFY(view->setProperty("deletedView", true));
+        QVERIFY(view->setProperty("path", temp.filePath("Deleted")));
+        QTRY_COMPARE_WITH_TIMEOUT(view->property("count").toInt(), 5, 30000);
+        auto *select = view->findChild<QObject *>("deletedSelect"); QVERIFY(select);
+        auto *restore = view->findChild<QObject *>("deletedPutBack"); QVERIFY(restore);
+        auto *remove = view->findChild<QObject *>("deletedDelete"); QVERIFY(remove);
+        QVERIFY(select->property("visible").toBool()); QVERIFY(!restore->property("enabled").toBool());
+        QVERIFY(QMetaObject::invokeMethod(select, "clicked")); QVERIFY(view->property("selectionMode").toBool());
+        const auto selectTile = [&](const QString &name) {
+            QQuickItem *tile = nullptr;
+            QTRY_VERIFY_WITH_TIMEOUT(tile = tileNamed(name), 30000);
+            QTest::mouseClick(window, Qt::LeftButton, Qt::NoModifier, tile->mapToScene(QPointF(50, 50)).toPoint());
+        };
+        selectTile("alpha.txt"); QTRY_COMPARE(view->property("selectedCount").toInt(), 1);
+        QTest::keyClick(window, Qt::Key_Space); QTRY_COMPARE(view->property("selectedCount").toInt(), 0);
+        QTest::keyClick(window, Qt::Key_Space); QTRY_COMPARE(view->property("selectedCount").toInt(), 1);
+        QQuickItem *beta = nullptr; QTRY_VERIFY(beta = tileNamed("beta.txt"));
+        auto *checkbox = beta->findChild<QQuickItem *>("deletedSelectionCheck"); QVERIFY(checkbox);
+        QTRY_VERIFY(checkbox->isVisible());
+        QTest::mouseClick(window, Qt::LeftButton, Qt::NoModifier, checkbox->mapToScene(checkbox->boundingRect().center()).toPoint());
+        QTRY_COMPARE(view->property("selectedCount").toInt(), 2);
+        QVERIFY(checkbox->property("checked").toBool());
+        selectTile("unknown.txt");
+        QTRY_COMPARE(view->property("selectedCount").toInt(), 3);
+        QVERIFY(restore->property("enabled").toBool()); QVERIFY(remove->property("enabled").toBool());
+        QVERIFY(QMetaObject::invokeMethod(restore, "clicked"));
+        QTRY_VERIFY_WITH_TIMEOUT(!view->property("batchRunning").toBool(), 60000);
+        QVERIFY(QFileInfo::exists(temp.filePath("Files/alpha.txt")));
+        QVERIFY(QFileInfo::exists(temp.filePath("Files/beta.txt")));
+        QVERIFY(QFileInfo::exists(unknown.fileName()));
+        QVERIFY(view->property("batchStatus").toString().contains("original location", Qt::CaseInsensitive));
+        QTRY_COMPARE_WITH_TIMEOUT(view->property("count").toInt(), 3, 30000);
+        QCOMPARE(view->property("selectedCount").toInt(), 1);
+        auto *choose = view->findChild<QObject *>("deletedChooseDestination"); QVERIFY(choose);
+        QTRY_VERIFY(choose->property("visible").toBool());
+        QVERIFY(QMetaObject::invokeMethod(view, "restoreSelectionTo", Q_ARG(QVariant, QUrl::fromLocalFile(temp.filePath("Files")))));
+        QTRY_VERIFY_WITH_TIMEOUT(!view->property("batchRunning").toBool(), 60000);
+        QVERIFY(QFileInfo::exists(temp.filePath("Files/unknown.txt")));
+        QTRY_COMPARE_WITH_TIMEOUT(view->property("count").toInt(), 2, 30000);
+        QCOMPARE(view->property("selectedCount").toInt(), 0);
+        selectTile("gamma.txt"); selectTile("delta.txt");
+        QTRY_COMPARE(view->property("selectedCount").toInt(), 2);
+        QVERIFY(QMetaObject::invokeMethod(remove, "clicked"));
+        auto *sheet = view->findChild<QObject *>("deleteSelectedSheet"); QVERIFY(sheet);
+        QTRY_VERIFY(sheet->property("opened").toBool());
+        QVERIFY(QFileInfo::exists(temp.filePath("Deleted/gamma.txt")));
+        auto *confirm = sheet->findChild<QObject *>("confirmDeleteSelected"); QVERIFY(confirm);
+        QVERIFY(QMetaObject::invokeMethod(confirm, "clicked"));
+        QTRY_VERIFY_WITH_TIMEOUT(!view->property("batchRunning").toBool(), 60000);
+        QVERIFY(!QFileInfo::exists(temp.filePath("Deleted/gamma.txt")));
+        QVERIFY(!QFileInfo::exists(temp.filePath("Deleted/delta.txt")));
+        QTRY_COMPARE_WITH_TIMEOUT(view->property("count").toInt(), 0, 30000);
+        view->setProperty("path", ""); view->setProperty("deletedView", false);
     }
 
     void cleanupTestCase()

@@ -1,7 +1,6 @@
 #include "CloudFilesController.h"
 #include <SharedStorage.h>
 #include <File.h>
-#include <QCryptographicHash>
 #include <QDir>
 #include <QFileInfo>
 #include <QJsonArray>
@@ -13,8 +12,7 @@
 #include <QtConcurrent/QtConcurrentRun>
 
 namespace {
-constexpr qint64 PartBytes = 8 * 1024 * 1024;
-constexpr qint64 QuotaBytes = 5'000'000'000;
+constexpr qint64 MaximumLegacyFileBytes = 5'000'000'000;
 constexpr qint64 MaximumControlBytes = 256 * 1024;
 std::filesystem::path nativePath(const QString& value) {
 #ifdef Q_OS_WIN
@@ -72,17 +70,17 @@ void CloudFilesController::setContainerPath(const QString& value) {
 void CloudFilesController::reset() {
     ++m_generation;
     if (m_reply) { m_reply->abort(); m_reply->deleteLater(); m_reply = nullptr; }
-    m_source.reset(); m_temporary.reset();
+    m_temporary.reset();
     if (!m_temporaryPath.isEmpty()) {
         try { iiFileProvider::File::remove(m_temporaryPath); } catch (const std::exception&) {}
         m_temporaryPath.clear();
     }
-    m_busy = false; m_binding.clear(); m_quota = {}; m_files.clear(); m_uploads.clear(); m_cursor.clear(); m_uploadId.clear(); m_status.clear();
+    m_busy = false; m_binding.clear(); m_quota = {}; m_files.clear(); m_uploads.clear(); m_cursor.clear(); m_status.clear();
     emit changed();
 }
 bool CloudFilesController::begin() {
     if (m_busy) return false;
-    if (!m_account || !m_account->isAuthenticated()) { finish(tr("Sign in to Society to use your 5 GB cloud storage.")); return false; }
+    if (!m_account || !m_account->isAuthenticated()) { finish(tr("Sign in to access previous cloud files.")); return false; }
     m_binding = m_account->sessionBinding();
     if (m_binding.isEmpty()) return false;
     m_boundContainer = m_container;
@@ -92,7 +90,7 @@ bool CloudFilesController::bound() const {
     return m_account && m_account->matchesSessionBinding(m_binding) && m_container == m_boundContainer;
 }
 void CloudFilesController::finish(const QString& message) {
-    m_busy = false; m_status = message; m_source.reset(); m_temporary.reset();
+    m_busy = false; m_status = message; m_temporary.reset();
     if (!m_temporaryPath.isEmpty()) {
         try { iiFileProvider::File::remove(m_temporaryPath); } catch (const std::exception&) {}
         m_temporaryPath.clear();
@@ -122,9 +120,9 @@ void CloudFilesController::control(const QJsonObject& input, Continuation next) 
         if (bytes->size() > MaximumControlBytes || reply->error() != QNetworkReply::NoError || !errors.isEmpty() || !result.isObject()) {
             const auto extensions = errors.isEmpty() ? QJsonObject{} : errors.first().toObject().value("extensions").toObject();
             const auto code = extensions.value("code").toString();
-            finish(code == "files_quota_exceeded" ? tr("Your 5 GB cloud storage is full.")
-                : code == "files_conflict" ? tr("The cloud file changed. Refresh before replacing it.")
-                : tr("Cloud request failed. Refresh to check pending uploads before retrying."));
+            finish(code == "files_upload_retired" ? tr("Cloud storage is no longer offered.")
+                : code == "files_conflict" ? tr("The cloud file changed. Refresh before trying again.")
+                : tr("Cloud request failed. Refresh before trying again."));
             return;
         }
         next(result.toObject());
@@ -142,7 +140,7 @@ void CloudFilesController::list(const QString& after) {
     control({{"operation", "list"}, {"after", after}}, [this, after](const QJsonObject& row) {
         if (after.isEmpty()) m_files.clear();
         m_files += row.value("files").toArray().toVariantList(); m_cursor = row.value("nextCursor").toString();
-        m_quota = row.value("quota").toObject(); finish(tr("5 GB cloud storage · Society.societycontainer/Files"));
+        m_quota = row.value("quota").toObject(); finish(tr("Previous cloud files · Society.societycontainer/Files"));
     });
 }
 bool CloudFilesController::loadMore() {
@@ -158,75 +156,13 @@ QString CloudFilesController::localPath(const QString& path, bool existing) {
     if (native.isEmpty() || info.isSymLink() || (existing && !info.isFile()) || (!existing && info.exists())) return {};
     return native;
 }
-bool CloudFilesController::uploadFile(const QString& path, const QString& expectedRevision) {
-    if (!begin()) return false;
-    const auto native = localPath(path, true);
-    m_source = std::make_unique<QFile>(native);
-    if (native.isEmpty() || !m_source->open(QIODevice::ReadOnly) || m_source->size() > QuotaBytes) {
-        finish(tr("Choose a resident file in Society.societycontainer/Files, at most 5 GB.")); return false;
-    }
-    m_size = m_source->size(); m_relative = path; m_part = 0;
-    m_sourceModified = QFileInfo(native).lastModified();
-    m_uploadId = QUuid::createUuid().toString(QUuid::WithoutBraces);
-    control({{"operation", "begin"}, {"uploadId", m_uploadId}, {"path", path}, {"size", m_size}, {"expectedRevision", expectedRevision}},
-        [this](const QJsonObject& row) {
-            if (row.value("state") != "uploading" || row.value("partBytes").toInteger() != PartBytes) {
-                finish(tr("Refresh cloud storage to check the pending upload.")); return;
-            }
-            sendPart();
-        });
-    return true;
+bool CloudFilesController::uploadFile(const QString&, const QString&) {
+    if (!m_busy) finish(tr("Cloud storage is no longer offered."));
+    return false;
 }
-void CloudFilesController::sendPart() {
-    if (!bound()) { reset(); return; }
-    if (!m_source || m_source->size() != m_size || localPath(m_relative, true) != m_source->fileName()
-        || QFileInfo(m_source->fileName()).lastModified() != m_sourceModified) {
-        finish(tr("The local file changed. Cancel the pending cloud upload before retrying.")); return;
-    }
-    auto bytes = std::make_shared<QByteArray>(m_source->read(PartBytes));
-    const auto expected = qMin(PartBytes, m_size - qint64(m_part) * PartBytes);
-    if (bytes->size() != expected) { finish(tr("The local file could not be read completely.")); return; }
-    ++m_part;
-    const auto checksum = QString::fromLatin1(QCryptographicHash::hash(*bytes, QCryptographicHash::Sha256).toBase64());
-    control({{"operation", "part"}, {"uploadId", m_uploadId}, {"partNumber", m_part}, {"checksumSHA256", checksum}},
-        [this, bytes](const QJsonObject& row) {
-            const QUrl url(row.value("url").toString());
-            if (!validS3Url(url) || row.value("size").toInteger() != bytes->size()) { finish(tr("Cloud upload authorization is invalid.")); return; }
-            QNetworkRequest request(url);
-            request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::ManualRedirectPolicy);
-            request.setTransferTimeout(120000);
-            const auto headers = row.value("headers").toObject();
-            for (auto it = headers.begin(); it != headers.end(); ++it) {
-                const auto name = it.key().toLower();
-                if (name == "content-length" || name == "x-amz-checksum-sha256" || name == "host") request.setRawHeader(it.key().toLatin1(), it.value().toString().toUtf8());
-                else { finish(tr("Cloud upload headers are invalid.")); return; }
-            }
-            if (!m_s3) { finish(tr("Cloud transfer is unavailable.")); return; }
-            auto* reply = m_s3->put(request, *bytes); m_reply = reply;
-            const auto generation = m_generation;
-            connect(reply, &QNetworkReply::finished, this, [this, reply, generation, bytes] {
-                reply->deleteLater();
-                if (generation != m_generation) return;
-                m_reply = nullptr;
-                if (!bound()) { reset(); return; }
-                if (reply->error() != QNetworkReply::NoError || reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() != 200) {
-                    finish(tr("Upload interrupted. Refresh to cancel or finish the pending upload.")); return;
-                }
-                if (qint64(m_part) * PartBytes >= m_size) completeUpload(); else sendPart();
-            });
-        });
-}
-void CloudFilesController::completeUpload() {
-    if (m_source && (m_source->size() != m_size || QFileInfo(m_source->fileName()).lastModified() != m_sourceModified)) {
-        finish(tr("The local file changed. Cancel the pending cloud upload before retrying.")); return;
-    }
-    control({{"operation", "complete"}, {"uploadId", m_uploadId}}, [this](const QJsonObject& row) {
-        m_quota = row.value("quota").toObject(); m_uploadId.clear(); finish(tr("File uploaded.")); refresh();
-    });
-}
-bool CloudFilesController::finishUpload(const QString& id) {
-    if (!begin()) return false;
-    m_uploadId = id; completeUpload(); return true;
+bool CloudFilesController::finishUpload(const QString&) {
+    if (!m_busy) finish(tr("Cloud storage is no longer offered."));
+    return false;
 }
 bool CloudFilesController::cancelUpload(const QString& id) {
     if (!begin()) return false;
@@ -248,7 +184,7 @@ bool CloudFilesController::downloadFile(const QString& path) {
     control({{"operation", "download"}, {"path", path}}, [this, path, destination](const QJsonObject& row) {
         const auto size = row.value("file").toObject().value("size").toInteger(-1);
         const QUrl url(row.value("url").toString());
-        if (size < 0 || size > QuotaBytes || !validS3Url(url)) { finish(tr("Cloud download authorization is invalid.")); return; }
+        if (size < 0 || size > MaximumLegacyFileBytes || !validS3Url(url)) { finish(tr("Cloud download authorization is invalid.")); return; }
         m_size = size; m_received = 0;
         // Stage beside the destination; final publication is atomic and cannot
         // replace an existing file or follow a redirected Files ancestor.

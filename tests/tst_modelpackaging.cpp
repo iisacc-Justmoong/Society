@@ -1,4 +1,5 @@
 #include "Society/Tools/ModelPackagingController.h"
+#include "Society/Tools/MergeModelCatalog.h"
 #include "backend/runtime/appbootstrap.h"
 #include <QDir>
 #include <SharedStorage.h>
@@ -18,6 +19,7 @@
 #include <QTemporaryDir>
 #include <QTest>
 #include <QtEndian>
+#include <algorithm>
 
 static bool write(const QString &path, const QByteArray &data)
 {
@@ -83,6 +85,7 @@ private slots:
         QVERIFY(QDir().mkdir(packageRoot + "/Checkpoint")); packageRoot += "/Checkpoint";
         qputenv("SOCIETY_CONTAINER_PATH", drive->rootPath().toUtf8());
         qmlRegisterType<ModelPackagingController>("Society", 1, 0, "ModelPackagingController");
+        qmlRegisterType<MergeModelCatalog>("Society", 1, 0, "MergeModelCatalog");
         ModelPackagingController controller;
         QVERIFY(controller.supported());
         folder = m_root.filePath("LTX folder"); QVERIFY(QDir().mkpath(folder));
@@ -95,6 +98,201 @@ private slots:
         QVERIFY(write(folder + "/gemma-3.gguf", gguf()));
         QVERIFY(write(folder + "/spatial_upscaler_x2.safetensors", safetensors({"initial_conv.weight"}, {{"config", "{\"_class_name\":\"LatentUpsampler\"}"}})));
         QVERIFY(write(folder + "/failed.safetensors", "Auth failed: credentials expired"));
+    }
+    void selectsLibraryModelsAndPackagesOnlyThoseInputs() {
+        const auto models = QFileInfo(packageRoot).absolutePath();
+        const auto main = packageRoot + "/select-main.safetensors";
+        const auto vae = models + "/VAE/select-decoder.safetensors";
+        const auto encoder = models + "/LLM/select-encoder.gguf";
+        QVERIFY(QDir().mkpath(QFileInfo(vae).absolutePath()));
+        QVERIFY(QDir().mkpath(QFileInfo(encoder).absolutePath()));
+        QVERIFY(write(main, safetensors({"model.diffusion_model.weight"})));
+        QVERIFY(write(vae, safetensors({"decoder.weight"})));
+        QVERIFY(write(encoder, gguf()));
+        QVERIFY(write(main + ".iisacc.json", "{\"internal\":true}"));
+        ModelPackagingController controller;
+        QVERIFY(!controller.scanSelection(models, {folder + "/ltxv23.safetensors"}));
+        QVERIFY(!controller.scanSelection(models, {main + ".iisacc.json"}));
+        QSignalSpy done(&controller, &ModelPackagingController::finished);
+        QVERIFY(controller.scanSelection(models, {main, vae, encoder}));
+        QTRY_COMPARE_WITH_TIMEOUT(done.count(), 1, 60000);
+        QVERIFY2(done.first().first().toBool(), qPrintable(controller.errorString()));
+        const auto files = controller.report().value("files").toList();
+        QCOMPARE(files.size(), 3);
+        QStringList listed;
+        for (const auto &file : files) listed.append(file.toMap().value("path").toString());
+        QVERIFY(listed.contains(main)); QVERIFY(listed.contains(vae)); QVERIFY(listed.contains(encoder));
+        const auto output = packageRoot + "/selected-package.safetensors";
+        QVERIFY2(controller.createPackage(output), qPrintable(controller.errorString()));
+        QTRY_COMPARE_WITH_TIMEOUT(done.count(), 2, 60000);
+        QVERIFY2(done.last().first().toBool(), qPrintable(controller.errorString()));
+        QVERIFY(controller.report().value("verified").toBool());
+        QVERIFY(QFileInfo::exists(main)); QVERIFY(QFileInfo::exists(vae)); QVERIFY(QFileInfo::exists(encoder));
+        QVERIFY(QFileInfo::exists(main + ".iisacc.json"));
+    }
+    void manualAssignmentsChangeTheWrittenPackage() {
+        const auto input = m_root.filePath("manual-assignments");
+        QVERIFY(QDir().mkpath(input));
+        QVERIFY(write(input + "/large.safetensors", safetensors({"large.weight"}, {}, 200)));
+        QVERIFY(write(input + "/small.safetensors", safetensors({"small.weight"})));
+        QVERIFY(write(input + "/encoder.safetensors", safetensors({"encoder.weight"})));
+        ModelPackagingController controller;
+        QSignalSpy done(&controller, &ModelPackagingController::finished);
+        QVERIFY(controller.scanFolder(input)); QTRY_COMPARE_WITH_TIMEOUT(done.count(), 1, 15000);
+        QVERIFY2(done.last().first().toBool(), qPrintable(controller.errorString()));
+        QVERIFY(controller.setFilePosition("small.safetensors", "main"));
+        QVERIFY(controller.setFileRole("encoder.safetensors", "text_encoder"));
+        QVERIFY(controller.assignmentsDirty());
+        const auto output = packageRoot + "/manual-assignments.safetensors";
+        QVERIFY(!controller.createPackage(output));
+        QVERIFY(!QFileInfo::exists(output));
+        QVERIFY(controller.applyAssignments()); QTRY_COMPARE_WITH_TIMEOUT(done.count(), 2, 15000);
+        QVERIFY2(done.last().first().toBool(), qPrintable(controller.errorString()));
+        QVERIFY(!controller.assignmentsDirty());
+        QVERIFY(controller.createPackage(output)); QTRY_COMPARE_WITH_TIMEOUT(done.count(), 3, 15000);
+        QVERIFY2(done.last().first().toBool(), qPrintable(controller.errorString()));
+        QFile file(output); QVERIFY(file.open(QIODevice::ReadOnly));
+        const auto prefix = file.read(8); QCOMPARE(prefix.size(), 8);
+        const auto size = qFromLittleEndian<quint64>(prefix.constData());
+        const auto header = QJsonDocument::fromJson(file.read(qint64(size))).object();
+        QVERIFY(header.contains("small.weight"));
+        QVERIFY(header.contains("components/model/large.safetensors/large.weight"));
+        QVERIFY(header.contains("components/text_encoder/encoder.safetensors/encoder.weight"));
+        QVERIFY(controller.setFileRole("encoder.safetensors", ""));
+        QVERIFY(controller.setFilePosition("small.safetensors", ""));
+        QVERIFY(controller.assignmentsDirty()); QVERIFY(controller.applyAssignments());
+        QTRY_COMPARE_WITH_TIMEOUT(done.count(), 4, 15000);
+        QVERIFY2(done.last().first().toBool(), qPrintable(controller.errorString()));
+        for (const auto &value : controller.report().value("files").toList()) {
+            const auto row = value.toMap();
+            if (row.value("id").toString() == "encoder.safetensors") QCOMPARE(row.value("role").toString(), QString("model"));
+            if (row.value("id").toString() == "large.safetensors") QCOMPARE(row.value("position").toString(), QString("main"));
+        }
+    }
+    void qmlManualAssignmentsGatePackagingUntilApplied() {
+        const auto input = m_root.filePath("manual-qml"); QVERIFY(QDir().mkpath(input));
+        QVERIFY(write(input + "/main.safetensors", safetensors({"main.weight"}, {}, 200)));
+        QVERIFY(write(input + "/secondary.safetensors", safetensors({"secondary.weight"})));
+        QVERIFY(write(input + "/encoder.safetensors", safetensors({"encoder.weight"})));
+        warnings.clear(); QQmlApplicationEngine engine; load(engine);
+        QVERIFY2(!engine.rootObjects().isEmpty(), qPrintable(warnings.join('\n')));
+        auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first()); QVERIFY(window);
+        auto *tool = window->findChild<QQuickItem *>("modelPackagingTool"); QVERIFY(tool);
+        auto *controller = window->findChild<ModelPackagingController *>("modelPackagingController"); QVERIFY(controller);
+        tool->setProperty("outputDirectory", packageRoot);
+        QSignalSpy done(controller, &ModelPackagingController::finished);
+        QVERIFY(controller->scanFolder(input)); QTRY_COMPARE_WITH_TIMEOUT(done.count(), 1, 15000);
+        QVERIFY2(done.last().first().toBool(), qPrintable(controller->errorString()));
+        auto *submit = visual(window->contentItem(), "packagingSubmit"); QVERIFY(submit);
+        QTRY_VERIFY(submit->isEnabled());
+        auto *role = visual(window->contentItem(), "packagingRole-encoder.safetensors"); QVERIFY(role);
+        QVERIFY(QMetaObject::invokeMethod(role, "chosen", Q_ARG(QVariant, QVariant("text_encoder"))));
+        QVERIFY(controller->assignmentsDirty()); QVERIFY(!submit->isEnabled());
+        auto *position = visual(window->contentItem(), "packagingPosition-secondary.safetensors"); QVERIFY(position);
+        QVERIFY(QMetaObject::invokeMethod(position, "chosen", Q_ARG(QVariant, QVariant("main"))));
+        auto *apply = visual(window->contentItem(), "packagingApplyAssignments"); QVERIFY(apply);
+        QVERIFY(apply->isEnabled()); QVERIFY(QMetaObject::invokeMethod(apply, "clicked"));
+        QTRY_COMPARE_WITH_TIMEOUT(done.count(), 2, 15000);
+        QVERIFY2(done.last().first().toBool(), qPrintable(controller->errorString()));
+        QVERIFY(!controller->assignmentsDirty()); QTRY_VERIFY(submit->isEnabled());
+        window->resize(360, 800); QTRY_COMPARE(window->width(), 360); QTest::qWait(150);
+        role = visual(window->contentItem(), "packagingRole-encoder.safetensors"); QVERIFY(role);
+        QVERIFY(role->mapToScene(QPointF(role->width(), 0)).x() <= 360);
+        QVERIFY2(warnings.isEmpty(), qPrintable(warnings.join('\n')));
+        window->close();
+    }
+    void roleChangesReevaluateOptionalSelections() {
+        ModelPackagingController controller;
+        QSignalSpy done(&controller, &ModelPackagingController::finished);
+        QVERIFY(controller.scanFolder(folder)); QTRY_COMPARE_WITH_TIMEOUT(done.count(), 1, 15000);
+        QVERIFY2(done.last().first().toBool(), qPrintable(controller.errorString()));
+        QVERIFY(controller.setComponentIncluded("spatial_upscaler_x2.safetensors", false));
+        QVERIFY(controller.setFileRole("spatial_upscaler_x2.safetensors", "other"));
+        QVERIFY(controller.applyAssignments()); QTRY_COMPARE_WITH_TIMEOUT(done.count(), 2, 15000);
+        QVERIFY2(done.last().first().toBool(), qPrintable(controller.errorString()));
+        const auto files = controller.report().value("files").toList();
+        const auto found = std::find_if(files.cbegin(), files.cend(), [](const QVariant &v) {
+            return v.toMap().value("id").toString() == "spatial_upscaler_x2.safetensors";
+        });
+        QVERIFY(found != files.cend());
+        QCOMPARE(found->toMap().value("role").toString(), QString("other"));
+        QCOMPARE(found->toMap().value("status").toString(), QString("included"));
+        QVERIFY(!found->toMap().value("optional").toBool());
+    }
+    void optionalShardsAreSelectedTogether() {
+        const auto input = m_root.filePath("optional-shards"); QVERIFY(QDir().mkpath(input));
+        QVERIFY(write(input + "/a.safetensors", safetensors({"a"})));
+        QVERIFY(write(input + "/b.safetensors", safetensors({"b"})));
+        QVERIFY(write(input + "/main.safetensors", safetensors({"main"})));
+        QVERIFY(write(input + "/model.safetensors.index.json", "{\"weight_map\":{\"a\":\"a.safetensors\",\"b\":\"b.safetensors\"}}"));
+        ModelPackagingController controller; QSignalSpy done(&controller, &ModelPackagingController::finished);
+        QVERIFY(controller.scanFolder(input)); QTRY_COMPARE_WITH_TIMEOUT(done.count(), 1, 15000);
+        QVERIFY(controller.setFileRole("a.safetensors", "lora")); QVERIFY(controller.applyAssignments());
+        QTRY_COMPARE_WITH_TIMEOUT(done.count(), 2, 15000);
+        QVERIFY2(done.last().first().toBool(), qPrintable(controller.errorString()));
+        QVERIFY(controller.setComponentIncluded("a.safetensors", false));
+        for (const auto &value : controller.report().value("files").toList()) {
+            const auto file = value.toMap(); const auto name = file.value("id").toString();
+            if (name == "a.safetensors" || name == "b.safetensors" || name == "model.safetensors.index.json")
+                QCOMPARE(file.value("status").toString(), QString("excluded"));
+        }
+        for (const auto &value : controller.report().value("components").toList())
+            QVERIFY(value.toMap().value("id").toString() != "model.safetensors.index.json");
+        QVERIFY(controller.setComponentIncluded("b.safetensors", true));
+        for (const auto &value : controller.report().value("files").toList())
+            if (value.toMap().value("id").toString() == "a.safetensors")
+                QCOMPARE(value.toMap().value("status").toString(), QString("included"));
+    }
+    void automaticRoleClearsAnIncompatibleMainPosition() {
+        const auto input = m_root.filePath("automatic-role"); QVERIFY(QDir().mkpath(input));
+        QVERIFY(write(input + "/main.safetensors", safetensors({"main.weight"})));
+        QVERIFY(write(input + "/encoder.gguf", gguf()));
+        ModelPackagingController controller; QSignalSpy done(&controller, &ModelPackagingController::finished);
+        QVERIFY(controller.scanFolder(input)); QTRY_COMPARE_WITH_TIMEOUT(done.count(), 1, 15000);
+        QVERIFY(controller.setFileRole("encoder.gguf", "model"));
+        QVERIFY(controller.setFilePosition("encoder.gguf", "main"));
+        QVERIFY(controller.applyAssignments()); QTRY_COMPARE_WITH_TIMEOUT(done.count(), 2, 15000);
+        QVERIFY2(done.last().first().toBool(), qPrintable(controller.errorString()));
+        QVERIFY(controller.setFileRole("encoder.gguf", ""));
+        const auto rows = controller.assignableFiles();
+        const auto row = std::find_if(rows.cbegin(), rows.cend(), [](const QVariant &v) { return v.toMap().value("id").toString() == "encoder.gguf"; });
+        QVERIFY(row != rows.cend());
+        QCOMPARE(row->toMap().value("effectiveRole").toString(), QString("text_encoder"));
+        QVERIFY(row->toMap().value("positionChoice").toString().isEmpty());
+        QVERIFY(controller.applyAssignments()); QTRY_COMPARE_WITH_TIMEOUT(done.count(), 3, 15000);
+        QVERIFY2(done.last().first().toBool(), qPrintable(controller.errorString()));
+    }
+    void automaticallyPromotedGgufCanBePinnedAsMain() {
+        const auto input = m_root.filePath("standalone-gguf"); QVERIFY(QDir().mkpath(input));
+        QVERIFY(write(input + "/main.gguf", gguf()));
+        ModelPackagingController controller; QSignalSpy done(&controller, &ModelPackagingController::finished);
+        QVERIFY(controller.scanFolder(input)); QTRY_COMPARE_WITH_TIMEOUT(done.count(), 1, 15000);
+        QVERIFY2(done.last().first().toBool(), qPrintable(controller.errorString()));
+        QVERIFY(controller.setFilePosition("main.gguf", "main"));
+        QVERIFY(controller.applyAssignments()); QTRY_COMPARE_WITH_TIMEOUT(done.count(), 2, 15000);
+        QVERIFY2(done.last().first().toBool(), qPrintable(controller.errorString()));
+    }
+    void nativeSelectionIsInspectedAndInvalidatedWhenDriveChanges() {
+        warnings.clear(); QQmlApplicationEngine engine; load(engine);
+        QVERIFY2(!engine.rootObjects().isEmpty(), qPrintable(warnings.join('\n')));
+        auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first()); QVERIFY(window);
+        auto *tool = window->findChild<QQuickItem *>("modelPackagingTool"); QVERIFY(tool);
+        auto *catalog = window->findChild<MergeModelCatalog *>("packagingModelCatalog"); QVERIFY(catalog);
+        auto *controller = window->findChild<ModelPackagingController *>("modelPackagingController"); QVERIFY(controller);
+        const auto models = QFileInfo(packageRoot).absolutePath();
+        QVERIFY(tool->setProperty("modelsDirectory", models));
+        QTRY_VERIFY_WITH_TIMEOUT(!catalog->loading(), 60000);
+        const auto main = packageRoot + "/select-main.safetensors";
+        const auto encoder = models + "/LLM/select-encoder.gguf";
+        QSignalSpy done(controller, &ModelPackagingController::finished);
+        emit controller->modelsChosen({main, encoder});
+        QTRY_COMPARE_WITH_TIMEOUT(done.count(), 1, 60000);
+        QVERIFY2(done.first().first().toBool(), qPrintable(controller->errorString()));
+        QVERIFY(controller->report().value("ready").toBool());
+        QVERIFY(tool->setProperty("modelsDirectory", QString()));
+        QVERIFY(!controller->report().value("ready").toBool());
+        QVERIFY2(warnings.isEmpty(), qPrintable(warnings.join('\n')));
+        window->close();
     }
     void asynchronousScanSelectionAndVerifiedOutput() {
         ModelPackagingController controller;
@@ -213,6 +411,39 @@ private slots:
         QVERIFY2(warnings.isEmpty(), qPrintable(warnings.join('\n')));
         window->close();
     }
+    void modalSurfacesFollowTheApplicationWindowColor() {
+        warnings.clear(); QQmlApplicationEngine engine; load(engine);
+        QVERIFY2(!engine.rootObjects().isEmpty(), qPrintable(warnings.join('\n')));
+        auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first()); QVERIFY(window);
+        auto *surface = window->findChild<QQuickItem *>("applicationWindowMaterial"); QVERIFY(surface);
+        const auto backgroundFor = [](QObject *panel) {
+            return panel ? qvariant_cast<QQuickItem *>(panel->property("background")) : nullptr;
+        };
+        QList<QQuickItem *> backgrounds;
+        for (const auto &name : {"packagingDetails", "packagingProgress", "packagingCompletion"}) {
+            auto *popup = window->findChild<QObject *>(QString::fromLatin1(name)); QVERIFY2(popup, name);
+            auto *panel = qvariant_cast<QQuickItem *>(popup->property("contentItem")); QVERIFY2(panel, name);
+            auto *background = backgroundFor(panel); QVERIFY2(background, name);
+            backgrounds.append(background);
+        }
+        const auto initial = surface->property("color").value<QColor>();
+        QVERIFY(initial.isValid());
+        for (auto *background : backgrounds) {
+            const auto color = background->property("color").value<QColor>();
+            QCOMPARE(color.alpha(), 255);
+            QCOMPARE(color, initial);
+        }
+        auto *ordinary = window->findChild<QQuickItem *>("packagingSourcePanel"); QVERIFY(ordinary);
+        auto *ordinaryBackground = backgroundFor(ordinary); QVERIFY(ordinaryBackground);
+        QCOMPARE(ordinaryBackground->property("color").value<QColor>().alpha(), 0);
+        QVERIFY(window->setProperty("primaryColor", QColor(Qt::red)));
+        QTRY_VERIFY(surface->property("color").value<QColor>() != initial);
+        const auto changed = surface->property("color").value<QColor>();
+        for (auto *background : backgrounds)
+            QTRY_COMPARE(background->property("color").value<QColor>(), changed);
+        QVERIFY2(warnings.isEmpty(), qPrintable(warnings.join('\n')));
+        window->close();
+    }
     void realQmlControlsMatchContractAndRemainResponsive() {
         warnings.clear(); QQmlApplicationEngine engine; load(engine);
         QVERIFY2(!engine.rootObjects().isEmpty(), qPrintable(warnings.join('\n')));
@@ -224,6 +455,9 @@ private slots:
         QVERIFY(controller->scanFolder(folder)); QTRY_COMPARE(done.count(), 1);
         auto *submit = visual(window->contentItem(), "packagingSubmit"); QVERIFY(submit);
         QTRY_VERIFY(submit->isEnabled());
+        QVERIFY(tool->setProperty("modelsBusy", true));
+        QVERIFY(submit->isEnabled());
+        QVERIFY(tool->setProperty("modelsBusy", false));
         auto *detailsButton = visual(window->contentItem(), "packagingDetailsButton"); QVERIFY(detailsButton);
         QVERIFY(QMetaObject::invokeMethod(detailsButton, "clicked"));
         auto *details = window->findChild<QObject *>("packagingDetails"); QVERIFY(details);

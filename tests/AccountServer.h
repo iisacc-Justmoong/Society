@@ -20,9 +20,11 @@ public:
     int pairingVersion = 2;
     QDateTime pairingIssuedAt;
     bool hang = false;
+    QByteArray avatarData;
     QJsonObject profile;
     std::function<QJsonObject(const QJsonObject&)> cloudFiles;
     QList<QJsonObject> cloudRequests;
+    QList<QJsonObject> updateRequests;
     QList<QJsonObject> sessionRequests() const {
         QList<QJsonObject> result;
         for (const auto& request : requests) if (request.value("intent") != "container") result.append(request);
@@ -52,7 +54,20 @@ public:
                         if (line.toLower().startsWith("content-length:")) length = line.mid(15).trimmed().toInt();
                     if (bytes.size() < offset + 4 + length) return;
                     socket->setProperty("handled", true);
+                    if (bytes.startsWith("GET /media/avatars/") && !avatarData.isEmpty()) {
+                        socket->write("HTTP/1.1 200 OK\r\nContent-Type: image/png\r\nConnection: close\r\nContent-Length: "
+                            + QByteArray::number(avatarData.size()) + "\r\n\r\n" + avatarData);
+                        socket->disconnectFromHost();
+                        return;
+                    }
                     const auto wire = QJsonDocument::fromJson(bytes.mid(offset + 4, length)).object();
+                    if(bytes.startsWith("POST /Account/GraphQL ") && wire.value("query").toString().contains("accountUpdates(input: $input)")) {
+                        const auto input=wire.value("variables").toObject().value("input").toObject();updateRequests.append(input);
+                        const QJsonObject payload{{"status","release_unavailable"},{"productId",input.value("productId")},{"platformKey",input.value("platformKey")}};
+                        const auto body=QJsonDocument(QJsonObject{{"data",QJsonObject{{"accountUpdates",payload}}}}).toJson(QJsonDocument::Compact);
+                        socket->write("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nConnection: close\r\nContent-Length: "+QByteArray::number(body.size())+"\r\n\r\n"+body);
+                        socket->disconnectFromHost();return;
+                    }
                     if (bytes.startsWith("POST /Account/GraphQL ") && wire.value("query").toString().contains("societyFiles(input: $input)")) {
                         const auto input = wire.value("variables").toObject().value("input").toObject();
                         cloudRequests.append(input);

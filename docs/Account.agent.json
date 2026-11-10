@@ -10,8 +10,8 @@
   },
   "source": {
     "path": "docs/Account.md",
-    "sha256": "f86cbe2fe774cd128b861a9a4b9535194e55bdceec5f01b19ce0665906a2707c",
-    "bytes": 16092,
+    "sha256": "3bf662e3b7fee3b90946cec600d595e8b8728451b96e701ef37ce28bea1d3a39",
+    "bytes": 16131,
     "line_count": 169,
     "encoding": "utf-8",
     "language": "ko"
@@ -315,7 +315,7 @@
       "kind": "paragraph",
       "start_line": 70,
       "end_line": 75,
-      "raw": "iiAccountManager **0.2.3**의 **Quick** 컴포넌트과 iiSocietyHelper **0.7.0** 이상이 필요하다. 기존 Qt Network·LVRS와\nOS API를 재사용하고 새로운 인증 라이브러리나 유료 서비스를 추가하지 않는다. iOS의 계정 SDK는 정적 라이브러리이다.\n`tools/build_ios.py`와 `tools/build_android.py`는 대상 ABI의 계정 SDK를 먼저 설치한 뒤 Helper·Society를 빌드한다.\nAndroid SDK별 빌드 디렉터리는 각 SDK의 `build/society-android`, 설치본은 Society의 `build/android/installed`이다.\n패키징용 JDK는 `--java-home`으로 지정한다. Qt의 Gradle과 호환되는 JDK 17 또는 21을 사용하며,\n이 작업에서는 설치된 CLion의 JBR 21을 사용했다. 시스템 기본 Java 설정은 변경하지 않는다.\n"
+      "raw": "iiAccountManager **0.2.3**의 **Quick** 컴포넌트과 iiSocietyHelper **0.7.0** 이상이 필요하다. 기존 Qt Network·LVRS와\nOS API를 재사용하고 새로운 인증 라이브러리나 유료 서비스를 추가하지 않는다. iOS의 계정 SDK는 정적 라이브러리이다.\n`tools/build_ios.py`와 `tools/build_android.py`는 대상 ABI의 계정 SDK를 먼저 설치한 뒤 Helper·Society를 빌드한다.\nAndroid SDK별 빌드 디렉터리는 각 SDK의 `build/society-android`, 앱 전용 의존성 설치 위치는 Society의 `resources/dependencies/android/<ABI>/`이다.\n패키징용 JDK는 `--java-home`으로 지정한다. Qt의 Gradle과 호환되는 JDK 17 또는 21을 사용하며,\n이 작업에서는 설치된 CLion의 JBR 21을 사용했다. 시스템 기본 Java 설정은 변경하지 않는다.\n"
     },
     {
       "id": "b000036",

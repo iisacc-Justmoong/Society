@@ -15,3 +15,54 @@ dedicated native image SDK without optional LibTorch, then build the canonical
 app. Imported QML modules, Basic Controls, native dependency closure, and release
 symbol stripping keep the package within the verified 512 MiB budget. Runtime
 and footprint checks run before an installed application is replaced.
+
+기존 `build/`에 남은 테스트 컨테이너, 이미지, 설치 이전 백업과 조사 기록은 정리 전에 `resources/.recovery/society-build-history-20261030/`에 보존한다. 활성 애플리케이션과 실제 Society 저장소는 별도로 유지한다.
+
+테스트용 컨테이너, 설정, 캡처와 MCP 시험 자료는 구성별 `resources/.state/tests-*`에 생성하며 CTest 종료 시 정리한다. 시험 실행 파일과 필요한 실제 앱 번들의 경로는 계속 `build/`에서 확인한다.
+Python 기반 이미지·모델 fixture도 전용 임시 리소스 위치를 사용하며, 임시 디렉터리의 상위 경로 누락을 자동 검사한다.
+배포 단계의 임시 보고서는 `resources/.state/`에서 생성하고 성공 시 제거하므로 `build/`에 별도 로그를 남기지 않는다.
+
+## Clean deployment layout
+
+macOS deployment prints its report to the build console by default and stores
+per-bundle locks under `resources/.state/deploy-locks/`. Framework copies retain
+runtime binaries and resources without SDK headers or module maps. The
+`tests/deploy_layout_test.py` contract checks these behaviors with disposable
+resources and does not launch the application.
+Interrupted native-tool temporary executables are excluded from helper discovery
+and removed only when the corresponding real executable exists in the generated
+bundle. The deployment test covers this alongside real helper discovery.
+
+The selected iiSocietyContainer, GUI, sharing, FileTree, and maintenance
+libraries are all explicit native deployment inputs. After deployment, the
+build compares each bundled Mach-O architecture UUID with its selected SDK
+binary; an older transitive copy left by a previous build fails verification.
+This check reads bundle files and does not start Society.
+
+When compatible macOS inference packages have been prepared under
+`resources/dependencies/macos-runtime/`, a clean Society configure selects
+those packages and their matching MLX runtime by default. Explicit package
+paths supplied by the caller remain authoritative, and the macOS defaults do
+not affect iOS. This keeps Society's build inputs independent of another
+product's transient build directory.
+
+iOS와 Android의 프로젝트 전용 SDK 설치 입력은
+`resources/dependencies/ios/`와 `resources/dependencies/android/<ABI>/`에 둔다.
+모바일 도구의 사전 점검과 빌드 출력은 표준 출력으로 전달한다. Android Gradle,
+사용자 설정, Java 임시 파일은 소유한 `resources/.state/` 작업 공간에서
+사용하고 성공·실패 시 정리한다. OpenSSL 소스 압축 파일은 리소스 의존성에
+보관하고, 검증 후 임시 리소스에 푼 원본을 `build/android/`의 별도 컴파일
+디렉터리에서 빌드한다. 소스와 작업 디렉터리는 빌드가 끝나면 정리한다.
+Gradle 문제 보고서 파일은 만들지 않으며 경고와 오류는 콘솔에 표시한다.
+## QML debug symbols
+
+Standard and compact macOS deployment keep QML `.dSYM` debug-symbol bundles
+outside the application while preserving the QML runtime files.
+
+The product-local macOS inference dependency uses a relocatable pkg-config
+prefix, so its metadata does not point into another product's build directory.
+The build helper rejects symlinks in that pkg-config path before changing it.
+When the verified `resources/dependencies/macos-mlx-runtime/` pair is present,
+it is selected automatically for native macOS unless the caller has set an
+explicit `SOCIETY_MLX_RUNTIME_DIR`. Compatible local SDK packages are likewise
+found from `resources/dependencies/`, with explicit package choices preserved.

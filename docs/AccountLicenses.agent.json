@@ -10,9 +10,9 @@
   },
   "source": {
     "path": "docs/AccountLicenses.md",
-    "sha256": "bb2b2ca90f79c3ee6494ac74e5b3f6fe8492d3604eb940d3cf2508e3f34d72ae",
-    "bytes": 3540,
-    "line_count": 42,
+    "sha256": "ed0ecd98f5ccee19e0c0a0f5c55f5acb48c426d37ecee31266612a8d4bd9a210",
+    "bytes": 7610,
+    "line_count": 91,
     "encoding": "utf-8",
     "language": "ko"
   },
@@ -84,63 +84,63 @@
       "id": "b000009",
       "kind": "paragraph",
       "start_line": 18,
-      "end_line": 24,
-      "raw": "주 앱은 시작 및 로그인 복구 시 로컬 우선 경로를 준비한다.\n`127.0.0.1:49627/v1/authorize`에서 다른 앱의 실행 허가를 처리한다.\nCongregation·Dreamscapes·Vincent의 등록 제품/앱 조합만 받으며 요청 계정과\n기기가 Society와 같아야 한다. 응답은 요청 ID, 허가, 서명 토큰, 만료를 포함한다.\n브라우저 Origin, 잘못된 Host, 과대 요청, 중복 길이·전송 헤더는 거부한다.\n외부 네트워크에 수신하지 않으며 계정 쿠키와 온라인 세션 토큰을 반환하지 않는다.\n소비 앱도 서명을 검증해야 한다. 로컬의 임의 응답은 허가 근거가 아니다.\n"
+      "end_line": 26,
+      "raw": "데스크톱의 SocietyDaemon은 동기화 소유권과 별도로 로컬 허가 서비스를 준비한다.\n`127.0.0.1:49627/v1/authorize`와 같은 사용자 Unix 소켓에서 앱의 실행 허가를 처리한다.\n요청마다 보호된 계정 저장소에서 현재 세션을 다시 복원하므로 실행 중 Society 창에\n의존하지 않으며, 로그아웃이 저장된 뒤 시작한 새 요청은 이전 계정을 재사용하지 않는다.\nCongregation·Dreamscapes·Vincent의 등록 제품/앱 조합만 받으며 요청 계정과\n기기가 Society와 같아야 한다. 응답은 요청 ID, 허가, 서명 토큰, 만료를 포함한다.\n브라우저 Origin, 잘못된 Host, 과대 요청, 중복 길이·전송 헤더는 거부한다.\n외부 네트워크에 수신하지 않으며 계정 쿠키와 온라인 세션 토큰을 반환하지 않는다.\n소비 앱도 서명을 검증해야 한다. 로컬의 임의 응답은 허가 근거가 아니다.\n"
     },
     {
       "id": "b000010",
       "kind": "blank",
-      "start_line": 25,
-      "end_line": 25,
+      "start_line": 27,
+      "end_line": 27,
       "raw": "\n"
     },
     {
       "id": "b000011",
       "kind": "paragraph",
-      "start_line": 26,
-      "end_line": 28,
+      "start_line": 28,
+      "end_line": 30,
       "raw": "Environment → Apps에는 검증된 라이선스 보유 여부와 연결된 앱/브라우저를 표시한다.\n제품은 설치 여부와 라이선스 상태를 구분하며, 현재 세션을 임의 해제하지 않는다.\n연결 해제는 계정 서버의 공통 레지스트리를 사용한다.\n"
     },
     {
       "id": "b000012",
       "kind": "blank",
-      "start_line": 29,
-      "end_line": 29,
+      "start_line": 31,
+      "end_line": 31,
       "raw": "\n"
     },
     {
       "id": "b000013",
       "kind": "paragraph",
-      "start_line": 30,
-      "end_line": 33,
+      "start_line": 32,
+      "end_line": 35,
       "raw": "`SocietyAccountTests::societyMountsAccountLicenseInventory`는 내부 관리자 소유,\n로컬 토큰 재사용 시 서버 요청 0건, 실제 HTTP 허가, 다른 기기 및 브라우저 요청\n거부, 미보유·위조 주체·로그아웃과 연결 해제를 검사한다. 다른 플랫폼의 소스\n이식과 해당 플랫폼에서 두 앱을 연결한 실제 실행 검증은 구분한다.\n"
     },
     {
       "id": "b000014",
-      "kind": "blank",
-      "start_line": 34,
-      "end_line": 34,
-      "raw": "\n"
-    },
-    {
-      "id": "b000015",
-      "kind": "paragraph",
-      "start_line": 35,
-      "end_line": 35,
-      "raw": "소비 앱은 Society가 승인한 서명 토큰을 자체 계정 SDK 안에 안전하게 보관할 수 있다. Society가 중지·종료되어도 토큰 만료까지 위임이 유효하며, 다시 연결되어 명시 거부를 받으면 위임을 삭제한다. iPadOS의 백그라운드 중지는 이 정책으로 처리한다.\n"
-    },
-    {
-      "id": "b000016",
       "kind": "blank",
       "start_line": 36,
       "end_line": 36,
       "raw": "\n"
     },
     {
+      "id": "b000015",
+      "kind": "paragraph",
+      "start_line": 37,
+      "end_line": 39,
+      "raw": "Dreamscapes와 Congregation은 시작 시 서명 허가를 확인하고 그 실행에 한해 결과를\n유지한다. 실행 중 데몬이 종료되거나 토큰이 만료되어도 편집을 중단하지 않는다.\n다음 실행에는 현재 계정과 만료되지 않은 서명 허가가 다시 필요하다.\n"
+    },
+    {
+      "id": "b000016",
+      "kind": "blank",
+      "start_line": 40,
+      "end_line": 40,
+      "raw": "\n"
+    },
+    {
       "id": "b000017",
       "kind": "heading",
-      "start_line": 37,
-      "end_line": 37,
+      "start_line": 41,
+      "end_line": 41,
       "raw": "## 통합 검사 준비 조건\n",
       "level": 2,
       "title": "통합 검사 준비 조건"
@@ -148,16 +148,162 @@
     {
       "id": "b000018",
       "kind": "blank",
-      "start_line": 38,
-      "end_line": 38,
+      "start_line": 42,
+      "end_line": 42,
       "raw": "\n"
     },
     {
       "id": "b000019",
       "kind": "paragraph",
-      "start_line": 39,
-      "end_line": 42,
+      "start_line": 43,
+      "end_line": 46,
       "raw": "계정 통합 검사에서 전송 연결과 호스트 서비스 준비를 구분한다. 원격 생성 RPC는\n네임스페이스 바인딩이 완료된 뒤 전송한다. 파일 잠금 충돌은 SDK가 같은 요청\n안에서 재시도하므로 연결 검사도 즉시 오류 문구를 기대하지 않고 인증 유지와\n잠금 해제 후 완료를 확인한다. 파일 실체화는 최대 30초, 별도 NAS 프로세스의 최초 바인딩은 최대 60초로 한정하며, 여러 실제 동기화 시나리오를 포함하는 전체 검사 실행 제한은 180~240초로 설정한다.\n"
+    },
+    {
+      "id": "b000020",
+      "kind": "blank",
+      "start_line": 47,
+      "end_line": 47,
+      "raw": "\n"
+    },
+    {
+      "id": "b000021",
+      "kind": "heading",
+      "start_line": 48,
+      "end_line": 48,
+      "raw": "## 동일 사용자 로컬 계정 채널\n",
+      "level": 2,
+      "title": "동일 사용자 로컬 계정 채널"
+    },
+    {
+      "id": "b000022",
+      "kind": "blank",
+      "start_line": 49,
+      "end_line": 49,
+      "raw": "\n"
+    },
+    {
+      "id": "b000023",
+      "kind": "paragraph",
+      "start_line": 50,
+      "end_line": 57,
+      "raw": "Society는 macOS/Linux에서 현재 OS 사용자만 접근할 수 있는 전용 디렉터리의 Unix 소켓을\n열고 연결자의 peer credential을 확인한다. 등록된 제품 ID와 앱 ID, 현재 기기 ID, 요청 ID가\n일치할 때 현재 계정의 서명된 제품 라이선스를 반환한다. 비밀번호·서버 쿠키·온라인 Bearer는\n전달하지 않는다. 제품은 자체적으로 서명과 기기·제품·만료를 검증해야 한다. 같은 OS 사용자\n안에서 서로 다른 앱의 코드 서명을 구분하는 기능은 없다. 구형 TCP 브로커는 기존 세션 주체\n검사를 유지하며 자동 로그인용으로 사용하지 않는다. Windows/iOS의 로컬 채널은 미지원이다.\n일반 `SocietySession`은 계속 갱신할 수 있지만 두 제품은 첫 승인 후 세션을 종료하여\n현재 실행의 허가를 유지한다. 승인 전 오류나 위조 응답은 허가하지 않는다.\n"
+    },
+    {
+      "id": "b000024",
+      "kind": "blank",
+      "start_line": 58,
+      "end_line": 58,
+      "raw": "\n"
+    },
+    {
+      "id": "b000025",
+      "kind": "paragraph",
+      "start_line": 59,
+      "end_line": 60,
+      "raw": "`Society.Account` 로컬 fixture는 등록 제품의 같은 사용자 요청과 기기 결합을 검사한다.\n실제 설치본의 자동 로그인과 운영 라이선스 보유 여부는 별도 검증이다.\n"
+    },
+    {
+      "id": "b000026",
+      "kind": "blank",
+      "start_line": 61,
+      "end_line": 61,
+      "raw": "\n"
+    },
+    {
+      "id": "b000027",
+      "kind": "paragraph",
+      "start_line": 62,
+      "end_line": 63,
+      "raw": "빌드 의존성으로 사용되는 Society 달력은 iiCalendar의 현재 연결 주입 API에 맞춰 앱이 iiFileProvider를 통해 SQLite 연결을 열고 소유한다. 기존 일정 저장 경로와 이벤트 모델은 유지한다.\n달력 및 드라이브 회귀 검사의 임시 작업 데이터는 `resources/` 아래에 생성하고 검사 후 정리한다.\n"
+    },
+    {
+      "id": "b000028",
+      "kind": "blank",
+      "start_line": 64,
+      "end_line": 64,
+      "raw": "\n"
+    },
+    {
+      "id": "b000029",
+      "kind": "heading",
+      "start_line": 65,
+      "end_line": 65,
+      "raw": "## 로컬 원격 기능 중계\n",
+      "level": 2,
+      "title": "로컬 원격 기능 중계"
+    },
+    {
+      "id": "b000030",
+      "kind": "blank",
+      "start_line": 66,
+      "end_line": 66,
+      "raw": "\n"
+    },
+    {
+      "id": "b000031",
+      "kind": "paragraph",
+      "start_line": 67,
+      "end_line": 70,
+      "raw": "Society 창의 계정 객체는 별도로 `iiSocietyHelper::LocalService`를 시작한다.\n현재 로그인과 서명된 제품별 라이선스가 유효한 경우에만 같은 사용자 프로세스의\n파일 전송·동기화·원격 생성 요청을 처리하며, 연결 중 계정이나 권한이 바뀌면 닫는다.\n이 서비스의 배치만으로 Dreamscapes 연결이나 실제 운영 활성화가 검증되는 것은 아니다.\n"
+    },
+    {
+      "id": "b000032",
+      "kind": "blank",
+      "start_line": 71,
+      "end_line": 71,
+      "raw": "\n"
+    },
+    {
+      "id": "b000033",
+      "kind": "paragraph",
+      "start_line": 72,
+      "end_line": 75,
+      "raw": "로컬 브로커의 제품 업데이트 요청은 현재 기기와 제품 권한을 확인한 뒤 Society의\n`AccountManager`로 서버에 전달한다. 응답 전 계정 바인딩과 권한을 다시 확인하며,\n로그인 쿠키와 서버 자격 증명은 제품에 전달하지 않는다. 제품 측 업데이트 피드 연결과\n실제 서명된 릴리스가 준비되기 전에는 업데이트 기능이 완성된 것으로 취급하지 않는다.\n"
+    },
+    {
+      "id": "b000034",
+      "kind": "blank",
+      "start_line": 76,
+      "end_line": 76,
+      "raw": "\n"
+    },
+    {
+      "id": "b000035",
+      "kind": "heading",
+      "start_line": 77,
+      "end_line": 77,
+      "raw": "# 데몬 기반 앱 실행 허가\n",
+      "level": 1,
+      "title": "데몬 기반 앱 실행 허가"
+    },
+    {
+      "id": "b000036",
+      "kind": "blank",
+      "start_line": 78,
+      "end_line": 78,
+      "raw": "\n"
+    },
+    {
+      "id": "b000037",
+      "kind": "paragraph",
+      "start_line": 79,
+      "end_line": 85,
+      "raw": "데스크톱의 앱 라이선스 브로커는 Society 창이 아닌 SocietyDaemon의 수명을 따른다.\n각 새 요청은 보호된 계정 저장소에서 현재 세션을 복원한 뒤 기기와 제품에 묶인\n서명 허가를 검증한다. 복원 실패·로그아웃·위조·미보유는 새 실행을 허가하지 않는다.\n사용자에게 이미 허가된 앱의 현재 실행을 데몬 연결 변화로 중단하지 않는다.\nSociety 창은 로그인·로그아웃을 제공하며 실행 허가를 제공하기 위해 열려 있을 필요가 없다.\n기본 로컬 소켓의 데몬이 꺼져 있으면 클라이언트가 라이선스 전용 데몬을 창 없이\n기동한다. 기동 실패 또는 계정·서명 검증 실패는 새 실행을 허가하지 않는다.\n"
+    },
+    {
+      "id": "b000038",
+      "kind": "blank",
+      "start_line": 86,
+      "end_line": 86,
+      "raw": "\n"
+    },
+    {
+      "id": "b000039",
+      "kind": "paragraph",
+      "start_line": 87,
+      "end_line": 91,
+      "raw": "macOS 데몬은 `QCoreApplication`만 사용한다. iiAccountManager의 Keychain 완료\n신호는 Qt 이벤트 큐에서 처리하므로 GUI의 Cocoa 이벤트 루프를 기다리지 않는다.\n저장된 서명 허가를 먼저 검증하고 사용할 수 없으면 인증된 서버에서 갱신한다.\n헤드리스 저장소와 서명 라이선스의 오프라인 재사용은 별도 합성 계정 테스트로\n검사하며, 운영 계정의 실제 허가는 설치된 앱에서 별도로 확인한다.\n"
     }
   ],
   "outline": [
@@ -175,7 +321,31 @@
       "level": 2,
       "title": "통합 검사 준비 조건",
       "anchor": "통합-검사-준비-조건",
-      "start_line": 37
+      "start_line": 41
+    },
+    {
+      "block_id": "b000021",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "동일 사용자 로컬 계정 채널",
+      "anchor": "동일-사용자-로컬-계정-채널",
+      "start_line": 48
+    },
+    {
+      "block_id": "b000029",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "로컬 원격 기능 중계",
+      "anchor": "로컬-원격-기능-중계",
+      "start_line": 65
+    },
+    {
+      "block_id": "b000035",
+      "parent_id": null,
+      "level": 1,
+      "title": "데몬 기반 앱 실행 허가",
+      "anchor": "데몬-기반-앱-실행-허가",
+      "start_line": 77
     }
   ],
   "indexes": {
@@ -189,22 +359,92 @@
       },
       {
         "block_id": "b000009",
-        "line": 23,
+        "line": 21,
+        "text": "의존하지 않으며, 로그아웃이 저장된 뒤 시작한 새 요청은 이전 계정을 재사용하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000009",
+        "line": 25,
         "text": "외부 네트워크에 수신하지 않으며 계정 쿠키와 온라인 세션 토큰을 반환하지 않는다.",
         "basis": "lexical_match",
         "context": "paragraph"
       },
       {
         "block_id": "b000009",
-        "line": 24,
+        "line": 26,
         "text": "소비 앱도 서명을 검증해야 한다. 로컬의 임의 응답은 허가 근거가 아니다.",
         "basis": "lexical_match",
         "context": "paragraph"
       },
       {
         "block_id": "b000011",
-        "line": 27,
+        "line": 29,
         "text": "제품은 설치 여부와 라이선스 상태를 구분하며, 현재 세션을 임의 해제하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000015",
+        "line": 38,
+        "text": "유지한다. 실행 중 데몬이 종료되거나 토큰이 만료되어도 편집을 중단하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000023",
+        "line": 53,
+        "text": "전달하지 않는다. 제품은 자체적으로 서명과 기기·제품·만료를 검증해야 한다. 같은 OS 사용자",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000023",
+        "line": 55,
+        "text": "검사를 유지하며 자동 로그인용으로 사용하지 않는다. Windows/iOS의 로컬 채널은 미지원이다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000023",
+        "line": 57,
+        "text": "현재 실행의 허가를 유지한다. 승인 전 오류나 위조 응답은 허가하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000033",
+        "line": 74,
+        "text": "로그인 쿠키와 서버 자격 증명은 제품에 전달하지 않는다. 제품 측 업데이트 피드 연결과",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000033",
+        "line": 75,
+        "text": "실제 서명된 릴리스가 준비되기 전에는 업데이트 기능이 완성된 것으로 취급하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000037",
+        "line": 81,
+        "text": "서명 허가를 검증한다. 복원 실패·로그아웃·위조·미보유는 새 실행을 허가하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000037",
+        "line": 82,
+        "text": "사용자에게 이미 허가된 앱의 현재 실행을 데몬 연결 변화로 중단하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000037",
+        "line": 85,
+        "text": "기동한다. 기동 실패 또는 계정·서명 검증 실패는 새 실행을 허가하지 않는다.",
         "basis": "lexical_match",
         "context": "paragraph"
       }

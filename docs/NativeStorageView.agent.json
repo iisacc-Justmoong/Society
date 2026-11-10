@@ -1,0 +1,407 @@
+{
+  "format": "iisacc.agent-document",
+  "schema_version": 1,
+  "document_id": "urn:iisacc:document:6c6c8beef7569345d0f3265d7f92b0a131be4133e6bcda017f19e31d8b8e315a",
+  "project": {
+    "id": "urn:iisacc:project:Product%2FSociety",
+    "name": "Society",
+    "root": "Product/Society",
+    "kind": "application"
+  },
+  "source": {
+    "path": "docs/NativeStorageView.md",
+    "sha256": "8638bb9c680588702a0e0dbe9386c7e46abf6c26489d672b4731cc05d64d8a80",
+    "bytes": 8597,
+    "line_count": 106,
+    "encoding": "utf-8",
+    "language": "ko"
+  },
+  "document": {
+    "title": "Society의 LVUI 파일 화면 이관 경계",
+    "role": "guide",
+    "authority": "markdown_source"
+  },
+  "blocks": [
+    {
+      "id": "b000001",
+      "kind": "heading",
+      "start_line": 1,
+      "end_line": 1,
+      "raw": "# Society의 LVUI 파일 화면 이관 경계\n",
+      "level": 1,
+      "title": "Society의 LVUI 파일 화면 이관 경계"
+    },
+    {
+      "id": "b000002",
+      "kind": "blank",
+      "start_line": 2,
+      "end_line": 2,
+      "raw": "\n"
+    },
+    {
+      "id": "b000003",
+      "kind": "paragraph",
+      "start_line": 3,
+      "end_line": 6,
+      "raw": "기존 [Figma Storage 파일 표](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=39-1045)를\n네이티브 LVUI `Table`과 C++ 뷰모델로 옮기는 작업이다. 컨테이너 목록은\n[데몬 목록 계약](NativeMigrationBackend.md)으로 읽으며 화면이 파일시스템을 직접\n열거하거나 수정하지 않는다. Qt GUI, QML 또는 LVRS를 네이티브 뷰에서 사용하지 않는다.\n"
+    },
+    {
+      "id": "b000004",
+      "kind": "blank",
+      "start_line": 7,
+      "end_line": 7,
+      "raw": "\n"
+    },
+    {
+      "id": "b000005",
+      "kind": "paragraph",
+      "start_line": 8,
+      "end_line": 12,
+      "raw": "브로커 연결은 iiNetwork 로컬 채널과 iiJson을 사용한다. 한 프레임은 4바이트\n빅엔디언 길이와 최대 1 MiB JSON 객체로 구성하며 분할·연속 프레임, 잘못된 길이,\n잘못된 JSON과 전송 한도를 처리한다. Unix는 연결 상대의 사용자 식별자를 확인한다.\nWindows의 기존 데몬 채널은 명명된 파이프이므로 AF_UNIX로 대체된 것으로 가정하지\n않으며 별도 어댑터가 완성되기 전에는 지원되지 않는 상태를 반환한다.\n"
+    },
+    {
+      "id": "b000006",
+      "kind": "blank",
+      "start_line": 13,
+      "end_line": 13,
+      "raw": "\n"
+    },
+    {
+      "id": "b000007",
+      "kind": "paragraph",
+      "start_line": 14,
+      "end_line": 20,
+      "raw": "네이티브 파일 뷰모델은 새 폴더 요청의 식별자와 서버의 폴더 세대·리비전을 분리한다.\n이전 폴더나 이전 리비전의 늦은 응답은 버린다. 항목의 상대 경로는 현재 위치의\n선택 키이며 자원의 영구 ID나 내용 해시로 취급하지 않는다. 조회·페이지·선택은\n데몬의 작업을 취소하지 않고 명시적인 오류를 표시한다. 화면 크기와 콘텐츠는 LVUI\n토큰과 재사용 위젯으로 구성한다.\n격자 선택 상태는 앱에서 import한 C++ 연결을 통해 iiGUI의 컬렉션 탐색 구현이\n관리하며, LVUI는 탐색 상태와 동작을 화면에 선언적으로 연결한다.\n"
+    },
+    {
+      "id": "b000008",
+      "kind": "blank",
+      "start_line": 21,
+      "end_line": 21,
+      "raw": "\n"
+    },
+    {
+      "id": "b000009",
+      "kind": "paragraph",
+      "start_line": 22,
+      "end_line": 31,
+      "raw": "`App/Society/Native/`에는 LVUI AOT 파일 표, C++ 뷰모델, iiNetwork 연결 및\n이를 결합하는 별도 이관용 실행 파일이 있다. 파일 표는 한 번에 최대 64개 항목을\n보여 주며 Files·Models·Deleted 영역, 하위 폴더, 페이지, 빈 상태와 연결 오류를\n다룬다. 목록은 데몬의 선택된 컨테이너에서 오며, 내부 JSON 메타데이터는 컨테이너\n모델의 필터를 따른다. 선택한 파일의 이름 변경·휴지통 이동·복원은 컨테이너의\n지속 작업에 위임한다. 수락·기록·완료는 각각 표시하며 연결 복원 시 식별자를 받은\n작업은 다시 조회한다. 연결이 끊기기 전에 응답을 받지 못한 요청은 결과 확인이\n필요함을 표시하고 자동 재전송하지 않는다. 오류를 동반한 완료 통지는 작업 ID와\n실제 결과 경로를 유지하며, 이후 조회에서 작업 상태를 확인할 수 있다. 완료 전에\n보낸 오래된 상태 조회가 완료 결과를 덮어쓰지는 않는다.\n"
+    },
+    {
+      "id": "b000010",
+      "kind": "blank",
+      "start_line": 32,
+      "end_line": 32,
+      "raw": "\n"
+    },
+    {
+      "id": "b000011",
+      "kind": "paragraph",
+      "start_line": 33,
+      "end_line": 37,
+      "raw": "파일 복제, 대상 폴더로의 이동과 현재 위치에 새 폴더를 만드는 동작도 컨테이너 작업으로 위임한다.\n이동 대상은 컨테이너 기준 상대 폴더이며, 선택이 변경되면 열린 이동 입력을 취소한다.\nDeleted에서 영구 삭제는 선택 항목을 명시적으로 확인한 뒤에만 요청한다. 내부\n메타데이터와 미리보기는 독립 항목으로 조작하지 않고 컨테이너의 파일 조작 규칙을\n따른다.\n"
+    },
+    {
+      "id": "b000012",
+      "kind": "blank",
+      "start_line": 38,
+      "end_line": 38,
+      "raw": "\n"
+    },
+    {
+      "id": "b000013",
+      "kind": "paragraph",
+      "start_line": 39,
+      "end_line": 44,
+      "raw": "현재 페이지에서 연속된 여러 행을 선택하면 각 파일을 별도 지속 작업으로 제출한다.\n열기와 이름 변경은 단일 선택에서만 제공하며, 영구 삭제 확인 중 선택이 바뀌면\n확인을 취소한다. 각 작업의 거절·실패 및 전송 결과가 불확실한 항목은 나중의 성공에\n가려지지 않도록 별도로 남긴다. 이 선택 범위는 현재 페이지의 연속 행이며, 비연속\n선택과 페이지를 넘나드는 선택은 표에서 아직 제공하지 않는다. 오류 표시는 최근\n128건을 탐색할 수 있으며 오래된 오류가 한도를 초과하면 생략된 건수를 표시한다.\n"
+    },
+    {
+      "id": "b000014",
+      "kind": "blank",
+      "start_line": 45,
+      "end_line": 45,
+      "raw": "\n"
+    },
+    {
+      "id": "b000015",
+      "kind": "paragraph",
+      "start_line": 46,
+      "end_line": 48,
+      "raw": "목록과 가상 그리드는 동일한 현재 페이지를 사용하며, 그리드는 여러 항목을\n개별 선택할 수 있다. 표시 형식이나 페이지를 바꿀 때 이전 선택은 해제한다.\n그리드는 파일명·종류·크기를 표시하며 이미지 미리보기는 아직 제공하지 않는다.\n"
+    },
+    {
+      "id": "b000016",
+      "kind": "blank",
+      "start_line": 49,
+      "end_line": 49,
+      "raw": "\n"
+    },
+    {
+      "id": "b000017",
+      "kind": "paragraph",
+      "start_line": 50,
+      "end_line": 56,
+      "raw": "Models에서는 운영체제 파일 선택기로 여러 safetensors 모델을 고를 수 있다. 선택한\n경로는 데몬의 기존 모델 가져오기 작업에 전달하고 원본은 그대로 둔다. 작업 수락과\n진행·완료를 구분하며, 선택기나 연결이 열린 동안 대상 드라이브가 바뀌면 제출하지\n않는다. Files에서는 운영체제 선택기로 고른 일반 파일을 현재 폴더에 복사하도록\n데몬에 요청한다. 파일별로 별도 지속 작업을 만들며 원본과 내부 부속 자료의 처리는\n컨테이너가 담당한다. 선택기가 열려 있는 동안 드라이브 또는 폴더가 바뀌면 요청하지\n않는다. 지원되는 원본의 정규 경로를 사용하며, 원본을 삭제하거나 이동하지 않는다.\n"
+    },
+    {
+      "id": "b000018",
+      "kind": "blank",
+      "start_line": 57,
+      "end_line": 57,
+      "raw": "\n"
+    },
+    {
+      "id": "b000019",
+      "kind": "paragraph",
+      "start_line": 58,
+      "end_line": 60,
+      "raw": "현재 폴더 검색은 입력 후 Search로 적용하며, 이름·날짜·종류·크기 버튼을 다시 누르면\n정렬 방향이 바뀐다. 필터와 정렬은 데몬의 비동기 디렉터리 모델에 전달되고 페이지\n전체에 적용된다. 다른 폴더로 이동하면 검색어는 지운다.\n"
+    },
+    {
+      "id": "b000020",
+      "kind": "blank",
+      "start_line": 61,
+      "end_line": 61,
+      "raw": "\n"
+    },
+    {
+      "id": "b000021",
+      "kind": "paragraph",
+      "start_line": 62,
+      "end_line": 65,
+      "raw": "macOS의 Open은 데몬이 선택 파일의 목록 소속과 가용성을 확인한 결과를 운영체제에\n전달한다. 원격 원본 준비는 컨테이너 모델의 기존 요청을 사용하며, 사용자가 다른\n폴더로 이동한 뒤 도착한 결과는 열지 않는다. 이 요청의 수락은 전문 앱에서의 저장\n또는 판본 확정을 뜻하지 않는다. 자동 시험은 OS 파일 열기를 모의 콜백으로 대체한다.\n"
+    },
+    {
+      "id": "b000022",
+      "kind": "blank",
+      "start_line": 66,
+      "end_line": 66,
+      "raw": "\n"
+    },
+    {
+      "id": "b000023",
+      "kind": "paragraph",
+      "start_line": 67,
+      "end_line": 71,
+      "raw": "macOS Society 빌드에는 이 실행 파일이 포함되며 기존 앱의 `View > Files (LVUI\npreview)`에서 별도 창으로 열 수 있다. 기존 Storage 진입점은 유지된다. 데몬을 찾을\n때 `SOCIETY_LOCAL_BROKER_DIR`을 사용하고 지정되지 않으면 사용자 홈의 기존\n브로커 경로를 사용한다. 연결이 끊기면 Reconnect로 다시 연결할 수 있으며 자동\n재접속은 아직 제공하지 않는다.\n"
+    },
+    {
+      "id": "b000024",
+      "kind": "blank",
+      "start_line": 72,
+      "end_line": 72,
+      "raw": "\n"
+    },
+    {
+      "id": "b000025",
+      "kind": "paragraph",
+      "start_line": 73,
+      "end_line": 76,
+      "raw": "목록의 비연속 다중 선택·미리보기 등 기존 파일 화면의\n나머지 기능은 이관용 화면에 아직 없다. 이 실행 파일은 기존 Society의 기본\n진입점이나 설치 대체물이 아니다. 브로커와 뷰모델의 시험은 격리된 소켓과\n임시 컨테이너를 사용하며, 운영체제 창을 열거나 사용자의 실제 파일을 조작하지 않는다.\n"
+    },
+    {
+      "id": "b000026",
+      "kind": "blank",
+      "start_line": 77,
+      "end_line": 77,
+      "raw": "\n"
+    },
+    {
+      "id": "b000027",
+      "kind": "heading",
+      "start_line": 78,
+      "end_line": 78,
+      "raw": "## macOS 이관 구성 빌드\n",
+      "level": 2,
+      "title": "macOS 이관 구성 빌드"
+    },
+    {
+      "id": "b000028",
+      "kind": "blank",
+      "start_line": 79,
+      "end_line": 79,
+      "raw": "\n"
+    },
+    {
+      "id": "b000029",
+      "kind": "paragraph",
+      "start_line": 80,
+      "end_line": 81,
+      "raw": "아래 명령은 현재 작업공간의 네이티브 선택기용 LVUI·iiGUI 의존성과 로컬 iiSDK를\n사용한다. 실제 제품 설치나 GUI 실행은 포함하지 않는다.\n"
+    },
+    {
+      "id": "b000030",
+      "kind": "blank",
+      "start_line": 82,
+      "end_line": 82,
+      "raw": "\n"
+    },
+    {
+      "id": "b000031",
+      "kind": "fenced_code",
+      "start_line": 83,
+      "end_line": 98,
+      "raw": "```sh\ncmake -S App/Society/Native -B build/native-society \\\n  -DLVUI_DIR=\"$PWD/resources/dependencies/lvui-native-model-chooser/lib/cmake/LVUI\" \\\n  -DiiGUI_DIR=\"$PWD/resources/dependencies/iigui-native-model-chooser/lib/cmake/iiGUI\" \\\n  -DiiSDKCore_DIR=\"$HOME/.local/SDK/iiSDKCore/lib/cmake/iiSDKCore\" \\\n  -DiiNetwork_DIR=\"$HOME/.local/SDK/iiNetwork/lib/cmake/iiNetwork\" \\\n  -DiiJson_DIR=\"$HOME/.local/SDK/iiJson/lib/cmake/iiJson\" \\\n  -DiiSocietyContainer_DIR=\"$PWD/../../SDK/iiSocietyContainer/build/lvui-app-stage/lib/cmake/iiSocietyContainer\" \\\n  -DiiFileProviderCatalog_DIR=\"$PWD/resources/dependencies/catalog-compat/lib/cmake/iiFileProviderCatalog\" \\\n  -DQt6_DIR=\"/Volumes/Storage/Qt/6.8.3/macos/lib/cmake/Qt6\" \\\n  -Dlunasvg_DIR=\"$PWD/resources/dependencies/iigui-native-model-chooser/lib/cmake/lunasvg\" \\\n  -Dplutovg_DIR=\"$PWD/resources/dependencies/iigui-native-model-chooser/lib/cmake/plutovg\" \\\n  -DCMAKE_PREFIX_PATH=\"$HOME/.local/SDK/iiFileProvider;$HOME/.local/SDK/iiJob;$HOME/.local/SDK/Vulkan;$HOME/.local/SDK/iiColorManager\"\ncmake --build build/native-society\nctest --test-dir build/native-society --output-on-failure\n```\n",
+      "language": "sh",
+      "code": "cmake -S App/Society/Native -B build/native-society \\\n  -DLVUI_DIR=\"$PWD/resources/dependencies/lvui-native-model-chooser/lib/cmake/LVUI\" \\\n  -DiiGUI_DIR=\"$PWD/resources/dependencies/iigui-native-model-chooser/lib/cmake/iiGUI\" \\\n  -DiiSDKCore_DIR=\"$HOME/.local/SDK/iiSDKCore/lib/cmake/iiSDKCore\" \\\n  -DiiNetwork_DIR=\"$HOME/.local/SDK/iiNetwork/lib/cmake/iiNetwork\" \\\n  -DiiJson_DIR=\"$HOME/.local/SDK/iiJson/lib/cmake/iiJson\" \\\n  -DiiSocietyContainer_DIR=\"$PWD/../../SDK/iiSocietyContainer/build/lvui-app-stage/lib/cmake/iiSocietyContainer\" \\\n  -DiiFileProviderCatalog_DIR=\"$PWD/resources/dependencies/catalog-compat/lib/cmake/iiFileProviderCatalog\" \\\n  -DQt6_DIR=\"/Volumes/Storage/Qt/6.8.3/macos/lib/cmake/Qt6\" \\\n  -Dlunasvg_DIR=\"$PWD/resources/dependencies/iigui-native-model-chooser/lib/cmake/lunasvg\" \\\n  -Dplutovg_DIR=\"$PWD/resources/dependencies/iigui-native-model-chooser/lib/cmake/plutovg\" \\\n  -DCMAKE_PREFIX_PATH=\"$HOME/.local/SDK/iiFileProvider;$HOME/.local/SDK/iiJob;$HOME/.local/SDK/Vulkan;$HOME/.local/SDK/iiColorManager\"\ncmake --build build/native-society\nctest --test-dir build/native-society --output-on-failure\n",
+      "closed": true
+    },
+    {
+      "id": "b000032",
+      "kind": "blank",
+      "start_line": 99,
+      "end_line": 99,
+      "raw": "\n"
+    },
+    {
+      "id": "b000033",
+      "kind": "paragraph",
+      "start_line": 100,
+      "end_line": 102,
+      "raw": "위 `iiSocietyContainer_DIR`은 `FileJobService`가 포함되도록 작업공간에서 빌드하고\n스테이징한 SDK 패키지를 가리킨다. 이 테스트 구성에서만 데몬 측 Qt Core·Network를\n함께 링크한다. LVUI 실행 파일 자체는 해당 Qt 테스트 의존성을 링크하지 않는다.\n"
+    },
+    {
+      "id": "b000034",
+      "kind": "blank",
+      "start_line": 103,
+      "end_line": 103,
+      "raw": "\n"
+    },
+    {
+      "id": "b000035",
+      "kind": "paragraph",
+      "start_line": 104,
+      "end_line": 106,
+      "raw": "이 문서에 기술된 단계가 존재하는 것만으로 기존 Society 전체의 전환, 기존 기능과의\n동등성, 설치 또는 실제 운영체제의 GUI 검증이 끝난 것은 아니다. 기존 제품 경로는\n필요한 화면 및 데이터 경계가 연결되고 검증될 때까지 보존한다.\n"
+    }
+  ],
+  "outline": [
+    {
+      "block_id": "b000001",
+      "parent_id": null,
+      "level": 1,
+      "title": "Society의 LVUI 파일 화면 이관 경계",
+      "anchor": "society의-lvui-파일-화면-이관-경계",
+      "start_line": 1
+    },
+    {
+      "block_id": "b000027",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "macOS 이관 구성 빌드",
+      "anchor": "macos-이관-구성-빌드",
+      "start_line": 78
+    }
+  ],
+  "indexes": {
+    "directive_candidates": [
+      {
+        "block_id": "b000003",
+        "line": 6,
+        "text": "열거하거나 수정하지 않는다. Qt GUI, QML 또는 LVRS를 네이티브 뷰에서 사용하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000007",
+        "line": 16,
+        "text": "선택 키이며 자원의 영구 ID나 내용 해시로 취급하지 않는다. 조회·페이지·선택은",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000009",
+        "line": 29,
+        "text": "필요함을 표시하고 자동 재전송하지 않는다. 오류를 동반한 완료 통지는 작업 ID와",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000013",
+        "line": 43,
+        "text": "선택과 페이지를 넘나드는 선택은 표에서 아직 제공하지 않는다. 오류 표시는 최근",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000015",
+        "line": 48,
+        "text": "그리드는 파일명·종류·크기를 표시하며 이미지 미리보기는 아직 제공하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000017",
+        "line": 56,
+        "text": "않는다. 지원되는 원본의 정규 경로를 사용하며, 원본을 삭제하거나 이동하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000021",
+        "line": 65,
+        "text": "또는 판본 확정을 뜻하지 않는다. 자동 시험은 OS 파일 열기를 모의 콜백으로 대체한다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000023",
+        "line": 71,
+        "text": "재접속은 아직 제공하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000025",
+        "line": 76,
+        "text": "임시 컨테이너를 사용하며, 운영체제 창을 열거나 사용자의 실제 파일을 조작하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000029",
+        "line": 81,
+        "text": "사용한다. 실제 제품 설치나 GUI 실행은 포함하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000033",
+        "line": 102,
+        "text": "함께 링크한다. LVUI 실행 파일 자체는 해당 Qt 테스트 의존성을 링크하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      }
+    ],
+    "commands": [
+      {
+        "block_id": "b000031",
+        "language": "sh",
+        "code": "cmake -S App/Society/Native -B build/native-society \\\n  -DLVUI_DIR=\"$PWD/resources/dependencies/lvui-native-model-chooser/lib/cmake/LVUI\" \\\n  -DiiGUI_DIR=\"$PWD/resources/dependencies/iigui-native-model-chooser/lib/cmake/iiGUI\" \\\n  -DiiSDKCore_DIR=\"$HOME/.local/SDK/iiSDKCore/lib/cmake/iiSDKCore\" \\\n  -DiiNetwork_DIR=\"$HOME/.local/SDK/iiNetwork/lib/cmake/iiNetwork\" \\\n  -DiiJson_DIR=\"$HOME/.local/SDK/iiJson/lib/cmake/iiJson\" \\\n  -DiiSocietyContainer_DIR=\"$PWD/../../SDK/iiSocietyContainer/build/lvui-app-stage/lib/cmake/iiSocietyContainer\" \\\n  -DiiFileProviderCatalog_DIR=\"$PWD/resources/dependencies/catalog-compat/lib/cmake/iiFileProviderCatalog\" \\\n  -DQt6_DIR=\"/Volumes/Storage/Qt/6.8.3/macos/lib/cmake/Qt6\" \\\n  -Dlunasvg_DIR=\"$PWD/resources/dependencies/iigui-native-model-chooser/lib/cmake/lunasvg\" \\\n  -Dplutovg_DIR=\"$PWD/resources/dependencies/iigui-native-model-chooser/lib/cmake/plutovg\" \\\n  -DCMAKE_PREFIX_PATH=\"$HOME/.local/SDK/iiFileProvider;$HOME/.local/SDK/iiJob;$HOME/.local/SDK/Vulkan;$HOME/.local/SDK/iiColorManager\"\ncmake --build build/native-society\nctest --test-dir build/native-society --output-on-failure\n"
+      }
+    ],
+    "links": [
+      {
+        "block_id": "b000003",
+        "label": "Figma Storage 파일 표",
+        "target": "https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=39-1045",
+        "kind": "external",
+        "line": 3
+      },
+      {
+        "block_id": "b000003",
+        "label": "데몬 목록 계약",
+        "target": "NativeMigrationBackend.md",
+        "kind": "relative",
+        "line": 5
+      }
+    ],
+    "tables": []
+  },
+  "provenance": {
+    "generator": "workspace-docs",
+    "version": "1.0.0",
+    "profile": "lossless-blocks-v1",
+    "derived": true
+  }
+}

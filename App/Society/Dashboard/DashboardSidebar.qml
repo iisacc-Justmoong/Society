@@ -10,16 +10,18 @@ Rectangle {
     property string objectNamePrefix: ""
     property var guilds: []
     property var organizations: []
+    property string activeKey: "home"
     signal homeRequested()
     signal calendarRequested()
+    signal projectsRequested()
     signal activityRequested()
     signal featureRequested(string feature)
     signal workspaceRequested(string kind, string id)
-    implicitWidth: 204
+    implicitWidth: 170
     color: "transparent"
 
     readonly property var workspaceEntries: [
-        { id: "home", name: qsTr("Home"), icon: "home", extent: 16 },
+        { id: "home", name: qsTr("Workspace"), icon: "workspace", extent: 18 },
         { id: "projects", name: qsTr("Projects"), icon: "projects", extent: 18 },
         { id: "calendar", name: qsTr("Calendar"), icon: "calendar", extent: 18 },
         { id: "activity", name: qsTr("Activity"), icon: "activity", extent: 18 },
@@ -30,7 +32,7 @@ Rectangle {
         if (key === "home") homeRequested()
         else if (key === "calendar") calendarRequested()
         else if (key === "activity") activityRequested()
-        else if (key === "projects") featureRequested(qsTr("Projects"))
+        else if (key === "projects") projectsRequested()
         else if (key === "people") featureRequested(qsTr("People"))
     }
 
@@ -44,8 +46,9 @@ Rectangle {
         spacing: 8
         LV.Label {
             objectName: root.objectNamePrefix + "dashboardHeading" + group.key
+            visible: false
             Layout.fillWidth: true
-            Layout.preferredHeight: 12
+            Layout.preferredHeight: 0
             style: description
             text: group.title
             textFormat: Text.PlainText
@@ -69,19 +72,27 @@ Rectangle {
                     detailVerticalPadding: 7
                     type: LV.ListItem.Navigation
                     label: modelData.name
+                    selected: group.key === "workspace" && modelData.id === root.activeKey
+                    selectedBackgroundColor: modelData.id === "home" || modelData.id === "projects"
+                        ? LV.Theme.accentRoleColor("Green", "Selected")
+                        : LV.Theme.accentGreenMuted
                     detail: ""
                     description: ""
                     showDescription: false
                     showValue: false
                     showTrailingIcon: false
                     iconSize: 18
-                    iconSource: Qt.resolvedUrl("icons/" + (group.key === "workspace" ? modelData.icon : group.key) + ".svg")
+                    iconSource: group.key === "workspace" && modelData.id === "home"
+                        ? LV.Theme.iconPath(modelData.icon)
+                        : Qt.resolvedUrl("icons/" + (group.key === "workspace" ? modelData.icon : group.key) + ".svg")
                     leadingComponent: Component {
                         Item {
+                            objectName: root.objectNamePrefix + "dashboardIconSlot" + group.key + "_" + row.modelData.id
                             property var listItem: null
                             implicitWidth: 18
                             implicitHeight: 18
                             Image {
+                                objectName: root.objectNamePrefix + "dashboardIcon" + group.key + "_" + row.modelData.id
                                 width: row.glyphExtent
                                 height: row.glyphExtent
                                 source: row.iconSource
@@ -124,7 +135,6 @@ Rectangle {
         id: viewport
         objectName: root.objectNamePrefix + "dashboardSidebarScroll"
         anchors.fill: parent
-        anchors.margins: 12
         contentWidth: width
         contentHeight: Math.max(height, groups.implicitHeight)
         flickableDirection: Flickable.VerticalFlick

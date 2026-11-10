@@ -61,7 +61,7 @@ private slots:
             {"platform", "macos"}, {"osVersion", "27"}, {"appId", "com.iisacc.society"}, {"appVersion", "1"}}));
         QVERIFY(account.loginWithPassword("fixture@example.invalid", "FixtureOnly1!"));
         QTRY_VERIFY(account.isAuthenticated());
-        QTemporaryDir directory(QString(QT_TESTCASE_BUILDDIR) + "/cloud-files-XXXXXX.societycontainer");
+        QTemporaryDir directory(QString(SOCIETY_TEST_DIRECTORY) + "/cloud-files-XXXXXX.societycontainer");
         QVERIFY(directory.isValid()); QVERIFY(iiSocietyContainer::SocietyDrive::create(directory.path()));
         const auto local = directory.filePath("Files/local.bin");
         const QByteArray payload(8 * 1024 * 1024 + 17, 'x'); iiFileProvider::File::create(local, payload);
@@ -69,28 +69,25 @@ private slots:
         CloudFilesController cloud(&transfers, nullptr); cloud.setAccountManager(&account); cloud.setContainerPath(directory.path());
         server.cloudFiles = [&](const QJsonObject& input) -> QJsonObject {
             const auto operation = input.value("operation").toString();
-            if (operation == "status") return {{"quotaBytes", 5'000'000'000.0}, {"usedBytes", 0}, {"reservedBytes", 0}, {"uploads", QJsonArray{}}};
-            if (operation == "list") return {{"files", QJsonArray{}}, {"quota", QJsonObject{{"quotaBytes", 5'000'000'000.0}}}};
-            if (operation == "begin") return {{"state", "uploading"}, {"partBytes", 8 * 1024 * 1024}};
-            if (operation == "part") {
-                const auto size = input.value("partNumber").toInt() == 1 ? 8 * 1024 * 1024 : 17;
-                return {{"url", "https://fixture.s3.ap-northeast-2.amazonaws.com/part"}, {"size", size},
-                    {"headers", QJsonObject{{"content-length", QString::number(size)}, {"x-amz-checksum-sha256", input.value("checksumSHA256")}}}};
-            }
-            if (operation == "complete") return {{"quota", QJsonObject{{"quotaBytes", 5'000'000'000.0}, {"usedBytes", double(payload.size())}}}};
+            if (operation == "status") return {{"quotaBytes", 0}, {"usedBytes", 0}, {"reservedBytes", 0}, {"uploads", QJsonArray{}}};
+            if (operation == "list") return {{"files", QJsonArray{}}, {"quota", QJsonObject{{"quotaBytes", 0}}}};
             if (operation == "download") return {{"url", "https://fixture.s3.ap-northeast-2.amazonaws.com/download?versionId=fixture"},
                 {"file", QJsonObject{{"size", transfers.downloaded.size()}}}};
             return {};
         };
-        QVERIFY(cloud.refresh()); QTRY_VERIFY(!cloud.busy()); QCOMPARE(cloud.quotaBytes(), 5'000'000'000.0);
+        QVERIFY(cloud.refresh()); QTRY_VERIFY(!cloud.busy()); QCOMPARE(cloud.quotaBytes(), 0.0);
         QVERIFY(!cloud.uploadFile("../private")); QVERIFY(!cloud.busy());
-        QVERIFY(cloud.uploadFile("local.bin")); QTRY_VERIFY_WITH_TIMEOUT(!cloud.busy(), 20000);
-        QCOMPARE(transfers.uploaded.size(), 2); QCOMPARE(transfers.uploaded[0] + transfers.uploaded[1], payload);
+        QVERIFY(!cloud.uploadFile("local.bin")); QVERIFY(!cloud.busy());
+        QVERIFY(!cloud.uploadFile("local.bin", "fixture-revision"));
+        QVERIFY(!cloud.finishUpload("00000000-0000-0000-0000-000000000001"));
+        QVERIFY(transfers.uploaded.isEmpty());
         for (const auto& request : transfers.requests) {
             QVERIFY(!request.hasRawHeader("Authorization")); QVERIFY(!request.hasRawHeader("Cookie")); QVERIFY(!request.hasRawHeader("Origin"));
         }
-        const auto parts = std::count_if(server.cloudRequests.cbegin(), server.cloudRequests.cend(), [](const QJsonObject& row) { return row.value("operation") == "part"; });
-        QCOMPARE(parts, 2);
+        const auto writes = std::count_if(server.cloudRequests.cbegin(), server.cloudRequests.cend(), [](const QJsonObject& row) {
+            return row.value("operation") == "begin" || row.value("operation") == "part" || row.value("operation") == "complete";
+        });
+        QCOMPARE(writes, 0);
         QVERIFY(!cloud.downloadFile("local.bin")); QCOMPARE(iiFileProvider::File::read(local), payload);
         QSignalSpy downloaded(&cloud, &CloudFilesController::downloaded);
         QVERIFY(cloud.downloadFile("from-cloud.bin")); QTRY_VERIFY_WITH_TIMEOUT(!cloud.busy(), 30000); QCOMPARE(downloaded.size(), 1);

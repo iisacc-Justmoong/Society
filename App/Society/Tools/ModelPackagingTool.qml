@@ -6,6 +6,7 @@ import QtQuick.Controls as Controls
 import QtQuick.Dialogs
 import LVRS 1.0 as LV
 import "../" as SocietyUi
+import "../Dashboard" as Dashboard
 import Society
 
 Item {
@@ -14,6 +15,10 @@ Item {
     property string modelsDirectory: ""
     property bool modelsBusy: false
     property bool touchNavigation: false
+    property MergeModelCatalog preloadedCatalog: null
+    readonly property MergeModelCatalog modelCatalog: preloadedCatalog || localModelCatalog
+    property var selectedModels: []
+    property string sourceMode: "library"
     property string outputName: ""
     property string outputDirectory: ""
     property alias controller: controller
@@ -22,15 +27,35 @@ Item {
     readonly property bool showSidebar: width >= 1150 && !touchNavigation
     readonly property bool wideLayout: scroll.width >= 1000
     readonly property int pageMargin: scroll.width < 600 ? 16 : 32
-    readonly property bool editingEnabled: controller.supported && !controller.busy && !modelsBusy
+    readonly property bool editingEnabled: controller.supported && !controller.busy && !controller.choosing
     readonly property string effectiveOutputDirectory: outputDirectory || (modelsDirectory ? modelsDirectory + "/Checkpoint" : "")
     readonly property string outputPath: controller.outputPathForName(outputName, effectiveOutputDirectory)
     signal backRequested()
     signal packageCreated(string path)
+    function roleLabel(role) {
+        for (const option of controller.roleOptions)
+            if (String(option.value) === String(role)) return option.label
+        return String(role || qsTr("Unknown"))
+    }
     onModelsDirectoryChanged: {
-        if (controller) controller.cancel()
+        if (controller) controller.clearInput()
         if (outputPicker) outputPicker.close()
+        selectedModels = []
+        sourceMode = "library"
         outputDirectory = ""
+    }
+    onVisibleChanged: if (visible && modelCatalog) modelCatalog.ensureLoaded()
+    onModelsBusyChanged: if (!modelsBusy && !preloadedCatalog && modelCatalog) modelCatalog.refresh()
+    Component.onCompleted: if (visible && modelCatalog) modelCatalog.ensureLoaded()
+
+    function reconcileLibraryModels() {
+        if (modelCatalog.loading || sourceMode !== "library") return
+        const available = selectedModels.filter(path => modelCatalog.containsForPackaging(path))
+        if (available.length !== selectedModels.length) {
+            selectedModels = available
+            controller.clearInput()
+            outputName = ""
+        }
     }
 
     function focusBackButton() { scroll.contentItem.contentY = 0; back.forceActiveFocus() }
@@ -62,6 +87,26 @@ Item {
                 root.outputName = report.suggested_name || "Model package"
             if (success && packaging) { completion.open(); root.packageCreated(completedOutput) }
         }
+        onModelsChosen: function(paths) {
+            root.sourceMode = "library"
+            root.selectedModels = paths
+            if (controller.scanSelection(root.modelsDirectory, paths)) root.outputName = ""
+        }
+        onFolderChosen: function(path) {
+            root.sourceMode = "folder"
+            root.selectedModels = []
+            if (controller.scanFolder(path)) root.outputName = ""
+        }
+    }
+    MergeModelCatalog {
+        id: localModelCatalog
+        objectName: root.preloadedCatalog ? "" : "packagingModelCatalog"
+        directory: root.preloadedCatalog ? "" : root.modelsDirectory
+    }
+    Connections {
+        target: root.modelCatalog
+        function onLoadingChanged() { root.reconcileLibraryModels() }
+        function onModelsChanged() { root.reconcileLibraryModels() }
     }
     Connections {
         target: root.Window.window
@@ -74,6 +119,9 @@ Item {
         objectName: "packagingSourceDialog"
         title: qsTr("Choose a model folder")
         onAccepted: {
+            root.sourceMode = "folder"
+            root.selectedModels = []
+            controller.clearInput()
             if (controller.scanFolder(controller.localPath(selectedFolder))) root.outputName = ""
         }
     }
@@ -131,6 +179,7 @@ Item {
     component Panel: LV.Card {
         id: panel
         default property alias panelData: contents.data
+        property bool modalSurface: false
         type: LV.Card.Model
         displayState: LV.Card.DefaultState
         hoverEnabled: false
@@ -145,7 +194,14 @@ Item {
         Layout.fillWidth: true
         Layout.minimumWidth: 0
         background: SocietyUi.PanelOutline {
-            color: "transparent"
+            color: {
+                if (!panel.modalSurface)
+                    return "transparent"
+                const owner = root.Window.window
+                const surface = owner ? owner["background"] : null
+                return surface && surface["color"] !== undefined
+                    ? surface["color"] : LV.Theme.applicationWindowFill
+            }
             radius: panel.resolvedCornerRadius
             border.width: panel.borderWidth
         }
@@ -266,7 +322,7 @@ Item {
                     onClicked: root.backRequested()
                 }
                 LV.Label { objectName: "packagingTitle"; text: qsTr("Model Packaging"); style: title; font.pixelSize: 26 }
-                Copy { text: qsTr("Turn a model folder into one .safetensors file. Components are detected automatically.") }
+                Copy { text: qsTr("Package models from Society or a local folder into one .safetensors file.") }
             }
             GridLayout {
                 Layout.fillWidth: true
@@ -281,12 +337,17 @@ Item {
                     spacing: 20
                     Panel {
                         objectName: "packagingSourcePanel"
-                        LV.Label { text: qsTr("1. Choose a model folder"); style: header2 }
-                        Copy { text: qsTr("Use the folder downloaded from Hugging Face or your local model library.") }
+                        LV.Label { text: qsTr("1. Choose models"); style: header2 }
+                        Copy { text: qsTr("Select a model and its components from your Society library, or choose an external folder.") }
                         PathRow {
                             objectName: "packagingSourceFolder"
-                            label: controller.inputDirectory || qsTr("Choose a model folder…")
-                            onClicked: sourcePicker.open()
+                            label: root.sourceMode === "folder" && controller.inputDirectory.length > 0
+                                ? controller.inputDirectory : root.selectedModels.length > 0
+                                ? qsTr("%1 models selected").arg(root.selectedModels.length)
+                                : qsTr("Choose models from Society…")
+                            enabled: root.editingEnabled && (!modelCatalog.loading || root.modelsDirectory.length === 0)
+                            onClicked: root.modelsDirectory.length === 0 ? sourcePicker.open()
+                                : controller.chooseModels(root.modelsDirectory, modelCatalog.models, root.selectedModels)
                         }
                         Caption {
                             text: controller.busy && !controller.packaging ? controller.status
@@ -298,9 +359,91 @@ Item {
                         objectName: "packagingComponentsPanel"
                         LV.Label { text: qsTr("2. Review what is included"); style: header2 }
                         Copy { text: qsTr("Everything needed for this package is selected. Original precision is preserved.") }
+                        ColumnLayout {
+                            objectName: "packagingAssignments"
+                            Layout.fillWidth: true
+                            Layout.minimumWidth: 0
+                            visible: controller.assignableFiles.length > 0
+                            spacing: 8
+                            LV.Label { text: qsTr("Manual model assignments"); style: header2 }
+                            Caption { text: qsTr("Choose each file’s role and main-model position, then apply your choices.") }
+                            Repeater {
+                                model: controller.assignableFiles
+                                delegate: GridLayout {
+                                    id: assignmentRow
+                                    required property var modelData
+                                    objectName: "packagingAssignment-" + modelData.id
+                                    Layout.fillWidth: true
+                                    Layout.minimumWidth: 0
+                                    columns: width >= 620 ? 3 : 1
+                                    columnSpacing: 12
+                                    rowSpacing: 6
+                                    ColumnLayout {
+                                        Layout.fillWidth: true
+                                        Layout.minimumWidth: 0
+                                        spacing: 2
+                                        LV.Label {
+                                            Layout.fillWidth: true
+                                            text: assignmentRow.modelData.relative_path
+                                            style: body
+                                            elide: Text.ElideMiddle
+                                            textFormat: Text.PlainText
+                                        }
+                                        Caption { text: controller.formatSize(assignmentRow.modelData.size) }
+                                    }
+                                    ColumnLayout {
+                                        Layout.fillWidth: true
+                                        Layout.minimumWidth: 0
+                                        spacing: 2
+                                        Caption { text: qsTr("Role") }
+                                        Dashboard.CalendarChoice {
+                                            objectName: "packagingRole-" + assignmentRow.modelData.id
+                                            Layout.fillWidth: true
+                                            Layout.minimumWidth: 0
+                                            enabled: root.editingEnabled
+                                            options: controller.roleOptions
+                                            value: assignmentRow.modelData.roleChoice || ""
+                                            Accessible.name: qsTr("Role for %1").arg(assignmentRow.modelData.relative_path)
+                                            onChosen: choice => controller.setFileRole(assignmentRow.modelData.id, String(choice))
+                                        }
+                                        Caption { text: qsTr("Detected: %1").arg(root.roleLabel(assignmentRow.modelData.detected_role)) }
+                                    }
+                                    ColumnLayout {
+                                        Layout.fillWidth: true
+                                        Layout.minimumWidth: 0
+                                        spacing: 2
+                                        Caption { text: qsTr("Position") }
+                                        Dashboard.CalendarChoice {
+                                            objectName: "packagingPosition-" + assignmentRow.modelData.id
+                                            Layout.fillWidth: true
+                                            Layout.minimumWidth: 0
+                                            enabled: root.editingEnabled && assignmentRow.modelData.effectiveRole === "model"
+                                            options: controller.positionOptions
+                                            value: assignmentRow.modelData.positionChoice || ""
+                                            Accessible.name: qsTr("Position for %1").arg(assignmentRow.modelData.relative_path)
+                                            onChosen: choice => controller.setFilePosition(assignmentRow.modelData.id, String(choice))
+                                        }
+                                        Caption {
+                                            text: qsTr("Last inspected: %1").arg(assignmentRow.modelData.position === "main" ? qsTr("Main") : qsTr("Component"))
+                                        }
+                                    }
+                                }
+                            }
+                            LV.LabelButton {
+                                objectName: "packagingApplyAssignments"
+                                text: qsTr("Apply assignments")
+                                tone: LV.AbstractButton.Default
+                                enabled: root.editingEnabled && controller.assignmentsDirty
+                                onClicked: controller.applyAssignments()
+                            }
+                            Caption {
+                                visible: controller.assignmentsDirty
+                                text: qsTr("Apply your choices to update the preview before packaging.")
+                            }
+                        }
                         Copy {
                             visible: root.components.length === 0
-                            text: qsTr("Choose a folder to detect its model, encoders, decoders and optional components.")
+                            text: qsTr("Choose models or a folder to inspect the model, encoders, decoders and optional components.")
                         }
                         Repeater {
                             model: root.components
@@ -437,9 +580,10 @@ Item {
                         Copy {
                             objectName: "packagingError"
                             text: !controller.supported ? qsTr("Install the Model Packaging SDK for this platform.")
+                                : controller.assignmentsDirty ? qsTr("Apply model assignments to update the preview.")
                                 : controller.errorString || (report.ready
                                     ? qsTr("%1 failed downloads excluded. The valid main model is ready to package.").arg(report.invalid_file_count || 0)
-                                    : qsTr("Choose a folder with all required model components."))
+                                    : qsTr("Choose and inspect the required model components."))
                         }
                         LV.LabelButton {
                             id: submitButton
@@ -457,14 +601,15 @@ Item {
                                 verticalAlignment: Text.AlignVCenter
                             }
                             text: controller.busy ? controller.status : qsTr("Package model")
-                            enabled: root.editingEnabled && !!report.ready && !!root.outputPath
+                            enabled: root.editingEnabled && !controller.assignmentsDirty && !!report.ready && !!root.outputPath
                             onClicked: controller.createPackage(root.outputPath)
                         }
                         LV.LabelButton {
                             visible: !controller.busy && controller.phase === "cancelled"
-                            text: qsTr("Inspect folder again")
+                            text: qsTr("Inspect again")
                             tone: LV.AbstractButton.Borderless
-                            onClicked: controller.scanFolder(controller.inputDirectory)
+                            onClicked: root.sourceMode === "library" ? controller.scanSelection(root.modelsDirectory, root.selectedModels)
+                                                                      : controller.scanFolder(controller.inputDirectory)
                         }
                     }
                 }
@@ -483,6 +628,7 @@ Item {
         focus: true
         background: Item {}
         contentItem: Panel {
+            modalSurface: true
             LV.Label { text: qsTr("Detected files"); style: header2 }
             Copy { text: qsTr("Every input is checked. Duplicate tensors are compared byte for byte; invalid files are excluded.") }
             Controls.ScrollView {
@@ -527,6 +673,7 @@ Item {
         visible: root.visible && controller.busy
         background: Item {}
         contentItem: Panel {
+            modalSurface: true
             LV.Label { text: controller.packaging ? qsTr("Packaging your model") : qsTr("Inspecting your model folder"); style: header2 }
             Copy { text: qsTr("Original files stay in place. Completion requires verification of the written file.") }
             LV.Label { text: controller.status; style: header2 }
@@ -575,6 +722,7 @@ Item {
         focus: true
         background: Item {}
         contentItem: Panel {
+            modalSurface: true
             LV.Label { text: qsTr("Model package ready"); style: header2; color: LV.Theme.accentGreen }
             Copy { text: controller.completedOutput; wrapMode: Text.WrapAnywhere; color: LV.Theme.bodyColor }
             Copy { text: qsTr("%1 · %2 components · Saved and verified").arg(controller.formatSize(report.size || 0)).arg(report.component_count || 0) }

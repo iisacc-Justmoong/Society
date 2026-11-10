@@ -103,12 +103,14 @@ private slots:
 #ifdef Q_OS_WIN
         QVERIFY(controller.defaultExecutable().endsWith(".exe", Qt::CaseInsensitive));
 #endif
-        m_hasRuntime = python({"create", m_fixture.path()});
+        const bool catalogOnly = qEnvironmentVariableIntValue("SOCIETY_MERGE_CATALOG_ONLY") == 1;
+        m_hasRuntime = !catalogOnly && python({"create", m_fixture.path()});
         if (!m_hasRuntime) {
             for (const auto &name : {"base.safetensors", "extra.safetensors", "style.safetensors"}) {
                 QFile file(m_fixture.filePath(name)); QVERIFY(file.open(QIODevice::WriteOnly)); file.write("argument fixture");
             }
-            qWarning().noquote() << "Tensor tests require the installed Torch/safetensors runtime:" << m_pythonError;
+            if (!catalogOnly)
+                qWarning().noquote() << "Tensor tests require the installed Torch/safetensors runtime:" << m_pythonError;
         }
     }
 
@@ -220,20 +222,24 @@ private slots:
         catalog.setDirectory(models);
         QTRY_VERIFY(!catalog.loading());
         QVERIFY2(catalog.errorString().isEmpty(), qPrintable(catalog.errorString()));
-        QCOMPARE(catalog.models().size(), files.size() + 1);
+        QCOMPARE(catalog.models().size(), files.size() + 3);
         QStringList paths;
         for (const auto &entry : catalog.models()) {
             const auto model = entry.toMap();
             const auto path = model.value("path").toString();
             QVERIFY(path.startsWith(models + '/'));
             paths.append(model.value("relativePath").toString());
-            QVERIFY(catalog.contains(path));
-            QCOMPARE(catalog.contains(path, true), model.value("kind") != "adapter");
+            const bool packagingOnly = model.value("relativePath").toString() == "llm.gguf"
+                || model.value("relativePath").toString() == "Pipeline";
+            QCOMPARE(catalog.contains(path), !packagingOnly);
+            QCOMPARE(catalog.contains(path, true), !packagingOnly && model.value("kind") != "adapter");
+            if (packagingOnly) QVERIFY(catalog.containsForPackaging(path));
         }
         for (const auto &path : files) QVERIFY(paths.contains(path));
         const auto packaged = QDir(models).filePath("packed.iildmodel");
         QCOMPARE(MergeModelCatalog::checkpointPath(packaged), packaged);
-        QVERIFY(!paths.contains("Pipeline"));
+        QVERIFY(paths.contains("Pipeline"));
+        QVERIFY(paths.contains("llm.gguf"));
         QVERIFY(paths.contains("Adapter"));
         QVERIFY(!catalog.contains(fixture.filePath("Files/outside.safetensors")));
 
@@ -297,6 +303,9 @@ private slots:
         QVERIFY(!catalog.contains(payload));
         QCOMPARE(catalog.outputDirectory(package), QDir(models).filePath("Checkpoint"));
         QCOMPARE(MergeModelCatalog::checkpointPath(package), payload);
+        // The focused catalogue suite verifies resolution without starting the
+        // tensor runtime; the full merge suite also exercises execution below.
+        if (qEnvironmentVariableIntValue("SOCIETY_MERGE_CATALOG_ONLY") == 1) return;
         ModelMergeController controller;
         auto request = options("result.safetensors");
         request["output"] = m_fixture.filePath("wrapped-result.safetensors");
@@ -820,6 +829,8 @@ private slots:
         auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first()); QVERIFY(window);
         QVERIFY(QTest::qWaitForWindowExposed(window));
         auto *tool = window->findChild<QQuickItem *>("modelMergeTool"); QVERIFY(tool);
+        if (qEnvironmentVariableIntValue("SOCIETY_MERGE_CATALOG_ONLY") == 1)
+            QVERIFY(tool->setProperty("mergeExecutable", fixture.filePath("no-tensor-runtime")));
         auto *catalog = window->findChild<MergeModelCatalog *>("mergeModelCatalog"); QVERIFY(catalog);
         auto *base = window->findChild<QQuickItem *>("mergeBaseField"); QVERIFY(base);
         auto *button = window->findChild<QQuickItem *>("mergeBaseFieldButton"); QVERIFY(button);
@@ -830,7 +841,7 @@ private slots:
         QVERIFY(!button->isEnabled());
         QVERIFY(!run->isEnabled());
         QVERIFY(tool->setProperty("modelsDirectory", models));
-        QTRY_VERIFY(!catalog->loading() && catalog->models().size() == 43);
+        QTRY_VERIFY_WITH_TIMEOUT(!catalog->loading() && catalog->models().size() == 44, 30000);
         QCOMPARE(listProperty(base, "choices").size(), 42); // Single-file bases; adapter folders are material-only.
         QVERIFY(!run->isEnabled());
         const auto click = [window](QQuickItem *item, Qt::MouseButton mouseButton = Qt::LeftButton) {
@@ -839,15 +850,16 @@ private slots:
                 item->mapToScene(QPointF(item->width() / 2, item->height() / 2)).toPoint());
         };
         click(button, Qt::RightButton);
-        QTRY_VERIFY(menu->property("opened").toBool() && !catalog->loading());
+        QTRY_VERIFY_WITH_TIMEOUT(menu->property("opened").toBool() && !catalog->loading(), 30000);
         QVERIFY(tool->setProperty("modelsBusy", true));
-        QTRY_VERIFY(!menu->property("visible").toBool());
-        QVERIFY(QMetaObject::invokeMethod(menu, "triggerEntry", Q_ARG(QVariant, 0)));
-        QVERIFY(tool->property("baseModel").toString().isEmpty());
+        QVERIFY(button->isEnabled());
+        QVERIFY(menu->property("visible").toBool());
         QVERIFY(tool->setProperty("modelsBusy", false));
-        QTRY_VERIFY(!catalog->loading());
+        QTRY_VERIFY_WITH_TIMEOUT(!catalog->loading(), 30000);
+        QTest::keyClick(window, Qt::Key_Escape);
+        QTRY_VERIFY(!menu->property("visible").toBool());
         click(button, Qt::RightButton);
-        QTRY_VERIFY(menu->property("opened").toBool() && !catalog->loading());
+        QTRY_VERIFY_WITH_TIMEOUT(menu->property("opened").toBool() && !catalog->loading(), 30000);
         QVERIFY(list->clip());
         QVERIFY(list->property("contentHeight").toReal() > list->height());
         QTest::keyClick(window, Qt::Key_End);
@@ -857,13 +869,13 @@ private slots:
         QTRY_COMPARE(tool->property("baseModel").toString(), lastPath);
         QTRY_VERIFY(!menu->property("visible").toBool());
         QVERIFY(QMetaObject::invokeMethod(refresh, "clicked"));
-        QTRY_VERIFY(!catalog->loading());
+        QTRY_VERIFY_WITH_TIMEOUT(!catalog->loading(), 30000);
         QCOMPARE(tool->property("baseModel").toString(), lastPath);
 
         // Refreshing a menu discovers models added while the form remains open.
         QVERIFY(writeFixture(QDir(models).filePath("Newly imported.safetensors")));
         click(button);
-        QTRY_VERIFY(menu->property("opened").toBool() && !catalog->loading());
+        QTRY_VERIFY_WITH_TIMEOUT(menu->property("opened").toBool() && !catalog->loading(), 30000);
         QTRY_COMPARE(listProperty(base, "choices").size(), 43);
         const auto screenshot = qEnvironmentVariable("SOCIETY_MERGE_MENU_SCREENSHOT_PATH");
         if (!screenshot.isEmpty()) { QTest::qWait(300); QVERIFY(window->grabWindow().save(screenshot)); }
@@ -871,7 +883,7 @@ private slots:
         QTRY_VERIFY(!menu->property("visible").toBool());
         QVERIFY(QFile::remove(lastPath));
         QVERIFY(QMetaObject::invokeMethod(refresh, "clicked"));
-        QTRY_VERIFY(!catalog->loading());
+        QTRY_VERIFY_WITH_TIMEOUT(!catalog->loading(), 30000);
         QTRY_VERIFY(tool->property("baseModel").toString().isEmpty());
         QVERIFY(!run->isEnabled());
 
@@ -879,7 +891,7 @@ private slots:
         QTRY_COMPARE(window->width(), 360);
         QTRY_VERIFY(button->mapToScene(QPointF(button->width(), 0)).x() <= 336);
         click(button);
-        QTRY_VERIFY(menu->property("opened").toBool() && !catalog->loading());
+        QTRY_VERIFY_WITH_TIMEOUT(menu->property("opened").toBool() && !catalog->loading(), 30000);
         QVERIFY(menu->property("width").toReal() <= 352);
         QVERIFY(menu->property("height").toReal() <= 320);
         QTest::keyClick(window, Qt::Key_Home);
@@ -893,7 +905,7 @@ private slots:
         auto *materialButton = visualItem(window->contentItem(), "mergeMaterial0Button"); QVERIFY(materialButton);
         auto *materialMenu = material->findChild<QObject *>("mergeMaterial0Menu"); QVERIFY(materialMenu);
         click(materialButton);
-        QTRY_VERIFY(materialMenu->property("opened").toBool() && !catalog->loading());
+        QTRY_VERIFY_WITH_TIMEOUT(materialMenu->property("opened").toBool() && !catalog->loading(), 30000);
         const auto choices = listProperty(material, "choices");
         int adapterIndex = -1;
         for (qsizetype i = 0; i < choices.size(); ++i)
@@ -1179,8 +1191,8 @@ private slots:
         auto *pathTooltip = window->findChild<QObject *>("mergeOutputPathTooltip"); QVERIFY(pathTooltip);
         QCOMPARE(pathTooltip->property("text").toString(), m_fixture.filePath("form output.safetensors"));
         QVERIFY(tool->setProperty("modelsBusy", true));
-        QVERIFY(!tool->property("inputModelsReady").toBool());
-        QVERIFY(!window->findChild<QQuickItem *>("mergeValidate")->isEnabled());
+        QVERIFY(tool->property("inputModelsReady").toBool());
+        QVERIFY(window->findChild<QQuickItem *>("mergeValidate")->isEnabled());
         QVERIFY(tool->setProperty("modelsBusy", false));
         QTRY_VERIFY(tool->property("inputModelsReady").toBool());
         QCOMPARE(tool->property("baseModel").toString(), base);

@@ -27,7 +27,10 @@ public:
     // payload; multi-stage .iildmodel directories remain one package path.
     static QString checkpointPath(const QString &path);
     Q_INVOKABLE void refresh();
+    // Reuse a completed initial snapshot instead of starting a second scan.
+    Q_INVOKABLE void ensureLoaded();
     Q_INVOKABLE bool contains(const QString &path, bool baseOnly = false) const;
+    Q_INVOKABLE bool containsForPackaging(const QString &path) const;
     Q_INVOKABLE QString outputDirectory(const QString &basePath) const;
     Q_INVOKABLE QString ecosystemDescription(const QString &path) const;
     Q_INVOKABLE QString compatibilityDescription(const QString &basePath, const QString &materialPath) const;
@@ -39,7 +42,7 @@ private:
     void startScan();
     QString m_directory, m_error;
     QVariantList m_models;
-    bool m_loading = false;
+    bool m_loading = false, m_hasSnapshot = false;
     bool m_scanRunning = false, m_refreshPending = false;
     quint64 m_revision = 0;
     std::shared_ptr<std::atomic_bool> m_cancel;

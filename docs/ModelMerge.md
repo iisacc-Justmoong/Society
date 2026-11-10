@@ -5,6 +5,10 @@
 ## 자동 구조 진단과 저장 결과 검증
 
 베이스와 재료를 선택하면 출력 이름을 입력하기 전에도 SDK 구조 검사가 자동 실행된다.
+`Society.ModelMergeCatalogCompatibility`는 Python 텐서 런타임을 시작하지 않고 모델
+카탈로그, 래핑된 체크포인트 경로 및 선택 메뉴를 검증한다. 실제 병합 실행과 구조 검사는
+별도의 전체 `Society.ModelMerge` 테스트가 담당한다.
+카탈로그 검사에서는 외장 저장소의 비동기 색인이 끝날 때까지 기다린다.
 입력 변경은 650 ms 동안 모아서 처리하고 이전 요청은 취소한다. 응답은 요청 당시의
 입력 revision과 현재 revision이 일치할 때만 표시한다. 실제 병합 중에는 자동 검사가
 동시에 실행되지 않는다. 검사는 모델을 출력하지 않지만 기존 패키지·레거시 입력의
@@ -65,6 +69,10 @@ SDK 강제 투영 정책 `base-layout-force-fit-zero-fill-v1`은 베이스 규�
 Society 데스크톱의 **Tools → Model merge**는 iiLocalDiffusion의 설치된 `iild-merge`를 사용하여 로컬 체크포인트와 LoRA를 새 모델로 병합한다. 기존 Qt의 `QProcess`가 실행과 취소·결과를 관리하고 LVRS가 입력 UI를 제공한다. 텐서 연산, 모델 형식 검사, LoRA 적용, 원본 검증과 출력 저장은 SDK에 위임한다. 새 라이브러리나 서비스는 추가하지 않는다.
 
 베이스는 단일 전체 체크포인트 파일 또는 `.iildmodel` 패키지이고, 첫 추가 모델은 필수이다. 추가 모델은 단일 체크포인트, `.iildmodel`, LoRA 파일·어댑터 폴더이며 **Add material**로 개수 제한 없이 늘리고 **Remove**로 제거한다. **입력 모델은 현재 컨테이너의 `Models/` 목록에서 선택한다.** LVRS `ListItem` 모델 행을 누르거나 우클릭하면 `ContextMenu`가 열리며, 파일 경로를 입력하거나 운영체제 파일·폴더 선택기를 열 필요가 없다. Society의 시스템 파일 공급자가 `Files/`만 노출하더라도 Models의 모델을 선택할 수 있다.
+
+이 모델 목록 스냅샷은 Model Packaging과 공유한다. 패키징에서 사용할 수 있는 GGUF와
+일반 Diffusers 폴더도 스냅샷에 저장하지만, 병합 선택 메뉴에는 기존에 지원하던
+입력만 표시한다.
 
 `MergeModelCatalog`는 Qt Concurrent에서 iiSocietyContainer의 `ModelStore`로 Models 하위 폴더를 비동기 조회한다. `.safetensors`, `.safetensor`, `.ckpt`, `.pt`, `.pth`, `.bin`, `.iildmodel` 파일을 표시하며, `adapter_config.json`이 있는 어댑터 폴더는 내부 가중치를 중복 나열하지 않고 하나의 항목으로 표시한다. 일반 Diffusers 폴더와 그 내부 구성원은 단일 출력 체크포인트를 보장하기 위해 병합 선택 목록에서 제외한다. 단일 파일 패키지와 과거 디렉터리형 패키지를 포함한 유효한 `.iildmodel`은 stage 수나 내장 LoRA 유무와 무관하게 하나의 선택 항목으로 표시한다. 유형·저장 형식을 함께 표시하며, 어댑터 폴더와 LoRA/LyCORIS/DoRA로 분류된 파일은 추가 재료 목록에만 표시한다. 설정 파일 없는 단일 LoRA도 헤더에서 판정할 수 있다. 빈 파일, 숨김·스테이징 항목, 심볼릭 링크와 지원하지 않는 확장자는 목록에서 제외한다. 파일의 실제 체크포인트/LoRA 종류와 모델 호환성은 SDK가 병합 시 판별하며 목록 조회는 텐서를 로드하지 않는다.
 

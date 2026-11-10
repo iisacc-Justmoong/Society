@@ -6,6 +6,8 @@
 #include <QTimer>
 #include <QUrl>
 #include <QVariantMap>
+#include <QPointer>
+#include <QProcess>
 #include <QtQml/qqmlregistration.h>
 #include <memory>
 #include <stop_token>
@@ -18,10 +20,15 @@ class ModelPackagingController : public QObject
     QML_ELEMENT
     Q_PROPERTY(bool supported READ supported CONSTANT)
     Q_PROPERTY(bool busy READ busy NOTIFY changed)
+    Q_PROPERTY(bool choosing READ choosing NOTIFY changed)
     Q_PROPERTY(bool packaging READ packaging NOTIFY changed)
     Q_PROPERTY(bool cancelling READ cancelling NOTIFY changed)
     Q_PROPERTY(QString inputDirectory READ inputDirectory NOTIFY changed)
     Q_PROPERTY(QVariantMap report READ report NOTIFY changed)
+    Q_PROPERTY(QVariantList assignableFiles READ assignableFiles NOTIFY assignmentsChanged)
+    Q_PROPERTY(QVariantList roleOptions READ roleOptions CONSTANT)
+    Q_PROPERTY(QVariantList positionOptions READ positionOptions CONSTANT)
+    Q_PROPERTY(bool assignmentsDirty READ assignmentsDirty NOTIFY changed)
     Q_PROPERTY(QString phase READ phase NOTIFY changed)
     Q_PROPERTY(QString status READ status NOTIFY changed)
     Q_PROPERTY(QString detail READ detail NOTIFY changed)
@@ -35,10 +42,15 @@ public:
     ~ModelPackagingController() override;
     bool supported() const;
     bool busy() const { return m_busy; }
+    bool choosing() const { return !m_chooser.isNull(); }
     bool packaging() const { return m_packaging; }
     bool cancelling() const { return m_stop && m_stop->stop_requested(); }
     QString inputDirectory() const { return m_input; }
     QVariantMap report() const { return m_report; }
+    QVariantList assignableFiles() const;
+    QVariantList roleOptions() const;
+    QVariantList positionOptions() const;
+    bool assignmentsDirty() const { return m_assignments != m_appliedAssignments; }
     QString phase() const { return m_phase; }
     QString status() const;
     QString detail() const { return m_detail; }
@@ -48,7 +60,14 @@ public:
     bool indeterminate() const { return m_phase == "scan" || m_phase == "deduplicate" || m_phase == "save"; }
     int elapsedSeconds() const { return m_seconds; }
     Q_INVOKABLE bool scanFolder(const QString &directory);
+    Q_INVOKABLE bool scanSelection(const QString &modelsDirectory, const QStringList &paths);
+    Q_INVOKABLE bool chooseModels(const QString &modelsDirectory, const QVariantList &catalog,
+                                  const QStringList &selected);
+    Q_INVOKABLE void clearInput();
     Q_INVOKABLE bool setComponentIncluded(const QString &id, bool included);
+    Q_INVOKABLE bool setFileRole(const QString &id, const QString &role);
+    Q_INVOKABLE bool setFilePosition(const QString &id, const QString &position);
+    Q_INVOKABLE bool applyAssignments();
     Q_INVOKABLE bool createPackage(const QString &output);
     Q_INVOKABLE void cancel();
     Q_INVOKABLE QString localPath(const QUrl &url) const;
@@ -58,8 +77,11 @@ public:
     Q_INVOKABLE void openOutputFolder() const;
 signals:
     void changed();
+    void assignmentsChanged();
     void elapsedChanged();
     void finished(bool success, bool packaging);
+    void modelsChosen(const QStringList &paths);
+    void folderChosen(const QString &path);
 private:
     bool start(bool packaging, const QString &output = {});
     bool fail(const QString &error);
@@ -69,11 +91,14 @@ private:
     QElapsedTimer m_elapsed;
     QTimer m_timer;
     std::shared_ptr<std::stop_source> m_stop;
-    bool m_busy = false, m_packaging = false;
+    bool m_busy = false, m_packaging = false, m_clearPending = false;
     QString m_input, m_phase, m_detail, m_error, m_output, m_requestedOutput;
     QVariantMap m_report, m_scanned;
-    QStringList m_excluded;
+    QVariantMap m_assignments, m_appliedAssignments, m_inflightAssignments;
+    QStringList m_excluded, m_selected;
     double m_progress = 0;
     int m_seconds = 0;
     quint64 m_revision = 0;
+    QPointer<QProcess> m_chooser;
+    quint64 m_chooserRevision = 0;
 };

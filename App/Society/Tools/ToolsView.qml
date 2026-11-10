@@ -3,6 +3,7 @@ import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls as Controls
 import LVRS 1.0 as LV
+import Society
 import "../Dashboard"
 
 Item {
@@ -10,9 +11,16 @@ Item {
     objectName: "toolsView"
     property string modelsDirectory: ""
     property bool modelsBusy: false
+    property bool preloadAllowed: true
+    property bool preloadAdmitted: false
+    readonly property bool preloadBusy: sharedModelCatalog.loading
     property bool touchNavigation: false
     property string activeTool: ""
     property string query: ""
+    property bool mergeVisited: false
+    property bool packagingVisited: false
+    property bool mergeReady: false
+    property bool packagingReady: false
     signal generateRequested(string prompt, string mediaType, string aspectRatio, int count)
     signal packageCreated(string path)
     readonly property bool canGoBack: activeTool.length > 0
@@ -20,18 +28,41 @@ Item {
         { key: "model-merge", title: qsTr("Model merge"), category: qsTr("Models"), symbol: "M", tint: "#92B57B",
           description: qsTr("Combine checkpoints and LoRA into a new model.") },
         { key: "model-packaging", title: qsTr("Model Packaging"), category: qsTr("Models"), symbol: "P", icon: "localSwiftPackageDependency", tint: "#92B57B",
-          description: qsTr("Turn a model folder into one safetensors file. Components are detected automatically.") }
+          description: qsTr("Package models from your Society library or a local folder into one safetensors file.") },
+        { key: "model-calibrator", title: qsTr("Model calibrator"), category: qsTr("Models"), symbol: "C", icon: "toolWindowModelChecker", tint: LV.Theme.accentGreen,
+          description: qsTr("Analyze compatibility and weights, and create a corrected model copy.") }
     ]
     readonly property var filteredTools: tools.filter(function(tool) {
         return (tool.title + " " + tool.description + " " + tool.category).toLowerCase().includes(query.trim().toLowerCase())
     })
     function openTool(key: string): void {
         if (tools.some(function(tool) { return tool.key === key })) {
+            if (key === "model-calibrator") {
+                calibratorLauncher.open(root.modelsDirectory)
+                return
+            }
             activeTool = key
-            Qt.callLater(function() { if (key === "model-packaging") packaging.focusBackButton(); else merge.focusBackButton() })
+            if (key === "model-merge") mergeVisited = true
+            if (key === "model-packaging") packagingVisited = true
+            Qt.callLater(root.focusActiveTool)
         }
     }
+    function focusActiveTool(): void {
+        const loader = activeTool === "model-merge" ? mergeLoader
+            : activeTool === "model-packaging" ? packagingLoader : null
+        if (loader && loader.item) loader.item.focusBackButton()
+    }
     function goBack(): void { activeTool = "" }
+    onPreloadAllowedChanged: if (preloadAllowed) preloadAdmitted = true
+    Component.onCompleted: if (preloadAllowed) preloadAdmitted = true
+    onModelsBusyChanged: if (!modelsBusy && sharedModelCatalog.directory.length > 0) sharedModelCatalog.refresh()
+    // Share one model-library snapshot between the two editors.
+    ModelCalibratorLauncher { id: calibratorLauncher; objectName: "modelCalibratorLauncher" }
+    MergeModelCatalog {
+        id: sharedModelCatalog
+        objectName: "mergeModelCatalog"
+        directory: root.preloadAdmitted || root.mergeVisited || root.packagingVisited ? root.modelsDirectory : ""
+    }
     Keys.onEscapePressed: function(event) { if (canGoBack) { goBack(); event.accepted = true } }
     Shortcut { sequences: [StandardKey.Back]; enabled: root.visible && root.canGoBack; onActivated: root.goBack() }
     ColumnLayout {
@@ -80,6 +111,13 @@ Item {
                             text: root.query
                             onTextChanged: root.query = text
                         }
+                        LV.Label {
+                            Layout.fillWidth: true
+                            visible: calibratorLauncher.errorString.length > 0
+                            text: calibratorLauncher.errorString
+                            wrapMode: Text.Wrap
+                            sizeToContentHeight: true
+                        }
                         GridLayout {
                             id: cards
                             objectName: "toolCards"
@@ -111,24 +149,54 @@ Item {
                     }
                 }
             }
-            ModelMergeTool {
-                id: merge
+            Loader {
+                id: mergeLoader
+                objectName: "mergeToolLoader"
                 anchors.fill: parent
                 visible: root.activeTool === "model-merge"
-                modelsDirectory: root.modelsDirectory
-                modelsBusy: root.modelsBusy
-                touchNavigation: root.touchNavigation
-                onBackRequested: root.goBack()
+                active: (root.visible && root.activeTool === "model-merge") || root.mergeReady
+                asynchronous: true
+                onLoaded: {
+                    root.mergeReady = true
+                    if (root.activeTool === "model-merge") Qt.callLater(root.focusActiveTool)
+                }
+                sourceComponent: ModelMergeTool {
+                    modelsDirectory: root.modelsDirectory
+                    modelsBusy: root.modelsBusy
+                    touchNavigation: root.touchNavigation
+                    preloadedCatalog: sharedModelCatalog
+                    onBackRequested: root.goBack()
+                }
             }
-            ModelPackagingTool {
-                id: packaging
+            Loader {
+                id: packagingLoader
+                objectName: "packagingToolLoader"
                 anchors.fill: parent
                 visible: root.activeTool === "model-packaging"
-                modelsDirectory: root.modelsDirectory
-                modelsBusy: root.modelsBusy
-                touchNavigation: root.touchNavigation
-                onBackRequested: root.goBack()
-                onPackageCreated: function(path) { root.packageCreated(path) }
+                active: (root.visible && root.activeTool === "model-packaging") || root.packagingReady
+                asynchronous: true
+                onLoaded: {
+                    root.packagingReady = true
+                    if (root.activeTool === "model-packaging") Qt.callLater(root.focusActiveTool)
+                }
+                sourceComponent: ModelPackagingTool {
+                    modelsDirectory: root.modelsDirectory
+                    modelsBusy: root.modelsBusy
+                    touchNavigation: root.touchNavigation
+                    preloadedCatalog: sharedModelCatalog
+                    onBackRequested: root.goBack()
+                    onPackageCreated: function(path) {
+                        sharedModelCatalog.refresh()
+                        root.packageCreated(path)
+                    }
+                }
+            }
+            LV.Label {
+                anchors.centerIn: parent
+                visible: (root.activeTool === "model-merge" && mergeLoader.status === Loader.Loading)
+                    || (root.activeTool === "model-packaging" && packagingLoader.status === Loader.Loading)
+                text: qsTr("Loading…")
+                style: description
             }
         }
     }

@@ -24,8 +24,10 @@ namespace {
 struct AppProcess : QProcess {
     QByteArray output;
     QString logPath;
+    QProcess daemon;
     ~AppProcess() override {
         if (state() != NotRunning) { terminate(); if (!waitForFinished(3000)) { kill(); waitForFinished(3000); } }
+        stopDaemon();
         output += readAll();
         QFile log(logPath); if (log.open(QIODevice::WriteOnly)) log.write(output);
     }
@@ -35,6 +37,11 @@ struct AppProcess : QProcess {
         env.insert("SOCIETY_HELPER_DIRECTORY", base + "/helper");
         env.insert("SOCIETY_STORAGE_SETTINGS_PATH", base + "/storage.json");
         env.insert("SOCIETY_CONTAINER_PATH", base + "/container.societycontainer");
+        env.insert("SOCIETY_LOCAL_BROKER_DIR", base + "/broker");
+        env.insert("SOCIETY_TEST_OUTPUT_DIR", base);
+        env.insert("SOCIETY_TEST_ENABLE_DAEMON_MCP", "1");
+        env.insert("SOCIETY_JOB_STATE_ROOT", base + "/jobs");
+        env.insert("SOCIETY_DISABLE_BACKEND_AUTOSTART", "1");
         env.insert("SOCIETY_DISABLE_SESSION_RESTORE", "1");
         env.insert("SOCIETY_DISABLE_NATIVE_DRIVE", "1");
         env.insert("SOCIETY_DISABLE_PHOTOS", "1");
@@ -42,9 +49,26 @@ struct AppProcess : QProcess {
         env.insert("IILOCALLLM_DISABLE_APP_MCP", enabled ? "0" : "1");
         env.insert("QT_QPA_PLATFORM", "offscreen"); env.insert("QT_QUICK_BACKEND", "software");
         env.insert("QML_DISABLE_DISK_CACHE", "1");
+        daemon.setProcessEnvironment(env); daemon.setProcessChannelMode(MergedChannels); daemon.setWorkingDirectory(base);
+        daemon.start(QFileInfo(QStringLiteral(MCP_APP_EXECUTABLE)).dir().filePath("SocietyDaemon"), {"--license-broker"});
         setProcessEnvironment(env); setProcessChannelMode(MergedChannels); setWorkingDirectory(base);
         logPath = base + "/app.log";
         start(MCP_APP_EXECUTABLE, QStringList{"--container", base + "/container.societycontainer"} + links);
+    }
+    void stopDaemon() {
+        if (daemon.state()!=NotRunning) {daemon.terminate();if(!daemon.waitForFinished(5000)){daemon.kill();daemon.waitForFinished(5000);}}
+        output+=daemon.readAll();
+    }
+    bool uiReady(const QString &base) {
+        const auto endpoints=m::discoverLocalApplications(base+"/apps").applications;
+        if (endpoints.size()!=1) return false;
+        try {
+            m::HttpOptions options; options.endpoint=endpoints.first().endpoint;
+            options.bearerToken=[token=endpoints.first().bearerToken]{return token;};
+            options.initializeTimeoutMs=2000; options.requestTimeoutMs=2000;
+            m::HttpClient client(options); const auto result=client.callTool("ui_status",{}); client.close();
+            return !result.value("isError").toBool();
+        } catch (const std::exception &) {return false;}
     }
     bool waitForRoot() {
         QElapsedTimer timer; timer.start();
@@ -114,6 +138,7 @@ private slots:
         AppProcess process; process.startApp(base.path(), true, {"society://generation-history"});
         QVERIFY(process.waitForStarted());
         QVERIFY2(process.waitForRoot(), process.output.constData());
+        QTRY_VERIFY_WITH_TIMEOUT(process.uiReady(base.path()),30000);
 #ifdef Q_OS_MACOS
         QProcess mounts; mounts.start("/sbin/mount", {}); QVERIFY(mounts.waitForFinished());
         QVERIFY(!mounts.readAllStandardOutput().contains(base.filePath("container.societycontainer").toUtf8()));
@@ -121,7 +146,7 @@ private slots:
         const auto endpoints = m::discoverLocalApplications(base.filePath("apps")).applications;
         QCOMPARE(endpoints.size(), 1);
         m::HttpClient client(clientOptions(endpoints.first()));
-        const auto result = call(client, "status");
+        const auto result = call(client, "ui_status");
         QVERIFY(!result["isError"].toBool());
         const auto state = result["structuredContent"].toObject();
         QCOMPARE(state["current_path"].toString(), base.filePath("container.societycontainer/Generation History"));
@@ -132,6 +157,7 @@ private slots:
         QVERIFY(iiSocietyContainer::SocietyDrive::create(base.filePath("container.societycontainer")));
         AppProcess process; process.startApp(base.path(), true); QVERIFY(process.waitForStarted());
         QVERIFY2(process.waitForRoot(), process.output.constData());
+        QTRY_VERIFY_WITH_TIMEOUT(process.uiReady(base.path()),30000);
         const auto discovered=m::discoverLocalApplications(base.filePath("apps")); QCOMPARE(discovered.applications.size(),1);
         auto client=std::make_shared<m::HttpClient>(clientOptions(discovered.applications.first()));
         QCOMPARE(client->serverCapabilities()["experimental"].toObject()["iisacc/userQuestions"].toObject()["responseChannel"],"local-ui");
@@ -170,11 +196,12 @@ private slots:
         second.write("Another entry for the explicit listing limit"); second.close();
         AppProcess process; process.startApp(base.path(), true); QVERIFY(process.waitForStarted());
         QVERIFY2(process.waitForRoot(), process.output.constData());
+        QTRY_VERIFY_WITH_TIMEOUT(process.uiReady(base.path()),30000);
         const auto discovered = m::discoverLocalApplications(base.filePath("apps"));
         QCOMPARE(discovered.applications.size(), 1);
         const auto endpoint = discovered.applications.first();
         QCOMPARE(endpoint.application.id, QString("com.iisacc.society"));
-        QCOMPARE(endpoint.processId, process.processId());
+        QCOMPARE(endpoint.processId, process.daemon.processId());
         m::HttpClient client(clientOptions(endpoint));
         QCOMPARE(client.serverInfo()["name"].toString(), QString("Society"));
         QSet<QString> toolNames;
@@ -184,8 +211,10 @@ private slots:
             if (tool["name"] == "iiLocalLLM.agent.permissions.get")
                 QVERIFY(tool["annotations"].toObject()["readOnlyHint"].toBool());
         }
-        QCOMPARE(toolNames, QSet<QString>({"status", "open_section", "navigate", "refresh",
-            "list_entries", "iiLocalLLM.agent.permissions.get", "AskUserQuestion"}));
+        QCOMPARE(toolNames, QSet<QString>({"status", "ui_status", "open_section", "navigate", "refresh",
+            "list_entries", "file_job_submit", "file_job_status", "model_import_submit", "semantic_read", "semantic_relations", "semantic_set_metadata",
+            "semantic_set_relation", "semantic_remove_relation", "semantic_rebind",
+            "iiLocalLLM.agent.permissions.get", "AskUserQuestion"}));
         const auto permissions = call(client, "iiLocalLLM.agent.permissions.get");
         QVERIFY(!permissions["isError"].toBool());
         const auto policy = permissions["structuredContent"].toObject();
@@ -193,7 +222,7 @@ private slots:
         QCOMPARE(policy["provider"].toString(), QString("rules"));
         QCOMPARE(policy["mode"].toString(), QString("default"));
         QVERIFY(policy["rules"].isArray());
-        auto response = call(client, "status"); QVERIFY(!response["isError"].toBool());
+        auto response = call(client, "ui_status"); QVERIFY(!response["isError"].toBool());
         auto state = response["structuredContent"].toObject();
         QCOMPARE(state["identifier"].toString(), drive->identifier());
         QCOMPARE(state["root_path"].toString(), drive->rootPath());
@@ -204,17 +233,17 @@ private slots:
         QVERIFY(!sectionKey.isEmpty());
         response = call(client, "open_section", {{"key", sectionKey}}); QVERIFY(!response["isError"].toBool());
         QCOMPARE(response["structuredContent"].toObject()["current_path"].toString(), base.filePath("container.societycontainer/Asset Library"));
-        response = call(client, "list_entries", {{"limit", 1}}); QVERIFY(!response["isError"].toBool());
+        response = call(client, "list_entries", {{"path", "Asset Library"}, {"limit", 1}}); QVERIFY(!response["isError"].toBool());
         const auto entries = response["structuredContent"].toObject()["entries"].toArray();
-        QCOMPARE(entries.size(), 1); QVERIFY(response["structuredContent"].toObject()["truncated"].toBool());
-        response = call(client, "list_entries");
+        QCOMPARE(entries.size(), 1); QVERIFY(response["structuredContent"].toObject()["hasMore"].toBool());
+        response = call(client, "list_entries", {{"path", "Asset Library"}});
         bool foundFixture = false;
         for (const auto& entry : response["structuredContent"].toObject()["entries"].toArray())
             foundFixture |= entry.toObject()["name"] == "mcp-fixture.bin";
         QVERIFY(foundFixture);
         QVERIFY(!QJsonDocument(response).toJson().contains("Fixture contents"));
         response = call(client, "navigate", {{"path", base.path()}}); QVERIFY(response["isError"].toBool());
-        QCOMPARE(call(client, "status")["structuredContent"].toObject()["current_path"].toString(), base.filePath("container.societycontainer/Asset Library"));
+        QCOMPARE(call(client, "ui_status")["structuredContent"].toObject()["current_path"].toString(), base.filePath("container.societycontainer/Asset Library"));
         QVERIFY(call(client, "open_section", {{"key", "unknown"}})["isError"].toBool());
         QVERIFY(call(client, "list_entries", {{"limit", 201}})["isError"].toBool());
         QVERIFY(!call(client, "refresh")["isError"].toBool());
@@ -229,7 +258,7 @@ private slots:
         QCOMPARE(registry->definitions().size(), toolNames.size());
         a::Tool imported;
         for (const auto& definition : registry->definitions())
-            if (definition.metadata["remote_name"] == "status") imported = registry->get(definition.name);
+            if (definition.metadata["remote_name"] == "ui_status") imported = registry->get(definition.name);
         QVERIFY(imported.execute);
         const auto result = imported.execute({}, {}); QVERIFY(!result.isError);
         QCOMPARE(result.data["identifier"].toString(), drive->identifier());
@@ -239,6 +268,9 @@ private slots:
 #endif
         const auto diagnostic = QJsonDocument(connections.status()).toJson(); QVERIFY(!diagnostic.contains(endpoint.bearerToken));
         client.close(); process.terminate(); QVERIFY(process.waitForFinished(5000));
+        QVERIFY(!m::discoverLocalApplications(base.filePath("apps")).applications.isEmpty());
+        process.stopDaemon();
+        QTRY_VERIFY_WITH_TIMEOUT(m::discoverLocalApplications(base.filePath("apps")).applications.isEmpty(),5000);
         connections.refresh(); QVERIFY(connections.status().isEmpty()); QVERIFY(registry->definitions().isEmpty());
     }
     void disabledAppDoesNotAdvertise() {

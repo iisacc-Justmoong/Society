@@ -1,7 +1,6 @@
 #pragma once
 #include <iiAccountManager/AccountManager.h>
 #include <QFile>
-#include <QDateTime>
 #include <QJsonObject>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
@@ -63,8 +62,6 @@ private:
     void reset();
     void control(const QJsonObject& input, Continuation next);
     void list(const QString& after = {});
-    void sendPart();
-    void completeUpload();
     bool bound() const;
     QString localPath(const QString& path, bool existing);
     QPointer<iisacc::accounts::AccountManager> m_account;
@@ -72,14 +69,12 @@ private:
     QNetworkAccessManager m_defaultS3;
     QPointer<QNetworkAccessManager> m_s3;
     QVariantMap m_binding;
-    QString m_container, m_boundContainer, m_status, m_cursor, m_uploadId, m_relative;
+    QString m_container, m_boundContainer, m_status, m_cursor;
     QJsonObject m_quota;
     QVariantList m_files, m_uploads;
-    std::unique_ptr<QFile> m_source, m_temporary;
+    std::unique_ptr<QFile> m_temporary;
     QString m_temporaryPath;
     qint64 m_size = 0, m_received = 0;
-    QDateTime m_sourceModified;
-    int m_part = 0;
     bool m_busy = false;
     quint64 m_generation = 0;
 };

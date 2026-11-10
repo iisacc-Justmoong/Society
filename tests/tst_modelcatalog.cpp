@@ -34,6 +34,26 @@ bool model(const QString &directory, const QString &name) {
 class ModelCatalogTests : public QObject {
     Q_OBJECT
 private slots:
+    void preloadedSnapshotIsReusedUntilAnExplicitRefresh() {
+        QTemporaryDir directory(SOCIETY_TEST_DIRECTORY "/catalog-preload-XXXXXX");
+        QVERIFY(directory.isValid());
+        QVERIFY(model(directory.path(), "first.safetensors"));
+        MergeModelCatalog catalog;
+        catalog.setDirectory(directory.path());
+        QTRY_VERIFY_WITH_TIMEOUT(!catalog.loading(), 15000);
+        QCOMPARE(catalog.models().size(), 1);
+        QSignalSpy loading(&catalog, &MergeModelCatalog::loadingChanged);
+        catalog.ensureLoaded();
+        QCOMPARE(loading.count(), 0);
+        QVERIFY(model(directory.path(), "second.safetensors"));
+        catalog.ensureLoaded();
+        QCOMPARE(catalog.models().size(), 1);
+        QCOMPARE(loading.count(), 0);
+        catalog.refresh();
+        QTRY_VERIFY_WITH_TIMEOUT(!catalog.loading(), 15000);
+        QCOMPARE(catalog.models().size(), 2);
+    }
+
     void repeatedRefreshBoundsPendingScansAndPublishesOnlyLatestDirectory() {
         QTemporaryDir first(SOCIETY_TEST_DIRECTORY "/catalog-first-XXXXXX");
         QTemporaryDir latest(SOCIETY_TEST_DIRECTORY "/catalog-latest-XXXXXX");

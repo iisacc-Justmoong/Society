@@ -10,11 +10,11 @@
   },
   "source": {
     "path": "docs/SystemDrive.md",
-    "sha256": "6afbc19401480a26ddbb10df18a1f32c8bfbbca47063e6765855c4e17199c5c8",
-    "bytes": 4049,
-    "line_count": 23,
+    "sha256": "d678a985df92d98ffd889091964456bfd2419210708090e0b635ac5dad599eda",
+    "bytes": 5827,
+    "line_count": 31,
     "encoding": "utf-8",
-    "language": "en"
+    "language": "ko"
   },
   "document": {
     "title": "Society in system file managers",
@@ -93,7 +93,7 @@
       "kind": "paragraph",
       "start_line": 11,
       "end_line": 11,
-      "raw": "Desktop startup, opening a `.societycontainer` package, and `Reconnect` request a native mount when the installed adapter is available. `Refresh` reconnects a missing desktop mount instead of treating the original package as a system drive. Builds without an adapter retain package access with no claim of an OS mount. The mount service preserves registrations across its own restart and can restore them at login. The app opens the mounted root through `Open in Finder` or `Open in File Explorer`.\n"
+      "raw": "데스크톱의 디스크 활성화와 재연결은 Society 백엔드 데몬의 작업자만 수행한다. 앱은 선택한 컨테이너에 대한 데몬 상태를 비동기로 구독하고 `Reconnect` 또는 `Refresh` 요청을 전달한다. 앱이 마운트 실행 파일이나 파일시스템 호스트를 직접 실행하지 않는다. 데몬이 연결되지 않았거나 다른 컨테이너·UUID를 보고하면 이전 시스템 경로를 지우며, 실제 원본 폴더를 마운트된 디스크로 표시하지 않는다. 검증된 시스템 경로는 `Open in Finder` 또는 `Open in File Explorer`에서 열 수 있다. iOS와 Android의 시스템 파일 제공자 연결은 각 모바일 플랫폼에서 계속 처리한다.\n"
     },
     {
       "id": "b000008",
@@ -107,7 +107,7 @@
       "kind": "paragraph",
       "start_line": 13,
       "end_line": 13,
-      "raw": "Windows needs the signed Dokan 2 kernel driver installed on the target machine. The SDK copies an available architecture-matched `dokan2.dll` next to its mount executable and exposes that runtime to the Society package. Copying the DLL does not install the kernel driver. See [the SDK desktop instructions](../../../SDK/iiSocietyContainer/platform/desktop/README.md).\n"
+      "raw": "이미 선택된 컨테이너를 다시 열어 화면의 경로가 초기화되면 앱은 데몬의 최신 상태 스냅샷을 다시 요청한다. 컨테이너를 더 이상 열 수 없으면 화면의 경로와 연결 상태를 함께 지운다.\n"
     },
     {
       "id": "b000010",
@@ -121,7 +121,7 @@
       "kind": "paragraph",
       "start_line": 15,
       "end_line": 15,
-      "raw": "Android uses the official DocumentsProvider integration, not a kernel block-device mount or drive letter. The provider accesses app-private storage and exposes only Files-relative document IDs. `register`, `refresh`, and `path` verify the actual root before reporting success; `path` opens the system file manager. The initial replica readiness requirement remains in force: a pending account mirror must not be presented as a ready drive. See [the SDK Android instructions](../../../SDK/iiSocietyContainer/platform/android/README.md).\n"
+      "raw": "Society 백엔드는 GUI 창이 없어도 선택된 드라이브를 연결한다. 반환된 컨테이너 UUID·마운트 루트·플랫폼 파일시스템을 검증하고, 일시적 실패를 재시도하며, 선택이 바뀌기 전 요청의 결과는 무시한다. 누락되거나 잘못 서명된 호스트는 연결 실패로 보고하며, 볼륨 루트에는 선택한 `Files/`의 내용만 표시한다.\n"
     },
     {
       "id": "b000012",
@@ -135,7 +135,7 @@
       "kind": "paragraph",
       "start_line": 17,
       "end_line": 17,
-      "raw": "Validation is separated into compilation, host regression tests, and optional target execution. `tests/native_mount.py` checks an actual Windows/Linux mount, Files-only CRUD, Windows removable-volume recognition, reconnect, unmount/remount, and original manifest preservation. Android `ProviderInstrumentation` verifies connection identity, provider root, public operations, and process restart. Target-device execution can be omitted without presenting compilation as runtime proof.\n"
+      "raw": "`SOCIETY_NATIVE_DRIVE_BUNDLE`은 macOS 백엔드 작업자가 사용하는 설치된 네이티브 호스트를 지정한다. 기본값은 선택된 iiSocietyContainer SDK의 호스트이며, 임시 SDK 스테이징을 사용해 빌드할 때는 앱 패키징 전에 실제 설치 호스트를 지정해야 한다.\n"
     },
     {
       "id": "b000014",
@@ -149,7 +149,7 @@
       "kind": "paragraph",
       "start_line": 19,
       "end_line": 19,
-      "raw": "`tests/drive_compile` compiles the production `DriveController.cpp` with the selected target Qt toolchain, without creating or launching an application. Configure it below `build/`, set `SOCIETY_ACCOUNT_INCLUDE` to installed account headers, and select the Windows or Android CMake toolchain. This validates platform-specific dispatch and native APIs separately from a complete Society package and its other SDK dependencies.\n"
+      "raw": "On macOS, a correctly signed and registered FSKit module must also be enabled by the user. In **System Settings → General → Login Items & Extensions → Extensions → By Category → File System Extensions**, enable Society. If the module is disabled, macOS can reject mounting with `Operation not permitted`; the backend reports the failure and retries after the setting is enabled. The Society mount is a separate `societyfs` filesystem volume in Finder, backed by the existing `Files/` directory; it is not a block device or an additional copy of the data.\n"
     },
     {
       "id": "b000016",
@@ -163,7 +163,7 @@
       "kind": "paragraph",
       "start_line": 21,
       "end_line": 21,
-      "raw": "Society's stored source, state, cache and service registry/lock data live beneath the selected package. macOS 27 creates and manages its FSKit mount namespace under `/Volumes/` through the signed host's public mounting API; it stores no additional source data there. The macOS 26 and Linux backing directories are inside `.society-runtime/`. OS extension registration, startup registration and the small shared locator remain OS integration metadata. The app does not manage an ordinary external data directory or restore an old disk image.\n"
+      "raw": "Windows needs the signed Dokan 2 kernel driver installed on the target machine. The SDK copies an available architecture-matched `dokan2.dll` next to its mount executable and exposes that runtime to the Society package. Copying the DLL does not install the kernel driver. See [the SDK desktop instructions](../../../SDK/iiSocietyContainer/platform/desktop/README.md).\n"
     },
     {
       "id": "b000018",
@@ -177,6 +177,62 @@
       "kind": "paragraph",
       "start_line": 23,
       "end_line": 23,
+      "raw": "Android uses the official DocumentsProvider integration, not a kernel block-device mount or drive letter. The provider accesses app-private storage and exposes only Files-relative document IDs. `register`, `refresh`, and `path` verify the actual root before reporting success; `path` opens the system file manager. The initial replica readiness requirement remains in force: a pending account mirror must not be presented as a ready drive. See [the SDK Android instructions](../../../SDK/iiSocietyContainer/platform/android/README.md).\n"
+    },
+    {
+      "id": "b000020",
+      "kind": "blank",
+      "start_line": 24,
+      "end_line": 24,
+      "raw": "\n"
+    },
+    {
+      "id": "b000021",
+      "kind": "paragraph",
+      "start_line": 25,
+      "end_line": 25,
+      "raw": "Validation is separated into compilation, host regression tests, and optional target execution. `tests/native_mount.py` checks an actual Windows/Linux mount, Files-only CRUD, Windows removable-volume recognition, reconnect, unmount/remount, and original manifest preservation. Android `ProviderInstrumentation` verifies connection identity, provider root, public operations, and process restart. Target-device execution can be omitted without presenting compilation as runtime proof.\n"
+    },
+    {
+      "id": "b000022",
+      "kind": "blank",
+      "start_line": 26,
+      "end_line": 26,
+      "raw": "\n"
+    },
+    {
+      "id": "b000023",
+      "kind": "paragraph",
+      "start_line": 27,
+      "end_line": 27,
+      "raw": "`tests/drive_compile` compiles the production `DriveController.cpp` with the selected target Qt toolchain, without creating or launching an application. Configure it below `build/`, set `SOCIETY_ACCOUNT_INCLUDE` to installed account headers, and select the Windows or Android CMake toolchain. This validates platform-specific dispatch and native APIs separately from a complete Society package and its other SDK dependencies.\n"
+    },
+    {
+      "id": "b000024",
+      "kind": "blank",
+      "start_line": 28,
+      "end_line": 28,
+      "raw": "\n"
+    },
+    {
+      "id": "b000025",
+      "kind": "paragraph",
+      "start_line": 29,
+      "end_line": 29,
+      "raw": "Society's stored source, state, cache and service registry/lock data live beneath the selected package. macOS 27 creates and manages its FSKit mount namespace under `/Volumes/` through the signed host's public mounting API; it stores no additional source data there. The macOS 26 and Linux backing directories are inside `.society-runtime/`. OS extension registration, startup registration and the small shared locator remain OS integration metadata. The app does not manage an ordinary external data directory or restore an old disk image.\n"
+    },
+    {
+      "id": "b000026",
+      "kind": "blank",
+      "start_line": 30,
+      "end_line": 30,
+      "raw": "\n"
+    },
+    {
+      "id": "b000027",
+      "kind": "paragraph",
+      "start_line": 31,
+      "end_line": 31,
       "raw": "Product test processes explicitly set `SOCIETY_DISABLE_NATIVE_DRIVE=1`. They exercise valid package storage without registering or mounting disposable fixtures on the user’s computer. The dedicated SDK native integration and installed-app validation run separately with that override removed.\n"
     }
   ],
@@ -193,8 +249,29 @@
   "indexes": {
     "directive_candidates": [
       {
-        "block_id": "b000011",
-        "line": 15,
+        "block_id": "b000007",
+        "line": 11,
+        "text": "데스크톱의 디스크 활성화와 재연결은 Society 백엔드 데몬의 작업자만 수행한다. 앱은 선택한 컨테이너에 대한 데몬 상태를 비동기로 구독하고 `Reconnect` 또는 `Refresh` 요청을 전달한다. 앱이 마운트 실행 파일이나 파일시스템 호스트를 직접 실행하지 않는다. 데몬이 연결되지 않았거나 다른 컨테이너·UUID를 보고하면 이전 시스템 경로를 지우며, 실제 원본 폴더를 마운트된 디스크로 표시하지 않는다. 검증된 시스템 경로는 `Open in Finder` 또는 `Open in File Explorer`에서 열 수 있다. iOS와 Android의 시스템 파일 제공자 연결은 각 모바일 플랫폼에서 계속 처리한다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000013",
+        "line": 17,
+        "text": "`SOCIETY_NATIVE_DRIVE_BUNDLE`은 macOS 백엔드 작업자가 사용하는 설치된 네이티브 호스트를 지정한다. 기본값은 선택된 iiSocietyContainer SDK의 호스트이며, 임시 SDK 스테이징을 사용해 빌드할 때는 앱 패키징 전에 실제 설치 호스트를 지정해야 한다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000015",
+        "line": 19,
+        "text": "On macOS, a correctly signed and registered FSKit module must also be enabled by the user. In **System Settings → General → Login Items & Extensions → Extensions → By Category → File System Extensions**, enable Society. If the module is disabled, macOS can reject mounting with `Operation not permitted`; the backend reports the failure and retries after the setting is enabled. The Society mount is a separate `societyfs` filesystem volume in Finder, backed by the existing `Files/` directory; it is not a block device or an additional copy of the data.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000019",
+        "line": 23,
         "text": "Android uses the official DocumentsProvider integration, not a kernel block-device mount or drive letter. The provider accesses app-private storage and exposes only Files-relative document IDs. `register`, `refresh`, and `path` verify the actual root before reporting success; `path` opens the system file manager. The initial replica readiness requirement remains in force: a pending account mirror must not be presented as a ready drive. See [the SDK Android instructions](../../../SDK/iiSocietyContainer/platform/android/README.md).",
         "basis": "lexical_match",
         "context": "paragraph"
@@ -203,18 +280,18 @@
     "commands": [],
     "links": [
       {
-        "block_id": "b000009",
+        "block_id": "b000017",
         "label": "the SDK desktop instructions",
         "target": "../../../SDK/iiSocietyContainer/platform/desktop/README.md",
         "kind": "relative",
-        "line": 13
+        "line": 21
       },
       {
-        "block_id": "b000011",
+        "block_id": "b000019",
         "label": "the SDK Android instructions",
         "target": "../../../SDK/iiSocietyContainer/platform/android/README.md",
         "kind": "relative",
-        "line": 15
+        "line": 23
       }
     ],
     "tables": [

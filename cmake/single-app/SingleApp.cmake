@@ -107,6 +107,6 @@ function(product_deploy_app application qml)
     add_custom_command(TARGET "${application}" POST_BUILD
         COMMAND "${Python3_EXECUTABLE}" -B "${deployer}"
             --app "$<TARGET_BUNDLE_DIR:${application}>" --macdeployqt "${product_macdeployqt}"
-            --log "${CMAKE_BINARY_DIR}/single-app-deployment.log" ${args}
+            --lock-dir "${CMAKE_SOURCE_DIR}/resources/.state/deploy-locks" ${args}
         VERBATIM)
 endfunction()

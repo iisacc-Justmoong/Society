@@ -17,6 +17,15 @@ private slots:
         QVERIFY(calls.isEmpty()); ready = true; handler.flush();
         QCOMPARE(calls, QList<QUrl>{package}); handler.flush(); QCOMPARE(calls.size(), 1);
     }
+    void accountLinkWaitsForWindowAndRejectsUnexpectedParameters() {
+        QObject receiver; ContainerFileOpenHandler handler; receiver.installEventFilter(&handler);
+        QFileOpenEvent opened(QUrl("society://account"));
+        QVERIFY(QCoreApplication::sendEvent(&receiver, &opened));
+        int calls=0;handler.setAccountOpener([&]{++calls;});QCOMPARE(calls,1);
+        QFileOpenEvent again(QUrl("society://account"));QVERIFY(QCoreApplication::sendEvent(&receiver,&again));QCOMPARE(calls,2);
+        QFileOpenEvent bad(QUrl("society://account?next=https://foreign.invalid"));
+        QCoreApplication::sendEvent(&receiver,&bad);QCOMPARE(calls,2);
+    }
     void ignoresOrdinaryFoldersAndRemoteUrls() {
         QObject receiver; ContainerFileOpenHandler handler; receiver.installEventFilter(&handler);
         QList<QUrl> calls; handler.setOpener([&](const QUrl &url) { calls.append(url); return true; });

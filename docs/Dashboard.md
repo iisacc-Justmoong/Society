@@ -26,24 +26,28 @@ Metal 픽셀 검사로 별도 검증하며, 호스트의 좁은 창 검사는 �
 
 Society 데스크톱의 기본 화면은 [Figma 18:14](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=18-14)의 대시보드 디자인이다. `Main.qml`의 `LV.ApplicationWindow`가 창과 컨트롤러·대화상자를 소유하고, `SocietyView.qml`을 공개 `content` 슬롯에 전달한다. 창의 프레임·닫기·최소화·최대화와 이동·크기 조절은 LVRS가 소유하며 앱이 창 제어 버튼을 직접 그리지 않는다.
 
-앱 전역 상단 바는 [Figma 135:464](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=135-464)의 56 px 한 행이다. 기본 `LV.ApplicationWindow` 배경을 드러내는 투명 표면, 바깥 여백과 요소 간 간격 12 px, Dashboard·Tools·Storage·Browse·Environment 탭, 300×22 px 검색창, 22×22 px 알림·계정 버튼을 사용한다. 검색은 기존 실제 파일 조회를 유지하며, 알림 버튼은 현재 저장소·계정 오류 또는 빈 상태를 공용 LVRS 안내창에 표시한다. 검색·알림·계정 아이콘은 이 노드의 12×12·18×18·18×18 SVG 원본을 `App/Society/Toolbar/icons/`에 저장하고 앱 QML 리소스에 포함한다. LVRS LabelSegmentedControl·InputField·IconButton의 재질·글꼴·상태를 재사용한다.
+앱 전역 상단 바는 [Figma 749:5440](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=749-5440)의 높이 56 px 한 행이다. 기본 `LV.ApplicationWindow` 배경 위에 9개의 LVRS 아이콘 세그먼트, 300×22 px 검색창, 22×22 px 알림, 맨 오른쪽 40×40 px 원형 `LV.Avatar`를 배치한다. 오른쪽 항목 간 간격은 8 px이며 창 오른쪽에 12 px를 남긴다. 로그인 상태에서 iiAccountManager `Account.avatarUrl`을 표시하며 이미지가 없거나 아직 로드되지 않았거나 로드에 실패하면 Figma의 20×20 px 기본 사용자 실루엣을 표시한다. Avatar는 버튼으로 키보드와 포인터로 계정 창을 연다. 검색과 알림은 기존 실제 조회와 오류·빈 상태 안내를 유지한다. 두 번째 Tasks 세그먼트는 새 Tasks 화면이 결정되기 전까지 기존 Tools 화면에 연결한다. View → Tools 메뉴와 Command+2(macOS) 또는 Ctrl+2, 모바일의 기존 Tools 탭도 같은 화면을 연다. 아직 제공하지 않는 Space·Analysis·Portfolio·Learning은 비활성화한다.
 
-데스크톱 콘텐츠를 창 위쪽에서 바로 시작하고, `nativeTitleBarHeight`를 상단 바 높이에 연결해 macOS의 실제 창 버튼과 탭·검색·알림·계정 버튼의 중심을 맞춘다. 탭 뷰포트는 행의 가용 높이를 채우고 그 안에서 세그먼트를 세로 중앙에 고정하여, 29 px 세그먼트의 레이아웃 반올림으로 생기는 0.5 px 차이도 방지한다. `nativeTitleBarControlsRect` 오른쪽에 12 px 여백을 두어 탭과 창 버튼이 겹치지 않도록 한다. 전체 화면에서는 네이티브 버튼 예약 폭을 없애며, 복귀와 크기 변경은 LVRS가 처리한다. `windowDragHandleHeight`는 같은 행 전체를 덮고 `windowDragExclusionItems`로 탭·검색·알림·계정·Storage actions 영역을 제외하여 클릭과 입력을 보존한다. 좁은 창에서는 탭 영역이 가로 스크롤되고 검색창이 숨겨진다. 모바일은 기존 안전 영역과 내비게이션 구조를 유지한다. [모바일 레이아웃](MobileViews.md)을 참조한다.
+상단 세그먼트의 비활성 버튼은 배경을 투명하게 지정하여 선택된 항목으로 오인되지 않게 한다. 사용 가능한 항목은 현재 화면만 선택 배경을 표시하며 기존 Tools 화면에서는 Tasks가 선택된다. `Society.ToolbarSegmentAppearance`는 각 화면에서 비활성 항목의 투명 배경과 단일 선택 배경을 검사한다. `Society.TasksNavigation`은 Tasks의 포인터·키보드 접근, 기존 도구 진입과 화면 전환 후 상태 유지를 검사한다.
 
-`SocietyDriveTests globalToolbarMatchesFigmaAndRoutesActions toolbarSharesWindowControlsRow`는 1440 px 기준 위치·치수·배경, 세 SVG의 실제 로딩과 아이콘 슬롯 크기, 다섯 탭, 검색 입력·초기화, 알림의 오류·빈 상태, 계정 창과 드래그 충돌을 검증한다. Cocoa에서는 LVRS가 보관한 좌표와 별개로 AppKit의 실제 닫기·최소화·전체 화면 버튼 프레임을 읽어, 초기 표시와 1440/760/360 px 크기 변경 후 탭·계정 버튼의 세로 중심과 0.5 px 이내로 일치하는지 검사한다. LVRS의 네이티브 창 업데이트 처리로 macOS가 버튼 위치를 다시 배치한 뒤에도 56 px 행의 중심인 y=28 px를 유지한다. `SOCIETY_GLOBAL_TOOLBAR_CAPTURE_DIR`로 전체 창과 헤더 캡처를 저장한다. 2026-10-09의 집중 회귀 12건과 앱 빌드는 통과했다. 별도 `mobileViewsShareDesktopContentAndKeepState`의 iOS·Android 모의 레이아웃에서는 검색 닫기 터치가 실패하며, 수정 전 Main·SocietyView로도 동일하게 재현되었다. 이 기존 실패는 `build/global-toolbar/mobile-baseline.log`에 기록한다.
+데스크톱 콘텐츠를 창 위쪽에서 바로 시작하고, `nativeTitleBarHeight`를 상단 바 높이에 연결해 macOS의 실제 창 버튼과 탭·검색·알림·계정 버튼의 중심을 맞춘다. 탭 뷰포트는 행의 가용 높이를 채우고 그 안에서 세그먼트를 세로 중앙에 고정하여, 29 px 세그먼트의 레이아웃 반올림으로 생기는 0.5 px 차이도 방지한다. `nativeTitleBarControlsRect` 오른쪽에 8 px 여백을 두어 탭과 창 버튼이 겹치지 않도록 한다. 전체 화면에서는 네이티브 버튼 예약 폭을 없애며, 복귀와 크기 변경은 LVRS가 처리한다. `windowDragHandleHeight`는 같은 행 전체를 덮고 `windowDragExclusionItems`로 탭·검색·알림·계정·Storage actions 영역을 제외하여 클릭과 입력을 보존한다. 좁은 창에서는 탭 영역이 가로 스크롤되고 검색창이 숨겨진다. 모바일은 기존 안전 영역과 내비게이션 구조를 유지한다. [모바일 레이아웃](MobileViews.md)을 참조한다.
 
-대시보드 콘텐츠는 [Figma 62:2386](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=62-2386)의 카드 구성이다. `SocietyView`는 56 px 상단 도구 모음, 204 px 사이드바, 24 px 콘텐츠 여백, 캘린더와 Recent files·Generate history의 가로 카드 목록을 조합한다. `LV.Card.File`의 Small/Brief를 140×160 논리 px로 배치하며 카드 간격은 8 px, 제목 행은 22 px, 제목과 카드 간격은 12 px, 섹션 간격은 24 px다. 세그먼트, 입력, 버튼, 카드, 메뉴, 안내창은 LVRS 컴포넌트이며 새 아이콘이나 카드 표면을 직접 그리지 않는다. 배경은 LVRS의 공유 창 표면을 그대로 사용하고, 배치는 Item·ListView·ScrollView와 LVRS Stack을 사용한다. `SocietyView`에는 창 플래그나 창 제어 동작이 없으며 사용자 동작은 신호로 `Main.qml`에 전달한다.
+`SocietyDriveTests globalToolbarMatchesFigmaAndRoutesActions toolbarSharesWindowControlsRow toolbarAvatarTracksAccountProfileAndFallback`는 1440 px 기준 헤더·9개 세그먼트·검색·알림·Avatar의 위치와 치수, Tools 메뉴와 단축키, 계정 창과 드래그 충돌, 프로필 이미지와 기본 실루엣 전환을 검사한다. Cocoa에서는 LVRS가 보관한 좌표와 별개로 AppKit의 실제 닫기·최소화·전체 화면 버튼 프레임을 읽어, 초기 표시와 1440/760/360 px 크기 변경 후 탭·계정 버튼의 세로 중심과 0.5 px 이내로 일치하는지 검사한다. LVRS의 네이티브 창 업데이트 처리로 macOS가 버튼 위치를 다시 배치한 뒤에도 56 px 행의 중심인 y=28 px를 유지한다. `SOCIETY_GLOBAL_TOOLBAR_CAPTURE_DIR`로 전체 창과 헤더 캡처를 저장한다. 2026-10-09의 집중 회귀 12건과 앱 빌드는 통과했다. 별도 `mobileViewsShareDesktopContentAndKeepState`의 iOS·Android 모의 레이아웃에서는 검색 닫기 터치가 실패하며, 수정 전 Main·SocietyView로도 동일하게 재현되었다. 이 기존 실패는 `build/global-toolbar/mobile-baseline.log`에 기록한다.
 
-- 상단 세그먼트는 `Dashboard → Tools → Storage → Browse → Environment` 순서이다. `Dashboard`는 기본 화면이다. `Tools`는 [도구 카드 목록](Tools.md)을 열며, 카드 선택 후 이미지 빠른 작업 또는 모델 병합 화면으로 진입한다. `Storage` 탭은 Overview 없이 Files 최상위 폴더를 바로 열며, 사이드바로 Society 드라이브의 9개 영역을 탐색한다. 모델 가져오기·OS 드라이브 연결도 유지한다. 세 화면을 유지하므로 Tools를 포함한 탭 전환으로 병합 설정, 프롬프트, 종횡비, 생성 수량을 초기화하지 않는다. Storage 탭을 다시 누르면 이전 영역·하위 폴더에서 Files 최상위로 돌아온다.
+대시보드 콘텐츠는 [Figma 18:14](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=18-14)를 기준으로 한다. 왼쪽 170 px 사이드바와 가운데 Workspace에는 에이전트 입력, Recent files, Files 목록, Generation history를 순서대로 배치하고 넓은 화면 오른쪽에 Activity와 Approvals를 표시한다. 좁은 화면에서는 상태 패널이 본문 아래로 이동한다. 최근 파일과 생성 이력은 기존 `LV.Card.File` Small/Brief와 비동기 데이터 모델을 사용하며, Files는 기존 `FilesBrowser`와 준비된 컨테이너의 Files 경로를 재사용한다. 폴더 진입은 DriveController의 경계 확인을 거치며 초기 복제가 미완료일 때 목록을 열지 않는다. 홈에는 캘린더를 표시하지 않고 Calendar와 Activity 사이드바 경로에서 각각 별도 화면을 연다. 패널은 공용 ApplicationWindow 배경을 드러내고 LVRS 토큰으로 경계를 그린다.
+
+에이전트 입력은 초안을 보존하며 호스트가 세션을 연결하고 `agentAvailable`을 켰을 때만 `agentPromptRequested`를 방출한다. 현재 Society에는 입력에 연결된 모델·세션 실행기가 없으므로 Send·Stop·Review를 비활성화하고 미연결 상태를 표시한다. 미연결 상태를 빈 실행 이력이나 성공으로 표현하지 않는다.
+
+- 데스크톱 상단 세그먼트는 Figma의 9개 아이콘 순서를 따른다. `Dashboard`는 기본 화면이다. Tasks 세그먼트, View 메뉴 또는 단축키로 여는 기존 `Tools`는 [도구 카드 목록](Tools.md)을 열며, 카드 선택 후 이미지 빠른 작업 또는 모델 병합 화면으로 진입한다. `Storage` 탭은 Overview 없이 Files 최상위 폴더를 바로 열며, 사이드바로 Society 드라이브의 9개 영역을 탐색한다. 모델 가져오기·OS 드라이브 연결도 유지한다. 세 화면을 유지하므로 Tools를 포함한 탭 전환으로 병합 설정, 프롬프트, 종횡비, 생성 수량을 초기화하지 않는다. Storage 탭을 다시 누르면 이전 영역·하위 폴더에서 Files 최상위로 돌아온다.
 - `View all files`는 각각 Storage의 Files와 Generation History를 연다. 카드 클릭과 키보드 활성화는 기존 DriveController의 경계 검사를 거쳐 파일을 연다. 우클릭 또는 호버·키보드 포커스 시 나타나는 카드 메뉴에서 `Open`과 `Reveal in Storage`를 선택할 수 있으며, 후자는 파일의 부모 폴더를 Storage에서 연다.
 - Recent files의 `View all files`로 여는 Storage Files 목록은 수정 시각 오름차순으로 배치한다. 오래된 파일은 위쪽, 최신 파일은 아래쪽에 있고 최초 조회와 레이아웃 완료 후 최하단을 표시한다. Files의 하위 폴더에도 같은 동작을 적용하며 폴더를 먼저 표시한다. 자동 갱신 시 과거 파일을 탐색하던 위치와 선택을 보존하고, 최하단에 있으면 새 최신 파일을 따라간다.
-- 사이드바는 Home·Projects·Calendar·Activity·People의 Workspace 그룹, Guilds와 Organization 목록으로 구성한다. Home은 대시보드 맨 위로, Calendar는 월간 캘린더로, Activity는 선택 날짜의 전체 활동 목록으로 이동한다.
+- 사이드바는 Workspace·Projects·Calendar·Activity·People과 실제 Guilds·Organization 목록으로 구성한다. Workspace는 대시보드 맨 위로, Calendar는 월간 캘린더로, Activity는 선택 날짜의 전체 활동 목록으로 이동한다.
 - `Browse`는 기존 계정의 네트워크 기기 탐색을 연다. `Environment`는 데스크톱 Preferences 창을 열고 모바일에서는 같은 설정 내용을 시트에 표시한다. `Ctrl+,`(macOS의 Command+,)도 유지한다.
 - Search는 이름·Society 내부 경로를 대소문자 구분 없이 검색하고 Dashboard를 표시한다. 빈 입력은 전체 최근 목록으로 돌아간다.
 - 탐색 항목은 실제 접근성 이름을 제공하며 라이브러리의 임시 상세 설명을 화면 읽기 프로그램에 노출하지 않는다.
 - 760 px 미만에서는 사이드바를 숨기고, 카드는 크기를 유지하며 각 목록 안에서 가로 스크롤한다. 목록은 영역 밖을 클리핑하고 방향키·Home/End 탐색을 지원한다. 700 px 미만에서는 도구 모음의 검색을 숨기며, 탭의 가용 폭이 부족하면 가로 스크롤을 제공하여 창 버튼과 계정 버튼을 가리지 않는다. 모바일도 Dashboard로 시작하고 같은 데이터 모델로 검색한다. 760 px 미만에서는 5개 탭을 하단에, 검색·계정·탐색 패널 버튼을 상단에 표시한다. 숨겨진 사이드바는 탐색 시트에서 사용할 수 있으며 호스트 모드는 제공하지 않는다.
 
-`DashboardFiles`는 iiSocietyContainer의 유효한 드라이브에서 `Files/`와 `Generation History/`만 조회한다. Recent files는 `Files/` 및 그 하위 폴더의 파일만 표시하고, Generation history는 `Generation History/` 바로 아래의 이미지 파일만 표시한다. 두 목록은 출처가 분리되어 있어 생성 이미지가 더 최신이어도 Recent files에 섞이지 않으며, `Files/`가 비어 있으면 Recent files도 빈 상태이다. `Files/` 안의 이미지는 다른 파일과 동일하게 Recent files에 포함한다. Photos·Models·Deleted·Asset Library 등 다른 영역은 두 목록의 조회 대상이 아니다. QtConcurrent 작업 스레드에서 파일을 읽고 수정 시각 내림차순으로 정렬하며, 데스크톱·모바일 모두 각 목록의 상한은 20개이다. 검색은 각 영역의 전체 스냅샷에 먼저 적용한 뒤 최신 20개까지 표시하므로, 처음 표시되지 않은 파일도 검색할 수 있다. `View all files`로 여는 Storage 전체 목록에는 이 대시보드 상한을 적용하지 않는다. 이력의 JSON과 이전 앱별 하위 폴더, 심볼릭 링크, 숨김 파일은 제외한다. 빈 경로·상대 경로는 작업 디렉터리를 열지 않는다. 컨테이너가 바뀌면 진행 중 조회를 취소하고 이전 결과를 폐기한다. `Dashboard`는 필수 `DashboardFiles viewModel`을 주입받고 생성될 때 현재 저장소를 다시 조회한다. 경로가 같은 뷰모델로 화면을 재생성해도 최신 스냅샷을 읽으며, 앱 재실행·Dashboard 복귀·창 재활성화·모델 가져오기 완료 시에도 갱신한다. 조회 경로는 로컬 드라이브에 직접 연결하므로 네트워크 준비 신호를 기다리지 않는다. 다만 SDK가 아직 공개하지 않은 초기 복제본(`isReady() == false`)은 표시하지 않는다. 뷰모델은 manifest와 대상 디렉터리·파일을 감시해 추가·수정·삭제와 원자적 교체를 150 ms 단위로 모아 다시 조회한다. 컨테이너 전환 시 감시·예약 갱신과 이전 작업을 해제하며, 조회 중 중복 요청은 다음 조회 한 번으로 합친다. 내용이 같은 스냅샷은 목록을 교체하지 않는다. 화면 제목은 `Recent files`, `Generate history`이며 저장 디렉터리명 `Generation History`는 유지한다. 별도 인덱스·프롬프트·생성 요청 파일을 드라이브에 쓰지 않는다.
+`DashboardFiles`는 iiSocietyContainer의 유효한 드라이브에서 `Files/`와 `Generation History/`만 조회한다. Recent files는 `Files/` 및 그 하위 폴더의 파일만 표시하고, Generation history는 `Generation History/` 바로 아래의 이미지 파일만 표시한다. 두 목록은 출처가 분리되어 있어 생성 이미지가 더 최신이어도 Recent files에 섞이지 않으며, `Files/`가 비어 있으면 Recent files도 빈 상태이다. `Files/` 안의 이미지는 다른 파일과 동일하게 Recent files에 포함한다. Photos·Models·Deleted·Asset Library 등 다른 영역은 두 목록의 조회 대상이 아니다. QtConcurrent 작업 스레드에서 파일을 읽고 수정 시각 내림차순으로 정렬하며, 데스크톱·모바일 모두 각 목록의 상한은 20개이다. 검색은 각 영역의 전체 스냅샷에 먼저 적용한 뒤 최신 20개까지 표시하므로, 처음 표시되지 않은 파일도 검색할 수 있다. `View all files`로 여는 Storage 전체 목록에는 이 대시보드 상한을 적용하지 않는다. 이력의 JSON과 이전 앱별 하위 폴더, 심볼릭 링크, 숨김 파일은 제외한다. 빈 경로·상대 경로는 작업 디렉터리를 열지 않는다. 컨테이너가 바뀌면 진행 중 조회를 취소하고 이전 결과를 폐기한다. `Dashboard`는 필수 `DashboardFiles viewModel`을 주입받고 생성될 때 현재 저장소를 다시 조회한다. 경로가 같은 뷰모델로 화면을 재생성해도 최신 스냅샷을 읽으며, 앱 재실행·Dashboard 복귀·창 재활성화·모델 가져오기 완료 시에도 갱신한다. 조회 경로는 로컬 드라이브에 직접 연결하므로 네트워크 준비 신호를 기다리지 않는다. 다만 SDK가 아직 공개하지 않은 초기 복제본(`isReady() == false`)은 표시하지 않는다. 뷰모델은 manifest와 대상 디렉터리·파일을 감시해 추가·수정·삭제와 원자적 교체를 150 ms 단위로 모아 다시 조회한다. 컨테이너 전환 시 감시·예약 갱신과 이전 작업을 해제하며, 조회 중 중복 요청은 다음 조회 한 번으로 합친다. 내용이 같은 스냅샷은 목록을 교체하지 않는다. 화면 제목은 `Recent files`, `Generation history`이며 저장 디렉터리명 `Generation History`는 유지한다. 별도 인덱스·프롬프트·생성 요청 파일을 드라이브에 쓰지 않는다.
 
 카드에는 실제 파일명과 로컬 수정 날짜(`yyyy-MM-dd`)를 표시한다. 이미지 파일은 경계를 확인한 로컬 파일 URL을 `LV.Card.previewSource`에 전달하며 LVRS가 카드 전체에 맞춰 중앙 크롭한다. 비이미지 파일과 읽을 수 없는 이미지는 LVRS의 기본 미리보기 아이콘을 사용한다. Figma의 예시 사진·파일명·날짜를 제품 데이터에 하드코딩하지 않으며, 데이터가 없으면 빈 상태를 표시한다. 네트워크에 연결된 경우에만 기기 상태를 `Online`으로 표시한다.
 
@@ -53,13 +57,13 @@ Tools 탭 최상단의 QuickGenerate는 [Dreamscapes 203:6930](https://www.figma
 
 캘린더는 Qt 비의존 C++23 SDK `iiCalendar`(ICU·SQLite)를 사용한다. 파일 조회와 캘린더 조회에는 Qt 6.8.3의 Concurrent 모듈을 연결한다. 동일한 Qt 배포·라이선스·유지보수 범위이며 앱 자체 도메인인 카드 데이터만 C++로 구성한다.
 
-카드 회귀 검증은 `SocietyDriveTests dashboardCardRowsMatchFigmaAndRemainInteractive`로 실행한다. 1440/760/390 px 폭에서 Figma 좌표·140×160 크기·8 px 간격, 이미지 크롭, 날짜, 가로 스크롤, 카드 클릭·Space·Enter, 메뉴의 열기·부모 폴더 이동, 빈 검색 결과를 확인한다. `SOCIETY_DASHBOARD_CARDS_SCREENSHOT_PATH`로 캡처 위치를 지정할 수 있고, 선택적인 `SOCIETY_DASHBOARD_CARDS_PREVIEW_PATH`는 테스트용 참조 사진에만 사용한다.
+이전 홈 배치의 카드 회귀 기록은 `SocietyDriveTests dashboardCardRowsMatchFigmaAndRemainInteractive`에 있다. 1440/760/390 px 폭에서 Figma 좌표·140×160 크기·8 px 간격, 이미지 크롭, 날짜, 가로 스크롤, 카드 클릭·Space·Enter, 메뉴의 열기·부모 폴더 이동, 빈 검색 결과를 확인한다. `SOCIETY_DASHBOARD_CARDS_SCREENSHOT_PATH`로 캡처 위치를 지정할 수 있고, 선택적인 `SOCIETY_DASHBOARD_CARDS_PREVIEW_PATH`는 테스트용 참조 사진에만 사용한다.
 
 `SocietyDriveTests dashboardListsShowAtMostTwentyFiles`는 파일 25개와 그보다 최신인 생성 이미지 25개를 준비해 데스크톱·모바일의 실제 Main 화면에서 출처 분리, 목록별 20개 상한, 최신순 정렬, 마지막 카드까지의 가로 탐색을 검사한다. 상한 밖의 파일 검색, 영역별 검색 결과와 검색 해제 후 복원을 함께 확인한다. `dashboardFilesUseRealDriveDataAndRejectStaleRoots`는 5개 최근 파일·15개 생성 이력, 하위 폴더의 이미지, 두 영역의 동일한 파일명, 다른 저장 영역 제외, 생성 이력만 존재하는 컨테이너를 검사한다.
 
 Storage 시간순 탐색은 `SocietyDriveTests viewAllRecentFilesOpensStorageAtTheNewest`에서 실제 버튼 클릭, 파일 이름과 반대인 수정 시각 순서, 초기 최하단 위치를 검사한다. `SOCIETY_RECENT_STORAGE_SCREENSHOT_PATH`로 해당 화면을 캡처할 수 있다. `SocietyGuiTests chronologicalFilesOpenAtTheNewestAndPreserveBrowsing`는 새 파일 추가·삭제와 수정 시각 변경 후 선택·스크롤 복원, 최하단 추적, 빈 폴더 왕복과 이름순 복귀를 검사한다. 새 파일 도착 후 비동기 조회와 예약된 위치 복원이 끝난 것을 확인한 다음 과거 파일 탐색을 재현하여 이전 레이아웃의 `atYEnd` 값으로 검사가 앞서 진행되지 않도록 한다.
 
-검증: `Society.Drive`에서 기본 창 프레임 유지, `content` 슬롯의 뷰 소유 관계, 상단 바의 y=0·높이 56 px·컨트롤 중심선, 1440/760/360 px 폭에서 Tools·Storage 탭 클릭과 검색 입력의 드래그 영역 충돌 방지, Dashboard·Tools·Storage의 순서와 화면 전환·접근성 선택 상태, 파일 정렬·검색·이미지 이력·링크/외부 경계·빈 경로·취소 후 오래된 결과 폐기, 생성 수량 옵션·스크롤·요청 전달, 세 화면 왕복 시 상태 보존, 기존 탐색·드롭·Preferences 동작을 검사한다. 빌드와 `Society_qmllint`, 실제 macOS 창의 화면 비교도 수행한다.
+검증: `Society.Drive`에서 기본 창 프레임 유지, `content` 슬롯의 뷰 소유 관계, 상단 바의 y=0·높이 56 px·컨트롤 중심선, 1440/760/360 px 폭에서 Tools 메뉴·단축키와 Storage 탭 클릭, 검색 입력의 드래그 영역 충돌 방지, Dashboard·Tools·Storage 화면 전환·접근성 상태, 파일 정렬·검색·이미지 이력·링크/외부 경계·빈 경로·취소 후 오래된 결과 폐기, 생성 수량 옵션·스크롤·요청 전달, 세 화면 왕복 시 상태 보존, 기존 탐색·드롭·Preferences 동작을 검사한다. 빌드와 `Society_qmllint`, 실제 macOS 창의 화면 비교도 수행한다.
 
 모바일 회귀 검증은 `SocietyDriveTests mobileViewsShareDesktopContentAndKeepState mobileStorageKeepsSectionsActionsAndGalleryReachable`로 실행한다. 실제 Main을 모바일 레이아웃으로 열어 320×568, 390×844, 844×390, 1024×768에서 탭 전환·터치·검색·상태 보존·작업 시트·Models 뒤로 이동과 갤러리의 가용 높이를 확인한다. `SOCIETY_MOBILE_SCREENSHOT_DIRECTORY`는 이 테스트의 화면 캡처 디렉터리이다. 이 검증은 호스트 Qt에서 모바일 레이아웃을 실행하며, 실기기의 안전 영역·키보드·사진 권한 검증과 구분한다.
 
@@ -214,37 +218,35 @@ SOCIETY_CALENDAR_SCREENSHOT_DIR="$PWD/build/calendar-implementation/runtime" \
 810개의 동적 라이브러리가 번들 내부 또는 macOS 시스템 경로에서만 로드되었다.
 컨테이너가 없는 시작도 성공했다. 실행 증거는 `build/calendar-runtime-evidence.log`이다.
 
-## 대시보드 사이드바 192:4382
+## 대시보드 사이드바 821:1703
 
-[Figma 192:4382](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=192-4382)를
-`DashboardSidebar.qml`에 반영했다. 폭 204 px, 바깥 여백 12 px, 그룹 간격과 제목 아래 간격
-8 px, 제목 높이 12 px, 연속 행 높이 32 px를 사용한다. 사이드바는 투명하며 기본
-`LV.ApplicationWindow` 배경을 그대로 노출한다. LVRS의
-Description·Body 텍스트와 Navigation ListItem 및 18 px disclosure 아이콘을 재사용한다.
-행 사이에 추가 간격·구분선·카드를 넣지 않는다. 이전 Locations와 하단 기기 카드는 제거했다.
+[Figma 821:1703](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=821-1703)의
+`DashboardSidebar.qml`은 폭 170 px를 사용하며 바깥 여백 없이 첫 행을 `(0, 0)`에 놓는다.
+행은 너비 170 px, 높이 32 px이고 그룹 사이는 8 px다. 각 행의 18 px 아이콘 슬롯은
+왼쪽 12 px에, 레이블은 왼쪽 38 px에 시작한다. 그룹 제목은 보이지 않으며 행 사이는
+추가 간격·구분선·카드 없이 이어진다. 사이드바는 투명하고 LVRS Navigation ListItem과
+Body 텍스트를 사용한다.
 
-Home·Projects·Calendar·Activity·People·Organization 아이콘은 해당 Figma 노드의 SVG
-export를 `App/Society/Dashboard/icons/`에 보존했다. Guild 깃발은 같은 Figma 컴포넌트의
-기존 `SDK/LVRS/resources/iconset/flag-asset.svg` 원본이다. 새 벡터를 직접 그리지 않았으며
-앱 QML 리소스에도 포함하여 네트워크가 없어도 표시한다.
+Workspace는 LVRS의 `workspace` 폴더 아이콘을 사용한다. Workspace와 Projects의
+선택 배경은 Figma와 같이 LVUI `Accent/Green/Selected` 색을 사용한다. Projects·Calendar·Activity·People·
+Organization 아이콘은 해당 Figma SVG export를 `App/Society/Dashboard/icons/`에 보존한다.
+Guild 깃발은 같은 Figma 컴포넌트의 `SDK/LVRS/resources/iconset/flag-asset.svg` 원본이다.
+기존 아이콘 리소스를 사용하므로 네트워크 연결이 필요하지 않다.
 
 Guilds·Organization은 `StorageNavigation`의 계정별 실제 목록을 사용한다. 항목 선택은
 기존 workspace 요청으로 전달한다. 데이터가 없으면 빈 상태를 표시하며 Figma의
-`GuildName` 3개는 검증 픽스처에서만 사용한다. Projects·People은 현재 연결된 화면이 없어
+`GuildName` 3개는 검증 픽스처에서만 사용한다. Projects는 프로젝트 화면을 열고 People은
 기존 기능 안내창을 연다. 모바일 탐색 시트도 같은 사이드바와 목록을 사용하며 선택 후 닫힌다.
 좁은 높이에서 세로 스크롤과 키보드 포커스에 따른 자동 스크롤을 지원한다.
 
-`SocietyDriveTests dashboardSidebarMatchesFigmaAndRoutesWorkspaceTargets`는 참조 프레임의
-204×844 치수와 그룹 위치·행 크기, 실제 클릭과 Space, 좁은 높이에서의 포커스 접근,
-동적 목록 제거를 검사한다. `SOCIETY_DASHBOARD_SIDEBAR_SCREENSHOT_PATH`로 이미지를 저장한다.
+`Society.DashboardSidebar`는 참조 프레임의 170×844 치수와 그룹·아이콘·레이블 위치,
+Workspace와 Projects의 선택 상태, 실제 클릭과 Space, 좁은 높이에서의 포커스 접근,
+동적 목록 제거를 검사한다. 필요할 때 `SOCIETY_DASHBOARD_SIDEBAR_SCREENSHOT_PATH`로 이미지를 저장할 수 있다.
 `dashboardSidebarOpensCalendarAndAccountMemberships`는 Calendar·Activity 본문 연결과
 실제 계정 목록 선택·계정 해제 후 항목 제거를 검사한다.
 
-2026-09-19에 `SocietyDriveTests`와 변경된 QML의 C++ 캐시·아이콘 리소스 빌드를 완료했다.
-새 사이드바 검사 2개와 기존 전체 화면 상태·캘린더·파일 카드 검사 3개가 모두 통과했다
-(QtTest 초기화·정리 포함 7 passed). 204×844 사이드바 캡처를 참조 프레임과 비교했으며,
-전체 대시보드 캡처도 확인했다. 로그와 PNG는 `build/dashboard-sidebar/`에 있다.
-이 검증은 소스 기반 UI와 빌드 대상에 대한 것이며 앱 번들 재패키징을 포함하지 않는다.
+2026-09-19의 204×844 사이드바 검사와 캡처는 이전 Figma 시안에 대한 과거 증거다.
+이 결과는 현재 170 px 시안이나 설치된 앱의 검증을 뜻하지 않는다.
 
 QuickGenerate 복원 회귀 테스트는 `ctest --test-dir build -R "^Society.QuickGenerate$" --output-on-failure`로 실행한다.
 

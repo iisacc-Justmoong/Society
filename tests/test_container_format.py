@@ -2,7 +2,7 @@
 import pathlib
 import plistlib
 import subprocess
-import tempfile
+import resource_workspace
 import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -10,9 +10,10 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 
 class ContainerFormatTests(unittest.TestCase):
     def test_generated_app_preserves_links_and_declares_package(self):
-        with tempfile.TemporaryDirectory(prefix="container-format-", dir=ROOT / "build") as folder:
+        with resource_workspace.temporary(ROOT, "container-format-input-") as folder, \
+             resource_workspace.build(ROOT, "container-format-build-") as build:
             source = pathlib.Path(folder)
-            (source / "CMakeLists.txt").write_text(
+            resource_workspace.provider.write_text(source / "CMakeLists.txt",
                 'cmake_minimum_required(VERSION 3.24)\n'
                 'project(ContainerFormat NONE)\n'
                 'set(APPLE TRUE)\n'
@@ -20,9 +21,9 @@ class ContainerFormatTests(unittest.TestCase):
                 f'include("{ROOT / "cmake/ApplicationLinks.cmake"}")\n'
                 'society_add_application_links(Society)\n'
             )
-            subprocess.run(["cmake", "-S", str(source), "-B", str(source / "build")],
+            subprocess.run(["cmake", "-S", str(source), "-B", str(build)],
                            check=True, capture_output=True, text=True)
-            plist = plistlib.loads((source / "build/Society-ApplicationLinks.plist.in").read_bytes())
+            plist = plistlib.loads((build / "Society-ApplicationLinks.plist.in").read_bytes())
             self.assertEqual(plist["CFBundleURLTypes"][0]["CFBundleURLSchemes"], ["society"])
             exported = plist["UTExportedTypeDeclarations"][0]
             self.assertEqual(exported["UTTypeIdentifier"], "com.iisacc.society.container")

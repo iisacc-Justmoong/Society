@@ -1,8 +1,10 @@
 """Exercise missing-toolchain gates and separate device/simulator build plans."""
+import contextlib
 import importlib.util
+import io
 import json
 from pathlib import Path
-import tempfile
+import resource_workspace
 import unittest
 from unittest.mock import patch
 
@@ -21,7 +23,7 @@ class IosBuildTest(unittest.TestCase):
             helper_index = next(i for i, step in enumerate(plan)
                                 if '-S' in step and Path(step[step.index('-S') + 1]).name == 'iiSocietyHelper')
             self.assertLess(container_install, helper_index)
-            prefix = build_ios.WORKSPACE / 'build' / mode / 'install'
+            prefix = build_ios.PRODUCT / 'resources/dependencies/ios' / mode
             self.assertIn(f'-DiiSocietyContainer_DIR={prefix}/lib/cmake/iiSocietyContainer', plan[helper_index])
             account_install = next(i for i, step in enumerate(plan)
                                    if '--install' in step and 'iiAccountManager' in step[2])
@@ -36,13 +38,13 @@ class IosBuildTest(unittest.TestCase):
                                  or 'iiSocietyGeneration' in option for step in plan for option in step))
 
     def test_command_line_tools_do_not_count_as_an_ios_sdk(self):
-        with tempfile.TemporaryDirectory(dir=SOURCE / 'build') as directory:
+        with resource_workspace.temporary(SOURCE, 'ios-build-test-') as directory:
             qt = Path(directory)
             for name in ('ios/lib/cmake/Qt6/qt.toolchain.cmake', 'macos/lib/cmake/Qt6/Qt6Config.cmake',
                          'ios/plugins/sqldrivers/libqsqlite.a'):
                 path = qt / name
-                path.parent.mkdir(parents=True, exist_ok=True)
-                path.touch()
+                resource_workspace.provider.mkdir(path.parent, parents=True, exist_ok=True)
+                resource_workspace.provider.write_bytes(path, b'')
             with patch.object(build_ios, 'probe', return_value=None):
                 result = build_ios.preflight(qt, 'iphonesimulator', '')
             self.assertTrue(any('Full Xcode' in failure for failure in result['problems']))
@@ -65,7 +67,7 @@ class IosBuildTest(unittest.TestCase):
             self.assertIn('-DLVRS_BUILD_SHARED_LIBS=OFF', configurations[0])
             account = next(c for c in configurations if Path(c[c.index('-S') + 1]).name == 'iiAccountManager')
             self.assertIn('-DIIACCOUNTMANAGER_BUILD_QUICK=ON', account)
-            self.assertIn(f'-DLVRS_DIR={build_ios.WORKSPACE / "build" / mode / "install"}/lib/cmake/LVRS', account)
+            self.assertIn(f'-DLVRS_DIR={build_ios.PRODUCT / "resources/dependencies/ios" / mode}/lib/cmake/LVRS', account)
             variables = next(p['cacheVariables'] for p in presets if p['name'] == mode)
             self.assertEqual(variables['CMAKE_OSX_SYSROOT'], sdk)
             self.assertEqual({k for k in variables if k.startswith('ii')},
@@ -73,6 +75,28 @@ class IosBuildTest(unittest.TestCase):
             hosting = next(c for c in configurations if Path(c[c.index('-S') + 1]).name == 'iiWebServer')
             self.assertIn('-DBUILD_SHARED_LIBS=OFF', hosting)
             self.assertIn(mode, variables['LVRS_DIR'])
+            self.assertEqual(variables['CMAKE_PREFIX_PATH'], f'${{sourceDir}}/resources/dependencies/ios/{mode}')
+
+    def test_preflight_check_reports_on_stdout_without_build_files(self):
+        with resource_workspace.temporary(SOURCE, 'ios-preflight-test-') as temporary:
+            project = Path(temporary) / 'project'
+            resource_workspace.provider.mkdir(project)
+            for problems, status in (([], 0), (['missing SDK'], 1)):
+                with self.subTest(problems=problems):
+                    output, errors = io.StringIO(), io.StringIO()
+                    report = {'xcode': 'fixture', 'sdk': 'iphonesimulator',
+                              'sdkPath': '/fixture/sdk', 'problems': problems}
+                    with patch.object(build_ios, 'PRODUCT', project), \
+                         patch.object(build_ios, 'preflight', return_value=report), \
+                         patch.object(build_ios.sys, 'argv', ['build_ios.py', '--check']), \
+                         patch.object(build_ios.subprocess, 'run') as run, \
+                         contextlib.redirect_stdout(output), contextlib.redirect_stderr(errors):
+                        self.assertEqual(build_ios.main(), status)
+                    self.assertEqual(json.loads(output.getvalue())['problems'], problems)
+                    if problems:
+                        self.assertIn('missing SDK', errors.getvalue())
+                    self.assertFalse((project / 'build').exists())
+                    run.assert_not_called()
 
 
 if __name__ == '__main__':

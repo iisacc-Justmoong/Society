@@ -1,3 +1,4 @@
+#include "Society/Dashboard/CalendarDatabase.h"
 #include "Society/Dashboard/DashboardCalendar.h"
 #include "Society/Dashboard/CalendarWorkspace.h"
 #include <SocietyDrive.h>
@@ -39,7 +40,7 @@ private slots:
             {"endLocal", "2026-10-23 15:00"}, {"timeZone", "Asia/Seoul"}, {"calendarId", "studio"}});
         QVERIFY2(!id.isEmpty(), qPrintable(workspace.errorString()));
         QTRY_COMPARE(workspace.visibleEvents().size(), 1);
-        Store store(calendar.databasePath().toStdString());
+        Store store(openSocietyCalendarDatabase(calendar.databasePath().toStdString()));
         const auto original = *store.get(id.toStdString());
         const QList<QPair<QString,int>> views{{"day",1},{"week",7},{"month",42},{"year",365}};
         for (const auto &[mode,count] : views) {
@@ -63,7 +64,7 @@ private slots:
         QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/workspace-precision-XXXXXX.societycontainer");
         QVERIFY(iiSocietyContainer::SocietyDrive::create(fixture.path()));
         DashboardCalendar calendar; calendar.setContainerPath(fixture.path()); QTRY_VERIFY(!calendar.loading());
-        Store store(calendar.databasePath().toStdString());
+        Store store(openSocietyCalendarDatabase(calendar.databasePath().toStdString()));
         Event event; event.id = "precise"; event.title = "Precise schedule";
         // A title-only edit must not round seconds, sub-seconds or a DST fold.
         event.schedule = TimedSchedule{{Instant::parse("2026-11-01T05:30:12.123456789123456789Z"),
@@ -89,7 +90,7 @@ private slots:
             {"description", "Canvas notes"}, {"location", "Studio room"}, {"invitees", "Jun Lee; Mira Yoon"},
             {"alarmMinutes", 10}, {"repeat", "weekly"}, {"meetingUrl", "https://example.com/review"}});
         QVERIFY2(!id.isEmpty(), qPrintable(workspace.errorString()));
-        Store reopened(calendar.databasePath().toStdString());
+        Store reopened(openSocietyCalendarDatabase(calendar.databasePath().toStdString()));
         auto stored = reopened.get(id.toStdString()); QVERIFY(stored);
         QCOMPARE(stored->participants.size(), size_t(2)); QCOMPARE(stored->alarms.size(), size_t(1));
         QCOMPARE(stored->recurrence.frequency, Frequency::Weekly);
@@ -107,7 +108,7 @@ private slots:
         calendar.setContainerPath(other.path()); QTRY_VERIFY(!calendar.loading());
         auto stale = staleContainerDraft; stale["title"] = "Wrong container";
         QVERIFY(workspace.saveEvent(stale).isEmpty());
-        Store otherStore(calendar.databasePath().toStdString()); QVERIFY(otherStore.query().empty());
+        Store otherStore(openSocietyCalendarDatabase(calendar.databasePath().toStdString())); QVERIFY(otherStore.query().empty());
         workspace.setActive(false);
     }
     void workspaceCivilDaysAndOvernightSegments() {
@@ -121,7 +122,7 @@ private slots:
         const auto allDay = workspace.saveEvent({{"title", "DST all day"}, {"allDay", true},
             {"startLocal", "2026-03-08"}, {"endLocal", "2026-03-08"}, {"timeZone", "America/New_York"}});
         QVERIFY2(!allDay.isEmpty(), qPrintable(workspace.errorString()));
-        Store store(calendar.databasePath().toStdString());
+        Store store(openSocietyCalendarDatabase(calendar.databasePath().toStdString()));
         const auto event = store.get(allDay.toStdString()); QVERIFY(event);
         const auto schedule = std::get<AllDaySchedule>(event->schedule);
         QCOMPARE(schedule.end, Date(2026,3,9));
@@ -160,7 +161,7 @@ private slots:
         const auto days = model.days();
         const auto selectedDate = Date::parse(selected.toStdString());
         {
-            Store store(model.databasePath().toStdString());
+            Store store(openSocietyCalendarDatabase(model.databasePath().toStdString()));
             for (int i = 0; i < days.size(); ++i) {
                 const auto date = Date::parse(days[i].toMap().value("date").toString().toStdString());
                 // Cover grid edges, weekly gaps and the civil-time transition
@@ -181,7 +182,7 @@ private slots:
         }
         model.refresh(); QTRY_VERIFY(!model.loading());
         QVERIFY2(model.errorString().isEmpty(), qPrintable(model.errorString()));
-        Store store(model.databasePath().toStdString());
+        Store store(openSocietyCalendarDatabase(model.databasePath().toStdString()));
         const auto first = Date::parse(days.first().toMap().value("date").toString().toStdString());
         const auto last = Date::parse(days.last().toMap().value("date").toString().toStdString());
         const auto scheduled = store.scheduled({zone.dayRange(first).start, zone.dayRange(last).end});
@@ -214,7 +215,7 @@ private slots:
         QCOMPARE(model.days().first().toMap()["date"].toString(), "2026-08-31");
         QCOMPARE(model.monthTitle(), "September 2026");
         {
-            Store store(model.databasePath().toStdString());
+            Store store(openSocietyCalendarDatabase(model.databasePath().toStdString()));
             for (int i = 0; i < 5; ++i) {
                 Event event; event.id = "event-" + std::to_string(i);
                 event.title = "Product review " + std::to_string(i);
@@ -240,7 +241,7 @@ private slots:
         QVERIFY(model.tasks().first().toMap()["completed"].toBool());
         QCOMPARE(model.completedTasks(), 1);
         QVERIFY(!model.setTaskCompleted("task", task["revision"].toString(), false));
-        Store reopened(model.databasePath().toStdString());
+        Store reopened(openSocietyCalendarDatabase(model.databasePath().toStdString()));
         QCOMPARE(reopened.get("task")->status, EventStatus::Completed);
         model.moveDay(1); QTRY_VERIFY(!model.loading());
         QVERIFY(model.events().isEmpty());
@@ -265,7 +266,7 @@ private slots:
         model.setTimeZone("America/New_York"); model.selectDate("2026-03-08");
         model.setContainerPath(fixture.filePath("one.societycontainer")); QTRY_VERIFY(!model.loading());
         auto first = model.databasePath();
-        { Store store(first.toStdString()); Event event; event.id = "spring"; event.title = "DST day";
+        { Store store(openSocietyCalendarDatabase(first.toStdString())); Event event; event.id = "spring"; event.title = "DST day";
           event.schedule = AllDaySchedule{Date(2026, 3, 8), Date(2026, 3, 9), "America/New_York"}; store.put(event); }
         model.refresh(); QTRY_VERIFY(!model.loading());
         QCOMPARE(model.events().size(), 1);
@@ -291,7 +292,7 @@ private slots:
         QVERIFY(iiSocietyContainer::SocietyDrive::create(fixture.filePath("later.societycontainer")));
         model.refresh(); QTRY_VERIFY(!model.loading()); QVERIFY(!model.databasePath().isEmpty());
         {
-            Store store(model.databasePath().toStdString());
+            Store store(openSocietyCalendarDatabase(model.databasePath().toStdString()));
             Event task; task.id = "weekly"; task.title = "Weekly planning"; task.kind = EventKind::Task;
             task.schedule = AllDaySchedule{Date(2026, 9, 12), Date(2026, 9, 13), "Asia/Seoul"};
             task.recurrence.frequency = Frequency::Weekly; task.recurrence.count = 3; store.put(task);

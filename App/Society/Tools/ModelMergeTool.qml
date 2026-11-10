@@ -14,6 +14,10 @@ Item {
     property string modelsDirectory: ""
     property bool modelsBusy: false
     property bool touchNavigation: false
+    property MergeModelCatalog preloadedCatalog: null
+    readonly property MergeModelCatalog modelCatalog: preloadedCatalog || localModelCatalog
+    readonly property var mergeModels: modelCatalog.models.filter(model => model.mergeEligible)
+    property bool previouslyVisible: false
     property string baseModel: ""
     property string mode: "unified"
     property string compatibilityModel: ""
@@ -34,16 +38,16 @@ Item {
     readonly property var preflight: previewReport.preflight || ({})
     readonly property bool wideLayout: width >= 1000
     readonly property real pageMargin: touchNavigation && width < 760 ? 16 : wideLayout ? 32 : 24
-    readonly property bool editingEnabled: mergeController.supported && !mergeController.busy && !modelsBusy
+    readonly property bool editingEnabled: mergeController.supported && !mergeController.busy
     readonly property string effectiveOutputDirectory: outputDirectory.trim() || modelOutputDirectory
     readonly property bool requestCurrent: inspectedRequest === JSON.stringify(requestOptions())
     signal backRequested()
     readonly property int materialCount: materials.count
-    readonly property string modelOutputDirectory: modelCatalog.models.length > 0 ? modelCatalog.outputDirectory(baseModel) : modelsDirectory
+    readonly property string modelOutputDirectory: mergeModels.length > 0 ? modelCatalog.outputDirectory(baseModel) : modelsDirectory
     readonly property bool packageOutput: mode === "unified" || baseModel.toLowerCase().endsWith(".iildmodel")
     readonly property string outputPath: mergeController.outputPathForName(outputName, outputDirectory.trim() || modelOutputDirectory, mode, baseModel)
     readonly property bool inputModelsReady: {
-        if (modelsBusy || modelCatalog.loading || modelCatalog.models.length === 0 || !modelCatalog.contains(baseModel, true))
+        if (modelCatalog.loading || mergeModels.length === 0 || !modelCatalog.contains(baseModel, true))
             return false;
         for (let i = 0; i < materials.count; ++i) {
             const material = materials.get(i);
@@ -67,12 +71,19 @@ Item {
         }
     }
     onVisibleChanged: {
-        if (visible && modelCatalog)
-            modelCatalog.refresh();
+        if (visible && modelCatalog) {
+            if (previouslyVisible && !modelCatalog.loading) modelCatalog.refresh();
+            else modelCatalog.ensureLoaded();
+            previouslyVisible = true;
+        }
     }
     onModelsBusyChanged: {
-        if (!modelsBusy && modelCatalog)
+        if (!modelsBusy && !preloadedCatalog && modelCatalog)
             modelCatalog.refresh();
+    }
+    Component.onCompleted: if (visible && modelCatalog) {
+        modelCatalog.ensureLoaded();
+        previouslyVisible = true;
     }
     onBaseModelChanged: schedulePreview()
     onModeChanged: schedulePreview()
@@ -243,10 +254,13 @@ Item {
         }
     }
     MergeModelCatalog {
-        id: modelCatalog
-        objectName: "mergeModelCatalog"
-        directory: root.modelsDirectory
-        onLoadingChanged: root.reconcileModels()
+        id: localModelCatalog
+        objectName: root.preloadedCatalog ? "" : "mergeModelCatalog"
+        directory: root.preloadedCatalog ? "" : root.modelsDirectory
+    }
+    Connections {
+        target: root.modelCatalog
+        function onLoadingChanged() { root.reconcileModels() }
     }
     ListModel {
         id: materials
@@ -395,8 +409,8 @@ Item {
                         MergeCopy {
                             objectName: "mergeModelsMessage"
                             visible: root.modelsBusy || modelCatalog.loading || root.modelsDirectory.length === 0
-                                || modelCatalog.errorString.length > 0 || modelCatalog.models.length === 0
-                            text: root.modelsBusy ? qsTr("Organizing or importing models…")
+                                || modelCatalog.errorString.length > 0 || root.mergeModels.length === 0
+                            text: root.modelsBusy ? qsTr("Updating the model library…")
                                 : modelCatalog.loading ? qsTr("Loading models…")
                                 : root.modelsDirectory.length === 0 ? qsTr("Open a Society container to choose models.")
                                 : modelCatalog.errorString || qsTr("No models found in Models. Import models from Storage, then refresh this list.")

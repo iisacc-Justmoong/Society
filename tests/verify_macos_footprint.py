@@ -28,7 +28,10 @@ def inspect(bundle, max_mib=512):
     forbidden = [str(path.relative_to(bundle)) for path in (bundle / 'Contents/Frameworks').iterdir()
                  if path.name.startswith(('libtorch', 'libc10', 'Qt3D', 'QtVirtualKeyboard'))]
     required = ['Contents/MacOS/Society', 'Contents/MacOS/SocietyDaemon',
-                'Contents/MacOS/SocietyContainerDaemon', 'Contents/Frameworks/libLVRS.dylib',
+                'Contents/MacOS/SocietyContainerDaemon', 'Contents/MacOS/SocietyModelChooser',
+                'Contents/MacOS/SocietyModelCalibrator', 'Contents/MacOS/SocietyNativeFiles',
+                'Contents/MacOS/society-cli', 'Contents/Resources/python/society.py',
+                'Contents/Resources/Pretendard-Regular.ttf', 'Contents/Frameworks/libLVRS.dylib',
                 'Contents/Resources/qml/LVRS/qmldir',
                 'Contents/Resources/qml/LVRS/qml/ApplicationWindow.qml',
                 'Contents/Resources/qml/QtQuick/Controls/Basic/qmldir']

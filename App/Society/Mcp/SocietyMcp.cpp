@@ -1,18 +1,17 @@
 #include "SocietyMcp.h"
+#include "UiBridgeRegistration.h"
 #include "Society/Drive/DriveController.h"
 #include <iiMultimodalAgent/agent/ObjectTools.h>
-#include <iiMultimodalAgent/agent/McpServer.h>
 #include <iiMultimodalAgent/agent/QuestionInbox.h>
 #include <iiMultimodalAgent/agent/UserQuestions.h>
-#include <iiMultimodalAgent/mcp/LocalApplications.h>
 #include <QCoreApplication>
-#include <QDir>
-#include <QDirIterator>
-#include <QJsonArray>
 #include <QDebug>
+#include <QDir>
+#include <QJsonArray>
+#include <QPointer>
+#include <utility>
 
 namespace a = iiMultimodalAgent::agent;
-namespace m = iiMultimodalAgent::mcp;
 namespace {
 QJsonObject input(QJsonObject properties = {}, QJsonArray required = {}) {
     return {{"type", "object"}, {"properties", properties}, {"required", required}, {"additionalProperties", false}};
@@ -24,10 +23,11 @@ QJsonObject status(DriveController& drive) {
         {"sections", QJsonArray::fromVariantList(drive.sections())}, {"error", drive.errorString()}};
 }
 }
+// The window is a client of the daemon's authenticated request channel.
 void installSocietyMcp(QObject* root, QObject* lifetime) {
     if (qEnvironmentVariable("IILOCALLLM_DISABLE_APP_MCP") == "1") return;
     auto* drive = root->findChild<DriveController*>("driveController");
-    if (!drive) { qWarning() << "Society MCP: drive controller is unavailable"; return; }
+    if (!drive) { qWarning() << "Society UI bridge: drive controller is unavailable"; return; }
     try {
         auto registry = std::make_shared<a::ToolRegistry>();
         auto bind = [&](QString name, QString description, QJsonObject schema, bool readOnly, auto handler) {
@@ -36,67 +36,39 @@ void installSocietyMcp(QObject* root, QObject* lifetime) {
                 return handler(static_cast<DriveController&>(object), args, context);
             });
         };
-        auto state = bind("status", "Read Society's open container, navigation and synchronization availability.", input(), true,
-            [](auto& controller, const auto&, const auto&) { return a::ToolResult{"Society state", status(controller)}; });
-        registry->add(state);
+        registry->add(bind("status", "Read the Society window navigation state.", input(), true,
+            [](auto& controller, const auto&, const auto&) { return a::ToolResult{"Society window state", status(controller)}; }));
         registry->add(bind("open_section", "Navigate Society to a section key returned by status.sections.",
             input({{"key", QJsonObject{{"type", "string"}, {"minLength", 1}, {"maxLength", 128}}}}, {"key"}), false,
             [](auto& controller, const auto& args, const auto&) {
-                const bool ok = controller.openSection(args["key"].toString());
-                return a::ToolResult{ok ? "Society section opened" : controller.errorString(), status(controller), !ok};
+                const bool ok=controller.openSection(args["key"].toString());
+                return a::ToolResult{ok?"Society section opened":controller.errorString(),status(controller),!ok};
             }));
-        registry->add(bind("navigate", "Navigate Society to an absolute directory inside its currently open container.",
+        registry->add(bind("navigate", "Navigate Society to an absolute directory inside its current container.",
             input({{"path", QJsonObject{{"type", "string"}, {"minLength", 1}, {"maxLength", 4096}}}}, {"path"}), false,
             [](auto& controller, const auto& args, const auto&) {
-                const bool ok = controller.navigate(args["path"].toString());
-                return a::ToolResult{ok ? "Society directory opened" : controller.errorString(), status(controller), !ok};
+                const bool ok=controller.navigate(args["path"].toString());
+                return a::ToolResult{ok?"Society directory opened":controller.errorString(),status(controller),!ok};
             }));
-        registry->add(bind("refresh", "Refresh Society's current container from local storage.", input(), false,
+        registry->add(bind("refresh", "Refresh Society's current container.", input(), false,
             [](auto& controller, const auto&, const auto&) {
-                controller.refreshFromDisk(); return a::ToolResult{"Society refresh requested", status(controller)};
+                controller.refreshFromDisk(); return a::ToolResult{"Society refresh requested",status(controller)};
             }));
-        // Snapshot navigation on the UI thread; directory enumeration stays on the MCP worker.
-        a::Tool list;
-        list.definition = {"list_entries", "List up to 200 entries in Society's current directory. Does not read file contents.",
-            input({{"limit", QJsonObject{{"type", "integer"}, {"minimum", 1}, {"maximum", 200}}}}), {}, true, true};
-        list.execute = [state](const QJsonObject& args, const a::ToolContext& context) {
-            const auto snapshot = state.execute({}, context);
-            if (snapshot.isError) return snapshot;
-            if (!snapshot.data["contents_available"].toBool())
-                return a::ToolResult{"Society's current container is not available", {}, true};
-            const auto rootPath = snapshot.data["root_path"].toString();
-            const auto path = snapshot.data["at_root"].toBool() ? rootPath : snapshot.data["current_path"].toString();
-            const auto canonical = QFileInfo(path).canonicalFilePath();
-            if (canonical.isEmpty() || (canonical != rootPath && !canonical.startsWith(rootPath + '/')))
-                return a::ToolResult{"Society's directory changed or left the current container", {}, true};
-            QDirIterator iterator(canonical, QDir::AllEntries | QDir::NoDotAndDotDot, QDirIterator::NoIteratorFlags);
-            QJsonArray entries; const auto limit = args["limit"].toInt(100);
-            while (iterator.hasNext() && entries.size() < limit) {
-                context.cancellation.throwIfCancelled(); iterator.next(); const auto entry = iterator.fileInfo();
-                entries.append(QJsonObject{{"name", entry.fileName()}, {"path", entry.absoluteFilePath()},
-                    {"kind", entry.isSymLink() ? "link" : entry.isDir() ? "directory" : "file"}});
-            }
-            return a::ToolResult{"Society directory entries", {{"path", canonical}, {"entries", entries}, {"truncated", iterator.hasNext()}}};
+        auto policy=std::make_shared<a::RulePolicy>(a::PermissionMode::Default,
+            QList<a::PermissionRule>{{"open_section",a::PermissionBehavior::Allow},
+                {"navigate",a::PermissionBehavior::Allow},{"refresh",a::PermissionBehavior::Allow}});
+        auto* questions=new a::QuestionInbox(a::PermissionRequestsOptions{},lifetime);
+        registry->add(a::userQuestionTool({false,"markdown"}));
+        a::ToolRunnerOptions options; options.hooks.append(questions->hook());
+        auto runner=std::make_shared<a::ToolRunner>(registry,policy,std::move(options));
+        auto* registration=new UiBridgeRegistration(std::move(runner),lifetime);
+        registration->start();
+        root->setProperty("agentQuestionInbox",QVariant::fromValue(questions));
+        const auto close=[registration=QPointer<UiBridgeRegistration>(registration),questions=QPointer<a::QuestionInbox>(questions)] {
+            if (registration) registration->stop();
+            if (questions) questions->close();
         };
-        registry->add(std::move(list));
-        auto policy = std::make_shared<a::RulePolicy>(a::PermissionMode::Default,
-            QList<a::PermissionRule>{{"open_section", a::PermissionBehavior::Allow},
-                {"navigate", a::PermissionBehavior::Allow}, {"refresh", a::PermissionBehavior::Allow}});
-        a::McpServerOptions bridge; bridge.workingDirectory = QDir::currentPath(); bridge.appId = "com.iisacc.society";
-        auto* questions = new a::QuestionInbox(a::PermissionRequestsOptions{}, lifetime);
-        registry->add(a::userQuestionTool({false, "markdown"}));
-        bridge.tools.hooks.append(questions->hook());
-        auto protocol = a::mcpServerOptions(registry, policy, std::move(bridge));
-        protocol.experimentalCapabilities["iisacc/userQuestions"] = QJsonObject{
-            {"schema", "iisacc.user-question/1"}, {"tool", "AskUserQuestion"},
-            {"responseChannel", "local-ui"}, {"permissionRequests", false},
-            {"previewFormat", "markdown"}, {"previewRendering", "plain-text"}};
-        auto server = std::make_shared<m::LocalApplicationServer>(
-            m::LocalApplicationIdentity{"com.iisacc.society", "Society", SOCIETY_APP_VERSION},
-            std::move(protocol));
-        if (!server->listen()) { qWarning() << "Society MCP:" << server->errorString(); return; }
-        root->setProperty("agentQuestionInbox", QVariant::fromValue(questions));
-        QObject::connect(qApp, &QCoreApplication::aboutToQuit, lifetime, [questions, server] { questions->close(); server->close(); });
-        QObject::connect(drive, &QObject::destroyed, lifetime, [questions, server] { questions->close(); server->close(); });
-    } catch (const std::exception& error) { qWarning() << "Society MCP:" << error.what(); }
+        QObject::connect(qApp,&QCoreApplication::aboutToQuit,lifetime,close);
+        QObject::connect(drive,&QObject::destroyed,lifetime,close);
+    } catch (const std::exception& error) { qWarning() << "Society UI bridge:" << error.what(); }
 }

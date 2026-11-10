@@ -91,7 +91,7 @@ elif action == "verify-projection":
     print("Verified flattening, transposed dequantization and preserved schedule through the installed SDK.")
 elif action == "verify-unified":
     output = Path(sys.argv[3])
-    with tempfile.TemporaryDirectory() as temporary:
+    with tempfile.TemporaryDirectory(dir=directory) as temporary:
         root = Path(temporary)
         with zipfile.ZipFile(output) as archive:
             archive.extractall(root)

@@ -1,4 +1,5 @@
 #include "DriveController.h"
+#include "../Native/NativeFilesLauncher.h"
 #include <SharedStorage.h>
 #include <ApplicationStorage.h>
 #include <DiskImage.h>
@@ -8,12 +9,13 @@
 #include <QFileInfo>
 #include <QJsonDocument>
 #include <QJsonObject>
-#include <QCoreApplication>
 #include <QFutureWatcher>
 #include <QStorageInfo>
+#include <QUuid>
 #include <QtConcurrent/QtConcurrentRun>
-#if defined(Q_OS_MACOS) || defined(SOCIETY_DESKTOP_MOUNT)
-#include <QProcessEnvironment>
+#ifdef SOCIETY_DESKTOP_BACKEND
+#include "../Files/ModelBackendClient.h"
+#include "Shared/LocalBackendAddress.h"
 #endif
 #ifdef Q_OS_ANDROID
 #include <AndroidStorage.h>
@@ -63,34 +65,32 @@ DriveController::DriveController(QObject *parent) : QObject(parent)
         }
     });
     volumeMonitor->start();
+#ifdef SOCIETY_DESKTOP_BACKEND
+    m_systemBackend = new ModelBackendClient(this);
+    connect(this, &DriveController::locationChanged, this, &DriveController::synchronizeSystemSelection);
+    connect(m_systemBackend, &ModelBackendClient::systemDriveStateReceived, this, &DriveController::applySystemDriveState);
+    connect(m_systemBackend, &ModelBackendClient::connectedChanged, this, [this] {
+        if (!m_systemBackend->connected() && hasDrive() && m_diskImagePath.isEmpty()) {
+            m_systemPath.clear();
+            m_systemStatus = tr("Society.societycontainer is ready. Waiting for the Society background service.");
+            emit systemChanged();
+        }
+    });
+    connect(m_systemBackend, &ModelBackendClient::requestError, this, [this](const QString &error) {
+        if (!hasDrive()) return;
+        m_openWhenConnected = false;
+        m_systemStatus = error;
+        emit systemChanged();
+    });
+    m_systemBackend->start();
+#endif
+#if defined(Q_OS_IOS) || defined(Q_OS_ANDROID)
     m_timeout.setSingleShot(true);
     m_timeout.setInterval(35000);
     connect(&m_timeout, &QTimer::timeout, this, [this] {
-#if defined(Q_OS_MACOS) || defined(SOCIETY_DESKTOP_MOUNT)
-        m_process.kill();
-#endif
         ++m_requestGeneration;
         finishNative(false, QJsonDocument(QJsonObject{{"error", tr("%1 did not respond in time.").arg(systemName())}}).toJson());
     });
-#if defined(Q_OS_MACOS) || defined(SOCIETY_DESKTOP_MOUNT)
-    connect(&m_process, &QProcess::errorOccurred, this, [this](QProcess::ProcessError error) {
-        if (error == QProcess::FailedToStart)
-            finishNative(false, QJsonDocument(QJsonObject{{"error", m_process.errorString()}}).toJson());
-    });
-    connect(&m_process, &QProcess::finished, this, [this](int code, QProcess::ExitStatus status) {
-        if (m_action.isEmpty())
-            return;
-        const auto output = m_process.readAllStandardOutput();
-        if (code != 0 || status != QProcess::NormalExit) {
-            finishNative(false, output);
-        } else if (!m_commands.isEmpty()) {
-            runNextCommand();
-        } else {
-            finishNative(true, output);
-        }
-    });
-#endif
-#if defined(Q_OS_IOS) || defined(Q_OS_ANDROID)
     connect(qGuiApp, &QGuiApplication::applicationStateChanged, this, [this](Qt::ApplicationState state) {
         if (state == Qt::ApplicationSuspended || state == Qt::ApplicationHidden) {
             // UIKit/File Provider completions may arrive after suspension.
@@ -266,9 +266,13 @@ void DriveController::openDefaultContainer()
             return;
         }
     }
+#if defined(Q_OS_IOS) || defined(Q_OS_ANDROID)
     if (managedContainer())
         startNative(QStringLiteral("default"));
     else {
+#else
+    {
+#endif
         // A first launch is a normal setup state, not a storage failure.
         if (qEnvironmentVariableIsEmpty("SOCIETY_CONTAINER_PATH")
             && !QFileInfo::exists(SharedStorage::settingsPath())) {
@@ -417,10 +421,6 @@ void DriveController::prepareDisk(const QString &location, bool create, const QS
                 setAccountDriveStatus(tr("Sign in, then save this drive location to your account to share future changes."));
             else saveContainerToAccount();
         } else applyAccountDrive();
-#if defined(Q_OS_MACOS) || defined(SOCIETY_DESKTOP_MOUNT)
-        if (m_diskImagePath.isEmpty() && QFileInfo(nativeExecutable()).isExecutable())
-            QTimer::singleShot(0, this, &DriveController::connectToSystem);
-#endif
     });
     watcher->setFuture(QtConcurrent::run([location, create, expectedId] {
         Result result;
@@ -500,10 +500,6 @@ bool DriveController::openContainer(const QString &path)
     emit systemChanged();
     emit contentsChanged();
     applyAccountDrive();
-#if defined(Q_OS_MACOS) || defined(SOCIETY_DESKTOP_MOUNT)
-    if (m_diskImagePath.isEmpty() && QFileInfo(nativeExecutable()).isExecutable())
-        QTimer::singleShot(0, this, &DriveController::connectToSystem);
-#endif
     return true;
 }
 
@@ -513,7 +509,9 @@ void DriveController::setMirrorPending(bool pending)
     m_mirrorPending = pending;
     emit contentsChanged();
     if (!pending && hasDrive()) {
+#if defined(Q_OS_IOS) || defined(Q_OS_ANDROID)
         m_nativeRebind = m_nativeRebind || managedContainer();
+#endif
         refreshFromDisk();
     }
 }
@@ -546,10 +544,14 @@ bool DriveController::applyReload(const ReloadResult &result)
     // Navigation may have changed while the background read was running.
     if (changed || (m_currentPath == result.checkedPath && !result.pathExists)) m_currentPath.clear();
     if (changed) {
+#if defined(Q_OS_IOS) || defined(Q_OS_ANDROID)
         m_nativeRebind = m_nativeRebind || managedContainer() || !m_systemPath.isEmpty();
+#endif
         m_systemPath.clear();
     }
+#if defined(Q_OS_IOS) || defined(Q_OS_ANDROID)
     if (m_nativeRebind && !m_mirrorPending && !busy()) { m_nativeRebind = false; connectToSystem(); }
+#endif
     if (changed || previousPath != m_currentPath) emit locationChanged();
     if (changed) emit contentsChanged();
     return true;
@@ -645,6 +647,13 @@ bool DriveController::openFile(const QString &path)
 #endif
 }
 
+bool DriveController::openNativeFiles()
+{
+    QString error;
+    if (!society::native::launchBundledFiles(&error)) return fail(error);
+    return true;
+}
+
 bool DriveController::systemSupported() const
 {
     // Ordinary-folder access remains available; installed native adapters add
@@ -652,40 +661,84 @@ bool DriveController::systemSupported() const
     return true;
 }
 
-QString DriveController::nativeExecutable() const
+#ifdef SOCIETY_DESKTOP_BACKEND
+void DriveController::synchronizeSystemSelection()
 {
-    if (qEnvironmentVariableIntValue("SOCIETY_DISABLE_NATIVE_DRIVE") == 1) return {};
-#ifdef SOCIETY_NATIVE_DRIVE_APP
-    return QString::fromUtf8(SOCIETY_NATIVE_DRIVE_APP) + QStringLiteral("/Contents/MacOS/SocietyContainerDrive");
-#elif defined(SOCIETY_MOUNT_EXECUTABLE)
-#ifdef Q_OS_WIN
-    const auto local = QDir(QCoreApplication::applicationDirPath()).filePath("iiSocietyContainerMount.exe");
-#else
-    const auto local = QDir(QCoreApplication::applicationDirPath()).filePath("iiSocietyContainerMount");
-#endif
-    if (QFileInfo(local).isExecutable()) return local;
-    const auto installed = QString::fromUtf8(SOCIETY_MOUNT_EXECUTABLE);
-    return QFileInfo(installed).isExecutable() ? installed : QString();
-#else
-    return {};
-#endif
+    const auto source = hasDrive() ? rootPath() : QString();
+    const auto id = hasDrive() ? identifier() : QString();
+    if (source == m_boundSystemSource && id == m_boundSystemIdentifier) {
+        // Reopening the same container clears its displayed path. Obtain a
+        // fresh backend snapshot instead of waiting for a state change that
+        // may never occur while the drive remains mounted.
+        if (!source.isEmpty() && m_diskImagePath.isEmpty() && m_systemPath.isEmpty()
+            && m_systemBackend->connected()) m_systemBackend->request(QStringLiteral("snapshot"));
+        return;
+    }
+    m_boundSystemSource = source;
+    m_boundSystemIdentifier = id;
+    m_openWhenConnected = false;
+    m_systemBackend->setContainerPath(source);
+    if (m_diskImagePath.isEmpty() || source.isEmpty()) {
+        m_systemPath.clear();
+        m_systemStatus = source.isEmpty() ? QString()
+            : tr("Society.societycontainer is ready. Waiting for the Society background service.");
+        emit systemChanged();
+    }
 }
+
+void DriveController::applySystemDriveState(const QJsonObject &state)
+{
+    const auto id = QUuid(identifier());
+    if (!hasDrive() || !m_diskImagePath.isEmpty()) return;
+    if (id.isNull() || !societySameBackendPath(state.value("sourcePath").toString(), rootPath())
+        || QUuid(state.value("identifier").toString()) != id) {
+        if (!m_systemPath.isEmpty()) {
+            m_systemPath.clear();
+            m_systemStatus = tr("The Society background service is checking the selected drive.");
+            emit systemChanged();
+        }
+        return;
+    }
+    const auto path = state.value("systemPath").toString();
+    const bool connected = state.value("ready").toBool() && state.value("connected").toBool()
+        && QDir::isAbsolutePath(path) && !societySameBackendPath(path, rootPath());
+    m_systemPath = connected ? path : QString();
+    const auto error = state.value("error").toString();
+    if (connected) m_systemStatus = tr("Society is mounted as a drive in %1.").arg(systemName());
+    else if (!error.isEmpty()) m_systemStatus = error;
+    else if (state.value("connecting").toBool()) m_systemStatus = tr("Connecting to %1…").arg(systemName());
+    else m_systemStatus = tr("The Society background service is preparing the drive.");
+    emit systemChanged();
+    if (connected && std::exchange(m_openWhenConnected, false))
+        QDesktopServices::openUrl(QUrl::fromLocalFile(path));
+}
+#endif
 
 void DriveController::connectToSystem()
 {
+#ifdef SOCIETY_DESKTOP_BACKEND
+    if (!hasDrive() || !m_diskImagePath.isEmpty()) return;
+    if (!m_systemBackend->connected()) {
+        m_systemStatus = tr("Society.societycontainer is ready. Waiting for the Society background service.");
+        emit systemChanged();
+        return;
+    }
+    m_systemStatus = tr("Connecting to %1…").arg(systemName());
+    emit systemChanged();
+    m_systemBackend->request(QStringLiteral("systemDriveReconnect"), {{"identifier", identifier()}}, true);
+#elif defined(Q_OS_IOS) || defined(Q_OS_ANDROID)
     if (!m_diskImagePath.isEmpty()) prepareDisk(m_diskImagePath);
-#if defined(Q_OS_MACOS) || defined(SOCIETY_DESKTOP_MOUNT)
-    else if (!managedContainer() && hasDrive() && QFileInfo(nativeExecutable()).isExecutable()) startNative(QStringLiteral("mount"), true);
-#endif
     else if (!managedContainer() && hasDrive()) refreshSystem();
     else startNative(QStringLiteral("register"), true);
+#endif
 }
+
 void DriveController::refreshSystem()
 {
+#ifdef SOCIETY_DESKTOP_BACKEND
+    connectToSystem();
+#elif defined(Q_OS_IOS) || defined(Q_OS_ANDROID)
     if (!m_diskImagePath.isEmpty()) prepareDisk(m_diskImagePath);
-#if defined(Q_OS_MACOS) || defined(SOCIETY_DESKTOP_MOUNT)
-    else if (!managedContainer() && hasDrive() && QFileInfo(nativeExecutable()).isExecutable()) connectToSystem();
-#endif
     else if (!managedContainer() && hasDrive()) {
         if (reloadFromDisk()) {
             m_systemPath.clear();
@@ -693,20 +746,20 @@ void DriveController::refreshSystem()
             emit systemChanged();
         }
     } else startNative(QStringLiteral("refresh"));
+#endif
 }
 
 void DriveController::revealInSystem()
 {
 #if defined(Q_OS_IOS) || defined(Q_OS_ANDROID)
     startNative(QStringLiteral("path"));
-#else
-    if (!m_systemPath.isEmpty())
-        QDesktopServices::openUrl(QUrl::fromLocalFile(m_systemPath));
-    else
-        startNative(QStringLiteral("path"));
+#elif defined(SOCIETY_DESKTOP_BACKEND)
+    if (!m_systemPath.isEmpty()) QDesktopServices::openUrl(QUrl::fromLocalFile(m_systemPath));
+    else { m_openWhenConnected = true; connectToSystem(); }
 #endif
 }
 
+#if defined(Q_OS_IOS) || defined(Q_OS_ANDROID)
 void DriveController::startNative(const QString &action, bool registerBundle)
 {
     if (action != QStringLiteral("default") && m_mirrorPending) {
@@ -727,33 +780,7 @@ void DriveController::startNative(const QString &action, bool registerBundle)
     m_action = action;
     m_systemStatus = tr("Connecting to %1…").arg(systemName());
     fail({});
-#ifdef Q_OS_MACOS
-    if (!QFileInfo::exists(nativeExecutable())) {
-        finishNative(false);
-        return;
-    }
-    if (registerBundle) {
-        const auto bundle = QFileInfo(nativeExecutable()).dir().absoluteFilePath(QStringLiteral("../.."));
-        m_commands.append({QStringLiteral("/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"), {QStringLiteral("-f"), bundle}});
-        if (action != QStringLiteral("mount"))
-            m_commands.append({QStringLiteral("/usr/bin/pluginkit"), {QStringLiteral("-a"), bundle + QStringLiteral("/Contents/PlugIns/SocietyContainerProvider.appex")}});
-        // Launch Services must acknowledge the containing app after an update
-        // before File Provider treats its extension as launchable.
-        m_commands.append({QStringLiteral("/usr/bin/open"), {QStringLiteral("-W"), QStringLiteral("-g"),
-            QStringLiteral("-a"), bundle, QStringLiteral("--args"),
-            action == QStringLiteral("mount") ? QStringLiteral("ready") : QStringLiteral("list")}});
-    }
-    m_commands.append({nativeExecutable(), {action, (action == QStringLiteral("register") || action == QStringLiteral("mount")) ? rootPath() : identifier()}});
-    emit systemChanged();
-    m_timeout.start();
-    runNextCommand();
-#elif defined(SOCIETY_DESKTOP_MOUNT)
-    Q_UNUSED(registerBundle);
-    m_commands.append({nativeExecutable(), {action, (action == QStringLiteral("register") || action == QStringLiteral("mount")) ? rootPath() : identifier()}});
-    emit systemChanged();
-    m_timeout.start();
-    runNextCommand();
-#elif defined(Q_OS_ANDROID)
+#ifdef Q_OS_ANDROID
     Q_UNUSED(registerBundle);
     emit systemChanged();
     finishNative(true, androidDriveRequest(action, rootPath(), identifier()));
@@ -774,43 +801,14 @@ void DriveController::startNative(const QString &action, bool registerBundle)
 #endif
 }
 
-#if defined(Q_OS_MACOS) || defined(SOCIETY_DESKTOP_MOUNT)
-void DriveController::runNextCommand()
-{
-    const auto command = m_commands.takeFirst();
-    auto environment = QProcessEnvironment::systemEnvironment();
-    for (const auto &name : {"DYLD_LIBRARY_PATH", "DYLD_FRAMEWORK_PATH", "DYLD_FALLBACK_LIBRARY_PATH", "DYLD_FALLBACK_FRAMEWORK_PATH"})
-        environment.remove(QString::fromLatin1(name));
-    m_process.setProcessEnvironment(environment);
-    m_process.start(command.program, command.arguments);
-}
-#endif
-
 void DriveController::finishNative(bool success, const QByteArray &output)
 {
     m_timeout.stop();
-#if defined(Q_OS_MACOS) || defined(SOCIETY_DESKTOP_MOUNT)
-    m_commands.clear();
-#endif
     const auto action = std::exchange(m_action, {});
     QJsonParseError parseError;
     const auto document = QJsonDocument::fromJson(output, &parseError);
     const auto result = document.object();
     const auto mountPath = result.value("systemPath").toString();
-    const QStorageInfo mountedVolume(mountPath);
-#ifdef Q_OS_WIN
-    const auto expectedFilesystem = QByteArrayLiteral("Society");
-#elif defined(Q_OS_LINUX) && !defined(Q_OS_ANDROID)
-    const auto expectedFilesystem = QByteArrayLiteral("fuse.society");
-#else
-    const auto expectedFilesystem = QByteArrayLiteral("societyfs");
-#endif
-    const auto normalizedMount = QDir::cleanPath(QDir::fromNativeSeparators(mountPath));
-    const auto normalizedRoot = QDir::cleanPath(QDir::fromNativeSeparators(mountedVolume.rootPath()));
-    const bool mountVerified = action != QStringLiteral("mount")
-        || (result.value("isMounted").toBool() && !mountPath.isEmpty()
-            && mountedVolume.isReady() && normalizedRoot == normalizedMount
-            && mountedVolume.fileSystemType() == expectedFilesystem);
     bool providerVerified = true;
 #ifdef Q_OS_ANDROID
     if (action != QStringLiteral("default"))
@@ -820,7 +818,7 @@ void DriveController::finishNative(bool success, const QByteArray &output)
             && QUrl(mountPath).authority() == QStringLiteral("com.iisacc.society.documents")
             && result.value("identifier").toString() == identifier();
 #endif
-    if (!success || parseError.error != QJsonParseError::NoError || result.contains("error") || !mountVerified || !providerVerified) {
+    if (!success || parseError.error != QJsonParseError::NoError || result.contains("error") || !providerVerified) {
         m_systemPath.clear();
         m_systemStatus = result.value("error").toString(tr("The %1 connection failed.").arg(systemName()));
         fail(m_systemStatus);
@@ -830,15 +828,9 @@ void DriveController::finishNative(bool success, const QByteArray &output)
     } else {
         if (result.contains("systemPath"))
             m_systemPath = result.value("systemPath").toString();
-        m_systemStatus = action == QStringLiteral("mount")
-            ? tr("Society is mounted as a drive in %1.").arg(systemName())
-            : result.contains("enabled") && !result.value("enabled").toBool()
+        m_systemStatus = result.contains("enabled") && !result.value("enabled").toBool()
             ? tr("Open %1 and enable Society in Locations.").arg(systemName())
             : tr("Connected to %1").arg(systemName());
-#if !defined(Q_OS_IOS) && !defined(Q_OS_ANDROID)
-        if (action == QStringLiteral("path") && !m_systemPath.isEmpty())
-            QDesktopServices::openUrl(QUrl::fromLocalFile(m_systemPath));
-#endif
     }
     emit systemChanged();
     if (m_nativeRebind && !m_mirrorPending && hasDrive()) {
@@ -846,3 +838,4 @@ void DriveController::finishNative(bool success, const QByteArray &output)
         QTimer::singleShot(0, this, &DriveController::connectToSystem);
     }
 }
+#endif

@@ -10,11 +10,23 @@
 #include <QTcpServer>
 #include <QTest>
 #include <QMetaProperty>
+#include <QElapsedTimer>
 
 using namespace iiWebServer;
 class NetworkDriveTests : public QObject {
     Q_OBJECT
 private slots:
+    void finalShutdownStopsAndCannotRestartTheNetworkRuntime() {
+        NetworkDriveController network;
+        QVERIFY(network.runtimeEnabled());
+        QElapsedTimer elapsed; elapsed.start();
+        network.shutdownForProcessExit();
+        QVERIFY2(elapsed.elapsed() < 1000, "Final shutdown waited for the synchronization worker");
+        QVERIFY(!network.runtimeEnabled());
+        network.shutdownForProcessExit();
+        network.setRuntimeEnabled(true);
+        QVERIFY(!network.runtimeEnabled());
+    }
     void downloadsRequireSelectedContainerFiles_data() {
         QTest::addColumn<QString>("location");
         for (const auto &location : {"no-container", "external-file", "external-folder", "other-container",

@@ -1,0 +1,392 @@
+{
+  "format": "iisacc.agent-document",
+  "schema_version": 1,
+  "document_id": "urn:iisacc:document:f52a24f6db0f2905baebb09a3fa32d8dfb31aa8d1dcc5390d0991f26de18bc35",
+  "project": {
+    "id": "urn:iisacc:project:Product%2FSociety",
+    "name": "Society",
+    "root": "Product/Society",
+    "kind": "application"
+  },
+  "source": {
+    "path": "docs/NativeMigrationBackend.md",
+    "sha256": "a42d825db8a42bcb75e8ec4321b494126e32d19ce085b9c3b44f1f2b75af5df8",
+    "bytes": 7033,
+    "line_count": 83,
+    "encoding": "utf-8",
+    "language": "ko"
+  },
+  "document": {
+    "title": "Society 네이티브 뷰와 데몬의 파일 목록 계약",
+    "role": "guide",
+    "authority": "markdown_source"
+  },
+  "blocks": [
+    {
+      "id": "b000001",
+      "kind": "heading",
+      "start_line": 1,
+      "end_line": 1,
+      "raw": "# Society 네이티브 뷰와 데몬의 파일 목록 계약\n",
+      "level": 1,
+      "title": "Society 네이티브 뷰와 데몬의 파일 목록 계약"
+    },
+    {
+      "id": "b000002",
+      "kind": "blank",
+      "start_line": 2,
+      "end_line": 2,
+      "raw": "\n"
+    },
+    {
+      "id": "b000003",
+      "kind": "paragraph",
+      "start_line": 3,
+      "end_line": 5,
+      "raw": "Society 뷰를 LVUI·iiGUI로 이전할 때 GUI는 컨테이너를 직접 조작하지 않는다. 이\n계약은 기존 Society 백엔드의 같은 사용자 전용 로컬 채널에서 파일 목록을 조회하는\n첫 연결이며, 기존 파일 브라우저의 데이터·동작을 모두 이관했다는 뜻은 아니다.\n"
+    },
+    {
+      "id": "b000004",
+      "kind": "blank",
+      "start_line": 6,
+      "end_line": 6,
+      "raw": "\n"
+    },
+    {
+      "id": "b000005",
+      "kind": "paragraph",
+      "start_line": 7,
+      "end_line": 10,
+      "raw": "[Figma Storage 파일 표 39:1045](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=39-1045)의\n파일명·수정일·종류·크기는 iiSocietyContainer가 소유하는 디렉터리 모델에서 제공한다.\nQt가 필요한 기존 모델은 데몬에 남고 LVUI는 플랫폼 비의존 값과 요청만 받는다. 사용자\n파일이나 `.iisacc.json` 메타데이터를 테스트 데이터로 사용하지 않는다.\n"
+    },
+    {
+      "id": "b000006",
+      "kind": "blank",
+      "start_line": 11,
+      "end_line": 11,
+      "raw": "\n"
+    },
+    {
+      "id": "b000007",
+      "kind": "heading",
+      "start_line": 12,
+      "end_line": 12,
+      "raw": "## 목록 세션\n",
+      "level": 2,
+      "title": "목록 세션"
+    },
+    {
+      "id": "b000008",
+      "kind": "blank",
+      "start_line": 13,
+      "end_line": 13,
+      "raw": "\n"
+    },
+    {
+      "id": "b000009",
+      "kind": "list",
+      "start_line": 14,
+      "end_line": 41,
+      "raw": "- 각 로컬 연결은 독립된 디렉터리 세션을 갖는다. `directoryOpen`은 현재 선택된\n  컨테이너의 `Files` 또는 다른 관리 영역 아래의 정규 상대 경로를 받는다. 경로는\n  `SocietyDrive::resolvePath`로 확인하고 부모 이탈, 링크, 내부 런타임과 다른\n  컨테이너의 경로를 거절한다.\n- 목록은 SDK의 비동기 조회·캐시·재색인 경로를 사용한다. 모델 가져오기 등 다른\n  작업의 진행 때문에 목록 요청을 전역 잠금으로 차단하지 않으며, 응답에 별도의\n  모델 작업 전체 목록을 직렬화하지 않는다.\n- `directoryOpen`은 선택적으로 `query`, `sort`와 `descending`을 받는다. 검색은\n  해당 폴더의 파일과 디렉터리 이름에 대한 리터럴 부분 문자열이며 정렬은 `name`,\n  `modified`, `kind`, `size` 중 하나이다. 새 조건은 새 세대에서 비동기로 적용하므로\n  이전 조건의 목록을 새 조건의 완성 결과로 반환하지 않는다.\n- `directoryState`와 변경 통지는 폴더 세대, 내용 리비전, Loading/Ready 상태와\n  항목 수를 반환한다. 이전 폴더의 늦은 결과는 새 폴더에 적용하지 않는다. 캐시가\n  먼저 보이는 동안의 Loading은 원본 가용성을 보증하지 않는다.\n- `directoryPage`는 같은 폴더 세대와 내용 리비전, 오프셋 및 최대 64개 항목을\n  요청한다. 오래된 세대·리비전은 명시적으로 거절한다. 크기는 정밀도 손실을\n  방지하기 위해 십진 문자열로 전달한다. 사이드카·내부 파일의 제외와 원격 항목의\n  가용성은 기존 컨테이너 모델을 따른다. 페이지 경로는 현재 목록의 위치이며\n  자원 ID를 뜻하지 않는다.\n- `directoryActivate`는 현재 목록 세대·리비전과 선택한 파일의 상대 경로를 받는다.\n  iiSocietyContainer가 목록 소속과 원본 가용성을 확인하고, 필요한 경우 다운로드한\n  뒤 그 연결에만 파일 열기 결과를 알린다. 이동하거나 다시 검색한 뒤의 이전 결과는\n  실행하지 않는다. 로컬 열기 요청 수락은 전문 앱의 저장이나 판본 확정을 뜻하지 않는다.\n- 연결 종료는 그 연결의 보기 세션만 폐기한다. 저장소 작업과 다른 연결은 유지한다.\n  컨테이너가 바뀌면 이전 세션을 무효화하고 이전 페이지 요청을 거절한다. `directoryChanged`\n  통지는 한 연결에만 전달하며, 동기 모델 변경은 여러 통지 대신 이벤트 루프에서 묶는다.\n  목록 요청 ID의 중복 제거도 연결별로 수행해 다른 창의 응답이 섞이지 않게 한다.\n  재전송 응답 캐시는 연결당 최대 256건과 직렬화 기준 4 MiB로 제한한다.\n",
+      "items": [
+        {
+          "marker": "-",
+          "text": "각 로컬 연결은 독립된 디렉터리 세션을 갖는다. `directoryOpen`은 현재 선택된",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "목록은 SDK의 비동기 조회·캐시·재색인 경로를 사용한다. 모델 가져오기 등 다른",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "`directoryOpen`은 선택적으로 `query`, `sort`와 `descending`을 받는다. 검색은",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "`directoryState`와 변경 통지는 폴더 세대, 내용 리비전, Loading/Ready 상태와",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "`directoryPage`는 같은 폴더 세대와 내용 리비전, 오프셋 및 최대 64개 항목을",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "`directoryActivate`는 현재 목록 세대·리비전과 선택한 파일의 상대 경로를 받는다.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "연결 종료는 그 연결의 보기 세션만 폐기한다. 저장소 작업과 다른 연결은 유지한다.",
+          "checked": null
+        }
+      ]
+    },
+    {
+      "id": "b000010",
+      "kind": "blank",
+      "start_line": 42,
+      "end_line": 42,
+      "raw": "\n"
+    },
+    {
+      "id": "b000011",
+      "kind": "heading",
+      "start_line": 43,
+      "end_line": 43,
+      "raw": "## 컨테이너 파일 작업\n",
+      "level": 2,
+      "title": "컨테이너 파일 작업"
+    },
+    {
+      "id": "b000012",
+      "kind": "blank",
+      "start_line": 44,
+      "end_line": 44,
+      "raw": "\n"
+    },
+    {
+      "id": "b000013",
+      "kind": "paragraph",
+      "start_line": 45,
+      "end_line": 51,
+      "raw": "`fileOperation`은 `rename`, `duplicate`, `trash`, `remove`, `restore`, `move`,\n`create-directory`와 컨테이너 상대 경로를 전달한다. 요청 수락은 대기열에 들어간\n상태이며 아직 영구 저장을 의미하지 않는다. 응답의 `jobId`는 SDK가 발급한다.\n`fileJobChanged`의 `recorded`는 작업 기록의 생성을 뜻하고 `finished`는 실제\n결과 경로와 오류를 제공한다. 같은 요청 ID의 재전송은 기존 응답을 돌려준다.\n이 중복 제거 캐시는 데몬 메모리에 있으므로 데몬 재시작 후 전송 결과가 불명확한\n요청을 자동으로 재실행해서는 안 된다.\n"
+    },
+    {
+      "id": "b000014",
+      "kind": "blank",
+      "start_line": 52,
+      "end_line": 52,
+      "raw": "\n"
+    },
+    {
+      "id": "b000015",
+      "kind": "paragraph",
+      "start_line": 53,
+      "end_line": 58,
+      "raw": "`fileJobStatus`는 작업 ID로 SDK의 영구 기록을 비동기 조회한다. 현재 선택된\n드라이브의 식별자가 작업에 기록된 식별자와 다르면 결과를 반환하지 않는다.\n중단된 작업의 결과가 확인되지 않으면 SDK는 확인 필요 상태로 보존한다. 아직\n작업 목록 전체 조회나 화면 종료 전 응답을 받지 못한 요청의 자동 복구는 제공하지\n않는다. 실제 파일·동반 메타데이터 조작은 iiSocietyContainer가 수행한다. 파일 작업\n계약은 로컬 백엔드 채널, C++ API, Python, CLI와 데스크톱 Society MCP 도구에서 사용한다.\n"
+    },
+    {
+      "id": "b000016",
+      "kind": "blank",
+      "start_line": 59,
+      "end_line": 59,
+      "raw": "\n"
+    },
+    {
+      "id": "b000017",
+      "kind": "heading",
+      "start_line": 60,
+      "end_line": 60,
+      "raw": "### 명령 및 바인딩 계약\n",
+      "level": 3,
+      "title": "명령 및 바인딩 계약"
+    },
+    {
+      "id": "b000018",
+      "kind": "blank",
+      "start_line": 61,
+      "end_line": 61,
+      "raw": "\n"
+    },
+    {
+      "id": "b000019",
+      "kind": "paragraph",
+      "start_line": 62,
+      "end_line": 66,
+      "raw": "명령행, Python, MCP는 같은 로컬 데몬 요청을 사용한다. 작업 제출은 대기열 수락과\n작업 ID만 반환하며 파일의 변경 완료를 의미하지 않는다. 작업 ID로 별도 상태 조회를\n해야 한다. 응답을 받기 전에 연결이 끊기거나 시간이 만료되면 결과가 불명확하다고\n반환하고 변경 요청을 자동으로 재전송하지 않는다. 선택된 컨테이너가 호출자가 지정한\n컨테이너와 다르면 요청을 거절한다. 로컬 연결의 상대는 같은 사용자여야 한다.\n"
+    },
+    {
+      "id": "b000020",
+      "kind": "blank",
+      "start_line": 67,
+      "end_line": 67,
+      "raw": "\n"
+    },
+    {
+      "id": "b000021",
+      "kind": "paragraph",
+      "start_line": 68,
+      "end_line": 80,
+      "raw": "데스크톱 빌드의 `society-cli`는 `status`, `file-job submit ACTION PATH`,\n`file-job inspect JOB_ID`를 제공한다. `--broker`는 테스트 또는 별도 환경의 데몬\n경로를 지정하며 `--container`는 호출자가 관찰한 절대 컨테이너 경로와 현재 선택을\n비교한다. 명시한 경로가 비어 있거나 상대 경로이면 요청을 제출하지 않는다.\n파일 작업의 `--argument`는 이름 변경이나 이동 대상 등에서 사용한다. `copy`는\n정규 절대 원본 경로와 컨테이너 상대 대상 폴더를 받아 원본을 보존한다. 실패 결과는\nJSON으로 반환하며, 제출 결과가 불명확할 때 `uncertain`을 참으로 표시한다.\nmacOS 번들의 `Contents/Resources/python/society.py`는 같은 명령을 사용하는\n`Client.status`, `Client.submit`, `Client.inspect`를 제공한다. MCP의\n`file_job_submit`과 `file_job_status`도 같은 요청을 사용한다. 데몬 소유 MCP는\nGUI와 독립적으로 이 도구와 페이지형 목록 및 의미 정보 도구를 제공한다. 화면\n내비게이션과 질문도 공개 MCP에서는 데몬이 접수하며, 화면이 연결된 동안에만\n인증된 비공개 화면 연결로 전달한다.\n"
+    },
+    {
+      "id": "b000022",
+      "kind": "blank",
+      "start_line": 81,
+      "end_line": 81,
+      "raw": "\n"
+    },
+    {
+      "id": "b000023",
+      "kind": "paragraph",
+      "start_line": 82,
+      "end_line": 83,
+      "raw": "이 계약의 자동 테스트는 격리된 컨테이너에서 목록, 페이징, 오래된 결과, 경로 경계,\n다중 연결과 메타데이터 비노출을 검사한다. 실제 OS 화면이나 완전한 뷰 이관은 별도이다.\n"
+    }
+  ],
+  "outline": [
+    {
+      "block_id": "b000001",
+      "parent_id": null,
+      "level": 1,
+      "title": "Society 네이티브 뷰와 데몬의 파일 목록 계약",
+      "anchor": "society-네이티브-뷰와-데몬의-파일-목록-계약",
+      "start_line": 1
+    },
+    {
+      "block_id": "b000007",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "목록 세션",
+      "anchor": "목록-세션",
+      "start_line": 12
+    },
+    {
+      "block_id": "b000011",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "컨테이너 파일 작업",
+      "anchor": "컨테이너-파일-작업",
+      "start_line": 43
+    },
+    {
+      "block_id": "b000017",
+      "parent_id": "b000011",
+      "level": 3,
+      "title": "명령 및 바인딩 계약",
+      "anchor": "명령-및-바인딩-계약",
+      "start_line": 60
+    }
+  ],
+  "indexes": {
+    "directive_candidates": [
+      {
+        "block_id": "b000003",
+        "line": 3,
+        "text": "Society 뷰를 LVUI·iiGUI로 이전할 때 GUI는 컨테이너를 직접 조작하지 않는다. 이",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000005",
+        "line": 10,
+        "text": "파일이나 `.iisacc.json` 메타데이터를 테스트 데이터로 사용하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000009",
+        "line": 20,
+        "text": "모델 작업 전체 목록을 직렬화하지 않는다.",
+        "basis": "lexical_match",
+        "context": "list"
+      },
+      {
+        "block_id": "b000009",
+        "line": 24,
+        "text": "이전 조건의 목록을 새 조건의 완성 결과로 반환하지 않는다.",
+        "basis": "lexical_match",
+        "context": "list"
+      },
+      {
+        "block_id": "b000009",
+        "line": 26,
+        "text": "항목 수를 반환한다. 이전 폴더의 늦은 결과는 새 폴더에 적용하지 않는다. 캐시가",
+        "basis": "lexical_match",
+        "context": "list"
+      },
+      {
+        "block_id": "b000009",
+        "line": 27,
+        "text": "먼저 보이는 동안의 Loading은 원본 가용성을 보증하지 않는다.",
+        "basis": "lexical_match",
+        "context": "list"
+      },
+      {
+        "block_id": "b000009",
+        "line": 32,
+        "text": "자원 ID를 뜻하지 않는다.",
+        "basis": "lexical_match",
+        "context": "list"
+      },
+      {
+        "block_id": "b000009",
+        "line": 36,
+        "text": "실행하지 않는다. 로컬 열기 요청 수락은 전문 앱의 저장이나 판본 확정을 뜻하지 않는다.",
+        "basis": "lexical_match",
+        "context": "list"
+      },
+      {
+        "block_id": "b000013",
+        "line": 47,
+        "text": "상태이며 아직 영구 저장을 의미하지 않는다. 응답의 `jobId`는 SDK가 발급한다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000013",
+        "line": 51,
+        "text": "요청을 자동으로 재실행해서는 안 된다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000015",
+        "line": 54,
+        "text": "드라이브의 식별자가 작업에 기록된 식별자와 다르면 결과를 반환하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000019",
+        "line": 63,
+        "text": "작업 ID만 반환하며 파일의 변경 완료를 의미하지 않는다. 작업 ID로 별도 상태 조회를",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000019",
+        "line": 64,
+        "text": "해야 한다. 응답을 받기 전에 연결이 끊기거나 시간이 만료되면 결과가 불명확하다고",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000019",
+        "line": 65,
+        "text": "반환하고 변경 요청을 자동으로 재전송하지 않는다. 선택된 컨테이너가 호출자가 지정한",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000021",
+        "line": 71,
+        "text": "비교한다. 명시한 경로가 비어 있거나 상대 경로이면 요청을 제출하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      }
+    ],
+    "commands": [],
+    "links": [
+      {
+        "block_id": "b000005",
+        "label": "Figma Storage 파일 표 39:1045",
+        "target": "https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=39-1045",
+        "kind": "external",
+        "line": 7
+      }
+    ],
+    "tables": []
+  },
+  "provenance": {
+    "generator": "workspace-docs",
+    "version": "1.0.0",
+    "profile": "lossless-blocks-v1",
+    "derived": true
+  }
+}

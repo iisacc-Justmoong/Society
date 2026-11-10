@@ -4,331 +4,199 @@ import QtQuick.Layouts
 import QtQuick.Controls as Controls
 import LVRS 1.0 as LV
 import Society
-import "../Files"
+import ".." as SocietyUi
 
 Item {
     id: root
     objectName: "modelsView"
     required property StorageModels catalog
+    required property ModelImporter modelImporter
+    property var notifications: null
+    property string path: ""
+    property string modelRoot: ""
+    property var breadcrumbs: []
     property bool touchNavigation: false
-    readonly property int contentInset: touchNavigation && width < 760 ? 16 : 24
     property bool importing: false
+    property bool organizing: false
     property bool importEnabled: true
+    property bool showImportHistory: false
     property string importStatus: ""
     property string importError: ""
-    property string selectedPath: ""
-    property var savedPositions: null
-    readonly property var sections: catalog.categories
+    property bool previouslyVisible: false
+    readonly property alias selectedPath: browser.selectedPath
+    readonly property alias listMode: browser.listMode
     signal importRequested()
     signal cancelImportRequested()
     signal fileRequested(string path)
     signal folderRequested(string path)
-    signal browseFoldersRequested()
+    signal upRequested()
 
-    component ModelCategory: LV.VStack {
-        id: category
-        required property var modelData
-        readonly property var rows: root.catalog.groups[modelData.key] || []
-        property alias list: cards
-        objectName: "modelCategory" + modelData.key
-        Layout.fillWidth: true
-        spacing: 24
-        LV.HStack {
-            objectName: "modelHeading" + category.modelData.key
-            Layout.fillWidth: true
-            Layout.preferredHeight: 60
-            spacing: 12
-            LV.Label {
-                Layout.fillWidth: true
-                style: header
-                text: category.modelData.title
-                elide: Text.ElideRight
-            }
-            LV.LabelButton {
-                objectName: "importModels" + category.modelData.key
-                Layout.minimumHeight: root.touchNavigation ? 44 : 0
-                text: qsTr("Import models…")
-                tone: LV.AbstractButton.Default
-                enabled: root.importEnabled
-                Accessible.name: qsTr("Import and automatically categorize models")
-                onClicked: root.importRequested()
-            }
-        }
-        Item {
-            Layout.fillWidth: true
-            implicitHeight: category.rows.length > 0 ? 280 : 44
-            ListView {
-                id: cards
-                objectName: "modelCards" + category.modelData.key
-                anchors.fill: parent
-                orientation: ListView.Horizontal
-                model: category.rows
-                spacing: 8
-                clip: true
-                boundsBehavior: Flickable.StopAtBounds
-                activeFocusOnTab: true
-                keyNavigationEnabled: true
-                currentIndex: -1
-                function selectCurrent() {
-                    if (currentIndex >= 0 && currentIndex < count)
-                        root.selectedPath = category.rows[currentIndex].path
-                }
-                Keys.onReturnPressed: selectCurrent()
-                Keys.onEnterPressed: selectCurrent()
-                Keys.onPressed: function(event) {
-                    if (event.key === Qt.Key_Home || event.key === Qt.Key_End) {
-                        currentIndex = event.key === Qt.Key_Home ? 0 : count - 1
-                        positionViewAtIndex(currentIndex, ListView.Contain)
-                        selectCurrent()
-                        event.accepted = true
-                    }
-                }
-                Controls.ScrollBar.horizontal: Controls.ScrollBar { policy: Controls.ScrollBar.AsNeeded }
-                WheelHandler {
-                    target: null
-                    acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
-                    orientation: Qt.Horizontal
-                    onWheel: function(event) {
-                        const delta = event.pixelDelta.x !== 0 ? event.pixelDelta.x : event.angleDelta.x
-                        if (delta === 0) { event.accepted = false; return }
-                        cards.contentX = Math.max(0, Math.min(cards.contentX - delta, Math.max(0, cards.contentWidth - cards.width)))
-                        event.accepted = true
-                    }
-                }
-                delegate: LV.Card {
-                    id: card
-                    required property int index
-                    required property var modelData
-                    objectName: "modelCard" + category.modelData.key + index
-                    type: LV.Card.Model
-                    background: Rectangle {
-                        color: card.effectiveSelected || card.effectiveHovered ? card.surfaceColor : "transparent"
-                        radius: card.resolvedCornerRadius
-                    }
-                    width: 256
-                    height: 280
-                    title: modelData.name
-                    description: modelData.relativePath
-                    showDescription: false
-                    showStatus: false
-                    showAction: false
-                    selectable: false
-                    selected: root.selectedPath === modelData.path
-                    Accessible.name: modelData.name
-                    footnote: root.catalog.requestedPath === modelData.path && root.catalog.downloadStatus.length > 0
-                        ? root.catalog.downloadStatus : modelData.sizeText
-                    rows: [
-                        { label: qsTr("Architecture"), value: modelData.architecture },
-                        { label: qsTr("Format"), value: modelData.format },
-                        { label: qsTr("Precision"), value: modelData.precision }
-                    ]
-                    onClicked: {
-                        if (modelMenu.visible) return
-                        cards.currentIndex = index
-                        root.selectedPath = modelData.path
-                        if (modelData.available === false) root.catalog.activatePath(modelData.path)
-                    }
-                    onActiveFocusChanged: if (activeFocus && !root.savedPositions) {
-                        cards.currentIndex = index
-                        cards.positionViewAtIndex(index, ListView.Contain)
-                    }
-                    onMenuRequested: root.openMenu(modelData, card)
-                    TapHandler {
-                        acceptedDevices: PointerDevice.TouchScreen
-                        onLongPressed: root.openMenu(card.modelData, card)
-                    }
-                    TapHandler {
-                        acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
-                        acceptedButtons: Qt.RightButton
-                        onTapped: root.openMenu(card.modelData, card)
-                    }
-                }
-            }
-            LV.ListItem {
-                anchors.left: parent.left
-                anchors.right: parent.right
-                visible: category.rows.length === 0
-                type: LV.ListItem.Navigation
-                showLeadingIcon: false
-                showTrailingIcon: false
-                showValue: false
-                description: ""
-                detail: ""
-                label: root.catalog.loading ? qsTr("Reading models…") : qsTr("No models in this category")
-            }
-        }
+    function jobStateLabel(state) {
+        const labels = { waiting: qsTr("Waiting"), waitingNode: qsTr("Waiting for device"),
+            waitingPermission: qsTr("Waiting for access"), running: qsTr("In progress"),
+            partial: qsTr("Partially completed"), failed: qsTr("Failed"),
+            cancelRequested: qsTr("Cancelling"), cancelled: qsTr("Cancelled"),
+            succeeded: qsTr("Completed"), attention: qsTr("Needs verification"),
+            pending: qsTr("Waiting"), unknown: qsTr("Needs verification"), skipped: qsTr("Skipped") }
+        return labels[state] || state
     }
-
-    function rememberPositions() {
-        if (savedPositions) return
-        const positions = []
-        for (let i = 0; i < categories.count; ++i) {
-            const section = categories.itemAt(i) as ModelCategory
-            const index = section.list.currentIndex
-            positions.push({ x: section.list.contentX,
-                path: index >= 0 && index < section.rows.length ? section.rows[index].path : "" })
-        }
-        savedPositions = { categories: positions, y: modelsScroll.contentItem.contentY }
-    }
-    function restorePositions() {
-        const state = savedPositions
-        if (!state) return
-        let found = false
-        for (let i = 0; i < categories.count; ++i) {
-            const section = categories.itemAt(i) as ModelCategory
-            const previous = i < state.categories.length ? state.categories[i] : { x: 0, path: "" }
-            let current = -1
-            for (let j = 0; j < section.rows.length; ++j) {
-                if (section.rows[j].path === selectedPath) found = true
-                if (section.rows[j].path === previous.path) current = j
-            }
-            section.list.currentIndex = current
-            section.list.forceLayout()
-            section.list.contentX = Math.max(0, Math.min(previous.x, Math.max(0, section.list.contentWidth - section.list.width)))
-        }
-        const viewport = modelsScroll.contentItem
-        viewport.contentY = Math.max(0, Math.min(state.y, Math.max(0, viewport.contentHeight - viewport.height)))
-        if (!found) selectedPath = ""
-        savedPositions = null
-    }
-    function openMenu(model, card) {
-        selectedPath = model.path
-        modelMenu.modelEntry = model
-        modelMenu.openFor(card, 0, 36)
+    function checkpointDescription(checkpoint) {
+        if (!checkpoint) return ""
+        try {
+            const value = JSON.parse(checkpoint)
+            if (value.phase === "published") return qsTr("Saved file: %1").arg(value.path)
+            if (value.phase === "copying") return qsTr("Copy checkpoint: %1 bytes").arg(value.bytes)
+        } catch (error) {}
+        return ""
     }
     onVisibleChanged: {
-        modelMenu.close()
-        if (visible) catalog.refresh()
+        if (visible) {
+            if (previouslyVisible && !catalog.loading) catalog.refresh()
+            previouslyVisible = true
+        }
     }
+    Component.onCompleted: if (visible) previouslyVisible = true
     Connections {
-        target: root.catalog
-        function onModelsAboutToChange() { root.rememberPositions(); modelMenu.close() }
-        function onModelsChanged() {
-            root.restorePositions()
-            Qt.callLater(root.restorePositions)
-        }
-        function onDirectoryChanged() {
-            root.selectedPath = ""
-            root.savedPositions = { categories: [], y: 0 }
-            modelsScroll.contentItem.contentY = 0
+        target: root.modelImporter
+        function onRecategorized(containerPath, previousPath, path) {
+            root.catalog.refresh()
+            if (browser.directoryModel) browser.directoryModel.refresh()
         }
     }
-    LV.HStack {
-        id: importBanner
-        objectName: "modelImportBanner"
-        anchors.top: parent.top
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.margins: root.contentInset
-        height: visible ? Math.max(44, importMessage.implicitHeight) : 0
-        visible: root.importing || root.importError.length > 0
-        spacing: 12
-        LV.Label {
-            id: importMessage
-            objectName: "modelImportProgress"
-            Layout.fillWidth: true
-            style: description
-            text: root.importing ? root.importStatus : root.importError
-            textFormat: Text.PlainText
-            wrapMode: Text.WordWrap
-            sizeToContentHeight: true
-            Accessible.role: Accessible.StaticText
-            Accessible.name: text
-        }
-        LV.LabelButton {
-            visible: root.importing
-            text: qsTr("Cancel")
-            onClicked: root.cancelImportRequested()
-        }
-    }
-    Controls.ScrollView {
-        id: modelsScroll
-        objectName: "modelsScroll"
+
+    ColumnLayout {
         anchors.fill: parent
-        anchors.topMargin: importBanner.visible ? importBanner.height + root.contentInset * 2 : 0
-        contentWidth: availableWidth
-        contentHeight: modelsContent.height
-        clip: true
-        Controls.ScrollBar.horizontal.policy: Controls.ScrollBar.AlwaysOff
-        Item {
-            id: modelsContent
-            width: modelsScroll.availableWidth
-            height: page.implicitHeight + root.contentInset * 2
+        spacing: 0
+        LV.HStack {
+            objectName: "modelImportBanner"
+            Layout.fillWidth: true
+            Layout.leftMargin: browser.contentInset
+            Layout.rightMargin: browser.contentInset
+            Layout.topMargin: visible ? browser.contentInset : 0
+            visible: root.importing || root.organizing || root.modelImporter.jobs.length > 0
+            spacing: LV.Theme.gap8
+            LV.Label {
+                objectName: "modelImportProgress"
+                Layout.fillWidth: true
+                style: description
+                text: root.importing || root.organizing ? root.importStatus : ""
+                textFormat: Text.PlainText
+                elide: Text.ElideRight
+                Accessible.role: Accessible.StaticText
+                Accessible.name: text
+            }
+            LV.LabelButton {
+                visible: root.importing
+                text: qsTr("Cancel")
+                onClicked: root.cancelImportRequested()
+            }
+            LV.LabelButton {
+                objectName: "modelImportHistoryToggle"
+                visible: root.modelImporter.jobs.length > 0
+                text: root.showImportHistory ? qsTr("Hide import history") : qsTr("Import history (%1)").arg(root.modelImporter.jobs.length)
+                onClicked: root.showImportHistory = !root.showImportHistory
+            }
+        }
+        Controls.ScrollView {
+            objectName: "modelImportHistory"
+            Layout.fillWidth: true
+            Layout.leftMargin: browser.contentInset
+            Layout.rightMargin: browser.contentInset
+            Layout.preferredHeight: visible ? Math.min(root.height * 0.35, history.implicitHeight) : 0
+            visible: root.showImportHistory && root.modelImporter.jobs.length > 0
+            clip: true
+            contentWidth: availableWidth
             LV.VStack {
-                id: page
-                anchors.top: parent.top
-                anchors.left: parent.left
-                anchors.right: parent.right
-                anchors.margins: root.contentInset
-                height: implicitHeight
-                spacing: 24
-                LV.VStack {
-                    id: modelSections
-                    Layout.fillWidth: true
-                    spacing: 24
+                id: history
+                width: parent.width
+                spacing: LV.Theme.gap8
                 Repeater {
-                    id: categories
-                    model: root.sections
-                    delegate: ModelCategory {}
-                }
-                }
-                Item {
-                    implicitHeight: Math.max(1, root.height - modelSections.implicitHeight - modelFooter.implicitHeight
-                        - (modelError.visible ? modelError.implicitHeight + 24 : 0) - 48 - 72 - 1)
-                }
-                LV.Label {
-                    id: modelError
-                    visible: root.catalog.errorString.length > 0 || root.importError.length > 0 || modelMenu.actions.status.length > 0
-                    Layout.fillWidth: true
-                    style: description
-                    text: modelMenu.actions.errorString || root.importError || root.catalog.errorString || modelMenu.actions.status
-                    textFormat: Text.PlainText
-                    wrapMode: Text.WordWrap
-                    sizeToContentHeight: true
-                }
-                Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: LV.Theme.panelBackground08 }
-                LV.HStack {
-                    id: modelFooter
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: root.touchNavigation ? 44 : 16
-                    spacing: 12
-                    LV.Label {
-                        objectName: "modelsStatus"
+                    model: root.showImportHistory ? root.modelImporter.jobs : []
+                    delegate: LV.VStack {
+                        id: jobEntry
+                        required property var modelData
                         Layout.fillWidth: true
-                        style: caption
-                        text: root.importing ? root.importStatus : root.catalog.downloadStatus || (root.catalog.uncategorizedCount > 0
-                            ? qsTr("%1 models · %2 need a category").arg(root.catalog.count).arg(root.catalog.uncategorizedCount)
-                            : qsTr("%1 models").arg(root.catalog.count))
-                        elide: Text.ElideRight
-                        textFormat: Text.PlainText
-                    }
-                    LV.LabelButton {
-                        visible: root.importing
-                        text: qsTr("Cancel")
-                        onClicked: root.cancelImportRequested()
-                    }
-                    LV.Label {
-                        objectName: "browseModelFolders"
-                        text: qsTr("Society / Models")
-                        style: caption
-                        activeFocusOnTab: true
-                        Accessible.role: Accessible.Button
-                        Accessible.name: qsTr("Browse model type folders")
-                        Keys.onReturnPressed: root.browseFoldersRequested()
-                        TapHandler { onTapped: root.browseFoldersRequested() }
+                        spacing: LV.Theme.gap8
+                        LV.HStack {
+                            Layout.fillWidth: true
+                            spacing: LV.Theme.gap8
+                            LV.Label {
+                                Layout.fillWidth: true
+                                style: description
+                                text: qsTr("%1 · %2 succeeded · %3 failed · %4 need verification")
+                                    .arg(root.jobStateLabel(jobEntry.modelData.state)).arg(jobEntry.modelData.succeeded)
+                                    .arg(jobEntry.modelData.failed).arg(jobEntry.modelData.unknown)
+                                wrapMode: Text.WordWrap
+                                sizeToContentHeight: true
+                            }
+                            LV.LabelButton {
+                                text: qsTr("Details")
+                                onClicked: root.modelImporter.selectJob(jobEntry.modelData.id)
+                            }
+                            LV.LabelButton {
+                                text: jobEntry.modelData.pending > 0 ? qsTr("Resume") : qsTr("Retry failed")
+                                visible: jobEntry.modelData.failed > 0 || jobEntry.modelData.pending > 0
+                                enabled: !root.importing && root.importEnabled
+                                onClicked: root.modelImporter.retryFailed(jobEntry.modelData.id)
+                            }
+                        }
+                        LV.Label {
+                            visible: !!jobEntry.modelData.reason || !!jobEntry.modelData.stage
+                            Layout.fillWidth: true
+                            style: caption
+                            text: jobEntry.modelData.reason || jobEntry.modelData.stage || ""
+                            textFormat: Text.PlainText
+                            wrapMode: Text.WordWrap
+                            sizeToContentHeight: true
+                        }
+                        Repeater {
+                            model: root.modelImporter.selectedJobId === jobEntry.modelData.id ? root.modelImporter.jobItems : []
+                            delegate: LV.Label {
+                                required property var modelData
+                                Layout.fillWidth: true
+                                style: caption
+                                text: modelData.name + " · " + root.jobStateLabel(modelData.state)
+                                    + qsTr(" · %1 attempt(s)").arg(modelData.attempts)
+                                    + (modelData.error ? " · " + modelData.error : "")
+                                    + (modelData.artifact ? " · " + modelData.artifact : "")
+                                    + (root.checkpointDescription(modelData.checkpoint) ? " · " + root.checkpointDescription(modelData.checkpoint) : "")
+                                textFormat: Text.PlainText
+                                wrapMode: Text.WordWrap
+                                sizeToContentHeight: true
+                            }
+                        }
+                        LV.LabelButton {
+                            visible: root.modelImporter.selectedJobId === jobEntry.modelData.id && root.modelImporter.hasMoreJobItems
+                            text: qsTr("Show more items")
+                            onClicked: root.modelImporter.loadMoreJobItems()
+                        }
                     }
                 }
             }
         }
-    }
-    FileActionMenu {
-        id: modelMenu
-        objectName: "modelCardMenu"
-        property var modelEntry: ({})
-        filePath: modelEntry.path || ""
-        folderPath: modelEntry.folderPath || ""
-        onOpenRequested: function(path) { root.fileRequested(path) }
-        onRevealRequested: function(path) { root.folderRequested(path) }
-        onModified: root.catalog.refresh()
+        SocietyUi.FilesBrowser {
+            id: browser
+            objectName: "modelFilesBrowser"
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            path: root.path
+            breadcrumbs: root.breadcrumbs
+            contentInset: root.touchNavigation && root.width < 760 ? LV.Theme.gap16 : LV.Theme.gap24
+            modelsMode: true
+            touchNavigation: root.touchNavigation
+            modelRoot: root.modelRoot
+            modelCategories: root.catalog.categories
+            modelGroups: root.catalog.groups
+            modelImportEnabled: root.importEnabled
+            modelCategoryEnabled: !root.importing
+            onActivated: function(path, directory) {
+                if (directory) root.folderRequested(path)
+                else root.fileRequested(path)
+            }
+            onModelImportRequested: root.importRequested()
+            onModelUpRequested: root.upRequested()
+            onModelCategoryRequested: function(path, category) { root.modelImporter.recategorize(path, category) }
+            onModelModified: root.catalog.refresh()
+        }
     }
 }

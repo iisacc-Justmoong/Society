@@ -37,7 +37,9 @@ private slots:
         QSignalSpy received(&inbox, &SocietyInbox::dataReceived);
         QVERIFY(inbox.start(directory));
         QCOMPARE(received.count(), 0); // start/poll does not dispatch disk results inline.
+        QTRY_VERIFY(inbox.connected());
         QCOMPARE(inbox.readAfter(0).size(), 1); // Explicit commands share the same SQL owner.
+        received.clear();
         inbox.stop();
         QCoreApplication::sendPostedEvents(&inbox);
         QCOMPARE(received.count(), 0);
@@ -47,6 +49,7 @@ private slots:
         QVERIFY(inbox.acknowledge(inbox.lastSequence()));
         inbox.stop();
         QVERIFY(inbox.start(directory));
+        QTRY_VERIFY(inbox.connected());
         QTest::qWait(300);
         QCOMPARE(received.count(), 1); // Acknowledged messages remain acknowledged after reopen.
     }

@@ -11,6 +11,13 @@ and revision history. Dashboard search supports indexed metadata and semantic
 directories; file information exposes the working identity, RAW original and
 work session. See [managed storage](docs/ManagedStorage.md).
 
+Addressed files and projects can carry semantic metadata and directed relations.
+Verified relocations preserve those meanings and update their current addresses.
+Projects retain their own semantics inside the `.iiproject` package; other
+addresses use container-owned objects. The local desktop MCP exposes revisioned
+reads and writes. See [semantic relations](docs/SemanticRelations.md) for
+ownership, address changes and incomplete reverse lookups.
+
 Society connects existing Files storage to the system file manager: a signed FSKit volume on macOS 26+, an identity-checked Dokan 2 removable drive on Windows, and a verified DocumentsProvider root on Android. Startup and Reconnect preserve the source directory and shared storage configuration. See [system drive behavior](docs/SystemDrive.md) and [Finder setup](docs/FinderDrive.md).
 
 `Files/`  does not provide default files or folders. `Documents` , `Audios` , `3D objects`  are also standard user folders and do not apply automatic creation, recovery, or name reservation. One-time cleanup of existing empty default folders and preservation of user content follow [Files management documentation](docs/Files.md).
@@ -19,9 +26,9 @@ App icons are generated per platform in `resources/Appicon/Artboard 1.png` . mac
 
 Society's main window and Preferences use `LV.ApplicationWindow`  and `LV.Theme.accentGreen`  ( `#57965C` ) Primary. The entire window is filled with `#0B0B0B`  nearly black without gradient, and fill opacity is 50%. The window background is separated from Primary, and opacity for buttons and selected states is maintained at the app accent color. 64px  material blur and macOS  native background blur are maintained, and opacity for text and buttons is not reduced. The background of the dashboard list is kept transparent to reveal the window material. `Society.Drive`  verifies color, opacity, and gradient removal for both windows and existing window behavior.
 
-The latest LVRS  package must be used. The current Workspace build shares the framework installed in `SDK/LVRS/build/material-runtime`  between two apps, and Society's `build/`  is configured by specifying `lib/cmake/LVRS`  as `LVRS_DIR`  .
+Use the matching installed LVRS package and point `LVRS_DIR` to its `lib/cmake/LVRS` directory. On this macOS workspace the package is under `~/.local/SDK/LVRS/platforms/macos`.
 
-Android currently uses a package built from the same LVRS source at `SDK/LVRS/build/society-android` using the same Qt/NDK and installed at `build/android/installed/LVRS`. Updating only the desktop package does not reflect new window properties on mobile. After changing the package, rebuild the APK and verify up to the actual QML root loading.
+Android uses an LVRS package built for the same Qt/NDK and ABI, supplied to `tools/build_android.py` with `--lvrs`. A project-local package may be staged under `resources/dependencies/android/<abi>/LVRS`. Updating only the desktop package does not update mobile builds; device verification is a separate step.
 
 Login recovery information and pairing authentication, device history, and auto-connect settings are encrypted and stored in the [group container](docs/GroupState.md), including mobile.
 
@@ -33,19 +40,16 @@ Search for iisacc devices of the same Society account via BLE and LAN, verify th
 
 ## Cloud Files
 
-Each basic iisacc account receives 5 GB (5,000,000,000 bytes) of S3-backed storage
-for `Society.societycontainer/Files`. Storage → Cloud Files provides explicit
-uploads, version-checked replacements, downloads that preserve existing local
-files, quota usage and pending upload controls. The service uses the existing
-Society account session and server-enforced quota. See [CloudFiles.md](docs/CloudFiles.md)
-for the client boundary and verification; AWS activation and deployment remain
-separate from this source change.
+The per-account Society Cloud Files allowance is discontinued. The former
+cloud-storage navigation and uploads have been removed; local Society drives
+remain available. Existing cloud files are not deleted by this change; recovery requires a
+compatible service. See [CloudFiles.md](docs/CloudFiles.md) for the source and deployment boundary.
 
 ## iisacc account
 
 A common LVRS account screen is provided for all Society platforms. Log in directly with just email and password from the desktop top account icon or the mobile Sign in button. The account panel, Devices, and iiSocietyHelper share the same iiAccountManager object. Independent limits of PC 2 desktops, 2 tablets, and 2 mobiles are used, and no relay address is required for login. Refer to the [authentication flow, device identification, and verification scope](docs/Account.md).
 
-On desktop, the [Figma dashboard](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=18-14)is placed as `SocietyView` in the `content` slot of `LV.ApplicationWindow`, using the default LVRS window frame and controls. The top tabs are ordered **Dashboard → Tools → Storage → Browse → Environment**. **Tools**provides the [model addition/subtraction merge tool](docs/ModelMerge.md)based on iiLocalDiffusion; base and additional checkpoints/LoRA are selected from the dropdown and context menu in the container's `Models/`. It provides weights, output, cache, the Python environment, and configuration validation. **Storage**opens the existing Society drive. **Browse**browses files on connected devices. **Environment**displays [Overview, Devices, Apps, and four app collections](docs/Environment.md). The device-pairing modal opens through Environment → Devices → Add device. Merge settings, the current folder, and prompts persist when switching tabs. Actual recent files and generation history, screen composition, and the scope of behavior are documented in the [Dashboard documentation](docs/Dashboard.md). The Storage sidebar has four groups: My storage, Other devices, Guild, and Organization. Actual device lists, per-account browsing objects, empty states, and scrolling behavior are documented in the [Storage navigation documentation](docs/StorageNavigation.md). Storage → Photos [connects bidirectionally to the device photo library](docs/Photos.md)and provides photo and video aliases, directly saved previews, and authenticated original transfers.
+On desktop, the [Figma dashboard](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=18-14)is placed as `SocietyView` in the `content` slot of `LV.ApplicationWindow`, using the default LVRS window frame and controls. The desktop header follows the nine-icon Figma navigation and ends with the account Avatar. Open **Tools** from the View menu or with Command+2 on macOS / Ctrl+2 on other desktop platforms. **Tools** provides the [model addition/subtraction merge tool](docs/ModelMerge.md)based on iiLocalDiffusion; base and additional checkpoints/LoRA are selected from the dropdown and context menu in the container's `Models/`. It provides weights, output, cache, the Python environment, and configuration validation. **Storage**opens the existing Society drive. **Browse**browses files on connected devices. **Environment**displays [Overview, Devices, Apps, and four app collections](docs/Environment.md). The device-pairing modal opens through Environment → Devices → Add device. Merge settings, the current folder, and prompts persist when switching tabs. Actual recent files and generation history, screen composition, and the scope of behavior are documented in the [Dashboard documentation](docs/Dashboard.md). The Storage sidebar has four groups: My storage, Other devices, Guild, and Organization. Actual device lists, per-account browsing objects, empty states, and scrolling behavior are documented in the [Storage navigation documentation](docs/StorageNavigation.md). Storage → Photos [connects bidirectionally to the device photo library](docs/Photos.md)and provides photo and video aliases, directly saved previews, and authenticated original transfers.
 
 App title, drive home, and path display, and the OS drive display name are `Society`. iiSocietyContainer 0.9.1 reads existing drives with previous names while maintaining UUID and files. Re-registering the original at macOS updates the display name of the same File Provider domain. `Society.Drive` validates app title, home, and path display.
 
@@ -88,7 +92,7 @@ After opening the container, dropping Society or `.safetensor` or `.safetensors`
 - Preserves the original file. If `weights.safetensor` already exists, it chooses an unused name like `weights (1).safetensor`, and does not overwrite existing files, folders, or links.
 - Can import multiple models at once. Repeated paths in the same drop are processed only once, and files already under the `Models/` of that container are not copied again.
 - Drops mixed with other extensions or web URLs are rejected entirely. If actual read/write errors occur, failed files are displayed, and completed models are held.
-- Large files are copied to the 1 MiB buffer in the worker thread. Models displays import progress, results, errors, and `Cancel` in its own view; mobile Storage actions also exposes import status and cancellation. Storage has no fixed common footer for model import, system connection status, section counts, or file-manager actions, so section content uses the available height. `Cancel` stops remaining tasks and cleans up incomplete temporary files. The area can be navigated even during copying, and the container selection button is locked.
+- Large files are copied to the 1 MiB buffer in the worker thread. Models displays active import or organization progress; active imports offer `Cancel`. Mobile Storage actions also exposes import status and cancellation. Import, catalog and storage errors appear as individual entries in the toolbar Notifications popover. The button shows the current count, and entries can be dismissed individually or cleared together during the current session. A dismissed error is not recreated by repeated notifications of the same state, but can return after the error clears and recurs. Storage has no fixed common footer for model import, system connection status, section counts, or file-manager actions, so section content uses the available height. `Cancel` stops remaining tasks and cleans up incomplete temporary files. The area can be navigated even during copying, and the container selection button is locked.
 - Temporary files are created in private `Models/`, written completely, and then renamed atomically. The drive ID and section boundaries are checked before and after copying. No writes are made to invalid containers or symbolic links that connect `Models` to `Files`.
 
 External import targets the above two extensions. iiSocietyContainer 0.11.0's `ModelStore` determines headers, settings, and metadata, organizing them into 23 types, and stores unclear models in `Other/`. When opening a container, existing models are also automatically classified. It does not execute models or check full tensor integrity and inference compatibility. [Models management document](docs/Models.md)explains the type list and organization, preservation, and reference contracts.
@@ -308,6 +312,10 @@ The file grid and photo gallery test harnesses import their views from `App/Soci
 ### Dashboard calendar
 
 The dashboard calendar uses C++23 `iiCalendar::iiCalendar`. The Calendar sidebar entry opens a dedicated Day, Week, Month and Year workspace with calendar filters, upcoming events, tasks and an event inspector. New event and Edit event support durable event/task creation, revision-safe editing and deletion, time zones, all-day ranges, recurrence, alerts, participants and notes. Calendar data stays local to the selected Society container; participant records do not send invitations. The compact Home calendar remains available. Prepare iiCalendar, ICU and SQLite before building. See [Dashboard — iiCalendar](docs/Dashboard.md#iicalendar-대시보드) for storage, UI and verification details.
+
+### Dashboard projects
+
+Projects groups a user-defined goal with selected files, resources and typed relationships in an `.iiproject` package. The Studio workspace places the project navigator, selected project's resources and history, and editable definition side by side. Society connects iiProjectManager to iiFileProvider's package-aware Catalog; see [Projects](docs/Projects.md) for editing, storage, concurrency and current boundaries.
 
 <a id="macos에서-library-missing으로-실행되지-않을-때"></a>
 

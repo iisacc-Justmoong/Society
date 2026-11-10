@@ -22,7 +22,7 @@ inline bool registerFixtureContainer(AccountServer &authority, const QString &ro
 // keeping synthetic credentials in memory and all package state in build/.
 struct AuthenticatedNetworkFixture
 {
-    QTemporaryDir container{QString(QT_TESTCASE_BUILDDIR) + "/network-account-XXXXXX.societycontainer"};
+    QTemporaryDir container{QString(SOCIETY_TEST_DIRECTORY) + "/network-account-XXXXXX.societycontainer"};
     AccountServer authority;
     MemorySessionStore hostStore, clientStore;
     std::unique_ptr<AccountController> hostAccount, clientAccount;

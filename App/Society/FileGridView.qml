@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import QtQuick.Controls as Controls
+import QtQuick.Dialogs as Dialogs
 import QtQuick.Layouts
 import LVRS 1.0 as LV
 import Society
@@ -15,6 +16,19 @@ Item {
     property string heading: qsTr("Files")
     property bool imagesOnly: false
     property bool chronological: false
+    property bool deletedView: false
+    property bool selectionMode: false
+    property var selectedPaths: []
+    readonly property int selectedCount: selectedPaths.length
+    property var batchPending: []
+    property var batchInFlight: []
+    property var batchErrors: []
+    property string batchAction: ""
+    property string batchFolder: ""
+    property string batchStatus: ""
+    property url batchDestination: ""
+    property int batchSucceeded: 0
+    property bool batchRunning: false
     property bool touchNavigation: Qt.platform.os === "ios" || Qt.platform.os === "android"
     readonly property int count: grid.count
     readonly property string selectedPath: directoryModel && grid.currentIndex >= 0
@@ -28,8 +42,85 @@ Item {
 
     signal activated(string path, bool isDirectory)
 
+    function toggleSelection(path: string): void {
+        if (!selectionMode || batchRunning || !path.length) return
+        const paths = selectedPaths.slice()
+        const index = paths.indexOf(path)
+        if (index < 0) paths.push(path)
+        else paths.splice(index, 1)
+        selectedPaths = paths
+        batchStatus = ""
+    }
+
+    function pruneSelection(): void {
+        if (!selectionMode || batchRunning || !directoryModel || loading || grid.count !== directoryModel.count) return
+        const present = {}
+        for (let i = 0; i < directoryModel.count; ++i) present[directoryModel.get(i, "filePath")] = true
+        const paths = selectedPaths.filter(function(path) { return present[path] === true })
+        if (paths.length !== selectedPaths.length) selectedPaths = paths
+    }
+
+    function startDeletedBatch(action, paths, destination): void {
+        if (batchRunning || !deletedView || !paths || paths.length === 0) return
+        batchAction = action
+        batchDestination = destination || ""
+        batchFolder = path
+        batchPending = paths.slice()
+        batchInFlight = []
+        batchErrors = []
+        batchSucceeded = 0
+        batchRunning = true
+        batchStatus = action === "remove" ? qsTr("Removing items from Deleted…") : qsTr("Putting items back…")
+        processDeletedBatch()
+    }
+
+    function restoreSelectionTo(folder): void { startDeletedBatch("restoreTo", selectedPaths, folder) }
+
+    function processDeletedBatch(): void {
+        if (!batchRunning) return
+        while (batchPending.length > 0 && batchInFlight.length < 4) {
+            const current = batchPending[0]
+            batchPending = batchPending.slice(1)
+            batchInFlight = batchInFlight.concat([current])
+            deletedActions.path = current
+            if (batchAction === "restore") deletedActions.restore()
+            else if (batchAction === "restoreTo") deletedActions.restoreTo(batchDestination)
+            else deletedActions.remove()
+        }
+        if (batchPending.length === 0 && batchInFlight.length === 0) {
+            batchRunning = false
+            if (directoryModel && path === batchFolder) directoryModel.refresh()
+            const summary = batchAction === "remove" ? qsTr("Removed %1 item(s) from Deleted.").arg(batchSucceeded)
+                                                      : qsTr("Put back %1 item(s).").arg(batchSucceeded)
+            const visibleErrors = batchErrors.slice(0, 3)
+            const remaining = batchErrors.length - visibleErrors.length
+            batchStatus = batchErrors.length ? summary + "\n" + visibleErrors.join("\n")
+                + (remaining > 0 ? "\n" + qsTr("%1 more item(s) could not be processed.").arg(remaining) : "") : summary
+            return
+        }
+    }
+
+    FileActions {
+        id: deletedActions
+        objectName: "deletedBatchActions"
+        onOperationFinished: function(source, result, error) {
+            if (!root.batchRunning || !root.batchInFlight.includes(source)) return
+            root.batchInFlight = root.batchInFlight.filter(function(path) { return path !== source })
+            if (error.length) {
+                const errors = root.batchErrors.slice()
+                errors.push(source.substring(source.lastIndexOf("/") + 1) + ": " + error)
+                root.batchErrors = errors
+            } else {
+                if (root.path === root.batchFolder)
+                    root.selectedPaths = root.selectedPaths.filter(function(path) { return path !== source })
+                ++root.batchSucceeded
+            }
+            Qt.callLater(root.processDeletedBatch)
+        }
+    }
+
     function openMenu(index, item, x, y) {
-        if (!directoryModel || index < 0) return
+        if (!directoryModel || index < 0 || (selectionMode && !batchRunning)) return
         grid.currentIndex = index
         fileMenu.backgroundOnly = false
         fileMenu.filePath = directoryModel.get(index, "filePath")
@@ -135,8 +226,12 @@ Item {
         pendingViewState = null
         initialPositionPending = true
         grid.currentIndex = -1
+        selectionMode = false
+        selectedPaths = []
+        if (!batchRunning) { batchStatus = ""; batchErrors = [] }
         grid.positionViewAtBeginning()
     }
+    onDeletedViewChanged: if (!deletedView) { selectionMode = false; selectedPaths = [] }
 
     DirectoryLocation {
         id: location
@@ -183,6 +278,7 @@ Item {
             // Finish the whole row diff before restoring, in the same event turn.
             root.restoreView()
             Qt.callLater(root.restoreView)
+            Qt.callLater(root.pruneSelection)
         }
         function onStatusChanged(): void {
             if (!root.loading) Qt.callLater(root.restoreView)
@@ -207,7 +303,34 @@ Item {
                     text: root.heading
                 }
 
+                LV.LabelButton {
+                    objectName: "deletedSelect"
+                    visible: root.deletedView
+                    text: root.selectionMode ? qsTr("Done") : qsTr("Select")
+                    enabled: !root.batchRunning && (root.selectionMode || root.count > 0)
+                    onClicked: {
+                        root.selectionMode = !root.selectionMode
+                        if (!root.selectionMode) root.selectedPaths = []
+                        root.batchStatus = ""
+                    }
+                }
+                LV.LabelButton {
+                    objectName: "deletedDelete"
+                    visible: root.deletedView
+                    text: qsTr("Delete")
+                    enabled: root.selectionMode && root.selectedPaths.length > 0 && !root.batchRunning
+                    onClicked: { deleteSelected.paths = root.selectedPaths.slice(); deleteSelected.open() }
+                }
+                LV.LabelButton {
+                    objectName: "deletedPutBack"
+                    visible: root.deletedView
+                    text: qsTr("Put back")
+                    enabled: root.selectionMode && root.selectedPaths.length > 0 && !root.batchRunning
+                    onClicked: root.startDeletedBatch("restore", root.selectedPaths)
+                }
+
                 Image {
+                    visible: !root.deletedView
                     Layout.preferredWidth: 16
                     Layout.preferredHeight: 16
                     source: LV.Theme.iconPath("imagegrid")
@@ -215,6 +338,7 @@ Item {
                 }
 
                 LV.Label {
+                    visible: !root.deletedView
                     style: description
                     text: root.imagesOnly ? qsTr("Gallery") : qsTr("Grid view")
                 }
@@ -232,12 +356,20 @@ Item {
 
             LV.Label {
                 objectName: "fileDownloadStatus"
-                visible: root.downloadStatus.length > 0 || fileMenu.actions.status.length > 0
+                visible: root.batchStatus.length > 0 || root.downloadStatus.length > 0 || fileMenu.actions.status.length > 0
                 Layout.fillWidth: true
                 style: description
-                text: fileMenu.actions.busy || fileMenu.actions.errorString.length > 0 ? fileMenu.actions.status : root.downloadStatus || fileMenu.actions.status
+                text: root.batchStatus || (fileMenu.actions.busy || fileMenu.actions.errorString.length > 0 ? fileMenu.actions.status : root.downloadStatus || fileMenu.actions.status)
                 textFormat: Text.PlainText
                 wrapMode: Text.Wrap
+                sizeToContentHeight: true
+            }
+            LV.LabelButton {
+                objectName: "deletedChooseDestination"
+                visible: root.deletedView && root.selectionMode && !root.batchRunning
+                    && root.batchAction !== "remove" && root.batchErrors.length > 0 && root.selectedCount > 0
+                text: qsTr("Choose destination…")
+                onClicked: restoreDestination.open()
             }
         }
 
@@ -274,9 +406,13 @@ Item {
                 onHeightChanged: if (root.initialPositionPending) Qt.callLater(root.restoreView)
                 onWidthChanged: if (root.initialPositionPending) Qt.callLater(root.restoreView)
 
-                Keys.onEscapePressed: currentIndex = -1
-                Keys.onReturnPressed: root.activateCurrent()
-                Keys.onEnterPressed: root.activateCurrent()
+                Keys.onEscapePressed: {
+                    if (root.selectionMode && !root.batchRunning) { root.selectionMode = false; root.selectedPaths = [] }
+                    else currentIndex = -1
+                }
+                Keys.onSpacePressed: if (root.selectionMode && root.selectedPath.length) root.toggleSelection(root.selectedPath)
+                Keys.onReturnPressed: if (root.selectionMode) root.toggleSelection(root.selectedPath); else root.activateCurrent()
+                Keys.onEnterPressed: if (root.selectionMode) root.toggleSelection(root.selectedPath); else root.activateCurrent()
 
                 Controls.ScrollBar.vertical: Controls.ScrollBar {
                     objectName: "fileScrollBar"
@@ -284,6 +420,7 @@ Item {
                 }
 
                 TapHandler {
+                    enabled: !root.selectionMode || root.batchRunning
                     acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
                     acceptedButtons: Qt.RightButton
                     onTapped: function(eventPoint) {
@@ -310,11 +447,13 @@ Item {
                     height: grid.cellHeight
 
                     TapHandler {
+                        enabled: !root.selectionMode || root.batchRunning
                         acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
                         acceptedButtons: Qt.RightButton
                         onTapped: function(eventPoint) { root.openMenu(entry.index, entry, eventPoint.position.x, eventPoint.position.y) }
                     }
                     TapHandler {
+                        enabled: !root.selectionMode || root.batchRunning
                         acceptedDevices: PointerDevice.TouchScreen
                         onLongPressed: root.openMenu(entry.index, entry, 0, entry.height)
                     }
@@ -350,26 +489,28 @@ Item {
                         text: entry.fileName
                         Accessible.name: entry.fileName
                         Accessible.role: Accessible.ListItem
-                        Accessible.selected: grid.currentIndex === entry.index
+                        Accessible.selected: root.selectionMode ? root.selectedPaths.includes(entry.filePath) : grid.currentIndex === entry.index
 
                         onClicked: {
                             if (fileMenu.visible) return
                             grid.currentIndex = entry.index
                             grid.forceActiveFocus()
-                            if (root.touchNavigation)
+                            if (root.selectionMode)
+                                root.toggleSelection(entry.filePath)
+                            else if (root.touchNavigation)
                                 root.openEntry(entry.index)
                         }
                         onDoubleClicked: {
-                            if (!root.touchNavigation)
+                            if (!root.selectionMode && !root.touchNavigation)
                                 root.openEntry(entry.index)
                         }
 
                         background: Rectangle {
                             radius: entry.fileIsDir ? 0 : LV.Theme.radiusMd
                             color: entry.fileIsDir ? "transparent"
-                                 : grid.currentIndex === entry.index ? LV.Theme.accentTint
+                                 : (root.selectionMode ? root.selectedPaths.includes(entry.filePath) : grid.currentIndex === entry.index) ? LV.Theme.accentTint
                                  : tile.hovered ? LV.Theme.panelBackground06 : "transparent"
-                            border.width: !entry.fileIsDir && grid.currentIndex === entry.index ? 1 : 0
+                            border.width: !entry.fileIsDir && (root.selectionMode ? root.selectedPaths.includes(entry.filePath) : grid.currentIndex === entry.index) ? 1 : 0
                             border.color: LV.Theme.accent
                         }
 
@@ -413,7 +554,7 @@ Item {
                                 Layout.preferredHeight: 34
                                 style: body
                                 text: entry.fileName
-                                color: entry.fileIsDir && (grid.currentIndex === entry.index || tile.hovered || tile.down)
+                                color: entry.fileIsDir && ((root.selectionMode ? root.selectedPaths.includes(entry.filePath) : grid.currentIndex === entry.index) || tile.hovered || tile.down)
                                        ? LV.Theme.accent : LV.Theme.bodyColor
                                 textFormat: Text.PlainText
                                 horizontalAlignment: Text.AlignHCenter
@@ -422,6 +563,18 @@ Item {
                                 elide: Text.ElideRight
                             }
                         }
+                    }
+                    LV.CheckBox {
+                        objectName: "deletedSelectionCheck"
+                        z: 2
+                        anchors.top: tile.top
+                        anchors.right: tile.right
+                        anchors.margins: 8
+                        visible: root.selectionMode && root.deletedView
+                        enabled: !root.batchRunning
+                        checked: root.selectedPaths.includes(entry.filePath)
+                        Accessible.name: qsTr("Select %1").arg(entry.fileName)
+                        onClicked: root.toggleSelection(entry.filePath)
                     }
                 }
             }
@@ -493,7 +646,8 @@ Item {
                 objectName: "fileCount"
                 Layout.fillWidth: true
                 style: caption
-                text: root.count === 1 ? qsTr("1 item") : qsTr("%1 items").arg(root.count)
+                text: root.selectionMode ? qsTr("%1 selected").arg(root.selectedPaths.length)
+                     : root.count === 1 ? qsTr("1 item") : qsTr("%1 items").arg(root.count)
             }
 
             LV.Label {
@@ -513,14 +667,49 @@ Item {
         onRevealRequested: function(path) { root.activated(path, true) }
         onModified: { if (root.directoryModel) root.directoryModel.refresh(); info.close() }
     }
+    LV.Sheet {
+        id: deleteSelected
+        objectName: "deleteSelectedSheet"
+        property var paths: []
+        title: qsTr("Remove selected items from Deleted?")
+        preferredHeight: 260
+        LV.VStack {
+            width: parent.width
+            spacing: 16
+            LV.Label {
+                Layout.fillWidth: true
+                text: qsTr("Remove %1 item(s) from Deleted? Any managed originals and recorded history are retained.").arg(deleteSelected.paths.length)
+                textFormat: Text.PlainText
+                wrapMode: Text.Wrap
+                sizeToContentHeight: true
+            }
+            LV.HStack {
+                Layout.fillWidth: true
+                Item { Layout.fillWidth: true }
+                LV.LabelButton { text: qsTr("Cancel"); onClicked: deleteSelected.close() }
+                LV.LabelButton {
+                    objectName: "confirmDeleteSelected"
+                    text: qsTr("Remove from Deleted")
+                    onClicked: { const paths = deleteSelected.paths; deleteSelected.close(); root.startDeletedBatch("remove", paths) }
+                }
+            }
+        }
+    }
+    Dialogs.FolderDialog {
+        id: restoreDestination
+        objectName: "deletedDestinationDialog"
+        title: qsTr("Choose a folder in this Society container")
+        onAccepted: root.restoreSelectionTo(selectedFolder)
+    }
     Shortcut {
         sequences: [StandardKey.Copy]
-        enabled: root.visible && grid.activeFocus && root.selectedPath.length > 0 && !fileMenu.actions.busy
+        enabled: root.visible && grid.activeFocus && root.selectedPath.length > 0
+                 && (fileMenu.actions.activeCount === 0 || !fileMenu.actions.busyForPath(root.selectedPath))
         onActivated: { fileMenu.filePath = root.selectedPath; fileMenu.actions.copy() }
     }
     Shortcut {
         sequences: [StandardKey.Paste]
-        enabled: root.visible && grid.activeFocus && fileMenu.actions.canPaste && !fileMenu.actions.busy
+        enabled: root.visible && grid.activeFocus && fileMenu.actions.canPaste
         onActivated: fileMenu.actions.paste(root.path)
     }
 }
