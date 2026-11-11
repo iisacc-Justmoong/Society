@@ -9,6 +9,8 @@ import Society
 
 LV.ApplicationWindow {
     id: preferences
+    windowColor: LV.Theme.window
+    Binding { target: preferences.background; property: "color"; value: LV.Theme.window }
     objectName: "preferencesWindow"
     required property NetworkDriveController network
     property DriveController drive: null

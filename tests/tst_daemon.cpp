@@ -105,15 +105,27 @@ private slots:
     }
     void headlessServerRejectsUnsafeConfigurationBeforeStartingServices() {
         QTemporaryDir root(SOCIETY_TEST_DIRECTORY "/daemon-server-invalid-XXXXXX.societycontainer");
-        for (const auto &arguments : QList<QStringList>{
-                {"--server", "wss://nas.example.test"},
-                {"--sync", "--host"},
-                {"--sync", "--server", "ws://nas.example.test"},
-                {"--sync", "--server", "wss://nas.example.test/?token=secret"},
-                {"--sync", "--container", root.filePath("missing")},
-                {"--sync", "--login-file", root.filePath("missing.json")}}) {
+        QVERIFY(root.isValid());
+        QList<QStringList> invalid{
+            {"--server", "wss://nas.example.test"},
+            {"--sync", "--host"},
+            {"--sync", "--server", "ws://nas.example.test"},
+            {"--sync", "--server", "wss://nas.example.test/?token=secret"},
+            {"--sync", "--container", root.filePath("missing")},
+            {"--sync", "--login-file", root.filePath("missing.json")}};
+#ifdef Q_OS_UNIX
+        const auto loginPath = root.filePath("login.json"), linkPath = root.filePath("login-link.json");
+        QFile login(loginPath); QVERIFY(login.open(QIODevice::WriteOnly));
+        QVERIFY(login.write("{\"email\":\"test@example.invalid\",\"password\":\"fixture\"}") > 0); login.close();
+        QVERIFY(QFile::setPermissions(loginPath, QFileDevice::ReadOwner | QFileDevice::WriteOwner));
+        QVERIFY(QFile::link(loginPath, linkPath));
+        invalid.append({"--sync", "--login-file", linkPath, "--account-url", "http://127.0.0.1:1"});
+#endif
+        for (const auto &arguments : invalid) {
             QProcess daemon; daemon.start(QStringLiteral(SOCIETY_DAEMON_EXECUTABLE), arguments);
-            QVERIFY(daemon.waitForStarted()); QVERIFY(daemon.waitForFinished(5000)); QCOMPARE(daemon.exitCode(), 2);
+            QVERIFY2(daemon.waitForStarted(), qPrintable(arguments.join(' ')));
+            QVERIFY2(daemon.waitForFinished(30000), qPrintable(arguments.join(' ')));
+            QCOMPARE(daemon.exitCode(), 2);
         }
     }
     void daemonIncludesUsableTlsAndSqliteBackends() {

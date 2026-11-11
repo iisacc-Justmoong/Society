@@ -1,8 +1,10 @@
 # Files 관리
 
-파일 목록과 이전 목록 캐시의 `.iisacc.json` 등 공급자 내부 파일은 사용자 항목으로
-노출하지 않는다. 파일 작업은 iiSocietyContainer의 `FileOperations`를 통해 원본과
-연결된 메타데이터를 함께 처리하며, 일반 JSON 문서는 계속 표시한다.
+공급자 분류 JSON은 공개 Files 바깥의 컨테이너 전용 저장소에서 자원 주소로 연결하며,
+파일 목록이나 Finder에 별도 파일로 노출하지 않는다. 기존 인접 문서는 백그라운드에서
+검증해 이관하며 식별이 모호한 문서는 원래 주소를 기록해 별도 보존하고 알린다.
+파일 작업은 iiSocietyContainer의 `FileOperations`를 통해 원본과 연결된 메타데이터를
+함께 처리하며, 일반 JSON 문서는 계속 표시한다.
 
 Storage의 **Files 및 그 하위 폴더**는 [Figma의 본문 영역 39:1014](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=39-1014)을
 `FilesBrowser.qml`로 구현한다. Storage 사이드바는 기존 구성을 유지한다.

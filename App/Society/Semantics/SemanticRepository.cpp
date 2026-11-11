@@ -269,7 +269,9 @@ QJsonObject refreshProjectCatalog(const Storage &storage, const fs::path &path) 
         if (!QFileInfo::exists(root + QStringLiteral("/.iisacc-file-provider/catalog.sqlite3")))
             return {{"catalogStatus", "not_registered"}};
         const auto relative = QDir(root).relativeFilePath(absolute);
-        iiFileProvider::FileCatalog catalog(nativePath(root), iiFileProvider::FileCatalog::Access::ReadWrite);
+        iiFileProvider::FileCatalog catalog(nativePath(root), iiFileProvider::FileCatalog::Access::ReadWrite,
+            iiSocietyContainer::FileRepository::classificationDirectory(nativePath(drive.rootPath()),
+                iiSocietyContainer::storeSectionKey(*section).toStdString()));
         const auto existing = catalog.lookupPath(utf8(relative));
         if (existing && catalog.itemKind(existing->key) != iiFileProvider::CatalogEntryKind::Package)
             return {{"catalogStatus", "not_registered"}};

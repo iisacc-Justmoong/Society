@@ -12,6 +12,8 @@ import iiAccountManager as Accounts
 
 LV.ApplicationWindow {
     id: root
+    windowColor: LV.Theme.window
+    Binding { target: root.background; property: "color"; value: LV.Theme.window }
     objectName: "societyWindow"
     property string initialContainerPath: ""
     property var agentQuestionInbox: null

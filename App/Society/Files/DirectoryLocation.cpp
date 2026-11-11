@@ -52,7 +52,9 @@ QVariantMap describe(const QString &folder, const QString &path, bool prepare)
                 document.insert("embedded", presentation->embedded);
                 QJsonObject classification{{"status", "absent"}};
                 try {
-                    const auto stored = iiFileProvider::FileCatalog::classificationDocument(native);
+                    // A Society classification is supplied by the asynchronous
+                    // owner-verified inspection; pathname alone is insufficient.
+                    const auto stored = drive ? std::string() : iiFileProvider::FileCatalog::classificationDocument(native);
                     if (!stored.empty()) { classification = QJsonDocument::fromJson(QByteArray::fromStdString(stored)).object(); classification.insert("status", "ready"); }
                 } catch (...) { classification = {{"status", "invalid"}}; }
                 document.insert("classification", classification);

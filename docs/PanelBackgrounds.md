@@ -1,20 +1,12 @@
 # Panel backgrounds
 
-Society panels expose the default `LV.ApplicationWindow` background. They do not
-paint their own resting background or replace the window's material settings.
-The LVRS default follows
-[Figma ApplicationWindow 997:3](https://www.figma.com/design/0GkItQYSNIR0lZ3iJhfJzc?node-id=997-3):
-`#141414` neutral paint at 66% opacity with a uniform 4% app accent overlay.
-Society supplies green `#57965C` through `primaryColor`; Dreamscapes supplies
-blue `#0A84FF`. The default ApplicationWindow has no radial gradients.
-The overlay follows live accent changes and auxiliary window accents through
-LVRS. Its 4% opacity applies to the accent layer, while content remains opaque.
-On supported desktop platforms, `backgroundBlurEnabled` also remains at its
-LVRS default. On macOS, LVRS places an active, behind-window
-`NSVisualEffectView` under the transparent Qt surface. The tint opacity applies
-to the background alone; the window, text, and controls retain full opacity.
-The native blur kernel is controlled by AppKit. LVRS's material blur value is
-64 logical pixels, not a private native blur-radius setting.
+Society의 메인 창과 설정 창은 [공통 ApplicationWindow](https://www.figma.com/design/0GkItQYSNIR0lZ3iJhfJzc?node-id=997-3)의
+`Panel/window` 배경을 사용한다. 기존 LVRS 창의 배경색만 이 토큰에 연결하여
+앱 악센트가 창 바탕에 섞이지 않게 한다. 녹색 악센트는 버튼과 선택 표시에서
+계속 사용한다. LVRS 모듈 자체는 변경하지 않는다.
+공통 창 재질의 Dense 75와 Glass 25는 각각 75%·25% 채색과 64·16 논리 px
+블러를 유지한다. 현재 레거시 LVRS 앱 창은 불투명 경로이므로 이 문장은 그
+창에서 운영체제 배경 블러가 동작한다는 의미가 아니다.
 
 This applies to the global toolbar, Dashboard and Storage sidebars, calendar
 month and detail panels, Dashboard file cards, model cards, selected-file
@@ -44,25 +36,12 @@ Society Figma의 기존 패널 경계는 로컬 의미 변수 `Panel/Border`를 
 이 변수는 같은 `#0C0C0C` 값을 가진 `Color/Neutral/12`에 연결된다.
 앱과 Figma 변수는 별도 정의이므로 변경 시 두 값을 함께 갱신해야 한다.
 
-The editable [Society Figma file](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society)
-preserves transparent nested panels across Dashboard, Tools, Storage, and Environment,
-including their existing prototypes and local default card components. Nested
-panel fills are empty. Desktop window previews still contain the earlier eight-gradient snapshot.
-The current framework background follows the newer LVRS Figma 997:3
-66% neutral / 4% accent contract; this code change does not edit those product
-Figma previews.
-The opacity belongs to the paint, not the entire
-frame, so text and controls remain legible. The mobile preview retains its opaque platform base.
-Existing library instances, text, layout, icons, and prototype links are retained.
+Society Figma의 공통 ApplicationWindow 인스턴스에서도 기존 2% 악센트 레이어를
+숨겼다. 중첩 패널과 텍스트·배치·아이콘 및 프로토타입 연결은 유지한다.
 
-`SocietyDriveTests windowUsesFrameworkChromeAndContent` loads Society's actual
-main window and checks its default tint, blur support and enabled state, and
-full foreground opacity. A native Cocoa run additionally checks active blur,
-a transparent Qt window color, and the actual nonopaque AppKit window with
-one active behind-window backdrop. It also checks that the rendered resting
-background remains translucent, and compares edge and center pixels to require a uniform green 4% overlay.
-The neutral base is 66%; overlay compositing produces about 67.36% alpha
-before an opaque platform fallback. Set
+`SocietyDriveTests windowUsesFrameworkChromeAndContent`는 실제 메인 창의 프레임과
+콘텐츠 계약을 검사한다. 과거 66% 바탕·4% 악센트 및 Cocoa 블러 검사 기록은 현재
+불투명 LVRS 창의 동작 증거가 아니다. Set
 `SOCIETY_TEST_APPLICATION_RENDERING=1` for the application's normal graphics
 bootstrap and render-quality defaults when running this test with Cocoa/Metal.
 The native toolbar resize test waits for a presented frame before sending a

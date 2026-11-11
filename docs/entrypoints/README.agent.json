@@ -10,8 +10,8 @@
   },
   "source": {
     "path": "README.md",
-    "sha256": "bd4d87468ac7878acc3c0f3042d38d0c9b3f95c6dda1cbbccb017ca57daf023d",
-    "bytes": 45664,
+    "sha256": "36c96951cb44f6ba48d327626661d19b667507dec6e89c6185d1506bcd30e084",
+    "bytes": 45766,
     "line_count": 348,
     "encoding": "utf-8",
     "language": "ko"
@@ -285,7 +285,7 @@
       "kind": "paragraph",
       "start_line": 52,
       "end_line": 52,
-      "raw": "On desktop, the [Figma dashboard](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=18-14)is placed as `SocietyView` in the `content` slot of `LV.ApplicationWindow`, using the default LVRS window frame and controls. The desktop header follows the nine-icon Figma navigation and ends with the account Avatar. Open **Tools** from the View menu or with Command+2 on macOS / Ctrl+2 on other desktop platforms. **Tools** provides the [model addition/subtraction merge tool](docs/ModelMerge.md)based on iiLocalDiffusion; base and additional checkpoints/LoRA are selected from the dropdown and context menu in the container's `Models/`. It provides weights, output, cache, the Python environment, and configuration validation. **Storage**opens the existing Society drive. **Browse**browses files on connected devices. **Environment**displays [Overview, Devices, Apps, and four app collections](docs/Environment.md). The device-pairing modal opens through Environment → Devices → Add device. Merge settings, the current folder, and prompts persist when switching tabs. Actual recent files and generation history, screen composition, and the scope of behavior are documented in the [Dashboard documentation](docs/Dashboard.md). The Storage sidebar has four groups: My storage, Other devices, Guild, and Organization. Actual device lists, per-account browsing objects, empty states, and scrolling behavior are documented in the [Storage navigation documentation](docs/StorageNavigation.md). Storage → Photos [connects bidirectionally to the device photo library](docs/Photos.md)and provides photo and video aliases, directly saved previews, and authenticated original transfers.\n"
+      "raw": "On desktop, the [Figma dashboard](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=18-14) is placed as `SocietyView` in the `content` slot of `LV.ApplicationWindow`. The header uses the [seven-item LVUI navigation](docs/NativeNavigation.md) and ends with the account Avatar. Tasks opens the existing Tools view, and Library opens Storage. Space and People report that their services are not connected. Open **Tools** also from the View menu or with Command+2 on macOS / Ctrl+2 on other desktop platforms. **Tools** provides the [model addition/subtraction merge tool](docs/ModelMerge.md) based on iiLocalDiffusion; base and additional checkpoints/LoRA are selected from the dropdown and context menu in the container's `Models/`. It provides weights, output, cache, the Python environment, and configuration validation. **Browse** browses files on connected devices. **Environment** displays [Overview, Devices, Apps, and four app collections](docs/Environment.md), and Hosting opens its hosting information. The device-pairing modal opens through Environment → Devices → Add device. Merge settings, the current folder, and prompts persist when switching tabs. Actual recent files and generation history, screen composition, and the scope of behavior are documented in the [Dashboard documentation](docs/Dashboard.md). The Storage sidebar has four groups: My storage, Other devices, Guild, and Organization. Actual device lists, per-account browsing objects, empty states, and scrolling behavior are documented in the [Storage navigation documentation](docs/StorageNavigation.md). Storage → Photos [connects bidirectionally to the device photo library](docs/Photos.md) and provides photo and video aliases, directly saved previews, and authenticated original transfers.\n"
     },
     {
       "id": "b000038",
@@ -2462,6 +2462,13 @@
         "label": "Figma dashboard",
         "target": "https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=18-14",
         "kind": "external",
+        "line": 52
+      },
+      {
+        "block_id": "b000037",
+        "label": "seven-item LVUI navigation",
+        "target": "docs/NativeNavigation.md",
+        "kind": "relative",
         "line": 52
       },
       {

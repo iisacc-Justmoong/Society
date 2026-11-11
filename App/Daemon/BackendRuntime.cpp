@@ -126,7 +126,7 @@ void BackendRuntime::updateNetwork(bool owned)
         const auto forbidden = iiFileProvider::FileDevice::ReadGroup | iiFileProvider::FileDevice::WriteGroup
             | iiFileProvider::FileDevice::ExeGroup | iiFileProvider::FileDevice::ReadOther
             | iiFileProvider::FileDevice::WriteOther | iiFileProvider::FileDevice::ExeOther;
-        if (QFileInfo(file).isSymLink() || !file.open(QIODevice::ReadOnly) || file.size() > 16384 || (file.permissions() & forbidden)) {
+        if (QFileInfo(m_options.loginFile).isSymLink() || !file.open(QIODevice::ReadOnly) || file.size() > 16384 || (file.permissions() & forbidden)) {
             qWarning() << "Society headless account login file is unavailable.";
             return;
         }

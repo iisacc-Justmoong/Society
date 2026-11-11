@@ -10,8 +10,8 @@
   },
   "source": {
     "path": "docs/Models.md",
-    "sha256": "579b405b0be2dcd37f9b4b2de1aaabf349b7dbbca54560c9898ccac083ba55b3",
-    "bytes": 25307,
+    "sha256": "cb6c15730b9a71bcd5ae01ff09839cc0727fadf9eec9c78fa358f451538d74d4",
+    "bytes": 25358,
     "line_count": 165,
     "encoding": "utf-8",
     "language": "ko"
@@ -101,7 +101,7 @@
       "kind": "paragraph",
       "start_line": 24,
       "end_line": 33,
-      "raw": "`.iisacc.json`은 모델 항목이나 이름 변경 대상이 아니라 iiSocietyContainer가 원본에\n연결해 관리하는 내부 분류 문서다. 실제 목록, 동기화 목록과 이전 목록 캐시에서\n표시하지 않는다. 일반 JSON 문서는 Files에서, JSON 워크플로는 해당 모델 유형에서\n계속 표시한다. 접근 가능한 모델 메타데이터는 가져오기·이동·이름 변경·휴지통·\n복원 시 원본과 함께 처리하며, 기존 목적지의 메타데이터를 덮어쓰지 않는다.\n플랫폼 공급자가 선택한 파일 외의 형제 파일을 제공하지 않으면 그 파일은 가져올 수 없다.\n`Society.ModelCardObject`는 실제 모델 목록에서 메타데이터가 별도 항목으로\n나타나지 않는지와 원본 이름 변경 시 메타데이터가 함께 이동하는지를 검사한다.\n`Society.ModelMetadataImport`와 `Society.ModelImport`는 로컬 선택 모델의 분류\n정보가 SDK 가져오기 이후에도 남고 원본이 보존되는지 검사한다.\n"
+      "raw": "`.iisacc.json`은 모델 항목이나 이름 변경 대상이 아니라 iiSocietyContainer가 공개\n섹션 밖의 전용 저장소에서 원본 주소에 연결해 관리하는 내부 분류 문서다. 실제 목록, 동기화 목록과 이전 목록 캐시에서\n표시하지 않는다. 일반 JSON 문서는 Files에서, JSON 워크플로는 해당 모델 유형에서\n계속 표시한다. 접근 가능한 모델 메타데이터는 가져오기·이동·이름 변경·휴지통·\n복원 시 원본과 함께 처리하며, 기존 목적지의 메타데이터를 덮어쓰지 않는다.\n플랫폼 공급자가 선택한 파일 외의 형제 파일을 제공하지 않으면 그 파일은 가져올 수 없다.\n`Society.ModelCardObject`는 실제 모델 목록에서 메타데이터가 별도 항목으로\n나타나지 않는지와 원본 이름 변경 시 메타데이터가 함께 이동하는지를 검사한다.\n`Society.ModelMetadataImport`와 `Society.ModelImport`는 로컬 선택 모델의 분류\n정보가 SDK 가져오기 이후에도 남고 원본이 보존되는지 검사한다.\n"
     },
     {
       "id": "b000012",

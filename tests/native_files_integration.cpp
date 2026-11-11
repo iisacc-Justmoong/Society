@@ -91,8 +91,10 @@ static void run(){
     QString imported;
     until(loop,[&]{QDirIterator it(root+"/Models",{"model.safetensors"},QDir::Files,QDirIterator::Subdirectories);
         if (it.hasNext()) imported=it.next();
-        return !imported.isEmpty() && QFileInfo::exists(imported+".iisacc.json")
+        return !imported.isEmpty() && QFileInfo::exists(root+"/.society-runtime/classifications/models/"
+            +QDir(root+"/Models").relativeFilePath(imported)+".iisacc.json")
             && model.activity.get().find("Imported")!=std::string::npos;});
+    check(!QFileInfo::exists(imported+".iisacc.json"),"model metadata remains outside the visible tree");
     check(QFileInfo::exists(modelSource),"model import preserves source");
     connection.close();qunsetenv("SOCIETY_JOB_STATE_ROOT");
 }

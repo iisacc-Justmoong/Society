@@ -1,0 +1,178 @@
+{
+  "format": "iisacc.agent-document",
+  "schema_version": 1,
+  "document_id": "urn:iisacc:document:7269dbe9d8e68329426c3e442d88d6504f75abbfd84be26ecb7f5032561ebcf5",
+  "project": {
+    "id": "urn:iisacc:project:Product%2FSociety",
+    "name": "Society",
+    "root": "Product/Society",
+    "kind": "application"
+  },
+  "source": {
+    "path": "docs/NativeNavigation.md",
+    "sha256": "8faec95df51283c73a6c8907db483569173fe909bb6343dfa5d5f6f36f4e4adc",
+    "bytes": 3933,
+    "line_count": 15,
+    "encoding": "utf-8",
+    "language": "en"
+  },
+  "document": {
+    "title": "Society navigation segment",
+    "role": "guide",
+    "authority": "markdown_source"
+  },
+  "blocks": [
+    {
+      "id": "b000001",
+      "kind": "heading",
+      "start_line": 1,
+      "end_line": 1,
+      "raw": "# Society navigation segment\n",
+      "level": 1,
+      "title": "Society navigation segment"
+    },
+    {
+      "id": "b000002",
+      "kind": "blank",
+      "start_line": 2,
+      "end_line": 2,
+      "raw": "\n"
+    },
+    {
+      "id": "b000003",
+      "kind": "paragraph",
+      "start_line": 3,
+      "end_line": 3,
+      "raw": "The desktop navigation follows [Society's seven-item Figma segment](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=739-15698): Environment, Tasks, Library, Space, Browse, People and Hosting, in that order. LVUI owns the segmented control, icon buttons, geometry and selection colors; Society supplies only destinations and the active selection. The Society accent is green.\n"
+    },
+    {
+      "id": "b000004",
+      "kind": "blank",
+      "start_line": 4,
+      "end_line": 4,
+      "raw": "\n"
+    },
+    {
+      "id": "b000005",
+      "kind": "paragraph",
+      "start_line": 5,
+      "end_line": 5,
+      "raw": "Tasks opens the existing Tools view, Library opens Storage, and Browse opens the existing Browse view. Environment exposes the environment view and its route to the workspace. Hosting opens the existing environment hosting information. Space and People must not pretend an unimplemented service exists: their activation reports that the feature is not connected and preserves the current selection. The selection follows navigation initiated elsewhere in the application as well as a segment click.\n"
+    },
+    {
+      "id": "b000006",
+      "kind": "blank",
+      "start_line": 6,
+      "end_line": 6,
+      "raw": "\n"
+    },
+    {
+      "id": "b000007",
+      "kind": "paragraph",
+      "start_line": 7,
+      "end_line": 7,
+      "raw": "`NativeNavigation.lvui` generates iiGUI widgets and `NativeNavigationViewModel` owns their destination requests and selected state. Six vector icons are the Figma exports of the corresponding LVUI icons; the Environment icon comes from the LVUI catalog. Hosting uses the purple 12 × 12 vector from the actual Figma instance, centered within its 16 × 16 server icon and 22 × 22 button. The remaining buttons use LVUI's 18 × 18 icon default. The group has no border or outside padding, and its buttons are separated by 2 px.\n"
+    },
+    {
+      "id": "b000008",
+      "kind": "blank",
+      "start_line": 8,
+      "end_line": 8,
+      "raw": "\n"
+    },
+    {
+      "id": "b000009",
+      "kind": "paragraph",
+      "start_line": 9,
+      "end_line": 9,
+      "raw": "The existing application shell hosts the generated view through `NativeNavigationSurface` and iiGUI's `PaintView`; `QtPaintDevice` translates the resulting drawing commands to the existing window's surface. It does not introduce application-specific button or color tokens. Input is sent to iiGUI, and the host exposes the same seven named and selectable buttons to the platform accessibility interface. A queued destination request prevents a page change from reentering an active iiGUI input dispatch.\n"
+    },
+    {
+      "id": "b000010",
+      "kind": "blank",
+      "start_line": 10,
+      "end_line": 10,
+      "raw": "\n"
+    },
+    {
+      "id": "b000011",
+      "kind": "paragraph",
+      "start_line": 11,
+      "end_line": 11,
+      "raw": "`LegacyNavigationBridge` connects this surface to the current shell without modifying the legacy QML view. It uses the existing toolbar viewport for placement and translates destination requests to the shell's existing navigation signals. The old segment group remains only as a hidden, disabled layout dependency of that shell; it cannot receive input or be presented by accessibility. The bridge is installed once per window and falls back to the old group if the LVUI surface cannot initialize. It follows external page changes, and resolves Hosting to the existing Environment overview after its asynchronous loader finishes. This bridge is temporary and should be removed when the surrounding shell has its own LVUI view.\n"
+    },
+    {
+      "id": "b000012",
+      "kind": "blank",
+      "start_line": 12,
+      "end_line": 12,
+      "raw": "\n"
+    },
+    {
+      "id": "b000013",
+      "kind": "paragraph",
+      "start_line": 13,
+      "end_line": 13,
+      "raw": "Building the application requires an LVUI native package and an iiGUI package that includes `iiGUI/PaintView.h`. CMake defaults to the packages under `~/.local/SDK` and reports an explicit error if the selected iiGUI is too old. An alternate compatible package can be selected with `SOCIETY_NAV_IIGUI_PREFIX` and its `iiGUI_DIR`; `SOCIETY_NAV_LVUI_DIR` supplies the LVUI package hint. These navigation settings are separate from the existing native model chooser and file helper dependency settings. When changing a cached LVUI package, update `LVUI_DIR` as well.\n"
+    },
+    {
+      "id": "b000014",
+      "kind": "blank",
+      "start_line": 14,
+      "end_line": 14,
+      "raw": "\n"
+    },
+    {
+      "id": "b000015",
+      "kind": "paragraph",
+      "start_line": 15,
+      "end_line": 15,
+      "raw": "The desktop segment is replaced as one unit. The existing mobile bottom navigation remains a separate layout. The rest of the Society shell still uses QML and LVRS; this change does not represent a complete application migration to LVUI. `Society.NativeNavigationViewModel`, `Society.NativeNavigationView`, and `Society.NativeNavigationSurface` cover destination mapping, generated controls and geometry, pointer delivery, rendering, keyboard focus and accessibility on isolated test surfaces. `Society.ToolbarSegmentAppearance` and `Society.TasksNavigation` cover the app shell's selection and routing. An installed application or a real OS window requires separate verification.\n"
+    }
+  ],
+  "outline": [
+    {
+      "block_id": "b000001",
+      "parent_id": null,
+      "level": 1,
+      "title": "Society navigation segment",
+      "anchor": "society-navigation-segment",
+      "start_line": 1
+    }
+  ],
+  "indexes": {
+    "directive_candidates": [
+      {
+        "block_id": "b000005",
+        "line": 5,
+        "text": "Tasks opens the existing Tools view, Library opens Storage, and Browse opens the existing Browse view. Environment exposes the environment view and its route to the workspace. Hosting opens the existing environment hosting information. Space and People must not pretend an unimplemented service exists: their activation reports that the feature is not connected and preserves the current selection. The selection follows navigation initiated elsewhere in the application as well as a segment click.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000011",
+        "line": 11,
+        "text": "`LegacyNavigationBridge` connects this surface to the current shell without modifying the legacy QML view. It uses the existing toolbar viewport for placement and translates destination requests to the shell's existing navigation signals. The old segment group remains only as a hidden, disabled layout dependency of that shell; it cannot receive input or be presented by accessibility. The bridge is installed once per window and falls back to the old group if the LVUI surface cannot initialize. It follows external page changes, and resolves Hosting to the existing Environment overview after its asynchronous loader finishes. This bridge is temporary and should be removed when the surrounding shell has its own LVUI view.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      }
+    ],
+    "commands": [],
+    "links": [
+      {
+        "block_id": "b000003",
+        "label": "Society's seven-item Figma segment",
+        "target": "https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=739-15698",
+        "kind": "external",
+        "line": 3
+      }
+    ],
+    "tables": []
+  },
+  "provenance": {
+    "generator": "workspace-docs",
+    "version": "1.0.0",
+    "profile": "lossless-blocks-v1",
+    "derived": true
+  }
+}

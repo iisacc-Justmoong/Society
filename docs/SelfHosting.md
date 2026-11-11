@@ -58,6 +58,9 @@ SocietyDaemon --sync --container /srv/society/Society.societycontainer \
 
 `login.json`은 `email`, `password` 문자열을 가진 JSON이며 실행 계정만 읽고 쓸 수 있는 모드 `0600`으로 둔다. 프로그램은 심볼릭 링크·그룹/다른 사용자 권한·16 KiB 초과 파일을 거부한다. 비밀번호를 명령행 인자나 로그에 넣지 않는다. 이 명시적 headless 경로는 파일을 읽어 매 실행마다 로그인하고 인증 정보를 메모리에만 유지한다. OS 보안 저장소에 로그인된 데스크톱에서는 `--login-file`을 생략하여 기존 세션을 복원한다. 메일 코드가 요구되는 계정은 상태 파일의 `codeRequired`로 구분하며 로그인된 앱의 세션을 먼저 준비해야 한다.
 
+데몬 시작 시와 계정 세션 준비 시 모두 지정된 파일 경로 자체의 심볼릭 링크 여부를
+검사한다. `Society.DaemonHeadless`의 잘못된 설정 테스트는 Unix에서 링크된 로그인 파일을 거부한다.
+
 데스크톱·NAS 데몬은 `--host` 유무와 관계없이 호스트 역할이다. 기존 배포 스크립트의 `--host`는 호환성을 위해 계속 허용한다. `--container`는 기존 `.societycontainer`를 요구하며 앱이 마지막으로 선택한 컨테이너를 쓸 때는 생략한다. 계정에 등록된 기본 호스트 기기와 컨테이너 UUID가 이 데몬의 기기·패키지와 일치해야 하며, 파일 기반 로그인 자체가 호스트 등록을 대신하지 않는다. `--directory`와 `--status-file`은 선택한 컨테이너의 `.society-runtime` 안에 둔다. 프로세스 감시는 운영체제의 기존 서비스 관리자를 사용한다. 예제의 전용 실행 계정, 설치 경로와 컨테이너 권한을 실제 배치에 맞춘다. 예제 systemd 단위 파일은 [deploy/self-hosted](../deploy/self-hosted/)에 있다.
 
 호스트에서 `SOCIETY_HOST_CERTIFICATE`와 `SOCIETY_HOST_KEY`를 함께 지정하면 서버 경로에서도 직접 로컬 TLS 리스너를 제공한다. 클라이언트는 인증된 서버 목록의 인증서 지문과 대조하며 연결 실패 시 원격 중계를 사용한다. 이 설정이 없으면 원격 중계만 사용한다. [Qt WebSocket 문서](https://doc.qt.io/qt-6.8/qwebsocket.html)를 따른다.

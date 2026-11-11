@@ -1,0 +1,10 @@
+<RCC>
+  <qresource prefix="/society/navigation">
+    <file alias="toolwindowrun.svg">NavigationIcons/toolwindowrun.svg</file>
+    <file alias="asset-library.svg">NavigationIcons/asset-library.svg</file>
+    <file alias="toolwindownewUI.svg">NavigationIcons/toolwindownewUI.svg</file>
+    <file alias="webApp.svg">NavigationIcons/webApp.svg</file>
+    <file alias="cwmUsers.svg">NavigationIcons/cwmUsers.svg</file>
+    <file alias="webServer.svg">NavigationIcons/webServer.svg</file>
+  </qresource>
+</RCC>

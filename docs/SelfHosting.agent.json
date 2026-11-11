@@ -10,9 +10,9 @@
   },
   "source": {
     "path": "docs/SelfHosting.md",
-    "sha256": "c3d95ba831717b339fdc4129b18cef5dcfb286fcd0a563293119bfb682749a8f",
-    "bytes": 10240,
-    "line_count": 81,
+    "sha256": "13a07ae2da5b9d753c15ee839e250e405c02580c1e680205ad96addd09f326e4",
+    "bytes": 10482,
+    "line_count": 84,
     "encoding": "utf-8",
     "language": "ko"
   },
@@ -330,151 +330,165 @@
       "id": "b000035",
       "kind": "paragraph",
       "start_line": 61,
-      "end_line": 61,
-      "raw": "데스크톱·NAS 데몬은 `--host` 유무와 관계없이 호스트 역할이다. 기존 배포 스크립트의 `--host`는 호환성을 위해 계속 허용한다. `--container`는 기존 `.societycontainer`를 요구하며 앱이 마지막으로 선택한 컨테이너를 쓸 때는 생략한다. 계정에 등록된 기본 호스트 기기와 컨테이너 UUID가 이 데몬의 기기·패키지와 일치해야 하며, 파일 기반 로그인 자체가 호스트 등록을 대신하지 않는다. `--directory`와 `--status-file`은 선택한 컨테이너의 `.society-runtime` 안에 둔다. 프로세스 감시는 운영체제의 기존 서비스 관리자를 사용한다. 예제의 전용 실행 계정, 설치 경로와 컨테이너 권한을 실제 배치에 맞춘다. 예제 systemd 단위 파일은 [deploy/self-hosted](../deploy/self-hosted/)에 있다.\n"
+      "end_line": 62,
+      "raw": "데몬 시작 시와 계정 세션 준비 시 모두 지정된 파일 경로 자체의 심볼릭 링크 여부를\n검사한다. `Society.DaemonHeadless`의 잘못된 설정 테스트는 Unix에서 링크된 로그인 파일을 거부한다.\n"
     },
     {
       "id": "b000036",
       "kind": "blank",
-      "start_line": 62,
-      "end_line": 62,
+      "start_line": 63,
+      "end_line": 63,
       "raw": "\n"
     },
     {
       "id": "b000037",
       "kind": "paragraph",
-      "start_line": 63,
-      "end_line": 63,
-      "raw": "호스트에서 `SOCIETY_HOST_CERTIFICATE`와 `SOCIETY_HOST_KEY`를 함께 지정하면 서버 경로에서도 직접 로컬 TLS 리스너를 제공한다. 클라이언트는 인증된 서버 목록의 인증서 지문과 대조하며 연결 실패 시 원격 중계를 사용한다. 이 설정이 없으면 원격 중계만 사용한다. [Qt WebSocket 문서](https://doc.qt.io/qt-6.8/qwebsocket.html)를 따른다.\n"
+      "start_line": 64,
+      "end_line": 64,
+      "raw": "데스크톱·NAS 데몬은 `--host` 유무와 관계없이 호스트 역할이다. 기존 배포 스크립트의 `--host`는 호환성을 위해 계속 허용한다. `--container`는 기존 `.societycontainer`를 요구하며 앱이 마지막으로 선택한 컨테이너를 쓸 때는 생략한다. 계정에 등록된 기본 호스트 기기와 컨테이너 UUID가 이 데몬의 기기·패키지와 일치해야 하며, 파일 기반 로그인 자체가 호스트 등록을 대신하지 않는다. `--directory`와 `--status-file`은 선택한 컨테이너의 `.society-runtime` 안에 둔다. 프로세스 감시는 운영체제의 기존 서비스 관리자를 사용한다. 예제의 전용 실행 계정, 설치 경로와 컨테이너 권한을 실제 배치에 맞춘다. 예제 systemd 단위 파일은 [deploy/self-hosted](../deploy/self-hosted/)에 있다.\n"
     },
     {
       "id": "b000038",
       "kind": "blank",
-      "start_line": 64,
-      "end_line": 64,
+      "start_line": 65,
+      "end_line": 65,
       "raw": "\n"
     },
     {
       "id": "b000039",
+      "kind": "paragraph",
+      "start_line": 66,
+      "end_line": 66,
+      "raw": "호스트에서 `SOCIETY_HOST_CERTIFICATE`와 `SOCIETY_HOST_KEY`를 함께 지정하면 서버 경로에서도 직접 로컬 TLS 리스너를 제공한다. 클라이언트는 인증된 서버 목록의 인증서 지문과 대조하며 연결 실패 시 원격 중계를 사용한다. 이 설정이 없으면 원격 중계만 사용한다. [Qt WebSocket 문서](https://doc.qt.io/qt-6.8/qwebsocket.html)를 따른다.\n"
+    },
+    {
+      "id": "b000040",
+      "kind": "blank",
+      "start_line": 67,
+      "end_line": 67,
+      "raw": "\n"
+    },
+    {
+      "id": "b000041",
       "kind": "heading",
-      "start_line": 65,
-      "end_line": 65,
+      "start_line": 68,
+      "end_line": 68,
       "raw": "## 인증과 동기화 경계\n",
       "level": 2,
       "title": "인증과 동기화 경계"
     },
     {
-      "id": "b000040",
-      "kind": "blank",
-      "start_line": 66,
-      "end_line": 66,
-      "raw": "\n"
-    },
-    {
-      "id": "b000041",
-      "kind": "paragraph",
-      "start_line": 67,
-      "end_line": 67,
-      "raw": "계정 이름을 입력하는 것만으로 권한을 얻지 않는다. 설정한 서버가 신뢰하는 계정 authority에 현재 세션을 검증하여 얻은 subject로 호스트 목록과 요청을 격리한다. 세션 쿠키는 설정한 신뢰 서버로 전달되므로 사용자가 운영하거나 신뢰하는 서버를 지정해야 한다. 서버 운영자는 전달되는 파일을 볼 수 있다. 이는 TLS 연결이며 종단 간 암호화 저장소는 아니다.\n"
-    },
-    {
       "id": "b000042",
       "kind": "blank",
-      "start_line": 68,
-      "end_line": 68,
+      "start_line": 69,
+      "end_line": 69,
       "raw": "\n"
     },
     {
       "id": "b000043",
       "kind": "paragraph",
-      "start_line": 69,
-      "end_line": 69,
-      "raw": "외부 연결에는 `wss://`만 허용하고 숫자형 loopback의 `ws://`만 개발·내부 proxy용으로 허용한다. URL 내 사용자 정보·쿼리·fragment·0번 포트는 거부하며 인증서 오류를 무시하지 않는다. 서버에서 인증된 account subject와 현재 계정이 다르면 동기화와 컨테이너 요청을 거부한다. 서버용 scope는 계정 origin·subject에서 LAN 권한 발급기와 동일하게 계산하므로 LAN 증명의 만료나 로컬 네트워크 권한 거부가 원격 동기화를 막지 않는다.\n"
+      "start_line": 70,
+      "end_line": 70,
+      "raw": "계정 이름을 입력하는 것만으로 권한을 얻지 않는다. 설정한 서버가 신뢰하는 계정 authority에 현재 세션을 검증하여 얻은 subject로 호스트 목록과 요청을 격리한다. 세션 쿠키는 설정한 신뢰 서버로 전달되므로 사용자가 운영하거나 신뢰하는 서버를 지정해야 한다. 서버 운영자는 전달되는 파일을 볼 수 있다. 이는 TLS 연결이며 종단 간 암호화 저장소는 아니다.\n"
     },
     {
       "id": "b000044",
       "kind": "blank",
-      "start_line": 70,
-      "end_line": 70,
+      "start_line": 71,
+      "end_line": 71,
       "raw": "\n"
     },
     {
       "id": "b000045",
       "kind": "paragraph",
-      "start_line": 71,
-      "end_line": 71,
-      "raw": "컨테이너 UUID, 최초 미러 전 원본 보존, 해시·매니페스트 우선 교환, 부분 전송 재개, 양방향 변경·삭제는 기존 iiSocietyHelper Sync 계약을 유지한다. 서버 호스트도 기본 호스트 ID를 기록하므로 LAN 방식으로 전환할 때 기존 호스트 선택을 유지한다. 이미 미러링한 클라이언트는 저장된 기본 호스트만 따른다. 최초 연결에 여러 독립 호스트가 있으면 임의로 미러하지 않고 하나의 기본 호스트가 남을 때까지 기다린다. 모바일은 모든 연결 방식에서 클라이언트이며 OS가 허용한 백그라운드 시간만 사용한다.\n"
+      "start_line": 72,
+      "end_line": 72,
+      "raw": "외부 연결에는 `wss://`만 허용하고 숫자형 loopback의 `ws://`만 개발·내부 proxy용으로 허용한다. URL 내 사용자 정보·쿼리·fragment·0번 포트는 거부하며 인증서 오류를 무시하지 않는다. 서버에서 인증된 account subject와 현재 계정이 다르면 동기화와 컨테이너 요청을 거부한다. 서버용 scope는 계정 origin·subject에서 LAN 권한 발급기와 동일하게 계산하므로 LAN 증명의 만료나 로컬 네트워크 권한 거부가 원격 동기화를 막지 않는다.\n"
     },
     {
       "id": "b000046",
       "kind": "blank",
-      "start_line": 72,
-      "end_line": 72,
+      "start_line": 73,
+      "end_line": 73,
       "raw": "\n"
     },
     {
       "id": "b000047",
+      "kind": "paragraph",
+      "start_line": 74,
+      "end_line": 74,
+      "raw": "컨테이너 UUID, 최초 미러 전 원본 보존, 해시·매니페스트 우선 교환, 부분 전송 재개, 양방향 변경·삭제는 기존 iiSocietyHelper Sync 계약을 유지한다. 서버 호스트도 기본 호스트 ID를 기록하므로 LAN 방식으로 전환할 때 기존 호스트 선택을 유지한다. 이미 미러링한 클라이언트는 저장된 기본 호스트만 따른다. 최초 연결에 여러 독립 호스트가 있으면 임의로 미러하지 않고 하나의 기본 호스트가 남을 때까지 기다린다. 모바일은 모든 연결 방식에서 클라이언트이며 OS가 허용한 백그라운드 시간만 사용한다.\n"
+    },
+    {
+      "id": "b000048",
+      "kind": "blank",
+      "start_line": 75,
+      "end_line": 75,
+      "raw": "\n"
+    },
+    {
+      "id": "b000049",
       "kind": "heading",
-      "start_line": 73,
-      "end_line": 73,
+      "start_line": 76,
+      "end_line": 76,
       "raw": "## 검증\n",
       "level": 2,
       "title": "검증"
     },
     {
-      "id": "b000048",
-      "kind": "blank",
-      "start_line": 74,
-      "end_line": 74,
-      "raw": "\n"
-    },
-    {
-      "id": "b000049",
-      "kind": "paragraph",
-      "start_line": 75,
-      "end_line": 75,
-      "raw": "`Society.Account`는 합성 계정 HTTP authority와 실제 WebSocket 중계로 LAN 탐색·LAN 증명 없이 700,000바이트 모델 복제, UUID 일치, 클라이언트 업로드, 호스트 수정, 삭제, 중계 재시작 후 재연결, 로그아웃 정리를 검사한다. 저장된 서버 설정 복원과 안전하지 않은 URL 거부도 확인한다. `Society.ClientOnlyNetwork`는 모바일 서버 입력과 호스트 제어 차단을, `Society.Daemon`은 headless 인자 검증을 포함한다. `Society.Account`는 별도 SocietyDaemon 프로세스의 파일 기반 로그인, `--host` 없는 자동 호스팅, 모델 복제와 상태 파일도 검사한다. 데몬 재시작 후 GUI 수신 검사는 개발 라이브러리 경로를 제거한 패키지 환경에서 수행하며, 외장 스토리지의 초기 Qt/QML 로딩을 포함하여 최대 30초 동안 실제 메시지 수신을 기다린다.\n"
-    },
-    {
       "id": "b000050",
       "kind": "blank",
-      "start_line": 76,
-      "end_line": 76,
+      "start_line": 77,
+      "end_line": 77,
       "raw": "\n"
     },
     {
       "id": "b000051",
       "kind": "paragraph",
-      "start_line": 77,
-      "end_line": 77,
-      "raw": "실제 NAS OS/CPU 패키지, 공인 도메인의 TLS, 서로 다른 인터넷 회선의 물리 기기 전송은 별도 배포 검증이다. 로컬 중계 테스트 성공을 해당 배포 완료로 간주하지 않는다.\n"
+      "start_line": 78,
+      "end_line": 78,
+      "raw": "`Society.Account`는 합성 계정 HTTP authority와 실제 WebSocket 중계로 LAN 탐색·LAN 증명 없이 700,000바이트 모델 복제, UUID 일치, 클라이언트 업로드, 호스트 수정, 삭제, 중계 재시작 후 재연결, 로그아웃 정리를 검사한다. 저장된 서버 설정 복원과 안전하지 않은 URL 거부도 확인한다. `Society.ClientOnlyNetwork`는 모바일 서버 입력과 호스트 제어 차단을, `Society.Daemon`은 headless 인자 검증을 포함한다. `Society.Account`는 별도 SocietyDaemon 프로세스의 파일 기반 로그인, `--host` 없는 자동 호스팅, 모델 복제와 상태 파일도 검사한다. 데몬 재시작 후 GUI 수신 검사는 개발 라이브러리 경로를 제거한 패키지 환경에서 수행하며, 외장 스토리지의 초기 Qt/QML 로딩을 포함하여 최대 30초 동안 실제 메시지 수신을 기다린다.\n"
     },
     {
       "id": "b000052",
       "kind": "blank",
-      "start_line": 78,
-      "end_line": 78,
+      "start_line": 79,
+      "end_line": 79,
       "raw": "\n"
     },
     {
       "id": "b000053",
       "kind": "paragraph",
-      "start_line": 79,
-      "end_line": 79,
-      "raw": "헤드리스 통합 검사는 합성 계정 authority에 실제 데몬 기기의 호스트 ID와 테스트 패키지 UUID를 먼저 등록한다. 프로세스 시작 뒤 상태 파일의 `hosting`·`connected`가 준비될 때까지 최대 25초 동안 기다린 다음 별도 기기 ID의 메모리 세션 클라이언트를 연결한다. 호스트 등록 없는 세션은 제품의 인증 계약에 따라 연결을 거부하며 테스트에서 이를 우회하지 않는다.\n"
+      "start_line": 80,
+      "end_line": 80,
+      "raw": "실제 NAS OS/CPU 패키지, 공인 도메인의 TLS, 서로 다른 인터넷 회선의 물리 기기 전송은 별도 배포 검증이다. 로컬 중계 테스트 성공을 해당 배포 완료로 간주하지 않는다.\n"
     },
     {
       "id": "b000054",
       "kind": "blank",
-      "start_line": 80,
-      "end_line": 80,
+      "start_line": 81,
+      "end_line": 81,
       "raw": "\n"
     },
     {
       "id": "b000055",
       "kind": "paragraph",
-      "start_line": 81,
-      "end_line": 81,
+      "start_line": 82,
+      "end_line": 82,
+      "raw": "헤드리스 통합 검사는 합성 계정 authority에 실제 데몬 기기의 호스트 ID와 테스트 패키지 UUID를 먼저 등록한다. 프로세스 시작 뒤 상태 파일의 `hosting`·`connected`가 준비될 때까지 최대 25초 동안 기다린 다음 별도 기기 ID의 메모리 세션 클라이언트를 연결한다. 호스트 등록 없는 세션은 제품의 인증 계약에 따라 연결을 거부하며 테스트에서 이를 우회하지 않는다.\n"
+    },
+    {
+      "id": "b000056",
+      "kind": "blank",
+      "start_line": 83,
+      "end_line": 83,
+      "raw": "\n"
+    },
+    {
+      "id": "b000057",
+      "kind": "paragraph",
+      "start_line": 84,
+      "end_line": 84,
       "raw": "`python3 -B tests/test_self_hosting.py`는 배포 예제의 Helper·진단 경로가 선택한 `.societycontainer/.society-runtime` 안에 있는지 검사하며, systemd가 별도의 앱 데이터 디렉터리를 만드는 설정을 거부한다. 이 정적 검사는 실제 Linux 서비스 설치·기동 검증과 구분한다.\n"
     }
   ],
@@ -512,20 +526,20 @@
       "start_line": 46
     },
     {
-      "block_id": "b000039",
+      "block_id": "b000041",
       "parent_id": "b000001",
       "level": 2,
       "title": "인증과 동기화 경계",
       "anchor": "인증과-동기화-경계",
-      "start_line": 65
+      "start_line": 68
     },
     {
-      "block_id": "b000047",
+      "block_id": "b000049",
       "parent_id": "b000001",
       "level": 2,
       "title": "검증",
       "anchor": "검증",
-      "start_line": 73
+      "start_line": 76
     }
   ],
   "indexes": {
@@ -545,36 +559,36 @@
         "context": "paragraph"
       },
       {
-        "block_id": "b000035",
-        "line": 61,
+        "block_id": "b000037",
+        "line": 64,
         "text": "데스크톱·NAS 데몬은 `--host` 유무와 관계없이 호스트 역할이다. 기존 배포 스크립트의 `--host`는 호환성을 위해 계속 허용한다. `--container`는 기존 `.societycontainer`를 요구하며 앱이 마지막으로 선택한 컨테이너를 쓸 때는 생략한다. 계정에 등록된 기본 호스트 기기와 컨테이너 UUID가 이 데몬의 기기·패키지와 일치해야 하며, 파일 기반 로그인 자체가 호스트 등록을 대신하지 않는다. `--directory`와 `--status-file`은 선택한 컨테이너의 `.society-runtime` 안에 둔다. 프로세스 감시는 운영체제의 기존 서비스 관리자를 사용한다. 예제의 전용 실행 계정, 설치 경로와 컨테이너 권한을 실제 배치에 맞춘다. 예제 systemd 단위 파일은 [deploy/self-hosted](../deploy/self-hosted/)에 있다.",
         "basis": "lexical_match",
         "context": "paragraph"
       },
       {
-        "block_id": "b000041",
-        "line": 67,
+        "block_id": "b000043",
+        "line": 70,
         "text": "계정 이름을 입력하는 것만으로 권한을 얻지 않는다. 설정한 서버가 신뢰하는 계정 authority에 현재 세션을 검증하여 얻은 subject로 호스트 목록과 요청을 격리한다. 세션 쿠키는 설정한 신뢰 서버로 전달되므로 사용자가 운영하거나 신뢰하는 서버를 지정해야 한다. 서버 운영자는 전달되는 파일을 볼 수 있다. 이는 TLS 연결이며 종단 간 암호화 저장소는 아니다.",
         "basis": "lexical_match",
         "context": "paragraph"
       },
       {
-        "block_id": "b000043",
-        "line": 69,
+        "block_id": "b000045",
+        "line": 72,
         "text": "외부 연결에는 `wss://`만 허용하고 숫자형 loopback의 `ws://`만 개발·내부 proxy용으로 허용한다. URL 내 사용자 정보·쿼리·fragment·0번 포트는 거부하며 인증서 오류를 무시하지 않는다. 서버에서 인증된 account subject와 현재 계정이 다르면 동기화와 컨테이너 요청을 거부한다. 서버용 scope는 계정 origin·subject에서 LAN 권한 발급기와 동일하게 계산하므로 LAN 증명의 만료나 로컬 네트워크 권한 거부가 원격 동기화를 막지 않는다.",
         "basis": "lexical_match",
         "context": "paragraph"
       },
       {
-        "block_id": "b000051",
-        "line": 77,
+        "block_id": "b000053",
+        "line": 80,
         "text": "실제 NAS OS/CPU 패키지, 공인 도메인의 TLS, 서로 다른 인터넷 회선의 물리 기기 전송은 별도 배포 검증이다. 로컬 중계 테스트 성공을 해당 배포 완료로 간주하지 않는다.",
         "basis": "lexical_match",
         "context": "paragraph"
       },
       {
-        "block_id": "b000053",
-        "line": 79,
+        "block_id": "b000055",
+        "line": 82,
         "text": "헤드리스 통합 검사는 합성 계정 authority에 실제 데몬 기기의 호스트 ID와 테스트 패키지 UUID를 먼저 등록한다. 프로세스 시작 뒤 상태 파일의 `hosting`·`connected`가 준비될 때까지 최대 25초 동안 기다린 다음 별도 기기 ID의 메모리 세션 클라이언트를 연결한다. 호스트 등록 없는 세션은 제품의 인증 계약에 따라 연결을 거부하며 테스트에서 이를 우회하지 않는다.",
         "basis": "lexical_match",
         "context": "paragraph"
@@ -601,18 +615,18 @@
         "line": 32
       },
       {
-        "block_id": "b000035",
+        "block_id": "b000037",
         "label": "deploy/self-hosted",
         "target": "../deploy/self-hosted/",
         "kind": "relative",
-        "line": 61
+        "line": 64
       },
       {
-        "block_id": "b000037",
+        "block_id": "b000039",
         "label": "Qt WebSocket 문서",
         "target": "https://doc.qt.io/qt-6.8/qwebsocket.html",
         "kind": "external",
-        "line": 63
+        "line": 66
       }
     ],
     "tables": [

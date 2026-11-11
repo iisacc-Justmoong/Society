@@ -84,7 +84,7 @@ int main(int argc, char **argv)
         || (accountUrl.scheme() != "https" && !(accountUrl.scheme() == "http" && QHostAddress(accountUrl.host()).isLoopback())))) return 2;
     const auto readLogin = [&]() {
         iiFileProvider::FileDevice file(parser.value("login-file"));
-        if (QFileInfo(file).isSymLink() || !file.open(QIODevice::ReadOnly) || file.size() > 16384
+        if (QFileInfo(parser.value("login-file")).isSymLink() || !file.open(QIODevice::ReadOnly) || file.size() > 16384
             || (file.permissions() & (iiFileProvider::FileDevice::ReadGroup | iiFileProvider::FileDevice::WriteGroup | iiFileProvider::FileDevice::ExeGroup | iiFileProvider::FileDevice::ReadOther | iiFileProvider::FileDevice::WriteOther | iiFileProvider::FileDevice::ExeOther))) return QJsonObject{};
         return QJsonDocument::fromJson(file.readAll()).object();
     };

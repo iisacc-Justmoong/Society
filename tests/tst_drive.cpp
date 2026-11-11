@@ -9,6 +9,8 @@
 #include <QBuffer>
 #include <QNetworkProxy>
 #include "Society/Drive/StorageNavigation.h"
+#include "Society/Native/NativeNavigationSurface.h"
+#include "Society/Native/LegacyNavigationBridge.h"
 #include "Society/Dashboard/DashboardFiles.h"
 #include "Society/Dashboard/DashboardCalendar.h"
 #include "Society/Dashboard/CalendarWorkspace.h"
@@ -89,6 +91,22 @@ static QQuickItem *visualItem(QQuickItem *parent, const QString &name)
     return nullptr;
 }
 
+static bool clickNavigationSegment(QQuickWindow *window, int index)
+{
+    auto *segments = window->findChild<NativeNavigationSurface *>("dashboardTabs");
+    if (!segments || !segments->isVisible() || index < 0 || index >= 7) return false;
+    QTest::mouseClick(window, Qt::LeftButton, Qt::NoModifier,
+        segments->mapToScene(QPointF(11 + 24 * index, 11)).toPoint());
+    return true;
+}
+
+static void loadSociety(QQmlApplicationEngine &engine)
+{
+    engine.load(QUrl::fromLocalFile(QString::fromUtf8(SOCIETY_QML_FILE)));
+    if (auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().value(0)))
+        LegacyNavigationBridge::install(window);
+}
+
 // Calendar content makes the dashboard taller; exercise controls after real scrolling.
 static void revealDashboardItem(QQuickItem *root, QQuickItem *item)
 {
@@ -135,7 +153,8 @@ private slots:
         QString error;
         QVERIFY2(storage->recordFile(iiSocietyContainer::StoreSection::Models, "Checkpoint/old.safetensors", &error), qPrintable(error));
         QVERIFY2(storage->recordFile(iiSocietyContainer::StoreSection::Models, "Other/other.safetensors", &error), qPrintable(error));
-        QVERIFY(QFileInfo::exists(other + ".iisacc.json"));
+        QVERIFY(!QFileInfo::exists(other + ".iisacc.json"));
+        QVERIFY(QFileInfo::exists(fixture.filePath(".society-runtime/classifications/models/Other/other.safetensors.iisacc.json")));
         const auto before = storage->fileTracking(iiSocietyContainer::StoreSection::Models, "Checkpoint/old.safetensors");
         QVERIFY(!before.value("objectKey").toString().isEmpty());
 
@@ -147,7 +166,7 @@ private slots:
         });
         engine.addImportPath(QString::fromUtf8(SOCIETY_LVRS_QML_IMPORT_PATH));
         engine.setInitialProperties({{"initialContainerPath", fixture.path()}, {"width", 1440}, {"height", 900}});
-        engine.load(QUrl::fromLocalFile(QString::fromUtf8(SOCIETY_QML_FILE)));
+        loadSociety(engine);
         QCOMPARE(engine.rootObjects().size(), 1);
         auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first()); QVERIFY(window);
         QVERIFY(QTest::qWaitForWindowExposed(window));
@@ -222,7 +241,8 @@ private slots:
         QTRY_VERIFY(!sheet->property("visible").toBool());
         QVERIFY(!QFileInfo::exists(source)); QVERIFY(QFileInfo::exists(renamed));
         QVERIFY(QFileInfo::exists(renamed + ".model.json"));
-        QVERIFY(QFileInfo::exists(renamed + ".iisacc.json"));
+        QVERIFY(!QFileInfo::exists(renamed + ".iisacc.json"));
+        QVERIFY(QFileInfo::exists(fixture.filePath(".society-runtime/classifications/models/Checkpoint/new.safetensors.iisacc.json")));
         QVERIFY(QFileInfo::exists(fixture.filePath("Models/Checkpoint/new.preview.png")));
         QTRY_VERIFY_WITH_TIMEOUT(catalog->groups().value("Checkpoint").toList().first().toMap().value("path").toString() == renamed, 30000);
         const auto after = storage->fileTracking(iiSocietyContainer::StoreSection::Models, "Checkpoint/new.safetensors", &error);
@@ -251,7 +271,7 @@ private slots:
         });
         engine.addImportPath(QString::fromUtf8(SOCIETY_LVRS_QML_IMPORT_PATH));
         engine.setInitialProperties({{"initialContainerPath", fixture.path()}, {"mobileLayout", true}});
-        engine.load(QUrl::fromLocalFile(QString::fromUtf8(SOCIETY_QML_FILE)));
+        loadSociety(engine);
         QCOMPARE(engine.rootObjects().size(), 1);
         auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first()); QVERIFY(window);
         QVERIFY(QTest::qWaitForWindowExposed(window));
@@ -355,7 +375,7 @@ private slots:
         engine.addImageProvider(QStringLiteral("society-preview"), new iiSocietyContainer::PreviewProvider);
         engine.addImportPath(QString::fromUtf8(SOCIETY_LVRS_QML_IMPORT_PATH));
         engine.setInitialProperties({{"initialContainerPath", fixture.path()}});
-        engine.load(QUrl::fromLocalFile(QString::fromUtf8(SOCIETY_QML_FILE)));
+        loadSociety(engine);
         QCOMPARE(engine.rootObjects().size(), 1);
         auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first()); QVERIFY(window);
         QVERIFY(window->findChild<QQuickItem *>("dashboardView"));
@@ -458,7 +478,7 @@ private slots:
         engine.addImageProvider(QStringLiteral("society-preview"), new iiSocietyContainer::PreviewProvider);
         engine.addImportPath(QString::fromUtf8(SOCIETY_LVRS_QML_IMPORT_PATH));
         engine.setInitialProperties({{"initialContainerPath", fixture.path()}});
-        engine.load(QUrl::fromLocalFile(QString::fromUtf8(SOCIETY_QML_FILE)));
+        loadSociety(engine);
         QCOMPARE(engine.rootObjects().size(), 1);
         auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first()); QVERIFY(window);
         auto *controller = window->findChild<CloudFilesController *>("cloudFilesController"); QVERIFY(controller);
@@ -752,7 +772,7 @@ private slots:
         engine.addImportPath(QString::fromUtf8(SOCIETY_LVRS_QML_IMPORT_PATH));
         engine.setInitialProperties({{"width", viewport.width()}, {"height", viewport.height()},
             {"mobileLayout", viewport.width() == 390}});
-        engine.load(QUrl::fromLocalFile(QString::fromUtf8(SOCIETY_QML_FILE)));
+        loadSociety(engine);
         QCOMPARE(engine.rootObjects().size(), 1);
         auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first()); QVERIFY(window);
         QVERIFY(QTest::qWaitForWindowExposed(window));
@@ -839,7 +859,7 @@ private slots:
         engine.addImageProvider(QStringLiteral("society-preview"), new iiSocietyContainer::PreviewProvider);
         engine.addImportPath(QString::fromUtf8(SOCIETY_LVRS_QML_IMPORT_PATH));
         engine.setInitialProperties({{"mobileLayout", true}, {"width", 390}, {"height", 844}});
-        engine.load(QUrl::fromLocalFile(QString::fromUtf8(SOCIETY_QML_FILE)));
+        loadSociety(engine);
         QCOMPARE(engine.rootObjects().size(), 1);
         auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first()); QVERIFY(window);
         QVERIFY(QTest::qWaitForWindowExposed(window));
@@ -883,7 +903,7 @@ private slots:
         QQmlApplicationEngine engine;
         engine.addImageProvider(QStringLiteral("society-preview"), new iiSocietyContainer::PreviewProvider);
         engine.addImportPath(QString::fromUtf8(SOCIETY_LVRS_QML_IMPORT_PATH));
-        engine.load(QUrl::fromLocalFile(QString::fromUtf8(SOCIETY_QML_FILE)));
+        loadSociety(engine);
         QCOMPARE(engine.rootObjects().size(), 1);
         auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first()); QVERIFY(window);
         QVERIFY(QTest::qWaitForWindowExposed(window));
@@ -913,7 +933,7 @@ private slots:
         engine.addImageProvider(QStringLiteral("society-preview"), new iiSocietyContainer::PreviewProvider);
         engine.addImportPath(QString::fromUtf8(SOCIETY_LVRS_QML_IMPORT_PATH));
         engine.setInitialProperties({{"initialContainerPath", "relative-path"}});
-        engine.load(QUrl::fromLocalFile(QString::fromUtf8(SOCIETY_QML_FILE)));
+        loadSociety(engine);
         QCOMPARE(engine.rootObjects().size(), 1);
         auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first()); QVERIFY(window);
         QVERIFY(QTest::qWaitForWindowExposed(window));
@@ -977,7 +997,7 @@ private slots:
         engine.addImportPath(QString::fromUtf8(SOCIETY_LVRS_QML_IMPORT_PATH));
         engine.setInitialProperties({{"initialContainerPath", fixture.path()},
             {"width", viewport.width()}, {"height", viewport.height()}});
-        engine.load(QUrl::fromLocalFile(QString::fromUtf8(SOCIETY_QML_FILE)));
+        loadSociety(engine);
         QCOMPARE(engine.rootObjects().size(), 1);
         auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first()); QVERIFY(window);
         QVERIFY(QTest::qWaitForWindowExposed(window));
@@ -1042,7 +1062,7 @@ private slots:
         engine.addImageProvider(QStringLiteral("society-preview"), new iiSocietyContainer::PreviewProvider);
         engine.addImportPath(QString::fromUtf8(SOCIETY_LVRS_QML_IMPORT_PATH));
         engine.setInitialProperties({{"initialContainerPath", fixture.path()}});
-        engine.load(QUrl::fromLocalFile(QString::fromUtf8(SOCIETY_QML_FILE)));
+        loadSociety(engine);
         QCOMPARE(engine.rootObjects().size(), 1);
         auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first()); QVERIFY(window);
         window->resize(1120, 720); QVERIFY(window->setProperty("selectedTab", "Storage"));
@@ -1381,7 +1401,7 @@ private slots:
         });
         engine.addImportPath(QString::fromUtf8(SOCIETY_LVRS_QML_IMPORT_PATH));
         engine.setInitialProperties({{"initialContainerPath", fixture.path()}, {"width", 1440}, {"height", 900}});
-        engine.load(QUrl::fromLocalFile(QString::fromUtf8(SOCIETY_QML_FILE)));
+        loadSociety(engine);
         QCOMPARE(engine.rootObjects().size(), 1);
         auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first()); QVERIFY(window);
         QVERIFY(QTest::qWaitForWindowExposed(window));
@@ -1600,7 +1620,7 @@ private slots:
         });
         engine.addImportPath(QString::fromUtf8(SOCIETY_LVRS_QML_IMPORT_PATH));
         engine.setInitialProperties({{"initialContainerPath", fixture.path()}, {"width", 1440}, {"height", 900}});
-        engine.load(QUrl::fromLocalFile(QString::fromUtf8(SOCIETY_QML_FILE)));
+        loadSociety(engine);
         QCOMPARE(engine.rootObjects().size(), 1);
         auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first()); QVERIFY(window);
         QVERIFY(QTest::qWaitForWindowExposed(window));
@@ -1727,7 +1747,7 @@ private slots:
         engine.addImageProvider(QStringLiteral("society-preview"), new iiSocietyContainer::PreviewProvider);
         engine.addImportPath(QString::fromUtf8(SOCIETY_LVRS_QML_IMPORT_PATH));
         engine.setInitialProperties({{"initialContainerPath", fixture.path()}});
-        engine.load(QUrl::fromLocalFile(QString::fromUtf8(SOCIETY_QML_FILE)));
+        loadSociety(engine);
         QCOMPARE(engine.rootObjects().size(), 1);
         auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first()); QVERIFY(window);
         window->resize(390, 844); QVERIFY(window->setProperty("selectedTab", "Storage"));
@@ -1948,21 +1968,23 @@ private slots:
         engine.addImportPath(QString::fromUtf8(SOCIETY_LVRS_QML_IMPORT_PATH));
         engine.setInitialProperties({{"initialContainerPath", fixture.path()}, {"mobileLayout", mobile},
             {"width", mobile ? 390 : 1440}, {"height", mobile ? 844 : 900}});
-        engine.load(QUrl::fromLocalFile(QString::fromUtf8(SOCIETY_QML_FILE)));
+        loadSociety(engine);
         QCOMPARE(engine.rootObjects().size(), 1);
         auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first()); QVERIFY(window);
         QVERIFY(QTest::qWaitForWindowExposed(window));
         auto *drive = window->findChild<DriveController *>("driveController"); QVERIFY(drive);
         auto *navigation = window->findChild<StorageNavigation *>("storageNavigation"); QVERIFY(navigation);
-        auto *storageTab = visualItem(window->contentItem(), mobile ? "mobileStorageTab" : "storageTab");
-        auto *dashboardTab = visualItem(window->contentItem(), mobile ? "mobileDashboardTab" : "dashboardTab");
-        QVERIFY(storageTab && dashboardTab);
+        auto *storageTab = mobile ? visualItem(window->contentItem(), "mobileStorageTab") : nullptr;
+        auto *dashboardTab = mobile ? visualItem(window->contentItem(), "mobileDashboardTab") : nullptr;
+        QVERIFY(!mobile || (storageTab && dashboardTab));
         const auto click = [&](QQuickItem *item) {
             QTest::mouseClick(window, Qt::LeftButton, Qt::NoModifier,
                 item->mapToScene(item->boundingRect().center()).toPoint());
         };
+        const auto openStorage = [&] { if (mobile) click(storageTab); else QVERIFY(clickNavigationSegment(window, 2)); };
+        const auto openDashboard = [&] { if (mobile) click(dashboardTab); else QVERIFY(window->setProperty("selectedTab", "Dashboard")); };
 
-        click(storageTab);
+        openStorage();
         QTRY_COMPARE(window->findChild<QObject *>("storageLoader")->property("status").toInt(), 1);
         auto *files = window->findChild<QQuickItem *>("filesBrowser"); QVERIFY(files);
         QTRY_COMPARE(drive->currentPath(), fixture.filePath("Files"));
@@ -1972,15 +1994,15 @@ private slots:
 
         // Both a repeated click and returning from another tab start at Files.
         QVERIFY(drive->openSection("models"));
-        click(storageTab);
+        openStorage();
         QTRY_COMPARE(drive->currentPath(), fixture.filePath("Files"));
         QVERIFY(drive->navigate(fixture.filePath("Files/Nested")));
-        click(dashboardTab);
-        click(storageTab);
+        openDashboard();
+        openStorage();
         QTRY_COMPARE(drive->currentPath(), fixture.filePath("Files"));
 
         // Explicit destinations still open their requested section.
-        click(dashboardTab);
+        openDashboard();
         QVERIFY(QMetaObject::invokeMethod(window, "showStorage", Q_ARG(QVariant, "photos")));
         QTRY_COMPARE(drive->currentPath(), fixture.filePath("Photos"));
         auto *photos = window->findChild<QQuickItem *>("photosView"); QVERIFY(photos);
@@ -2027,7 +2049,7 @@ private slots:
         engine.setInitialProperties({{"initialContainerPath", fixture.path()}, {"selectedTab", "Storage"},
             {"mobileLayout", mobile}, {"desktopMinWidth", 320}, {"desktopMinHeight", 240},
             {"width", size.width()}, {"height", size.height()}});
-        engine.load(QUrl::fromLocalFile(QString::fromUtf8(SOCIETY_QML_FILE)));
+        loadSociety(engine);
         QCOMPARE(engine.rootObjects().size(), 1);
         auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first()); QVERIFY(window);
         QVERIFY(QTest::qWaitForWindowExposed(window));
@@ -2094,7 +2116,7 @@ private slots:
         });
         engine.addImportPath(QString::fromUtf8(SOCIETY_LVRS_QML_IMPORT_PATH));
         engine.setInitialProperties({{"initialContainerPath", fixture.path()}});
-        engine.load(QUrl::fromLocalFile(QString::fromUtf8(SOCIETY_QML_FILE)));
+        loadSociety(engine);
         QCOMPARE(engine.rootObjects().size(), 1);
         auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first());
         QVERIFY(window);
@@ -2107,10 +2129,7 @@ private slots:
         QTRY_VERIFY(window->isVisible());
         QVERIFY(QTest::qWaitForWindowExposed(window));
         QCOMPARE(controller->sections().size(), 9);
-        auto *storageTab = window->findChild<QQuickItem *>("storageTab");
-        QVERIFY(storageTab);
-        QTest::mouseClick(window, Qt::LeftButton, Qt::NoModifier,
-            storageTab->mapToScene(QPointF(storageTab->width()/2, storageTab->height()/2)).toPoint());
+        QVERIFY(clickNavigationSegment(window, 2));
         QTRY_COMPARE(window->property("selectedTab").toString(), QString("Storage"));
         QQuickItem *driveTitle = nullptr, *driveHome = nullptr, *files = nullptr;
         QQuickItem *modelGrid = nullptr, *content = nullptr;
@@ -2269,7 +2288,7 @@ private slots:
         engine.addImageProvider(QStringLiteral("society-preview"), new iiSocietyContainer::PreviewProvider);
         engine.addImportPath(QString::fromUtf8(SOCIETY_LVRS_QML_IMPORT_PATH));
         engine.setInitialProperties({{"initialContainerPath", fixture.path()}});
-        engine.load(QUrl::fromLocalFile(QString::fromUtf8(SOCIETY_QML_FILE)));
+        loadSociety(engine);
         QCOMPARE(engine.rootObjects().size(), 1);
         auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first()); QVERIFY(window);
         QVERIFY(QTest::qWaitForWindowExposed(window));
@@ -2397,7 +2416,7 @@ private slots:
         engine.addImageProvider(QStringLiteral("society-preview"), new iiSocietyContainer::PreviewProvider);
         engine.addImportPath(QString::fromUtf8(SOCIETY_LVRS_QML_IMPORT_PATH));
         engine.setInitialProperties({{"initialContainerPath", fixture.path()}, {"mobileLayout", true}});
-        engine.load(QUrl::fromLocalFile(QString::fromUtf8(SOCIETY_QML_FILE)));
+        loadSociety(engine);
         QCOMPARE(engine.rootObjects().size(), 1);
         auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first()); QVERIFY(window);
         auto *drive = window->findChild<DriveController *>("driveController"); QVERIFY(drive);
@@ -2526,7 +2545,7 @@ private slots:
         engine.addImportPath(QString::fromUtf8(SOCIETY_LVRS_QML_IMPORT_PATH));
         engine.setInitialProperties({{"initialContainerPath", fixture.path()}, {"mobileLayout", mobile},
             {"desktopMinWidth", 320}, {"width", mobile ? 390 : 1440}, {"height", 844}});
-        engine.load(QUrl::fromLocalFile(QString::fromUtf8(SOCIETY_QML_FILE)));
+        loadSociety(engine);
         QCOMPARE(engine.rootObjects().size(), 1);
         auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first()); QVERIFY(window);
         QVERIFY(QTest::qWaitForWindowExposed(window));
@@ -2578,7 +2597,7 @@ private slots:
         });
         engine.setInitialProperties({{"initialContainerPath", fixture.path()}, {"width", 1600},
             {"height", 960}, {"desktopMinWidth", 320}});
-        engine.load(QUrl::fromLocalFile(QString::fromUtf8(SOCIETY_QML_FILE)));
+        loadSociety(engine);
         QCOMPARE(engine.rootObjects().size(), 1);
         auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first()); QVERIFY(window);
         QVERIFY(QTest::qWaitForWindowExposed(window)); window->requestActivate();
@@ -3095,7 +3114,7 @@ private slots:
         engine.addImportPath(QString::fromUtf8(SOCIETY_LVRS_QML_IMPORT_PATH));
         engine.setInitialProperties({{"initialContainerPath", fixture.path()}, {"mobileLayout", true},
             {"desktopMinWidth", 320}, {"width", 390}, {"height", 844}});
-        engine.load(QUrl::fromLocalFile(QString::fromUtf8(SOCIETY_QML_FILE)));
+        loadSociety(engine);
         QCOMPARE(engine.rootObjects().size(), 1);
         auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first()); QVERIFY(window);
         QVERIFY(QTest::qWaitForWindowExposed(window));
@@ -3233,8 +3252,7 @@ private slots:
                     QTRY_VERIFY(!item->property("truncated").toBool());
                 }
             } else {
-                for (const QString name : {"dashboardTab", "storageTab", "browseTab", "environmentTab",
-                                           "dashboardSearch"}) {
+                for (const QString name : {"dashboardTabs", "dashboardSearch"}) {
                     auto *control = visualItem(window->contentItem(), name); QVERIFY(control);
                     QTRY_COMPARE(control->mapRectToScene(control->boundingRect()).height(), 22.0);
                 }
@@ -3298,7 +3316,7 @@ private slots:
         engine.addImportPath(QString::fromUtf8(SOCIETY_LVRS_QML_IMPORT_PATH));
         engine.setInitialProperties({{"initialContainerPath", fixture.path()}, {"mobileLayout", true},
             {"selectedTab", "Storage"}, {"desktopMinWidth", 320}, {"width", 320}, {"height", 568}});
-        engine.load(QUrl::fromLocalFile(QString::fromUtf8(SOCIETY_QML_FILE)));
+        loadSociety(engine);
         QCOMPARE(engine.rootObjects().size(), 1);
         auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first()); QVERIFY(window);
         QVERIFY(QTest::qWaitForWindowExposed(window));
@@ -3378,16 +3396,34 @@ private slots:
         engine.addImageProvider(QStringLiteral("society-preview"), new iiSocietyContainer::PreviewProvider);
         engine.addImportPath(QString::fromUtf8(SOCIETY_LVRS_QML_IMPORT_PATH));
         engine.setInitialProperties({{"initialContainerPath", fixture.path()}});
-        engine.load(QUrl::fromLocalFile(QString::fromUtf8(SOCIETY_QML_FILE)));
+        loadSociety(engine);
         QCOMPARE(engine.rootObjects().size(), 1);
         auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first());
         QVERIFY(window);
         QTRY_VERIFY(window->isVisible());
-        QCOMPARE(window->property("primaryColor").value<QColor>(), QColor("#00E71F"));
+        QQmlComponent theme(&engine);
+        theme.setData("import QtQuick\nimport LVRS 1.0 as LV\nQtObject { property color accent: LV.Theme.accentGreen }", {});
+        QScopedPointer<QObject> themeValues(theme.create());
+        QVERIFY2(themeValues, qPrintable(theme.errorString()));
+        const auto accent = themeValues->property("accent").value<QColor>();
+        QCOMPARE(window->property("primaryColor").value<QColor>(), accent);
         auto *material = window->findChild<QQuickItem *>("applicationWindowMaterial");
         QVERIFY(material);
-        QCOMPARE(material->property("primaryColor").value<QColor>(), QColor("#00E71F"));
-        QCOMPARE(material->property("color").value<QColor>(), QColor("#141814"));
+        QCOMPARE(material->property("primaryColor").value<QColor>(), accent);
+        const auto baseColor = window->property("windowColor").value<QColor>();
+        QCOMPARE(material->property("color").value<QColor>(), baseColor);
+        QVERIFY(window->setProperty("primaryColor", QColor("#4d6fc1")));
+        QTRY_COMPARE(material->property("color").value<QColor>(), baseColor);
+        QVERIFY(window->setProperty("primaryColor", accent));
+        QVERIFY(QMetaObject::invokeMethod(window, "openPreferences"));
+        auto *preferences = window->findChild<QQuickWindow *>("preferencesWindow");
+        QVERIFY(preferences);
+        auto *preferencesMaterial = preferences->findChild<QQuickItem *>("applicationWindowMaterial");
+        QVERIFY(preferencesMaterial);
+        QCOMPARE(preferencesMaterial->property("color").value<QColor>(), baseColor);
+        QVERIFY(preferences->setProperty("primaryColor", QColor("#4d6fc1")));
+        QTRY_COMPARE(preferencesMaterial->property("color").value<QColor>(), baseColor);
+        preferences->close();
         QCOMPARE(material->property("accentMix").toReal(), 0.02);
         QVERIFY(!material->findChild<QQuickItem *>("applicationWindowAccentOverlay"));
         QVERIFY(material->findChild<QQuickItem *>("applicationWindowNoiseTexture"));
@@ -3406,8 +3442,8 @@ private slots:
             QVERIFY(rendered.hasAlphaChannel());
             const qreal dpr = window->devicePixelRatio();
             const QColor backgroundPixel = rendered.pixelColor(qRound(8 * dpr), qRound(80 * dpr));
-            QVERIFY2(qAbs(backgroundPixel.alpha() - 172) <= 2,
-                     qPrintable(QStringLiteral("The rendered accent overlay must remain translucent; got alpha %1.")
+            QVERIFY2(qAbs(backgroundPixel.alpha() - baseColor.alpha()) <= 2,
+                     qPrintable(QStringLiteral("The rendered window must retain the base surface opacity; got alpha %1.")
                          .arg(backgroundPixel.alpha())));
             auto capture = material->grabToImage();
             QVERIFY(capture);
@@ -3417,14 +3453,15 @@ private slots:
                 return background.pixelColor(qRound(x * background.width() / material->width()),
                                              qRound(y * background.height() / material->height()));
             };
-            const QColor accent = backgroundAt(48, 80);
+            const QColor edge = backgroundAt(48, 80);
             const QColor quiet = backgroundAt(material->width() / 2, 80);
-            QVERIFY2(accent.green() > accent.red() + 2 && accent.green() > accent.blue() + 2
-                         && qAbs(accent.red() - quiet.red()) <= 1 && qAbs(accent.green() - quiet.green()) <= 1
-                         && qAbs(accent.blue() - quiet.blue()) <= 1,
-                     qPrintable(QStringLiteral("Society's 4% green overlay must be uniform: edge %1, center %2.")
-                         .arg(accent.name(QColor::HexArgb), quiet.name(QColor::HexArgb))));
-            QVERIFY(qAbs(quiet.alpha() - 172) <= 2);
+            QVERIFY2(qAbs(edge.red() - quiet.red()) <= 1 && qAbs(edge.green() - quiet.green()) <= 1
+                         && qAbs(edge.blue() - quiet.blue()) <= 1
+                         && qAbs(quiet.red() - baseColor.red()) <= 1 && qAbs(quiet.green() - baseColor.green()) <= 1
+                         && qAbs(quiet.blue() - baseColor.blue()) <= 1,
+                     qPrintable(QStringLiteral("The window surface must remain uniformly neutral: edge %1, center %2.")
+                         .arg(edge.name(QColor::HexArgb), quiet.name(QColor::HexArgb))));
+            QVERIFY(qAbs(quiet.alpha() - baseColor.alpha()) <= 2);
             const QString captureDirectory = qEnvironmentVariable("SOCIETY_PANEL_CAPTURE_DIR");
             if (!captureDirectory.isEmpty())
                 QVERIFY(rendered.save(captureDirectory + QStringLiteral("/window-accent-overlay.png")));
@@ -3481,7 +3518,7 @@ private slots:
         engine.setInitialProperties({{"initialContainerPath", fixture.path()}, {"mobileLayout", mobile},
             {"width", size.width()}, {"height", size.height()}, {"backgroundBlurEnabled", false},
             {"windowBackgroundOpacity", 1.0}});
-        engine.load(QUrl::fromLocalFile(QString::fromUtf8(SOCIETY_QML_FILE)));
+        loadSociety(engine);
         QCOMPARE(engine.rootObjects().size(), 1);
         auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first()); QVERIFY(window);
         QVERIFY(QTest::qWaitForWindowExposed(window));
@@ -3571,31 +3608,25 @@ private slots:
         engine.addImageProvider(QStringLiteral("society-preview"), new iiSocietyContainer::PreviewProvider);
         engine.addImportPath(QString::fromUtf8(SOCIETY_LVRS_QML_IMPORT_PATH));
         engine.setInitialProperties({{"initialContainerPath", fixture.path()}, {"width", 1440}, {"height", 900}});
-        engine.load(QUrl::fromLocalFile(QString::fromUtf8(SOCIETY_QML_FILE)));
+        loadSociety(engine);
         QCOMPARE(engine.rootObjects().size(), 1);
         auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first()); QVERIFY(window);
         QVERIFY(QTest::qWaitForWindowExposed(window));
         QTest::mouseMove(window, QPoint(2, window->height() - 2));
-        const QList<QPair<QString, QString>> available{
-            {"dashboardTab", "Dashboard"}, {"tasksTab", "Tools"}, {"storageTab", "Storage"},
-            {"browseTab", "Browse"}, {"environmentTab", "Environment"}};
-        const QStringList unavailable{"spaceTab", "analysisTab", "portfolioTab", "learningTab"};
-        for (const auto &selected : {QStringLiteral("Dashboard"), QStringLiteral("Storage"),
-                                     QStringLiteral("Browse"), QStringLiteral("Environment"), QStringLiteral("Tools")}) {
-            QVERIFY(window->setProperty("selectedTab", selected));
-            for (const auto &[name, tab] : available) {
-                auto *button = window->findChild<QQuickItem *>(name); QVERIFY(button);
-                QVERIFY(button->isEnabled());
-                auto *background = qvariant_cast<QQuickItem *>(button->property("background")); QVERIFY(background);
-                QTRY_COMPARE(background->property("color").value<QColor>().alpha() > 0, tab == selected);
-            }
-            for (const auto &name : unavailable) {
-                auto *button = window->findChild<QQuickItem *>(name); QVERIFY(button);
-                QVERIFY(!button->isEnabled());
-                auto *background = qvariant_cast<QQuickItem *>(button->property("background")); QVERIFY(background);
-                QCOMPARE(background->property("color").value<QColor>().alpha(), 0);
-            }
+        auto *tabs = window->findChild<NativeNavigationSurface *>("dashboardTabs"); QVERIFY(tabs);
+        auto *accessible = QAccessible::queryAccessibleInterface(tabs); QVERIFY(accessible);
+        QCOMPARE(accessible->childCount(), 7);
+        const QList<QPair<QString, int>> pages{{"Dashboard", 0}, {"Environment", 0},
+            {"Tools", 1}, {"Storage", 2}, {"Browse", 4}};
+        for (const auto &[page, selected] : pages) {
+            QVERIFY(window->setProperty("selectedTab", page));
+            QTRY_COMPARE(tabs->currentPage(), page);
+            for (int index = 0; index < 7; ++index)
+                QTRY_COMPARE(accessible->child(index)->state().selected, index == selected);
         }
+        auto *legacy = window->findChild<QQuickItem *>("legacyNavigationSegments");
+        QVERIFY(legacy && !legacy->isVisible() && !legacy->isEnabled());
+        QCOMPARE(LegacyNavigationBridge::install(window), tabs);
         window->close();
     }
 
@@ -3608,19 +3639,15 @@ private slots:
         engine.addImageProvider(QStringLiteral("society-preview"), new iiSocietyContainer::PreviewProvider);
         engine.addImportPath(QString::fromUtf8(SOCIETY_LVRS_QML_IMPORT_PATH));
         engine.setInitialProperties({{"initialContainerPath", fixture.path()}, {"width", 1440}, {"height", 900}});
-        engine.load(QUrl::fromLocalFile(QString::fromUtf8(SOCIETY_QML_FILE)));
+        loadSociety(engine);
         QCOMPARE(engine.rootObjects().size(), 1);
         auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first()); QVERIFY(window);
         QVERIFY(QTest::qWaitForWindowExposed(window));
-        auto *dashboard = window->findChild<QQuickItem *>("dashboardTab");
-        auto *tasks = window->findChild<QQuickItem *>("tasksTab");
-        auto *storage = window->findChild<QQuickItem *>("storageTab");
+        auto *tabs = window->findChild<NativeNavigationSurface *>("dashboardTabs");
         auto *loader = window->findChild<QObject *>("toolsLoader");
-        QVERIFY(dashboard && tasks && storage && loader);
-        QVERIFY(tasks->isEnabled());
-        QVERIFY(dashboard->mapToScene(QPointF()).x() < tasks->mapToScene(QPointF()).x());
-        QVERIFY(tasks->mapToScene(QPointF()).x() < storage->mapToScene(QPointF()).x());
-        auto *accessible = QAccessible::queryAccessibleInterface(tasks); QVERIFY(accessible);
+        QVERIFY(tabs && loader);
+        auto *group = QAccessible::queryAccessibleInterface(tabs); QVERIFY(group);
+        auto *accessible = group->child(1); QVERIFY(accessible);
         QCOMPARE(accessible->text(QAccessible::Name), QString("Tasks"));
         QVERIFY(!accessible->state().selected);
         QVERIFY(!window->findChild<QObject *>("toolsView"));
@@ -3629,7 +3656,7 @@ private slots:
             QTest::mouseClick(window, Qt::LeftButton, Qt::NoModifier,
                               item->mapToScene(item->boundingRect().center()).toPoint());
         };
-        click(tasks);
+        QVERIFY(clickNavigationSegment(window, 1));
         QTRY_COMPARE(window->property("selectedTab").toString(), QString("Tools"));
         QTRY_COMPARE_WITH_TIMEOUT(loader->property("status").toInt(), 1, 15000);
         auto *tools = window->findChild<QQuickItem *>("toolsView"); QVERIFY(tools);
@@ -3652,10 +3679,10 @@ private slots:
         click(visualItem(tools, "toolCard-model-merge"));
         QTRY_COMPARE(tools->property("activeTool").toString(), QString("model-merge"));
 
-        click(dashboard);
-        QTRY_COMPARE(window->property("selectedTab").toString(), QString("Dashboard"));
+        QVERIFY(clickNavigationSegment(window, 0));
+        QTRY_COMPARE(window->property("selectedTab").toString(), QString("Environment"));
         QTRY_VERIFY(!accessible->state().selected);
-        tasks->forceActiveFocus();
+        tabs->focusAccessibleItem(1);
         QTest::keyClick(window, Qt::Key_Space);
         QTRY_COMPARE(window->property("selectedTab").toString(), QString("Tools"));
         QCOMPARE(window->findChild<QQuickItem *>("toolsView"), tools);
@@ -3676,13 +3703,13 @@ private slots:
         });
         engine.addImportPath(QString::fromUtf8(SOCIETY_LVRS_QML_IMPORT_PATH));
         engine.setInitialProperties({{"initialContainerPath", fixture.path()}, {"width", 1440}, {"height", 900}});
-        engine.load(QUrl::fromLocalFile(QString::fromUtf8(SOCIETY_QML_FILE)));
+        loadSociety(engine);
         QCOMPARE(engine.rootObjects().size(), 1);
         auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first()); QVERIFY(window);
         QVERIFY(QTest::qWaitForWindowExposed(window));
         auto *toolbar = window->findChild<QQuickItem *>("dashboardToolbar");
         auto *surface = window->findChild<QQuickItem *>("globalToolbarSurface");
-        auto *tabs = window->findChild<QQuickItem *>("dashboardTabs");
+        auto *tabs = window->findChild<NativeNavigationSurface *>("dashboardTabs");
         auto *search = window->findChild<QQuickItem *>("dashboardSearch");
         auto *searchIcon = window->findChild<QQuickItem *>("globalSearchIcon");
         auto *notifications = window->findChild<QQuickItem *>("dashboardNotifications");
@@ -3696,8 +3723,9 @@ private slots:
         QVERIFY(notificationCenter && notificationPopover);
         QTRY_COMPARE(toolbar->height(), 56.0);
         QCOMPARE(surface->property("color").value<QColor>().alpha(), 0);
-        QTRY_COMPARE(tabs->property("segmentCount").toInt(), 9);
-        QTRY_COMPARE(tabs->size(), QSizeF(222, 30));
+        auto *segments = QAccessible::queryAccessibleInterface(tabs); QVERIFY(segments);
+        QTRY_COMPARE(segments->childCount(), 7);
+        QTRY_COMPARE(tabs->size(), QSizeF(166, 22));
         QTRY_VERIFY(qAbs(tabs->mapToItem(toolbar, QPointF()).x()
             - window->property("nativeTitleBarControlsRect").toRectF().right()
             - (window->property("nativeTitleBarControlsRect").toRectF().width() > 0 ? 8.0 : 12.0)) <= 0.5);
@@ -3731,31 +3759,22 @@ private slots:
             QTest::mouseClick(window, Qt::LeftButton, Qt::NoModifier,
                 item->mapToScene(item->boundingRect().center()).toPoint());
         };
-        auto *workspaceTab = window->findChild<QQuickItem *>("dashboardTab");
-        auto *tasksTab = window->findChild<QQuickItem *>("tasksTab");
-        auto *storageTab = window->findChild<QQuickItem *>("storageTab");
-        QVERIFY(workspaceTab && tasksTab && storageTab);
-        QVERIFY(!window->findChild<QQuickItem *>("toolsTab"));
-        QTRY_VERIFY(storageTab->mapToScene(QPointF()).x() >=
-                    workspaceTab->mapToScene(QPointF(workspaceTab->width(), 0)).x());
-        for (const QString tab : {"Dashboard", "Storage", "Browse", "Environment"}) {
-            auto *button = window->findChild<QQuickItem *>(tab.toLower() + "Tab"); QVERIFY(button);
-            click(button);
-            QTRY_COMPARE(window->property("selectedTab").toString(), tab);
-            if (tab == "Storage" || tab == "Environment")
-                QTRY_COMPARE(window->findChild<QObject *>(tab.toLower() + "Loader")->property("status").toInt(), 1);
-            QTest::mouseMove(window, QPoint(2, window->height() - 2));
-            QCoreApplication::processEvents();
-            QCOMPARE(toolbar->height(), 56.0);
-            QCOMPARE(button->property("backgroundColor").value<QColor>(),
-                     button->property("toneBackgroundColor").value<QColor>());
-            auto *icon = visualItem(button, "iconButton_icon"); QVERIFY(icon);
-            QTRY_COMPARE(icon->property("status").toInt(), 1);
+        const QStringList labels{"Environment", "Tasks", "Library", "Space", "Browse", "People", "Hosting"};
+        for (int index = 0; index < labels.size(); ++index) {
+            auto *button = segments->child(index); QVERIFY(button);
+            QCOMPARE(button->text(QAccessible::Name), labels[index]);
+        }
+        for (const auto &[index, page] : QList<QPair<int, QString>>{{0, "Environment"}, {2, "Storage"}, {4, "Browse"}}) {
+            QVERIFY(clickNavigationSegment(window, index));
+            QTRY_COMPARE(window->property("selectedTab").toString(), page);
+            if (page == "Storage" || page == "Environment")
+                QTRY_COMPARE(window->findChild<QObject *>(page.toLower() + "Loader")->property("status").toInt(), 1);
+            QTRY_VERIFY(segments->child(index)->state().selected);
         }
         auto *toolsAction = window->findChild<QObject *>("globalToolsAction"); QVERIFY(toolsAction);
         auto *nativeFilesAction = window->findChild<QObject *>("globalNativeFilesAction"); QVERIFY(nativeFilesAction);
         QCOMPARE(nativeFilesAction->property("text").toString(),QStringLiteral("Files (LVUI preview)"));
-        click(tasksTab);
+        QVERIFY(clickNavigationSegment(window, 1));
         QTRY_COMPARE(window->property("selectedTab").toString(), QString("Tools"));
         QTRY_COMPARE(window->findChild<QObject *>("toolsLoader")->property("status").toInt(), 1);
         QVERIFY(window->setProperty("selectedTab", "Dashboard"));
@@ -3765,10 +3784,31 @@ private slots:
         QVERIFY(window->setProperty("selectedTab", "Dashboard"));
         QTest::keyClick(window, Qt::Key_2, Qt::ControlModifier);
         QTRY_COMPARE(window->property("selectedTab").toString(), QString("Tools"));
-        for (const auto *name : {"spaceTab", "analysisTab", "portfolioTab", "learningTab"}) {
-            auto *button = window->findChild<QQuickItem *>(QString::fromLatin1(name)); QVERIFY(button);
-            QVERIFY(!button->isEnabled());
+        auto *legacy = window->findChild<QQuickItem *>("legacyNavigationSegments");
+        QVERIFY(legacy && !legacy->isVisible() && !legacy->isEnabled());
+        for (int index : {3, 5}) {
+            QVERIFY(clickNavigationSegment(window, index));
+            QTRY_VERIFY(notice->property("open").toBool());
+            QCOMPARE(window->property("selectedTab").toString(), QString("Tools"));
+            QVERIFY(notice->setProperty("open", false));
         }
+        QVERIFY(clickNavigationSegment(window, 6));
+        QTRY_COMPARE(window->property("selectedTab").toString(), QString("Environment"));
+        QTRY_VERIFY(segments->child(6)->state().selected);
+        QQuickItem *environment = nullptr;
+        QTRY_VERIFY((environment = visualItem(window->contentItem(), "environmentView")));
+        auto *environmentScroll = visualItem(environment, "environmentScroll"); QVERIFY(environmentScroll);
+        auto *environmentFlick = qvariant_cast<QQuickItem *>(environmentScroll->property("contentItem"));
+        QVERIFY(environmentFlick);
+        QTRY_VERIFY(environmentFlick->property("contentY").toReal() > 0);
+        QVERIFY(QMetaObject::invokeMethod(environment, "showDevices"));
+        QTRY_VERIFY(segments->child(0)->state().selected);
+        QVERIFY(clickNavigationSegment(window, 0));
+        QTRY_COMPARE(environment->property("page").toString(), QString("Overview"));
+        QQuickItem *society = nullptr;
+        QTRY_VERIFY((society = visualItem(environment, "environmentLaunch-society")));
+        click(society);
+        QTRY_COMPARE(window->property("selectedTab").toString(), QString("Dashboard"));
         QSignalSpy moves(window, SIGNAL(windowMoveAttempted(bool))); QVERIFY(moves.isValid());
         click(search); QTest::keyClick(window, Qt::Key_Q);
         QTRY_COMPARE(window->property("selectedTab").toString(), QString("Dashboard"));
@@ -3917,7 +3957,7 @@ private slots:
         engine.addImageProvider(QStringLiteral("society-preview"), new iiSocietyContainer::PreviewProvider);
         engine.addImportPath(QString::fromUtf8(SOCIETY_LVRS_QML_IMPORT_PATH));
         engine.setInitialProperties({{"initialContainerPath", fixture.path()}, {"width", 1440}, {"height", 900}});
-        engine.load(QUrl::fromLocalFile(QString::fromUtf8(SOCIETY_QML_FILE)));
+        loadSociety(engine);
         QCOMPARE(engine.rootObjects().size(), 1);
         auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first()); QVERIFY(window);
         QVERIFY(QTest::qWaitForWindowExposed(window));
@@ -3959,16 +3999,15 @@ private slots:
         engine.addImageProvider(QStringLiteral("society-preview"), new iiSocietyContainer::PreviewProvider);
         engine.addImportPath(QString::fromUtf8(SOCIETY_LVRS_QML_IMPORT_PATH));
         engine.setInitialProperties({{"initialContainerPath", fixture.path()}});
-        engine.load(QUrl::fromLocalFile(QString::fromUtf8(SOCIETY_QML_FILE)));
+        loadSociety(engine);
         QCOMPARE(engine.rootObjects().size(), 1);
         auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first());
         QVERIFY(window);
         auto *toolbar = window->findChild<QQuickItem *>("dashboardToolbar");
         auto *tabs = window->findChild<QQuickItem *>("dashboardTabs");
-        auto *storageTab = window->findChild<QQuickItem *>("storageTab");
         auto *search = window->findChild<QQuickItem *>("dashboardSearch");
         auto *account = window->findChild<QQuickItem *>("dashboardAccount");
-        QVERIFY(toolbar && tabs && storageTab && search && account);
+        QVERIFY(toolbar && tabs && search && account);
         QVERIFY(QTest::qWaitForWindowExposed(window));
         QTRY_COMPARE(toolbar->mapToScene(QPointF()).y(), 0.0);
         QCOMPARE(toolbar->height(), 56.0);
@@ -4022,7 +4061,7 @@ private slots:
             QVERIFY(window->setProperty("selectedTab", "Dashboard"));
             QTest::keyClick(window, Qt::Key_2, Qt::ControlModifier);
             QTRY_COMPARE(window->property("selectedTab").toString(), QString("Tools"));
-            QTest::mouseClick(window, Qt::LeftButton, Qt::NoModifier, center(storageTab).toPoint());
+            QVERIFY(clickNavigationSegment(window, 2));
             QTRY_COMPARE(window->property("selectedTab").toString(), QString("Storage"));
         }
         QCOMPARE(moves.count(), 0);
@@ -4064,7 +4103,7 @@ private slots:
         });
         engine.addImportPath(QString::fromUtf8(SOCIETY_LVRS_QML_IMPORT_PATH));
         engine.setInitialProperties({{"initialContainerPath", fixture.path()}});
-        engine.load(QUrl::fromLocalFile(QString::fromUtf8(SOCIETY_QML_FILE)));
+        loadSociety(engine);
         QCOMPARE(engine.rootObjects().size(), 1);
         auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first());
         QVERIFY(window);
@@ -4077,19 +4116,17 @@ private slots:
         auto *dashboard = window->findChild<QQuickItem *>("dashboardView");
         QQuickItem *tools = nullptr;
         QQuickItem *storage = nullptr;
-        auto *dashboardTab = window->findChild<QQuickItem *>("dashboardTab");
-        auto *storageTab = window->findChild<QQuickItem *>("storageTab");
+        auto *tabs = window->findChild<NativeNavigationSurface *>("dashboardTabs");
         QQuickItem *prompt = nullptr;
         auto *drive = window->findChild<DriveController *>("driveController");
-        QVERIFY(dashboard && dashboardTab && storageTab && drive);
+        QVERIFY(dashboard && tabs && drive);
         QTRY_VERIFY(window->isVisible() && dashboard->isVisible());
         QVERIFY(!window->findChild<QQuickItem *>("toolsView"));
         QVERIFY(!window->findChild<QQuickItem *>("storageView"));
-        QTRY_VERIFY(dashboardTab->mapToScene(QPointF(dashboardTab->width(), 0)).x()
-                    <= storageTab->mapToScene(QPointF()).x());
-        const auto *workspaceAccessibility = QAccessible::queryAccessibleInterface(dashboardTab);
+        auto *groupAccessibility = QAccessible::queryAccessibleInterface(tabs); QVERIFY(groupAccessibility);
+        const auto *workspaceAccessibility = groupAccessibility->child(0);
         QVERIFY(workspaceAccessibility);
-        QCOMPARE(workspaceAccessibility->text(QAccessible::Name), QString("Workspace"));
+        QCOMPARE(workspaceAccessibility->text(QAccessible::Name), QString("Environment"));
         QVERIFY(workspaceAccessibility->state().selected);
         const auto *localNavigation = QAccessible::queryAccessibleInterface(visualItem(dashboard, "dashboardItemworkspace_home"));
         QVERIFY(localNavigation);
@@ -4105,6 +4142,8 @@ private slots:
             QTest::mouseClick(window, Qt::LeftButton, Qt::NoModifier,
                 item->mapToScene(QPointF(item->width()/2, item->height()/2)).toPoint());
         };
+        const auto openDashboard = [&] { QVERIFY(window->setProperty("selectedTab", "Dashboard")); };
+        const auto openStorage = [&] { QVERIFY(clickNavigationSegment(window, 2)); };
         const auto openTools = [&] { QTest::keyClick(window, Qt::Key_2, Qt::ControlModifier); };
         openTools();
         QTRY_COMPARE(window->findChild<QObject *>("toolsLoader")->property("status").toInt(), 1);
@@ -4122,7 +4161,7 @@ private slots:
         QVERIFY(QMetaObject::invokeMethod(mediaMenu, "triggerEntry", Q_ARG(QVariant, 1)));
         QTRY_VERIFY(!mediaMenu->property("visible").toBool());
         QCOMPARE(quickGenerate->property("mediaType").toString(), QString("Video"));
-        click(dashboardTab);
+        openDashboard();
         auto *search = window->findChild<QQuickItem *>("dashboardSearch");
         QVERIFY(search); search->setProperty("text", "CHAPTER");
         QTRY_COMPARE(files->recentFiles().size(), 1);
@@ -4166,7 +4205,7 @@ private slots:
         QTRY_VERIFY(merge->isVisible());
         QCOMPARE(merge->property("outputName").toString(), QString("desktop-session"));
         QCOMPARE(merge->property("mode").toString(), QString("weighted-difference"));
-        click(storageTab);
+        openStorage();
         QTRY_COMPARE(window->findChild<QObject *>("storageLoader")->property("status").toInt(), 1);
         QTRY_VERIFY((storage = window->findChild<QQuickItem *>("storageView"))
                     && storage->isVisible() && !dashboard->isVisible() && !tools->isVisible());
@@ -4176,16 +4215,16 @@ private slots:
         QTRY_VERIFY(tools->isVisible() && !storage->isVisible());
         QCOMPARE(merge->property("outputName").toString(), QString("desktop-session"));
         QCOMPARE(merge->property("mode").toString(), QString("weighted-difference"));
-        click(dashboardTab);
+        openDashboard();
         QTRY_VERIFY(dashboard->isVisible() && !storage->isVisible() && !tools->isVisible());
         QCOMPARE(prompt->property("text").toString(), QString("A quiet lunar landscape"));
         QCOMPARE(quickGenerate->property("mediaType").toString(), QString("Video"));
         QCOMPARE(quickGenerate->property("aspectRatio").toString(), QString("1:1"));
         QCOMPARE(quickGenerate->property("generationCount").toInt(), 1);
-        click(storageTab);
+        openStorage();
         QTRY_VERIFY(storage->isVisible());
         QCOMPARE(drive->currentPath(), fixture.filePath("Files"));
-        click(dashboardTab);
+        openDashboard();
         QTRY_VERIFY(visualItem(window->contentItem(), "viewAllRecentFiles"));
         auto *allFiles = visualItem(window->contentItem(), "viewAllRecentFiles");
         QVERIFY(allFiles); revealDashboardItem(dashboard, allFiles); click(allFiles);
@@ -4195,7 +4234,7 @@ private slots:
         // Files is a table; switching to image-only history must keep its grid.
         QTRY_VERIFY(!fileGrid->property("loading").toBool());
         QTRY_COMPARE(fileGrid->property("count").toInt(), 5);
-        click(dashboardTab);
+        openDashboard();
         QTRY_VERIFY(visualItem(window->contentItem(), "viewAllGenerationHistory"));
         auto *history = visualItem(window->contentItem(), "viewAllGenerationHistory");
         QVERIFY(history); revealDashboardItem(dashboard, history); click(history);
@@ -4203,14 +4242,14 @@ private slots:
         QCOMPARE(drive->currentSection(), QString("Generation History"));
         const auto storageScreenshot = qEnvironmentVariable("SOCIETY_STORAGE_SCREENSHOT_PATH");
         if (!storageScreenshot.isEmpty()) { QTest::qWait(200); QVERIFY(window->grabWindow().save(storageScreenshot)); }
-        click(dashboardTab);
+        openDashboard();
         QVERIFY(!window->findChild<QQuickItem *>("dashboardDeleted"));
-        click(storageTab);
+        openStorage();
         auto *deleted = visualItem(storage, "storageSectiondeleted");
         QVERIFY(deleted); click(deleted);
         QTRY_VERIFY(storage->isVisible());
         QCOMPARE(drive->currentSection(), QString("Deleted"));
-        click(dashboardTab);
+        openDashboard();
         openTools();
         QVERIFY(QMetaObject::invokeMethod(tools, "goBack"));
         QSignalSpy submitted(window, SIGNAL(generateRequested(QString,QString,QString,int)));
@@ -4229,18 +4268,16 @@ private slots:
         QTRY_VERIFY(accountPanel->property("visible").toBool());
         QVERIFY(QMetaObject::invokeMethod(accountPanel, "close"));
         QTRY_VERIFY(!accountPanel->property("visible").toBool());
-        auto *environmentTab = window->findChild<QQuickItem *>("environmentTab");
-        QVERIFY(environmentTab); click(environmentTab);
+        QVERIFY(clickNavigationSegment(window, 0));
         QTRY_COMPARE(window->findChild<QObject *>("environmentLoader")->property("status").toInt(), 1);
         auto *environment = window->findChild<QQuickItem *>("environmentView");
         QVERIFY(environment); QTRY_VERIFY(environment->isVisible());
         QVERIFY(!window->findChild<QQuickWindow *>("preferencesWindow"));
-        auto *browseTab = window->findChild<QQuickItem *>("browseTab");
         auto *devices = window->findChild<QObject *>("networkDevices");
-        QVERIFY(browseTab && devices); click(browseTab);
+        QVERIFY(devices); QVERIFY(clickNavigationSegment(window, 4));
         QCOMPARE(window->property("selectedTab").toString(), QString("Browse"));
         QVERIFY(!devices->property("visible").toBool());
-        click(dashboardTab);
+        openDashboard();
         for (const auto size : {QSize(1024, 768), QSize(760, 640), QSize(390, 844), QSize(1440, 900)}) {
             window->resize(size); QTRY_COMPARE(window->size(), size);
             const auto *scroll = window->findChild<QQuickItem *>("dashboardScroll");
@@ -4263,11 +4300,13 @@ private slots:
         });
         engine.addImportPath(QString::fromUtf8(SOCIETY_LVRS_QML_IMPORT_PATH));
         engine.setInitialProperties({{"initialContainerPath", fixture.path()}});
-        engine.load(QUrl::fromLocalFile(QString::fromUtf8(SOCIETY_QML_FILE)));
+        loadSociety(engine);
         QCOMPARE(engine.rootObjects().size(), 1);
         auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first()); QVERIFY(window);
         QVERIFY(QTest::qWaitForWindowExposed(window));
-        auto *view = visualItem(window->contentItem(), "environmentView"); QVERIFY(view);
+        QVERIFY(clickNavigationSegment(window, 0));
+        QQuickItem *view = nullptr;
+        QTRY_VERIFY((view = visualItem(window->contentItem(), "environmentView")));
         auto *apps = visualItem(view, "environmentApps"); QVERIFY(apps);
         auto *collectionTab = visualItem(apps, "environmentCollection0"); QVERIFY(collectionTab);
         QCOMPARE(collectionTab->property("iconName").toString(), QStringLiteral("folder@14x14"));
@@ -4285,7 +4324,6 @@ private slots:
                 item->mapToScene(QPointF(item->width()/2, item->height()/2)).toPoint());
             return true;
         };
-        QVERIFY(click("environmentTab"));
         QTRY_VERIFY(view->isVisible());
         QCOMPARE(window->property("selectedTab").toString(), QString("Environment"));
         QVERIFY(!window->findChild<QQuickWindow *>("preferencesWindow"));
@@ -4306,10 +4344,11 @@ private slots:
         QTRY_VERIFY(!devices->property("visible").toBool());
         QVERIFY(QMetaObject::invokeMethod(pairing, "close"));
         QTRY_VERIFY(!pairing->property("visible").toBool());
-        QVERIFY(click("browseTab"));
+        QVERIFY(clickNavigationSegment(window, 4));
         QTRY_VERIFY(visualItem(window->contentItem(), "browseView")->isVisible());
         QVERIFY(!devices->property("visible").toBool());
-        QVERIFY(click("environmentTab"));
+        QVERIFY(clickNavigationSegment(window, 0));
+        QTRY_VERIFY(view->isVisible());
         QVERIFY(click("environmentNavApps"));
         QTRY_VERIFY(apps->isVisible());
         QVERIFY(click("environmentCollection1"));
@@ -4449,14 +4488,15 @@ private slots:
         });
         engine.addImportPath(QString::fromUtf8(SOCIETY_LVRS_QML_IMPORT_PATH));
         engine.setInitialProperties({{"initialContainerPath", fixture.path()}});
-        engine.load(QUrl::fromLocalFile(QString::fromUtf8(SOCIETY_QML_FILE)));
+        loadSociety(engine);
         QCOMPARE(engine.rootObjects().size(), 1);
         auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first());
         QVERIFY(window);
         auto *network = window->findChild<NetworkDriveController *>("networkDriveController");
-        auto *open = window->findChild<QQuickItem *>("openPreferences");
-        QVERIFY(network && open);
-        window->setProperty("selectedTab", "Storage");
+        QVERIFY(network);
+        QVERIFY(window->setProperty("selectedTab", "Storage"));
+        QQuickItem *open = nullptr;
+        QTRY_VERIFY((open = window->findChild<QQuickItem *>("openPreferences")));
         QVERIFY(!window->findChild<QQuickWindow *>("preferencesWindow")); // Created only when requested.
         auto *preferencesAction = window->findChild<QObject *>("globalPreferencesAction");
         QVERIFY(preferencesAction);
@@ -4464,13 +4504,14 @@ private slots:
         auto *preferences = window->findChild<QQuickWindow *>("preferencesWindow");
         QVERIFY(preferences && preferences != window);
         QTRY_VERIFY(preferences->isVisible());
-        QCOMPARE(preferences->property("primaryColor").value<QColor>(), QColor("#00E71F"));
+        const auto accent = window->property("primaryColor").value<QColor>();
+        QCOMPARE(preferences->property("primaryColor").value<QColor>(), accent);
         auto *preferencesMaterial = preferences->findChild<QQuickItem *>("applicationWindowMaterial");
         QVERIFY(preferencesMaterial);
-        QCOMPARE(preferencesMaterial->property("color").value<QColor>(), QColor("#141814"));
+        QCOMPARE(preferencesMaterial->property("color").value<QColor>(), preferences->property("windowColor").value<QColor>());
         QCOMPARE(preferencesMaterial->property("accentMix").toReal(), 0.02);
         QVERIFY(!preferencesMaterial->findChild<QQuickItem *>("applicationWindowAccentOverlay"));
-        QCOMPARE(preferencesMaterial->property("primaryColor").value<QColor>(), QColor("#00E71F"));
+        QCOMPARE(preferencesMaterial->property("primaryColor").value<QColor>(), accent);
         QCOMPARE(preferences->transientParent(), window);
         QCOMPARE(preferences->modality(), Qt::NonModal);
         auto *host = preferences->findChild<QQuickItem *>("preferencesHostMode");

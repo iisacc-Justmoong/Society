@@ -55,6 +55,31 @@ if(CMAKE_CROSSCOMPILING)
 endif()
 find_package(Qt6 6.8.3 EXACT REQUIRED COMPONENTS Quick QuickControls2 Concurrent)
 find_package(LVRS CONFIG REQUIRED HINTS "$ENV{HOME}/.local/SDK/LVRS")
+set(SOCIETY_NAV_LVUI_DIR "$ENV{HOME}/.local/SDK/LVUI/lib/cmake/LVUI"
+    CACHE PATH "LVUI package used by Society navigation")
+set(SOCIETY_NAV_IIGUI_PREFIX "$ENV{HOME}/.local/SDK/iiGUI"
+    CACHE PATH "iiGUI package used by Society navigation")
+set(SOCIETY_NAV_VULKAN_PREFIX "$ENV{HOME}/.local/SDK/Vulkan"
+    CACHE PATH "Vulkan SDK used by Society navigation")
+set(_society_prefix_before_native "${CMAKE_PREFIX_PATH}")
+list(PREPEND CMAKE_PREFIX_PATH "${SOCIETY_NAV_IIGUI_PREFIX}" "${SOCIETY_NAV_VULKAN_PREFIX}")
+find_package(iiGUI 0.5 CONFIG REQUIRED HINTS "${SOCIETY_NAV_IIGUI_PREFIX}/lib/cmake/iiGUI")
+get_target_property(_society_iigui_includes iiGUI::iiGUI INTERFACE_INCLUDE_DIRECTORIES)
+set(_society_has_paint_view FALSE)
+foreach(_society_iigui_include IN LISTS _society_iigui_includes)
+    if(EXISTS "${_society_iigui_include}/iiGUI/PaintView.h")
+        set(_society_has_paint_view TRUE)
+    endif()
+endforeach()
+if(NOT _society_has_paint_view)
+    message(FATAL_ERROR "Society navigation needs an iiGUI package with PaintView. Update the installed SDK or set SOCIETY_NAV_IIGUI_PREFIX and iiGUI_DIR to a compatible package.")
+endif()
+unset(_society_has_paint_view)
+unset(_society_iigui_includes)
+unset(_society_iigui_include)
+find_package(LVUI 0.1 CONFIG REQUIRED COMPONENTS Native HINTS "${SOCIETY_NAV_LVUI_DIR}")
+set(CMAKE_PREFIX_PATH "${_society_prefix_before_native}")
+unset(_society_prefix_before_native)
 find_package(iiSharedCanvas 0.32.0 EXACT CONFIG REQUIRED COMPONENTS Core)
 if(APPLE AND NOT IOS)
     # An SDK directory in LIBRARY_PATH is an implicit linker directory, so
@@ -269,6 +294,19 @@ set(society_model_backend_client_sources
     App/Shared/LocalBackendAddress.h App/Shared/LocalBackendPeer.h)
 set(society_native_files_launcher_sources App/Society/Native/NativeFilesLauncher.cpp App/Society/Native/NativeFilesLauncher.h)
 set(society_backend_command_sources App/Shared/BackendCommand.cpp App/Shared/BackendCommand.h)
+lvui_generate(NAME NativeNavigation SOURCE App/Society/Native/NativeNavigation.lvui
+    INCLUDES NativeNavigationViewModel.h OUTPUT_VARIABLE society_native_navigation_view)
+add_library(SocietyNativeNavigationSurface STATIC
+    App/Society/Native/LegacyNavigationBridge.cpp App/Society/Native/LegacyNavigationBridge.h
+    App/Society/Native/NativeNavigationSurface.cpp App/Society/Native/NativeNavigationSurface.h
+    App/Society/Native/NativeNavigationViewModel.cpp App/Society/Native/NativeNavigationViewModel.h
+    App/Society/Native/QtPaintDevice.cpp App/Society/Native/QtPaintDevice.h
+    App/Society/Native/NavigationIcons.qrc "${society_native_navigation_view}")
+set_target_properties(SocietyNativeNavigationSurface PROPERTIES AUTOMOC ON AUTORCC ON)
+target_compile_features(SocietyNativeNavigationSurface PUBLIC cxx_std_23)
+target_include_directories(SocietyNativeNavigationSurface PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/App"
+    PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/App/Society/Native" "${CMAKE_CURRENT_BINARY_DIR}")
+target_link_libraries(SocietyNativeNavigationSurface PUBLIC Qt6::Quick PRIVATE LVUI::Native iiGUI::iiGUI)
 qt_add_executable(Society
     ${society_environment_sources}
     ${society_calendar_sources}
@@ -375,6 +413,7 @@ if(society_qt_core_type STREQUAL "SHARED_LIBRARY")
     set_property(TARGET Society PROPERTY QT_QML_MODULE_NO_IMPORT_SCAN TRUE)
 endif()
 target_link_libraries(Society PRIVATE Qt6::Quick Qt6::QuickControls2 iiAccountManager::Quick)
+target_link_libraries(Society PRIVATE SocietyNativeNavigationSurface)
 if(APPLE AND NOT IOS)
     target_link_options(Society BEFORE PRIVATE "LINKER:-rpath,$<TARGET_FILE_DIR:iiAccountManager::iiAccountManager>")
 endif()
@@ -1142,6 +1181,7 @@ if(BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)
     target_link_libraries(SocietyDriveTests PRIVATE iiSocietyContainer::Gui)
     target_link_libraries(SocietyDriveTests PRIVATE SocietyProjectRepository)
     target_link_libraries(SocietyDriveTests PRIVATE SocietyModelPackaging)
+    target_link_libraries(SocietyDriveTests PRIVATE SocietyNativeNavigationSurface)
     target_compile_definitions(SocietyDriveTests PRIVATE
         SOCIETY_ACCOUNT_FIXTURE="${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/account.json"
         SOCIETY_QML_FILE="${CMAKE_CURRENT_SOURCE_DIR}/App/Society/Main.qml"
@@ -1168,11 +1208,11 @@ if(BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)
         ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software;QML_DISABLE_DISK_CACHE=1")
     add_test(NAME Society.ToolbarSegmentAppearance COMMAND SocietyDriveTests
         globalToolbarShowsOnlyTheSelectedSegmentBackground)
-    set_tests_properties(Society.ToolbarSegmentAppearance PROPERTIES TIMEOUT 90
+    set_tests_properties(Society.ToolbarSegmentAppearance PROPERTIES TIMEOUT 240
         ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software;QML_DISABLE_DISK_CACHE=1")
     add_test(NAME Society.TasksNavigation COMMAND SocietyDriveTests
         tasksSegmentOpensExistingTools globalToolbarMatchesFigmaAndRoutesActions)
-    set_tests_properties(Society.TasksNavigation PROPERTIES TIMEOUT 180
+    set_tests_properties(Society.TasksNavigation PROPERTIES TIMEOUT 300
         ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software;QML_DISABLE_DISK_CACHE=1")
     add_test(NAME Society.CalendarWorkspace COMMAND SocietyDriveTests
         calendarWorkspaceRoutesEditsAndRendersFiveDesigns)

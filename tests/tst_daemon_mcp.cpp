@@ -173,7 +173,9 @@ private slots:
         QVERIFY(QFileInfo::exists(root+"/Files/imported.txt")); QVERIFY(QFileInfo::exists(outsideSource));
         QDirIterator models(root+"/Models",{"mcp.safetensors"},QDir::Files,QDirIterator::Subdirectories);
         QVERIFY(models.hasNext()); const auto importedPath=models.next();
-        QVERIFY(QFileInfo::exists(importedPath+".iisacc.json")); QVERIFY(QFileInfo::exists(modelSource));
+        QVERIFY(QFileInfo::exists(root+"/.society-runtime/classifications/models/"
+            +QDir(root+"/Models").relativeFilePath(importedPath)+".iisacc.json"));
+        QVERIFY(!QFileInfo::exists(importedPath+".iisacc.json")); QVERIFY(QFileInfo::exists(modelSource));
         service.stop(); QVERIFY(m::discoverLocalApplications(registry).applications.isEmpty());
     }
 };

@@ -45,6 +45,11 @@ QByteArray readFile(const QString &path)
         return {};
     return file.readAll();
 }
+QString modelClassification(const QString &container, const QString &asset)
+{
+    return QDir(container + "/.society-runtime/classifications/models")
+        .filePath(QDir(container + "/Models").relativeFilePath(asset) + ".iisacc.json");
+}
 QStringList entries(const QString &path)
 {
     auto names = QDir(path).entryList(QDir::AllEntries | QDir::Hidden | QDir::NoDotAndDotDot);
@@ -82,13 +87,15 @@ private slots:
         QVERIFY2(importer.errorString().isEmpty(), qPrintable(importer.errorString()));
         const auto imported = finished.first().at(1).toStringList();
         QCOMPARE(imported.size(), 1);
-        QVERIFY(QFileInfo::exists(imported.first() + ".iisacc.json"));
-        const auto document = QJsonDocument::fromJson(readFile(imported.first() + ".iisacc.json")).object();
+        QVERIFY(!QFileInfo::exists(imported.first() + ".iisacc.json"));
+        QVERIFY(QFileInfo::exists(modelClassification(target.path(), imported.first())));
+        const auto document = QJsonDocument::fromJson(readFile(modelClassification(target.path(), imported.first()))).object();
         const auto annotation = document.value("metadata").toObject();
         QCOMPARE(annotation.value("title").toString(), QStringLiteral("Creator metadata"));
         QCOMPARE(annotation.value("description").toString(), QStringLiteral("Keep this description"));
         QCOMPARE(annotation.value("keywords").toArray(), QJsonArray{QStringLiteral("creative")});
-        QVERIFY(QFileInfo::exists(path + ".iisacc.json"));
+        QVERIFY(!QFileInfo::exists(path + ".iisacc.json"));
+        QVERIFY(QFileInfo::exists(modelClassification(source.path(), path)));
     }
     void backgroundOrganizationDoesNotRejectUserImport()
     {
@@ -436,7 +443,7 @@ private slots:
         QVERIFY2(importer.errorString().isEmpty(), qPrintable(importer.errorString()));
         QCOMPARE(readFile(first), secondBytes);
         QCOMPARE(storage->fileTracking(iiSocietyContainer::StoreSection::Models, "Checkpoint/same.safetensors").value("objectKey").toString(), secondId);
-        const auto metadata = QJsonDocument::fromJson(readFile(first + ".iisacc.json")).object().value("metadata").toObject();
+        const auto metadata = QJsonDocument::fromJson(readFile(modelClassification(target.path(), first))).object().value("metadata").toObject();
         QCOMPARE(metadata.value("title").toString(), QStringLiteral("Second model"));
     }
 

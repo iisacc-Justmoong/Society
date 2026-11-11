@@ -1,6 +1,7 @@
 #include "Society/ApplicationLifetime.h"
 #include "Society/ContainerFileOpenHandler.h"
 #include "Society/Drive/DriveController.h"
+#include "Society/Native/LegacyNavigationBridge.h"
 #include "Society/Semantics/SemanticRepository.h"
 #include "Society/Files/CanvasFilePreview.h"
 #include "backend/runtime/appentry.h"
@@ -105,6 +106,11 @@ int main(int argc, char *argv[])
     launchSpec.rootObject = QStringLiteral("Main");
     launchSpec.qmlImportPaths.append(QString::fromUtf8(SOCIETY_LVRS_QML_IMPORT_PATH));
     launchSpec.configureEngine = [](QQmlApplicationEngine &engine) {
+        QObject::connect(&engine, &QQmlApplicationEngine::objectCreated, &engine,
+            [](QObject *root, const QUrl &) {
+                if (auto *window = qobject_cast<QQuickWindow *>(root))
+                    LegacyNavigationBridge::install(window);
+            });
 #ifdef SOCIETY_LIFECYCLE_RUNTIME_PROBE
         societyLifecycleRuntimeProbe(engine);
 #endif

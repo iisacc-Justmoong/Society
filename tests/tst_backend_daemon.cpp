@@ -515,8 +515,11 @@ private slots:
         };
         QTRY_VERIFY_WITH_TIMEOUT(!imported().isEmpty(), 20000);
         QVERIFY(QFileInfo::exists(source));
-        QTRY_VERIFY_WITH_TIMEOUT(QFileInfo::exists(imported() + ".iisacc.json"), 20000);
-        QFile copiedMetadata(imported() + ".iisacc.json");
+        const auto classification = [&] { return container + "/.society-runtime/classifications/models/"
+            + QDir(container + "/Models").relativeFilePath(imported()) + ".iisacc.json"; };
+        QTRY_VERIFY_WITH_TIMEOUT(QFileInfo::exists(classification()), 20000);
+        QVERIFY(!QFileInfo::exists(imported() + ".iisacc.json"));
+        QFile copiedMetadata(classification());
         QVERIFY(copiedMetadata.open(QIODevice::ReadOnly));
         QCOMPARE(QJsonDocument::fromJson(copiedMetadata.readAll()).object().value("metadata").toObject()
             .value("title").toString(), QStringLiteral("fixture"));

@@ -95,6 +95,12 @@ QString catalogRoot(const QString &container) {
             utf8(error.isEmpty() ? QStringLiteral("Files directory is unavailable.") : error));
     return path;
 }
+fs::path classificationRoot(const QString &container) {
+    QString error;
+    const auto storage = iiSocietyContainer::SharedStorage::open(container, &error);
+    if (!storage) throw std::runtime_error(utf8(error));
+    return iiSocietyContainer::FileRepository::classificationDirectory(nativePath(storage->drive().rootPath()), "files");
+}
 std::string status(const Manifest &m) {
     auto doc = QJsonDocument::fromJson(QByteArray::fromStdString(m.extensionsJson));
     return utf8(doc.object().value(QStringLiteral("society:status")).toString(QStringLiteral("draft")));
@@ -178,7 +184,7 @@ template <class F>
 void change(const QString &container, const QString &actorId, const QString &key, const QString &revision,
             F fn) {
     iiFileProvider::FileCatalog catalog(nativePath(catalogRoot(container)),
-                                        iiFileProvider::FileCatalog::Access::ReadWrite);
+                                        iiFileProvider::FileCatalog::Access::ReadWrite, classificationRoot(container));
     auto item = open(catalog, key, actorId);
     expected(item.project, revision);
     auto transaction = item.project.begin();
@@ -243,7 +249,8 @@ ProjectRepository::Snapshot ProjectRepository::load(const QString &selectedKey) 
     const auto root = rootPath(container_, false);
     if (!QFileInfo::exists(root))
         return out;
-    iiFileProvider::FileCatalog catalog(nativePath(catalogRoot(container_)));
+    iiFileProvider::FileCatalog catalog(nativePath(catalogRoot(container_)),
+                                        iiFileProvider::FileCatalog::Access::Create, classificationRoot(container_));
     // Register only direct package directories, never their assets. Invalid
     // packages remain untouched and are reported to the user.
     for (const auto &entry : fs::directory_iterator(nativePath(root))) {
@@ -328,7 +335,8 @@ ProjectRepository::Snapshot ProjectRepository::load(const QString &selectedKey) 
 QString ProjectRepository::create(const QVariantMap &draft) const {
     auto creator = actor(actor_);
     const auto root = rootPath(container_, true);
-    iiFileProvider::FileCatalog catalog(nativePath(catalogRoot(container_)));
+    iiFileProvider::FileCatalog catalog(nativePath(catalogRoot(container_)),
+                                        iiFileProvider::FileCatalog::Access::Create, classificationRoot(container_));
     const auto name = draft.value("name").toString().trimmed(),
                statement = draft.value("goal").toString().trimmed();
     if (name.isEmpty() || statement.isEmpty())
@@ -566,7 +574,7 @@ void ProjectRepository::addConstraint(const QString &key, const QString &revisio
 }
 void ProjectRepository::rebuildIndex(const QString &key) const {
     iiFileProvider::FileCatalog catalog(nativePath(catalogRoot(container_)),
-                                        iiFileProvider::FileCatalog::Access::ReadWrite);
+                                        iiFileProvider::FileCatalog::Access::ReadWrite, classificationRoot(container_));
     auto item = open(catalog, key, actor_);
     auto index = item.port->openIndex(true);
     auto project = Project::open(item.port, actor(actor_), Capabilities::editor(), index);
@@ -574,7 +582,7 @@ void ProjectRepository::rebuildIndex(const QString &key) const {
 }
 QVariantMap ProjectRepository::validate(const QString &key, bool availability) const {
     iiFileProvider::FileCatalog catalog(nativePath(catalogRoot(container_)),
-                                        iiFileProvider::FileCatalog::Access::ReadWrite);
+                                        iiFileProvider::FileCatalog::Access::ReadWrite, classificationRoot(container_));
     auto item = open(catalog, key, actor_);
     auto report = item.project.validate(false);
     QStringList errors, warnings;
@@ -597,7 +605,7 @@ QVariantMap ProjectRepository::validate(const QString &key, bool availability) c
 }
 QString ProjectRepository::resourcePath(const QString &key, const QString &id) const {
     iiFileProvider::FileCatalog catalog(nativePath(catalogRoot(container_)),
-                                        iiFileProvider::FileCatalog::Access::ReadWrite);
+                                        iiFileProvider::FileCatalog::Access::ReadWrite, classificationRoot(container_));
     auto item = open(catalog, key, actor_);
     const auto graph = item.project.snapshot();
     const auto resource = std::ranges::find(graph.resources, utf8(id), &Resource::id);

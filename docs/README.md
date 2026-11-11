@@ -46,6 +46,7 @@ Markdown is the maintained human source. Agent JSON is a structured, source-trac
 | [`docs/ModelPackagingVerification.md`](ModelPackagingVerification.md) | [JSON](ModelPackagingVerification.agent.json) |
 | [`docs/Models.md`](Models.md) | [JSON](Models.agent.json) |
 | [`docs/NativeMigrationBackend.md`](NativeMigrationBackend.md) | [JSON](NativeMigrationBackend.agent.json) |
+| [`docs/NativeNavigation.md`](NativeNavigation.md) | [JSON](NativeNavigation.agent.json) |
 | [`docs/NativeStorageView.md`](NativeStorageView.md) | [JSON](NativeStorageView.agent.json) |
 | [`docs/NetworkDrive.md`](NetworkDrive.md) | [JSON](NetworkDrive.agent.json) |
 | [`docs/OfflineStartupVerification.md`](OfflineStartupVerification.md) | [JSON](OfflineStartupVerification.agent.json) |
