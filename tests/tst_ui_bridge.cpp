@@ -1,5 +1,6 @@
 #include "Daemon/DaemonMcp.h"
 #include "Daemon/ModelBackendServer.h"
+#include "Daemon/UiToolBridge.h"
 #include "Shared/LocalBackendAddress.h"
 #include "Shared/LocalBackendPeer.h"
 #include "Society/Mcp/UiBridgeRegistration.h"
@@ -98,6 +99,12 @@ private slots:
         a::Tool open; open.definition={"open_section","Fixture navigation",{{"type","object"},{"properties",QJsonObject{{"key",QJsonObject{{"type","string"}}}}},{"required",QJsonArray{"key"}}},{},false,false};
         open.execute=[](const QJsonObject &args,const a::ToolContext &) {return a::ToolResult{"Opened",{{"key",args.value("key")}}};};
         tools->add(std::move(open)); tools->add(a::userQuestionTool({false,"markdown"}));
+        a::Tool agentNavigate;
+        agentNavigate.definition={"agent_navigate","Fixture pinned navigation",{{"type","object"},
+            {"properties",QJsonObject{{"container",QJsonObject{{"type","string"}}},{"path",QJsonObject{{"type","string"}}}}},
+            {"required",QJsonArray{"container","path"}}},{},false,false};
+        agentNavigate.execute=[](const QJsonObject &args,const a::ToolContext &) {return a::ToolResult{"Opened",args};};
+        tools->add(std::move(agentNavigate));
         std::atomic<bool> atRoot{false}, delayStatus{false};
         a::Tool state; state.definition={"status","Fixture status",{{"type","object"},{"properties",QJsonObject{}}},{},true,true};
         state.execute=[&](const QJsonObject &,const a::ToolContext &context) {
@@ -106,7 +113,8 @@ private slots:
             return a::ToolResult{"state",{{"root_path",root},{"current_path",rootView?root:root+"/Files"},{"identifier","fixture"},
                 {"at_root",rootView},{"sections",QJsonArray{QJsonObject{{"name","Files"}},QJsonObject{{"name","Models"}}}}}};
         }; tools->add(std::move(state));
-        auto policy=std::make_shared<a::RulePolicy>(a::PermissionMode::Default,QList<a::PermissionRule>{{"open_section",a::PermissionBehavior::Allow}});
+        auto policy=std::make_shared<a::RulePolicy>(a::PermissionMode::Default,QList<a::PermissionRule>{{"open_section",a::PermissionBehavior::Allow},
+            {"agent_navigate",a::PermissionBehavior::Allow}});
         a::ToolRunnerOptions options; options.hooks.append(inbox.hook());
         auto runner=std::make_shared<a::ToolRunner>(tools,policy,std::move(options));
         UiBridgeRegistration registration(runner,nullptr,[](QLocalSocket *socket) {
@@ -159,6 +167,18 @@ private slots:
         QTRY_VERIFY_WITH_TIMEOUT(future.wait_for(std::chrono::milliseconds(0))==std::future_status::ready,45000);
         try {QVERIFY(future.get());} catch (const std::exception &error) {QFAIL(error.what());}
         QCOMPARE(questionsSeen.load(),1);
+        auto pinnedCall=[&](const QString &container) {
+            return std::async(std::launch::async,[&,container] {
+                return societyUiToolCall(broker,"agent_navigate",{{"container",container},{"path","Files"}},{});
+            });
+        };
+        auto wrongDrive=pinnedCall(fixture.filePath("other.societycontainer"));
+        QTRY_VERIFY_WITH_TIMEOUT(wrongDrive.wait_for(std::chrono::milliseconds(0))==std::future_status::ready,10000);
+        QVERIFY(wrongDrive.get().isError);
+        auto currentDrive=pinnedCall(root);
+        QTRY_VERIFY_WITH_TIMEOUT(currentDrive.wait_for(std::chrono::milliseconds(0))==std::future_status::ready,10000);
+        const auto pinnedResult=currentDrive.get(); QVERIFY(!pinnedResult.isError);
+        QCOMPARE(pinnedResult.data.value("container").toString(),root);
         QProcess other; other.start(QCoreApplication::applicationFilePath(),{"--probe",broker}); QVERIFY(other.waitForStarted(5000));
         QTRY_COMPARE_WITH_TIMEOUT(other.state(),QProcess::NotRunning,10000);
         QCOMPARE(other.exitStatus(),QProcess::NormalExit); QCOMPARE(other.exitCode(),0);

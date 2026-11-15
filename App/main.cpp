@@ -2,6 +2,7 @@
 #include "Society/ContainerFileOpenHandler.h"
 #include "Society/Drive/DriveController.h"
 #include "Society/Native/LegacyNavigationBridge.h"
+#include "Society/Native/LegacyWorkspaceBridge.h"
 #include "Society/Semantics/SemanticRepository.h"
 #include "Society/Files/CanvasFilePreview.h"
 #include "backend/runtime/appentry.h"
@@ -16,6 +17,16 @@
 #include <QQmlContext>
 #ifdef SOCIETY_WITH_LOCAL_MCP
 #include "Society/Mcp/SocietyMcp.h"
+#endif
+#if defined(SOCIETY_NATIVE_QUESTION_PRESENTER) || defined(SOCIETY_NATIVE_ACCOUNT_PRESENTER) || defined(SOCIETY_NATIVE_PHOTO_PRESENTER)
+#include "Society/Native/OverlayShutdown.h"
+#endif
+#ifdef SOCIETY_NATIVE_PHOTO_PRESENTER
+#include "Society/Native/NativePhotoPresenter.h"
+#endif
+#ifdef SOCIETY_NATIVE_ACCOUNT_PRESENTER
+#include "Society/Native/NativeAccountPresenter.h"
+#include <iiAccountManager/Quick/AccountViews.h>
 #endif
 #include "Society/Services/SocietyRuntime.h"
 #include "Society/Services/SyncOwnership.h"
@@ -106,10 +117,31 @@ int main(int argc, char *argv[])
     launchSpec.rootObject = QStringLiteral("Main");
     launchSpec.qmlImportPaths.append(QString::fromUtf8(SOCIETY_LVRS_QML_IMPORT_PATH));
     launchSpec.configureEngine = [](QQmlApplicationEngine &engine) {
+#if defined(SOCIETY_NATIVE_QUESTION_PRESENTER) || defined(SOCIETY_NATIVE_ACCOUNT_PRESENTER) || defined(SOCIETY_NATIVE_PHOTO_PRESENTER)
+        auto* overlayShutdown = new society::native::OverlayShutdown(&engine);
+#endif
+#ifdef SOCIETY_NATIVE_ACCOUNT_PRESENTER
+        QObject::connect(&engine, &QQmlApplicationEngine::objectCreated, &engine,
+            [&engine, overlayShutdown](QObject* root, const QUrl&) {
+                if (!root) return;
+                auto* account = root->findChild<AccountController*>(QStringLiteral("societyAccount"));
+                auto* legacy = root->findChild<iisacc::accounts::AccountViews*>(QStringLiteral("accountViews"));
+                if (account && legacy)
+                    (void)society::native::installNativeAccountPresenter(root, account->manager(), legacy, &engine, overlayShutdown);
+            });
+#endif
+#ifdef SOCIETY_NATIVE_PHOTO_PRESENTER
+        QObject::connect(&engine, &QQmlApplicationEngine::objectCreated, &engine,
+            [&engine, overlayShutdown](QObject* root, const QUrl&) {
+                if (root) (void)society::native::installNativePhotoPresenter(root, &engine, overlayShutdown);
+            });
+#endif
         QObject::connect(&engine, &QQmlApplicationEngine::objectCreated, &engine,
             [](QObject *root, const QUrl &) {
-                if (auto *window = qobject_cast<QQuickWindow *>(root))
+                if (auto *window = qobject_cast<QQuickWindow *>(root)) {
                     LegacyNavigationBridge::install(window);
+                    LegacyWorkspaceBridge::install(window);
+                }
             });
 #ifdef SOCIETY_LIFECYCLE_RUNTIME_PROBE
         societyLifecycleRuntimeProbe(engine);
@@ -162,8 +194,13 @@ int main(int argc, char *argv[])
                 applicationLinks->listen();
             });
 #ifdef SOCIETY_WITH_LOCAL_MCP
+#ifdef SOCIETY_NATIVE_QUESTION_PRESENTER
         QObject::connect(&engine, &QQmlApplicationEngine::objectCreated, &engine,
-            [&engine](QObject* root, const QUrl&) { if (root) installSocietyMcp(root, &engine); });
+            [&engine, overlayShutdown](QObject* root, const QUrl&) { if (root) installSocietyMcp(root, &engine, overlayShutdown); });
+#else
+        QObject::connect(&engine, &QQmlApplicationEngine::objectCreated, &engine,
+            [&engine](QObject* root, const QUrl&) { if (root) installSocietyMcp(root, &engine, nullptr); });
+#endif
 #endif
         QGuiApplication::setWindowIcon(QIcon(QStringLiteral(":/branding/Society.png")));
 #if defined(Q_OS_LINUX) && !defined(Q_OS_ANDROID)

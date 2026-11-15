@@ -1,12 +1,19 @@
 #include "ModelBackendServer.h"
 #include "NativeDirectorySession.h"
+#include "RecentBackend.h"
+#include "Society/Resources/ResourceInspection.h"
 #include "Shared/LocalBackendAddress.h"
 #include "Shared/LocalBackendPeer.h"
+#ifdef SOCIETY_AGENT_BACKEND
+#include "WorkspaceAgentBackend.h"
+#include "SuggestedBackend.h"
+#endif
 #include <SocietyDrive.h>
 #include <QDir>
 #include <QCoreApplication>
 #include <QFile>
 #include <QFileInfo>
+#include <QFutureWatcher>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QLocalSocket>
@@ -14,6 +21,7 @@
 #include <QTimer>
 #include <QUuid>
 #include <QtEndian>
+#include <QtConcurrent/QtConcurrentRun>
 #include <algorithm>
 #include <utility>
 #include <cerrno>
@@ -49,6 +57,23 @@ ModelBackendServer::ModelBackendServer(QObject *parent, UiPeerVerifier uiPeerVer
     if (!m_uiPeerVerifier) m_uiPeerVerifier=[](QLocalSocket *socket) {
         return societyBackendPeerMatchesExecutable(socket,QDir(QCoreApplication::applicationDirPath()).filePath("Society"));
     };
+    m_recent=std::make_unique<RecentBackend>();
+    connect(m_recent.get(),&RecentBackend::changed,this,[this](const QJsonObject &recent) {
+        for (auto it=m_recentClients.cbegin();it!=m_recentClients.cend();++it)
+            send(it.key(),{{"type","recentState"},{"container",m_selected},{"subscription",it.value()},{"recent",recent}});
+    });
+#ifdef SOCIETY_AGENT_BACKEND
+    m_agent = std::make_unique<WorkspaceAgentBackend>();
+    m_suggested = std::make_unique<SuggestedBackend>(m_agent.get());
+    connect(m_agent.get(), &WorkspaceAgentBackend::changed, this, [this](const QJsonObject &agent) {
+        for (auto it=m_agentClients.cbegin();it!=m_agentClients.cend();++it)
+            send(it.key(), {{"type","agentState"},{"container",m_selected},{"subscription",it.value()},{"agent",agent}});
+    });
+    connect(m_suggested.get(), &SuggestedBackend::changed, this, [this](const QJsonObject &suggested) {
+        for (auto it=m_suggestedClients.cbegin();it!=m_suggestedClients.cend();++it)
+            send(it.key(), {{"type","suggestedState"},{"container",m_selected},{"subscription",it.value()},{"suggested",suggested}});
+    });
+#endif
     connect(&m_server, &QLocalServer::newConnection, this, &ModelBackendServer::accept);
     connect(&m_models, &iiSocietyContainer::ModelImportService::stateChanged, this, &ModelBackendServer::broadcastState);
     connect(&m_models, &iiSocietyContainer::ModelImportService::jobsChanged, this, &ModelBackendServer::broadcastState);
@@ -68,8 +93,17 @@ ModelBackendServer::ModelBackendServer(QObject *parent, UiPeerVerifier uiPeerVer
         broadcast({{"type","fileJobChanged"},{"jobId",id},{"container",m_fileJobContainers.value(id)},{"state","recorded"}});
     });
     connect(&m_fileJobs,&iiSocietyContainer::FileJobService::finished,this,[this](const QString &id,const QString &path,const QString &error) {
-        broadcast({{"type","fileJobChanged"},{"jobId",id},{"container",m_fileJobContainers.take(id)},
+        const auto container=m_fileJobContainers.take(id);
+        broadcast({{"type","fileJobChanged"},{"jobId",id},{"container",container},
                    {"state","finished"},{"path",path},{"error",error},{"success",error.isEmpty()}});
+        if (!container.isEmpty()) {
+            if (error.isEmpty() && !path.isEmpty()) m_recent->record(container,QDir(container).absoluteFilePath(path));
+            // A partially completed job can still move or remove a file.
+            if (societySameBackendPath(container,m_selected)) m_recent->refresh();
+        }
+#ifdef SOCIETY_AGENT_BACKEND
+        if (error.isEmpty() && m_suggested) m_suggested->refresh();
+#endif
     });
     connect(&m_fileJobs,&iiSocietyContainer::FileJobService::inspected,this,[this](const QString &ticket,const QVariantMap &job,const QString &error) {
         const auto pending=m_fileQueries.take(ticket);
@@ -124,6 +158,9 @@ bool ModelBackendServer::listen(const QString &directory)
         m_server.close(); ::close(fd); return false;
     }
     m_lock = fd;
+#ifdef SOCIETY_AGENT_BACKEND
+    if (m_agent) m_agent->setBrokerDirectory(directory);
+#endif
     return true;
 #elif defined(Q_OS_WIN)
     if (m_server.isListening()) return true;
@@ -137,6 +174,9 @@ bool ModelBackendServer::listen(const QString &directory)
     m_server.setSocketOptions(QLocalServer::UserAccessOption);
     if (!m_server.listen(societyBackendAddress(directory))) return false;
     m_windowsLock = std::move(lock);
+#ifdef SOCIETY_AGENT_BACKEND
+    if (m_agent) m_agent->setBrokerDirectory(directory);
+#endif
     return true;
 #else
     Q_UNUSED(directory); return false;
@@ -149,6 +189,7 @@ void ModelBackendServer::selectContainer(const QString &path)
     const bool changed = m_selected != selected;
     m_selected = selected;
     if (changed) {
+        ++m_resourceGeneration;
         m_selectedId.clear();
         if (!selected.isEmpty()) if (const auto drive=iiSocietyContainer::SocietyDrive::open(selected))
             m_selectedId=drive->storageKind()==iiSocietyContainer::SocietyDrive::StorageKind::LogicalDisk
@@ -156,6 +197,11 @@ void ModelBackendServer::selectContainer(const QString &path)
     }
     if (changed) for (auto *client : m_clients)
         if (auto *directory = client->findChild<NativeDirectorySession *>()) directory->invalidate();
+#ifdef SOCIETY_AGENT_BACKEND
+    if (changed && m_agent) m_agent->selectContainer(m_selected);
+    if (changed && m_suggested) m_suggested->selectContainer(m_selected);
+#endif
+    if (changed) m_recent->selectContainer(m_selected);
     reconcileContainer();
     if (changed) broadcastState();
 }
@@ -209,12 +255,18 @@ void ModelBackendServer::accept()
             send(socket, {{"type", "directoryChanged"}, {"directory", state}});
         });
         connect(directory, &NativeDirectorySession::openResult, socket, [this, socket](QJsonObject result) {
+            if (result.value("error").toString().isEmpty() && !result.value("path").toString().isEmpty())
+                m_recent->record(m_selected,result.value("path").toString());
             result.insert("type","directoryActivated"); send(socket,result);
         });
         socket->setReadBufferSize(maxFrame + 4);
         auto *deadline = new QTimer(socket); deadline->setSingleShot(true); deadline->setInterval(10000);
         connect(deadline, &QTimer::timeout, socket, &QLocalSocket::abort);
         connect(socket, &QLocalSocket::disconnected, this, [this, socket] {
+            m_recentClients.remove(socket);
+#ifdef SOCIETY_AGENT_BACKEND
+            m_suggestedClients.remove(socket);
+#endif
             if (m_uiSocket == socket) {
                 m_uiSocket.clear();
                 const auto pending=std::exchange(m_uiCalls,{});
@@ -257,6 +309,123 @@ void ModelBackendServer::receive(QLocalSocket *socket, const QJsonObject &reques
     const auto id = request.value("id").toString();
     const auto operation = request.value("op").toString();
     if (id.isEmpty() || id.size() > 128 || operation.isEmpty() || operation.size() > 64) { socket->abort(); return; }
+    if (operation=="resourceInspect") {
+        QJsonObject reply{{"type","result"},{"id",id},{"accepted",false},{"operation",operation}};
+        const auto directory=QDir(QCoreApplication::applicationDirPath());
+        if (!m_uiPeerVerifier(socket) && societyBackendPeerPid(socket)!=QCoreApplication::applicationPid()
+            && !societyBackendPeerMatchesExecutable(socket,directory.filePath("society-cli"))
+            && !societyBackendPeerMatchesExecutable(socket,directory.filePath("bin/society-cli"))) {
+            reply.insert("error","The resource client could not be verified."); send(socket,reply); return;
+        }
+        if (m_selected.isEmpty() || !societySameBackendPath(QDir::cleanPath(request.value("container").toString()),m_selected)) {
+            reply.insert("error","The selected Society drive is unavailable or has changed."); send(socket,reply); return;
+        }
+        const auto path=request.value("path");
+        if (!path.isString() || path.toString().isEmpty() || path.toString().size()>4096 || m_resourceQueries>=16) {
+            reply.insert("error","Invalid or excessive resource inspection requests."); send(socket,reply); return;
+        }
+        const auto root=m_selected, logical=path.toString(); const auto generation=m_resourceGeneration;
+        QPointer<QLocalSocket> client(socket); ++m_resourceQueries;
+        auto *watcher=new QFutureWatcher<society::resources::Inspection>(this);
+        connect(watcher,&QFutureWatcher<society::resources::Inspection>::finished,this,[this,watcher,client,id,generation] {
+            const auto result=watcher->result(); watcher->deleteLater(); --m_resourceQueries;
+            if (!client) return;
+            QJsonObject response{{"type","result"},{"id",id},{"accepted",false},{"operation","resourceInspect"}};
+            if (generation!=m_resourceGeneration) response.insert("error","The selected Society drive changed.");
+            else if (!result.error.isEmpty()) response.insert("error",result.error);
+            else { response.insert("accepted",true); response.insert("resource",result.snapshot); }
+            send(client,response);
+        });
+        watcher->setFuture(QtConcurrent::run([root,logical] {
+            try { return society::resources::inspect(root,logical); }
+            catch (const std::exception &error) { return society::resources::Inspection{{},QString::fromUtf8(error.what())}; }
+            catch (...) { return society::resources::Inspection{{},QStringLiteral("Could not inspect the resource.")}; }
+        }));
+        return;
+    }
+    if (operation=="recentSubscribe" || operation=="recentRefresh" || operation=="recentOpened") {
+        QJsonObject reply{{"type","result"},{"id",id},{"accepted",false},{"operation",operation}};
+        const auto directory=QDir(QCoreApplication::applicationDirPath());
+        if (!m_uiPeerVerifier(socket) && societyBackendPeerPid(socket)!=QCoreApplication::applicationPid()
+            && !societyBackendPeerMatchesExecutable(socket,directory.filePath("society-cli"))
+            && !societyBackendPeerMatchesExecutable(socket,directory.filePath("bin/society-cli"))) {
+            reply.insert("error","The Recent client could not be verified."); send(socket,reply); return;
+        }
+        if (m_selected.isEmpty() || !societySameBackendPath(QDir::cleanPath(request.value("container").toString()),m_selected)) {
+            reply.insert("error","The selected Society drive is unavailable or has changed."); send(socket,reply); return;
+        }
+        if (operation=="recentSubscribe") {
+            const auto subscription=request.value("subscription").toString(id);
+            if (subscription.isEmpty() || subscription.size()>128) { reply.insert("error","Invalid Recent subscription."); send(socket,reply); return; }
+            m_recentClients.insert(socket,subscription); m_recent->activate();
+        } else if (operation=="recentRefresh") m_recent->refresh();
+        else {
+            const auto path=request.value("path").toString();
+            if (path.isEmpty() || path.size()>4096 || !QDir::isAbsolutePath(path) || QDir::cleanPath(path)!=path) {
+                reply.insert("error","Invalid Recent file path."); send(socket,reply); return;
+            }
+            m_recent->record(m_selected,path);
+        }
+        reply.insert("accepted",true); reply.insert("recent",m_recent->snapshot()); send(socket,reply); return;
+    }
+#ifdef SOCIETY_AGENT_BACKEND
+    if (operation=="suggestedSubscribe" || operation=="suggestedRefresh") {
+        QJsonObject reply{{"type","result"},{"id",id},{"accepted",false},{"operation",operation}};
+        const auto directory=QDir(QCoreApplication::applicationDirPath());
+        if (!m_uiPeerVerifier(socket) && societyBackendPeerPid(socket)!=QCoreApplication::applicationPid()
+            && !societyBackendPeerMatchesExecutable(socket,directory.filePath("society-cli"))
+            && !societyBackendPeerMatchesExecutable(socket,directory.filePath("bin/society-cli"))) {
+            reply.insert("error","The Suggested client could not be verified."); send(socket,reply); return;
+        }
+        if (m_selected.isEmpty() || !societySameBackendPath(QDir::cleanPath(request.value("container").toString()),m_selected)) {
+            reply.insert("error","The selected Society drive is unavailable or has changed."); send(socket,reply); return;
+        }
+        if (operation=="suggestedSubscribe") {
+            const auto subscription=request.value("subscription").toString(id);
+            if (subscription.isEmpty() || subscription.size()>128) { reply.insert("error","Invalid Suggested subscription."); send(socket,reply); return; }
+            m_suggestedClients.insert(socket,subscription);
+            m_suggested->activate();
+        } else m_suggested->refresh();
+        reply.insert("accepted",true); reply.insert("suggested",m_suggested->snapshot()); send(socket,reply); return;
+    }
+    if (operation.startsWith("agent")) {
+        QJsonObject reply{{"type","result"},{"id",id},{"accepted",false},{"operation",operation}};
+        const auto directory=QDir(QCoreApplication::applicationDirPath());
+        const auto cli=directory.filePath(QStringLiteral("society-cli"));
+        const auto buildCli=directory.filePath(QStringLiteral("bin/society-cli"));
+        if (!m_uiPeerVerifier(socket) && societyBackendPeerPid(socket) != QCoreApplication::applicationPid()
+            && !societyBackendPeerMatchesExecutable(socket,cli) && !societyBackendPeerMatchesExecutable(socket,buildCli)) {
+            reply.insert("error","The agent client could not be verified."); send(socket,reply); return;
+        }
+        if (!societySameBackendPath(QDir::cleanPath(request.value("container").toString()),m_selected) || m_selected.isEmpty()) {
+            reply.insert("error","The selected Society drive is unavailable or has changed."); send(socket,reply); return;
+        }
+        const auto bytes=QJsonDocument(request).toJson(QJsonDocument::Compact);
+        if (!m_agentReplies.contains(socket))
+            connect(socket,&QObject::destroyed,this,[this,socket] { m_agentClients.remove(socket); m_agentReplies.remove(socket); });
+        auto &cache=m_agentReplies[socket];
+        if (cache.contains(id)) {
+            const auto previous=cache.value(id);
+            if (previous.first!=bytes) { socket->abort(); return; }
+            send(socket,previous.second); return;
+        }
+        QString error; bool accepted=false;
+        if (operation=="agentSubscribe") {
+            const auto subscription=request.value("subscription").toString(id);
+            if (subscription.isEmpty() || subscription.size()>128) error="Invalid agent subscription.";
+            else { m_agentClients.insert(socket,subscription); accepted=true; }
+        } else if (operation=="agentSelect") accepted=m_agent->selectModel(request.value("model").toString(),&error);
+        else if (operation=="agentSend") accepted=m_agent->submit(request.value("prompt").toString(),&error);
+        else if (operation=="agentNew") accepted=m_agent->newConversation(&error);
+        else if (operation=="agentCancel") accepted=m_agent->cancel(&error);
+        else error="Unknown agent operation.";
+        reply.insert("accepted",accepted);
+        if (!error.isEmpty()) reply.insert("error",error);
+        reply.insert("agent",m_agent->snapshot());
+        if (cache.size()>=32) cache.clear();
+        cache.insert(id,{bytes,reply}); send(socket,reply); return;
+    }
+#endif
     // UI traffic stays on authenticated per-peer channels and never enters the
     // shared reply cache or broadcasts. Only this daemon may initiate a call.
     if (operation == "uiRegister") {
@@ -267,11 +436,15 @@ void ModelBackendServer::receive(QLocalSocket *socket, const QJsonObject &reques
     }
     if (operation=="uiInvoke") {
         const auto name=request.value("tool").toString();
-        static const QSet<QString> allowed{"status","open_section","navigate","refresh","AskUserQuestion"};
+        static const QSet<QString> allowed{"status","open_section","navigate","refresh","AskUserQuestion",
+            "agent_status","agent_open_section","agent_navigate","agent_refresh"};
         if (societyBackendPeerPid(socket)!=QCoreApplication::applicationPid() || !m_uiSocket
             || m_uiSocket->state()!=QLocalSocket::ConnectedState || !allowed.contains(name)
             || !request.value("arguments").isObject() || m_uiCalls.size()>=64) {
             send(socket,{{"type","result"},{"id",id},{"accepted",false},{"error","A verified Society window is not connected."}}); return;
+        }
+        if (name.startsWith("agent_") && !societySameBackendPath(request.value("arguments").toObject().value("container").toString(),m_selected)) {
+            send(socket,{{"type","result"},{"id",id},{"accepted",false},{"error","The selected Society drive has changed."}}); return;
         }
         const auto call=QUuid::createUuid().toString(QUuid::WithoutBraces);
         m_uiCalls.insert(call,{socket,id});

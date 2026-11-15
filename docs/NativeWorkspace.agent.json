@@ -1,0 +1,300 @@
+{
+  "format": "iisacc.agent-document",
+  "schema_version": 1,
+  "document_id": "urn:iisacc:document:cb2a4ced6b0abd39760c1d2493388f35db0ccbd5f245bf990905c2bcad63fe6e",
+  "project": {
+    "id": "urn:iisacc:project:Product%2FSociety",
+    "name": "Society",
+    "root": "Product/Society",
+    "kind": "application"
+  },
+  "source": {
+    "path": "docs/NativeWorkspace.md",
+    "sha256": "d6f6d101f8e5f5d6fa77924d3d0a402352e9994f205b5ef6464ada405fe53250",
+    "bytes": 7905,
+    "line_count": 117,
+    "encoding": "utf-8",
+    "language": "en"
+  },
+  "document": {
+    "title": "Workspace Suggested and Recent views",
+    "role": "guide",
+    "authority": "markdown_source"
+  },
+  "blocks": [
+    {
+      "id": "b000001",
+      "kind": "heading",
+      "start_line": 1,
+      "end_line": 1,
+      "raw": "# Workspace Suggested and Recent views\n",
+      "level": 1,
+      "title": "Workspace Suggested and Recent views"
+    },
+    {
+      "id": "b000002",
+      "kind": "blank",
+      "start_line": 2,
+      "end_line": 2,
+      "raw": "\n"
+    },
+    {
+      "id": "b000003",
+      "kind": "heading",
+      "start_line": 3,
+      "end_line": 3,
+      "raw": "## Ribbon and selection contract\n",
+      "level": 2,
+      "title": "Ribbon and selection contract"
+    },
+    {
+      "id": "b000004",
+      "kind": "blank",
+      "start_line": 4,
+      "end_line": 4,
+      "raw": "\n"
+    },
+    {
+      "id": "b000005",
+      "kind": "paragraph",
+      "start_line": 5,
+      "end_line": 13,
+      "raw": "Suggested and Recent share the Figma File menu and Home, Share, View and\nManage ribbon tabs. Switching tabs or collapsing the ribbon must not change\nthe current page, search, selection, or agent conversation. The commands are\nenabled only when their operation is available for the current selection and\nthe current Society drive. A submitted file job is not reported as complete\nuntil the daemon confirms its outcome. A changed drive or disconnected client\nmust not silently replay a request. A filtered or replaced row is removed from\nthe selection before any action uses it. Recent remains limited to the 500\nlatest activity entries, independent of the ribbon state.\n"
+    },
+    {
+      "id": "b000006",
+      "kind": "blank",
+      "start_line": 14,
+      "end_line": 14,
+      "raw": "\n"
+    },
+    {
+      "id": "b000007",
+      "kind": "paragraph",
+      "start_line": 15,
+      "end_line": 20,
+      "raw": "The Workspace sidebar routes **Suggested** and **Recent** to separate LVUI\nviews inside the Workspace segment. Suggested shows daemon-owned, indexed\nunfinished-work recommendations with a reason; Recent uses the container's\nrecent-file snapshot. Neither view creates sample files or\nclaims that a path is a persistent resource identifier. Projects, Calendar,\nActivity, guilds and organizations retain their existing destination handlers.\n"
+    },
+    {
+      "id": "b000008",
+      "kind": "blank",
+      "start_line": 21,
+      "end_line": 21,
+      "raw": "\n"
+    },
+    {
+      "id": "b000009",
+      "kind": "paragraph",
+      "start_line": 22,
+      "end_line": 32,
+      "raw": "The shared browser provides list and grid presentation, search, sorting,\nselection and opening through the existing container file activation path.\nThe table supports contiguous selection with Shift; the grid supports multiple\nselected items. Select all and Clear operate on the visible snapshot. Invert\nis available for any grid selection and for table selections whose complement\nis contiguous, because the LVUI table currently represents a single range.\nChanging the visible row order, replacing a known resource ID at the same path,\nor changing the observed version of a row without an ID clears the selection\nbefore an action can use a stale locator. This observation is not a substitute\nfor an atomic identity check at the time a file job executes. Grid entries use\nfile labels rather than thumbnails.\n"
+    },
+    {
+      "id": "b000010",
+      "kind": "blank",
+      "start_line": 33,
+      "end_line": 33,
+      "raw": "\n"
+    },
+    {
+      "id": "b000011",
+      "kind": "paragraph",
+      "start_line": 34,
+      "end_line": 43,
+      "raw": "The ribbon provides the Figma Home, Share, View and Manage groups and File\nmenu. Copy exports file URLs to the platform clipboard; Copy path copies\nlocators as text. Paste requests a destination under `Files/` and submits a\nseparate copy job for each local clipboard URL. New folder creates a directory\nin the `Files/` root. Rename, Move to, Copy to, Duplicate and Delete use the\nexisting iiSocietyContainer file-job service; Delete moves items to the\ncontainer's Deleted area. The properties dialog displays the selected\nsnapshot, including a resource ID and recommendation reason only when\nprovided. Copy ID copies the resource ID and is unavailable when the snapshot\ndoes not contain one; paths and hashes are never substituted for it.\n"
+    },
+    {
+      "id": "b000012",
+      "kind": "blank",
+      "start_line": 44,
+      "end_line": 44,
+      "raw": "\n"
+    },
+    {
+      "id": "b000013",
+      "kind": "paragraph",
+      "start_line": 45,
+      "end_line": 53,
+      "raw": "Each operation is independently submitted to the daemon. The UI distinguishes\nsubmission, queued and completed states, checks the returned job after\nsubscription races or reconnects, and keeps errors visible until dismissed.\nIf the drive changes or a submission becomes uncertain, requests are not\nsilently retried. At most 64 requests or jobs are tracked at once; the UI\nreports when remaining selected files were not submitted. Menu commands that\ndo not yet have an implementation, including Cut, direct import, sharing,\nrevision, replication, release and history operations, remain disabled rather\nthan claiming to perform them. Existing Storage functionality remains separate.\n"
+    },
+    {
+      "id": "b000014",
+      "kind": "blank",
+      "start_line": 54,
+      "end_line": 54,
+      "raw": "\n"
+    },
+    {
+      "id": "b000015",
+      "kind": "paragraph",
+      "start_line": 55,
+      "end_line": 61,
+      "raw": "The agent pane displays the selected default, conversation messages, progress,\nerrors and cancellation using the daemon-owned agent connection described in\n[WorkspaceAgent](WorkspaceAgent.md). The available Society agent tools and\ntheir approval boundary are described in [WorkspaceAgentTools](WorkspaceAgentTools.md).\nThe panel cannot attach or read file contents yet, so its Add control remains\ndisabled. UI state belongs to the view model, and the desktop shell adapts\nbackend and input events.\n"
+    },
+    {
+      "id": "b000016",
+      "kind": "blank",
+      "start_line": 62,
+      "end_line": 62,
+      "raw": "\n"
+    },
+    {
+      "id": "b000017",
+      "kind": "paragraph",
+      "start_line": 63,
+      "end_line": 92,
+      "raw": "Recent shows at most 500 files, ordered by the most recent observed file\nactivity. Society records successful file-open requests and completed file\noperations in private, daemon-owned storage. The recorded activity follows a\nverified native file identity through a rename; a different or ambiguous file\nis not merged by name or content hash. The later of recorded activity and the\nobserved modification time determines the order. Background scans and thumbnail\nreads are not counted as user activity. External application opens are not\nobserved, and earlier activity cannot be reconstructed from modification time.\nDirectory entries and private control files are excluded. An `.iiproject`\ndirectory package is one logical file; its internal files are not listed.\nIts size remains unknown until a provider supplies it; Recent does not traverse\nthe package simply to calculate a size.\nThe daemon asynchronously enumerates visible filesystem metadata and caches a\nbounded snapshot, so an incomplete index cannot hide files. It does not read\nfile payloads. File changes appear on the next background refresh.\nTemporary location hints are checked against the native identity on every scan;\nthe path is not treated as identity, and a replacement file cannot inherit it.\nIf a native identity cannot be verified, the file is shown using its observed\nmodification time and the snapshot indicates incomplete activity. A file with\nmultiple hard links has ambiguous identity and is handled the same way. Recent has\nits own snapshot; the Dashboard's shorter card list remains separate. The daemon\nretains up to 4096 recent native-identity activity records and reports failures\ninstead of treating a name or content hash as identity.\n`society-cli recent status|refresh`, Python `recent_status()` and\n`recent_refresh()`, and the daemon's `recent_status` and `recent_refresh` MCP\ntools expose the same snapshot independently of the window.\nSuggested preserves the daemon's recommendation order until the user selects a\nsort. It covers indexed Files descendants rather than browsing a folder. Search\nfilters the current snapshot without enumerating files on the UI thread.\nGuild and organization rows are populated from account-scoped memberships.\n"
+    },
+    {
+      "id": "b000018",
+      "kind": "blank",
+      "start_line": 93,
+      "end_line": 93,
+      "raw": "\n"
+    },
+    {
+      "id": "b000019",
+      "kind": "paragraph",
+      "start_line": 94,
+      "end_line": 104,
+      "raw": "`NativeWorkspace.lvui` builds the sidebar, browser and agent pane using LVUI\nand iiGUI. `NativeWorkspaceViewModel` owns selection, filtering and view state.\nThe temporary `LegacyWorkspaceBridge` presents the generated view in the\nexisting desktop shell and uses `iiSocietyContainer::StorageDirectoryModel` to\nactivate files. The recommendation and its provenance are described in\n[WorkspaceSuggested](WorkspaceSuggested.md). At widths below 760 px the existing mobile layout is\nretained. The first application segment returns to Workspace; Hosting retains\nits environment route. File mutations are submitted to the daemon rather than\nperformed by the GUI. The current paint adapter has no display-frame source,\nso its LVUI dialogs use the library's non-animated presentation and flat input\nfields. The adapter does not claim to support material blur or shadows.\n"
+    },
+    {
+      "id": "b000020",
+      "kind": "blank",
+      "start_line": 105,
+      "end_line": 105,
+      "raw": "\n"
+    },
+    {
+      "id": "b000021",
+      "kind": "paragraph",
+      "start_line": 106,
+      "end_line": 111,
+      "raw": "The current desktop paint adapter does not establish full platform input-method\nand accessibility parity with native application windows. An accepted run\ncontinues in the background if the window disconnects; its current snapshot\ncan be read when the client reconnects. Session transcripts are retained by\niiMultimodalAgent, but browsing historical sessions after a daemon restart is\nnot connected to this panel yet.\n"
+    },
+    {
+      "id": "b000022",
+      "kind": "blank",
+      "start_line": 112,
+      "end_line": 112,
+      "raw": "\n"
+    },
+    {
+      "id": "b000023",
+      "kind": "paragraph",
+      "start_line": 113,
+      "end_line": 117,
+      "raw": "The Figma examples include [Suggested](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=18-14),\n[Recent](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=957-9435),\nthe [ribbon](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=1026-6203)\nand the [empty agent panel](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=984-5384).\nThe sample names and conversation are illustrative and are not product data.\n"
+    }
+  ],
+  "outline": [
+    {
+      "block_id": "b000001",
+      "parent_id": null,
+      "level": 1,
+      "title": "Workspace Suggested and Recent views",
+      "anchor": "workspace-suggested-and-recent-views",
+      "start_line": 1
+    },
+    {
+      "block_id": "b000003",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "Ribbon and selection contract",
+      "anchor": "ribbon-and-selection-contract",
+      "start_line": 3
+    }
+  ],
+  "indexes": {
+    "directive_candidates": [
+      {
+        "block_id": "b000005",
+        "line": 6,
+        "text": "Manage ribbon tabs. Switching tabs or collapsing the ribbon must not change",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000005",
+        "line": 11,
+        "text": "must not silently replay a request. A filtered or replaced row is removed from",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000011",
+        "line": 43,
+        "text": "does not contain one; paths and hashes are never substituted for it.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000013",
+        "line": 51,
+        "text": "do not yet have an implementation, including Cut, direct import, sharing,",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      }
+    ],
+    "commands": [],
+    "links": [
+      {
+        "block_id": "b000015",
+        "label": "WorkspaceAgent",
+        "target": "WorkspaceAgent.md",
+        "kind": "relative",
+        "line": 57
+      },
+      {
+        "block_id": "b000015",
+        "label": "WorkspaceAgentTools",
+        "target": "WorkspaceAgentTools.md",
+        "kind": "relative",
+        "line": 58
+      },
+      {
+        "block_id": "b000019",
+        "label": "WorkspaceSuggested",
+        "target": "WorkspaceSuggested.md",
+        "kind": "relative",
+        "line": 99
+      },
+      {
+        "block_id": "b000023",
+        "label": "Suggested",
+        "target": "https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=18-14",
+        "kind": "external",
+        "line": 113
+      },
+      {
+        "block_id": "b000023",
+        "label": "Recent",
+        "target": "https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=957-9435",
+        "kind": "external",
+        "line": 114
+      },
+      {
+        "block_id": "b000023",
+        "label": "ribbon",
+        "target": "https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=1026-6203",
+        "kind": "external",
+        "line": 115
+      },
+      {
+        "block_id": "b000023",
+        "label": "empty agent panel",
+        "target": "https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=984-5384",
+        "kind": "external",
+        "line": 116
+      }
+    ],
+    "tables": []
+  },
+  "provenance": {
+    "generator": "workspace-docs",
+    "version": "1.0.0",
+    "profile": "lossless-blocks-v1",
+    "derived": true
+  }
+}

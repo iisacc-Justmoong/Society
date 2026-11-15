@@ -20,14 +20,43 @@ int main(int argc, char **argv)
     if (args==QStringList{"--help"} || args==QStringList{"-h"}) {
         QTextStream(stdout) << "Usage: society-cli [--broker DIR] status\n"
             "       society-cli [--broker DIR] file-job submit ACTION PATH [--argument VALUE] [--container DIR]\n"
-            "       society-cli [--broker DIR] file-job inspect JOB_ID [--container DIR]\n";
+            "       society-cli [--broker DIR] file-job inspect JOB_ID [--container DIR]\n"
+            "       society-cli [--broker DIR] agent status|new|cancel\n"
+            "       society-cli [--broker DIR] suggested status|refresh\n"
+            "       society-cli [--broker DIR] recent status|refresh\n"
+            "       society-cli [--broker DIR] resource inspect Files/PATH|Models/PATH [--container DIR]\n"
+            "       society-cli [--broker DIR] agent send --stdin\n"
+            "       society-cli [--broker DIR] agent select MODEL_ID\n";
         return 0;
     }
     auto broker=qEnvironmentVariable("SOCIETY_LOCAL_BROKER_DIR",QDir::homePath()+"/.iisacc-society-ipc-v1");
     if (args.size()>=2 && args.first()=="--broker") { broker=args.at(1); args.removeFirst(); args.removeFirst(); }
     QString operation, expected, argument; QJsonObject parameters;
     if (args==QStringList{"status"}) operation="status";
-    else if (args.size()>=3 && args.at(0)=="file-job") {
+    else if (args.size()>=3 && args.at(0)=="resource" && args.at(1)=="inspect") {
+        operation="resourceInspect"; parameters={{"path",args.at(2)}};
+        if (args.size()==5 && args.at(3)=="--container" && QDir::isAbsolutePath(args.at(4))) expected=args.at(4);
+        else if (args.size()!=3) return fail("Invalid resource inspection command.");
+    } else if (args.size()==2 && args.at(0)=="recent") {
+        if (args.at(1)=="status") operation="recentSubscribe";
+        else if (args.at(1)=="refresh") operation="recentRefresh";
+        else return fail("Invalid Recent command.");
+    } else if (args.size()==2 && args.at(0)=="suggested") {
+        if (args.at(1)=="status") operation="suggestedSubscribe";
+        else if (args.at(1)=="refresh") operation="suggestedRefresh";
+        else return fail("Invalid Suggested command.");
+    } else if (args.size()>=2 && args.at(0)=="agent") {
+        const auto command=args.at(1);
+        if (args.size()==2 && command=="status") operation="agentSubscribe";
+        else if (args.size()==2 && command=="new") operation="agentNew";
+        else if (args.size()==2 && command=="cancel") operation="agentCancel";
+        else if (args.size()==3 && command=="select") { operation="agentSelect"; parameters.insert("model",args.at(2)); }
+        else if (args.size()==3 && command=="send" && args.at(2)=="--stdin") {
+            QTextStream input(stdin); const auto prompt=input.read(16385);
+            if (prompt.size()>16384 || !input.atEnd()) return fail("The agent message exceeds 16 KiB.");
+            operation="agentSend"; parameters.insert("prompt",prompt);
+        } else return fail("Invalid agent command.");
+    } else if (args.size()>=3 && args.at(0)=="file-job") {
         const auto command=args.at(1);
         if (command=="submit" && args.size()>=4) {
             static const QSet<QString> actions{"duplicate","rename","trash","remove","restore","move","create-directory","copy"};
@@ -50,7 +79,7 @@ int main(int argc, char **argv)
             return fail("The expected Society container must be an absolute path.");
         if (sawArgument) parameters.insert("argument",argument);
     } else return fail("Invalid command. Use --help for usage.");
-    const auto result=societyBackendCommand(broker,operation,parameters,expected);
+    const auto result=societyBackendCommand(broker,operation,parameters,expected,operation=="resourceInspect"?30000:10000);
     auto response=result.response;
     if (!result.ok()) { response.insert("accepted",false); response.insert("error",result.error); response.insert("uncertain",result.uncertain); }
     QTextStream(stdout) << QJsonDocument(response).toJson(QJsonDocument::Compact) << Qt::endl;

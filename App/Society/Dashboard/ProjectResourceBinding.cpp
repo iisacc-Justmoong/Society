@@ -142,9 +142,16 @@ void ProjectResourceBinding::attach(iiProjectManager::Resource &resource, const 
 }
 
 QString ProjectResourceBinding::assetId(const QJsonObject &binding) {
-    if (!isCatalogBinding(binding)) return {};
-    return QStringLiteral("urn:iisacc:asset:") + binding.value("container").toString() + ':'
+    const auto value=resourceId(binding);
+    return value ? text(value->value) : QString();
+}
+std::optional<ii::resource::ResourceId> ProjectResourceBinding::resourceId(const QJsonObject &binding) {
+    if (!isCatalogBinding(binding) || binding.value("container").toString().isEmpty() || binding.value("key").toString().isEmpty()) return {};
+    const auto legacy=QStringLiteral("urn:iisacc:asset:") + binding.value("container").toString() + ':'
         + QString::fromLatin1(QUrl::toPercentEncoding(binding.value("key").toString()));
+    ii::resource::Resource value{{utf8(legacy)},"","",{}};
+    if (ii::resource::validate(value)!=ii::resource::Error::none) return {};
+    return value.id;
 }
 
 bool ProjectResourceBinding::sameInput(const iiProjectManager::Resource &resource,

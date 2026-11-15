@@ -2,7 +2,7 @@ import vm NativeNavigationViewModel
 
 Window(accent: .green) {
     IconSegmentedControl(id: "society-navigation") {
-        IconButton(id: "environment", iconName: "workloads", accessibilityName: "Environment", checked: vm.environmentActive, onClick: vm.environment)
+        IconButton(id: "environment", iconName: "workloads", accessibilityName: "Workspace", checked: vm.environmentActive, onClick: vm.environment)
         IconButton(id: "tasks", iconName: "toolwindowrun", iconSource: vm.iconSource, accessibilityName: "Tasks", checked: vm.tasksActive, onClick: vm.tasks)
         IconButton(id: "library", iconName: "asset-library", iconSource: vm.iconSource, accessibilityName: "Library", checked: vm.libraryActive, onClick: vm.library)
         IconButton(id: "space", iconName: "toolwindownewUI", iconSource: vm.iconSource, accessibilityName: "Space", checked: vm.spaceActive, onClick: vm.space)

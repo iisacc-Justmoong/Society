@@ -1,0 +1,205 @@
+{
+  "format": "iisacc.agent-document",
+  "schema_version": 1,
+  "document_id": "urn:iisacc:document:306b38591b934ccb5495ddcb027d165501a56b25e364ba4b69b2746fcadbcb6f",
+  "project": {
+    "id": "urn:iisacc:project:Product%2FSociety",
+    "name": "Society",
+    "root": "Product/Society",
+    "kind": "application"
+  },
+  "source": {
+    "path": "docs/NativeAccountOverlay.md",
+    "sha256": "99de30879da579b26270411808f0721979afccc1d38bc77d7f93b8fc9d87c1c1",
+    "bytes": 6353,
+    "line_count": 70,
+    "encoding": "utf-8",
+    "language": "ko"
+  },
+  "document": {
+    "title": "계정 화면의 네이티브 연결",
+    "role": "guide",
+    "authority": "markdown_source"
+  },
+  "blocks": [
+    {
+      "id": "b000001",
+      "kind": "heading",
+      "start_line": 1,
+      "end_line": 1,
+      "raw": "# 계정 화면의 네이티브 연결\n",
+      "level": 1,
+      "title": "계정 화면의 네이티브 연결"
+    },
+    {
+      "id": "b000002",
+      "kind": "blank",
+      "start_line": 2,
+      "end_line": 2,
+      "raw": "\n"
+    },
+    {
+      "id": "b000003",
+      "kind": "paragraph",
+      "start_line": 3,
+      "end_line": 7,
+      "raw": "Society의 macOS, iOS 및 Windows 데스크톱 소스 구성은 iiAccountManager의 `AccountDialog.lvui`와 영어·한국어\n문자열 자산을 앱에 포함하고 빌드 시 C++23으로 생성한다. iiGUI가 표면을 그리고,\n모듈의 프레젠테이션 모델과 선택적 Qt 서비스 브리지가 기존 계정 관리자의 로그인,\n가입, 이메일 확인, 갱신 및 로그아웃 계약을 사용한다. 앱은 계정 인증이나 세션\n저장을 별도로 구현하지 않는다.\n"
+    },
+    {
+      "id": "b000004",
+      "kind": "blank",
+      "start_line": 8,
+      "end_line": 8,
+      "raw": "\n"
+    },
+    {
+      "id": "b000005",
+      "kind": "paragraph",
+      "start_line": 9,
+      "end_line": 19,
+      "raw": "기존 계정 대화상자가 열려 있으면 닫힌 후에만 네이티브 호스트로 넘긴다. 창이\n보이고 계정 화면이 열릴 때만 표면을 만든다. 표면 생성에 실패하면 격리된 기존\nQML 화면의 연결을 복원한다. 계정 관리자나 창의 종료, 앱 종료와 뷰의 수명을\n연결하며 이전 표면이 닫히기 전에 새 표면을 만들지 않는다. 사용자 입력과 요청\n상태는 모듈 뷰모델이 소유한다.\n앱은 동일한 표면 계약을 구현한 호스트 팩터리를 주입할 수 있다. 동기 생성 실패와\n생성 후 비동기 실패에서는 열린 계정 요청을 보존하고 레거시 연결을 복원한다.\n이 경우 현재 프레젠터는 다시 인계를 시도하지 않으며, 사용자가 대화상자를 닫고\n다시 열거나 다른 소유자가 기존 연결을 복원해도 레거시 연결을 유지한다.\n네이티브 모달의 활성 수는 창 단위의 iiSDKCore 관측 상태에 등록하고 실제 표면이\n퇴역하면 해제해, 삽입된 다른 화면이 모달 위로 올라오지 않도록 조합할 수 있다.\n"
+    },
+    {
+      "id": "b000006",
+      "kind": "blank",
+      "start_line": 20,
+      "end_line": 20,
+      "raw": "\n"
+    },
+    {
+      "id": "b000007",
+      "kind": "paragraph",
+      "start_line": 21,
+      "end_line": 25,
+      "raw": "이메일 코드 재전송 제한은 사용자의 요청에 따라 iiSDKCore 이벤트 루프에 단발\n기한을 등록한다. Qt 호스트는 그 기한에만 깨워 작업을 전달하며 취소하면 예약도\n취소한다. 작업이 없을 때 루프를 계속 돌리지 않는다. 문자열 카탈로그는 앱에\n포함된 모듈 자산이며, 접근할 수 없으면 기존 화면을 유지한다. 시스템 URL 열기는\n사용자가 계정 관리나 약관 명령을 선택한 경우에만 수행한다.\n"
+    },
+    {
+      "id": "b000008",
+      "kind": "blank",
+      "start_line": 26,
+      "end_line": 26,
+      "raw": "\n"
+    },
+    {
+      "id": "b000009",
+      "kind": "paragraph",
+      "start_line": 27,
+      "end_line": 36,
+      "raw": "Windows 구성은 iiGUI의 외부 HWND 표면을 선택한다. 표면 생성이 실패하면 기존 QML\n연결을 복원한다. 이 경로는 소스 구성만 제공하며 Windows 제품의 링크·창 표시·입력,\n계정 인증은 아직 검증하지 않았다. 부모 창의 DirectComposition 대상이 이미 점유된\n경우 표면 연결이 거절될 수 있으며 별도 자식 HWND로 전달되는 입력은 호스트 통합이\n필요하다. iOS에서는 iiGUI가 기존 UIKit 창의 뷰에 표면을 빌려 붙이는 경로를\n선택한다. Wayland와 Android, Web은 아직 레거시 화면을 사용한다.\n실제 계정이나 운영체제 창은 이번 검증에서 실행하지 않았다. `tests/native-account-presenter`는 오프스크린\n호스트에서 레거시 화면 인계, 재진입, 종료, 단발 기한과 취소를 검사한다. 별도의\n공개 `PaintView` 검사는 가짜 페인트 장치와 프레임 구동으로 생성 뷰, 계정 브리지,\n닫기 명령 및 번역 문자열을 연결한다. 제품 외부 서비스나 실제 GPU 표시의 증거는 아니다.\n"
+    },
+    {
+      "id": "b000010",
+      "kind": "blank",
+      "start_line": 37,
+      "end_line": 37,
+      "raw": "\n"
+    },
+    {
+      "id": "b000011",
+      "kind": "paragraph",
+      "start_line": 38,
+      "end_line": 43,
+      "raw": "기존 Society 서비스는 이미 설치된 계정 바이너리의 심벌을 사용한다. 따라서 해당\n바이너리를 다른 빌드로 덮어쓰지 않고, 동일한 바이너리에 링크하는 별도\n`iiAccountManager::QtPresentationBridge` 패키지와 같은 Core ABI의 프레젠테이션\n패키지를 앱에서 조합한다. 시스템 설치본은 이 검증으로 갱신하지 않는다.\nLVUI 생성기와 공개 헤더도 같은 스테이징에서 선택한다. 다른 작업이 공유 빌드의\n생성기를 갱신하는 경우 이전 헤더와 혼용하지 않는다.\n"
+    },
+    {
+      "id": "b000012",
+      "kind": "blank",
+      "start_line": 44,
+      "end_line": 44,
+      "raw": "\n"
+    },
+    {
+      "id": "b000013",
+      "kind": "paragraph",
+      "start_line": 45,
+      "end_line": 48,
+      "raw": "2026-11-14 macOS 빌드에서는 두 화면 연결을 포함한 Society 앱 번들을 만들고\n패키지 크기·필수 파일 구성을 검사했다. 번들 안 계정 서비스와 브리지, Core의\n바이너리 식별자가 각각 선택한 기존 설치본과 빌드 스테이징에 일치함을 확인했다.\n이 결과는 앱을 열거나 실제 로그인, 계정 데이터 및 그래픽 출력을 확인한 것은 아니다.\n"
+    },
+    {
+      "id": "b000014",
+      "kind": "blank",
+      "start_line": 49,
+      "end_line": 49,
+      "raw": "\n"
+    },
+    {
+      "id": "b000015",
+      "kind": "paragraph",
+      "start_line": 50,
+      "end_line": 59,
+      "raw": "2026-11-15 플랫폼 선택 검사는 Windows, macOS와 iOS에서 계정 호스트가 선택되고\nAndroid·Linux·WebAssembly에서는 선택되지 않는지 확인한다. macOS 별도 빌드에서는\nSociety 타깃이 계정 프레젠터 소스를 선택하는 것을 확인하고 해당 객체를 컴파일했다.\n오프스크린 프레젠터·생성 뷰와 표면 실패·종료 조정 검사는 통과했다. Windows\n제품 빌드나 실행, 실제 창 표시를 대체하는 검증은 아니다.\niiGUI의 Windows 외부 호스트와 숨긴 부모 창 검사 소스는 현재 Windows 빌드 정의를\n사용해 MinGW x86-64 객체로 교차 컴파일했으나 링크하거나 실행하지 않았다.\n주입한 가짜 표면의 생성 실패·팩터리 예외·생성 후 실패를 각각 발생시켜, 활성 로그인 요청을\n유지한 채 레거시 계정 연결이 복원되고 자동 재시도가 발생하지 않는지도 확인했다.\n현재 iOS 제품 전체를 링크하거나 기기에서 화면·입력·접근성을 검증한 결과는 없다.\n"
+    },
+    {
+      "id": "b000016",
+      "kind": "blank",
+      "start_line": 60,
+      "end_line": 60,
+      "raw": "\n"
+    },
+    {
+      "id": "b000017",
+      "kind": "paragraph",
+      "start_line": 61,
+      "end_line": 70,
+      "raw": "`tests/native-account-ios-compile`은 대상 계정 서비스의 생성 헤더와 기존\n`AccountViews` 선언, iOS용 iiGUI·LVUI·Core·계정 프레젠테이션 패키지, 빌드\n머신용 `lvui-compile`을 명시적으로 받아 제품 프레젠터와 표면·수명 조정 코드를\nC++23 arm64 객체로 컴파일한다. 이 검사는 기존 QML 라이브러리나 Society 앱을\n링크하지 않는다. 현재 iPhoneOS 18 대상의 객체 컴파일과 macOS 오프스크린\n프레젠터·생성 뷰·플랫폼 선택 검사 3개가 통과했다. 표면 실패 후 로그인 화면을\n다시 열거나 다른 소유자가 레거시 연결을 복원하는 경우도 검사했다.\n2026-11-15 재검사에서 오프스크린 계정 프레젠터가 기존 30초 제한에 한 번 시간 초과됐다.\n같은 제한의 단독 재실행과 전체 관련 검사 재실행은 통과했지만 시간 초과 원인은 확인하지\n못했다. 제한이나 검사 조건은 변경하지 않았다.\n"
+    }
+  ],
+  "outline": [
+    {
+      "block_id": "b000001",
+      "parent_id": null,
+      "level": 1,
+      "title": "계정 화면의 네이티브 연결",
+      "anchor": "계정-화면의-네이티브-연결",
+      "start_line": 1
+    }
+  ],
+  "indexes": {
+    "directive_candidates": [
+      {
+        "block_id": "b000003",
+        "line": 7,
+        "text": "저장을 별도로 구현하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000011",
+        "line": 41,
+        "text": "패키지를 앱에서 조합한다. 시스템 설치본은 이 검증으로 갱신하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000011",
+        "line": 43,
+        "text": "생성기를 갱신하는 경우 이전 헤더와 혼용하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000013",
+        "line": 46,
+        "text": "패키지 크기·필수 파일 구성을 검사했다. 번들 안 계정 서비스와 브리지, Core의",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000017",
+        "line": 65,
+        "text": "링크하지 않는다. 현재 iPhoneOS 18 대상의 객체 컴파일과 macOS 오프스크린",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      }
+    ],
+    "commands": [],
+    "links": [],
+    "tables": []
+  },
+  "provenance": {
+    "generator": "workspace-docs",
+    "version": "1.0.0",
+    "profile": "lossless-blocks-v1",
+    "derived": true
+  }
+}

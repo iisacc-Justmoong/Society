@@ -19,4 +19,5 @@ struct SocietyBackendCommandReply {
 // Up to 200 entries from one revision-bound backend directory session.
 // Call off the GUI and backend event-loop threads.
 [[nodiscard]] SocietyBackendCommandReply societyBackendDirectoryPage(
-    const QString &brokerDirectory, const QString &path, int offset, int limit, int timeoutMs = 15000);
+    const QString &brokerDirectory, const QString &path, int offset, int limit, int timeoutMs = 15000,
+    const QString &expectedContainer = {});

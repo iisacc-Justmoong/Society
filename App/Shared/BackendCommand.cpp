@@ -86,7 +86,10 @@ SocietyBackendCommandReply societyBackendCommand(const QString &brokerDirectory,
     };
     if (timeoutMs <= 0 || timeoutMs > 60000 || !QDir::isAbsolutePath(brokerDirectory)
         || (operation != "status" && operation != "fileOperation" && operation != "fileJobStatus"
-            && operation != "import")
+            && operation != "import" && operation != "agentSubscribe" && operation != "agentSend"
+            && operation != "agentSelect" && operation != "agentNew" && operation != "agentCancel"
+            && operation != "suggestedSubscribe" && operation != "suggestedRefresh"
+            && operation != "recentSubscribe" && operation != "recentRefresh" && operation != "resourceInspect")
         || arguments.contains("id") || arguments.contains("op") || arguments.contains("container"))
         return fail(QStringLiteral("Invalid Society backend command."));
     QElapsedTimer timer; timer.start();
@@ -110,7 +113,8 @@ SocietyBackendCommandReply societyBackendCommand(const QString &brokerDirectory,
     if (body.isEmpty() || body.size() > maximumFrame) return fail(QStringLiteral("The Society request is too large."));
     QByteArray frame(4, '\0'); qToBigEndian(quint32(body.size()), frame.data()); frame += body;
     const auto sent = socket.write(frame);
-    const bool uncertain = (operation == "fileOperation" || operation == "import") && sent > 0;
+    const bool uncertain = (operation == "fileOperation" || operation == "import" || operation == "agentSend"
+                            || operation == "agentSelect" || operation == "agentNew" || operation == "agentCancel") && sent > 0;
     if (sent != frame.size()) return fail(QStringLiteral("Could not send the Society request."), uncertain);
     if (socket.bytesToWrite() && !socket.waitForBytesWritten(remaining(timer, timeoutMs)))
         return fail(QStringLiteral("The Society request may not have been delivered."), uncertain);
@@ -126,7 +130,7 @@ SocietyBackendCommandReply societyBackendCommand(const QString &brokerDirectory,
 }
 
 SocietyBackendCommandReply societyBackendDirectoryPage(const QString &brokerDirectory, const QString &path,
-                                                        int offset, int limit, int timeoutMs)
+                                                        int offset, int limit, int timeoutMs, const QString &expectedContainer)
 {
     SocietyBackendCommandReply reply;
     auto fail = [&](QString error) { reply.error = std::move(error); return reply; };
@@ -144,6 +148,8 @@ SocietyBackendCommandReply societyBackendDirectoryPage(const QString &brokerDire
     if (message.value("type") != "state" || !message.value("state").isObject())
         return fail(QStringLiteral("The Society backend did not provide its selected drive."));
     const auto container = message.value("state").toObject().value("selectedContainer").toString();
+    if (!expectedContainer.isEmpty() && !societySameBackendPath(container, expectedContainer))
+        return fail(QStringLiteral("The selected Society drive does not match the requested drive."));
     if (container.isEmpty()) return fail(QStringLiteral("No Society drive is selected."));
 
     const auto send = [&](QJsonObject command) {

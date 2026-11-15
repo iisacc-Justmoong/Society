@@ -1,0 +1,156 @@
+{
+  "format": "iisacc.agent-document",
+  "schema_version": 1,
+  "document_id": "urn:iisacc:document:5581bd6c5cb53f8634e7a400f801c669056bf7146a9a5b4459c6bc7afc5f8539",
+  "project": {
+    "id": "urn:iisacc:project:Product%2FSociety",
+    "name": "Society",
+    "root": "Product/Society",
+    "kind": "application"
+  },
+  "source": {
+    "path": "docs/NativeQuestionOverlay.md",
+    "sha256": "f1d8a910cfd88d8df858a9393bdace2b328cfb9e964f9f71676447d6708306bd",
+    "bytes": 2751,
+    "line_count": 34,
+    "encoding": "utf-8",
+    "language": "ko"
+  },
+  "document": {
+    "title": "에이전트 질문 화면의 네이티브 연결",
+    "role": "guide",
+    "authority": "markdown_source"
+  },
+  "blocks": [
+    {
+      "id": "b000001",
+      "kind": "heading",
+      "start_line": 1,
+      "end_line": 1,
+      "raw": "# 에이전트 질문 화면의 네이티브 연결\n",
+      "level": 1,
+      "title": "에이전트 질문 화면의 네이티브 연결"
+    },
+    {
+      "id": "b000002",
+      "kind": "blank",
+      "start_line": 2,
+      "end_line": 2,
+      "raw": "\n"
+    },
+    {
+      "id": "b000003",
+      "kind": "paragraph",
+      "start_line": 3,
+      "end_line": 7,
+      "raw": "Society macOS 데스크톱은 iiMultimodalAgent의 `UserQuestionsSheet.lvui`를 빌드 시\nC++23으로 생성하고, iiGUI의 외부 표면에 마운트한다. 기존 MCP 질문 수신함은\n모듈의 `NativeQuestionBridge`를 통해 같은 뷰모델에 연결한다. 질문 선택과 직접\n입력, 전송·취소의 검증은 기존 모듈에 남아 있으며, 앱이 모듈들을 조합한다.\nSDK 모듈 사이에 새로운 직접 의존성은 추가하지 않는다.\n"
+    },
+    {
+      "id": "b000004",
+      "kind": "blank",
+      "start_line": 8,
+      "end_line": 8,
+      "raw": "\n"
+    },
+    {
+      "id": "b000005",
+      "kind": "paragraph",
+      "start_line": 9,
+      "end_line": 16,
+      "raw": "질문이 있고 창이 보일 때만 표면을 요청한다. 요청과 창 가시성 변경에 반응하며\n대기 폴링을 추가하지 않는다. 요청이 빠르게 교체되면 이전 표면의 실제 종료를\n기다린 뒤 새 표면을 열고, 오래된 종료 알림은 새 요청에 영향을 주지 않는다.\n앱의 정상 종료도 표면 정리를 기다린다. 표면 연결이나 마운트에 실패하면 격리된\n기존 QML 질문 화면을 사용한다. macOS 외 플랫폼은 아직 레거시 화면을 사용한다.\n네이티브 모달 활성 수는 같은 창의 iiSDKCore 관측 상태로 공유하며 실제 표면\n퇴역 뒤 해제한다. 창에 삽입되는 다른 화면은 이 이벤트로 모달보다 앞에 나오지\n않도록 대기할 수 있다.\n"
+    },
+    {
+      "id": "b000006",
+      "kind": "blank",
+      "start_line": 17,
+      "end_line": 17,
+      "raw": "\n"
+    },
+    {
+      "id": "b000007",
+      "kind": "paragraph",
+      "start_line": 18,
+      "end_line": 23,
+      "raw": "`tests/native-question-coordinator`는 취소·교체·재진입·실패와 비동기 종료를\n가짜 표면으로 검사한다. `tests/native-question-presenter`는 모듈의 설치 스테이징\n뷰를 AOT 생성하고 실제 브리지·iiGUI와 링크하며, 표시하지 않는 offscreen 창에서\n진입 조건과 종료를 확인한다. 이 검사는 사용자 앱이나 GPU 창을 실행하지 않는다.\n모듈 내부의 답변 검증과 생성 뷰 검사는 iiMultimodalAgent의\n`docs/NativeQuestionView.md`에 별도로 기록한다.\n"
+    },
+    {
+      "id": "b000008",
+      "kind": "blank",
+      "start_line": 24,
+      "end_line": 24,
+      "raw": "\n"
+    },
+    {
+      "id": "b000009",
+      "kind": "paragraph",
+      "start_line": 25,
+      "end_line": 29,
+      "raw": "iiGUI, 에이전트 뷰모델과 앱은 ABI가 같은 iiSDKCore로 빌드해야 한다. 같은 Core\n버전 번호의 설치본이라도 바이너리 구성이 다를 수 있다. 사용 중인 Qt 6.8의 macOS\n설정에서 최신 SDK에 없는 AGL 링크 항목은 앱 로컬 CMake 호환 처리로 제외한다.\n생성기는 소비하는 LVUI 헤더와 같은 스테이징에서 선택한다. 다른 작업이 공유 빌드의\n생성기를 갱신해도 이전 스테이징 헤더와 섞이지 않도록 소비자 구성에서 경로를 지정한다.\n"
+    },
+    {
+      "id": "b000010",
+      "kind": "blank",
+      "start_line": 30,
+      "end_line": 30,
+      "raw": "\n"
+    },
+    {
+      "id": "b000011",
+      "kind": "paragraph",
+      "start_line": 31,
+      "end_line": 34,
+      "raw": "2026-11-14 macOS 빌드에서 Society 앱과 번들 정적 검사가 통과했으며, 번들의\n에이전트·Core 바이너리 UUID가 검사한 스테이징과 일치했다. 런타임 검증 옵션은\n끄고 앱과 기기 화면은 실행하지 않았다. 이 결과가 다른 플랫폼이나 실제 GPU 표시를\n증명하는 것은 아니다.\n"
+    }
+  ],
+  "outline": [
+    {
+      "block_id": "b000001",
+      "parent_id": null,
+      "level": 1,
+      "title": "에이전트 질문 화면의 네이티브 연결",
+      "anchor": "에이전트-질문-화면의-네이티브-연결",
+      "start_line": 1
+    }
+  ],
+  "indexes": {
+    "directive_candidates": [
+      {
+        "block_id": "b000003",
+        "line": 7,
+        "text": "SDK 모듈 사이에 새로운 직접 의존성은 추가하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000005",
+        "line": 10,
+        "text": "대기 폴링을 추가하지 않는다. 요청이 빠르게 교체되면 이전 표면의 실제 종료를",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000007",
+        "line": 21,
+        "text": "진입 조건과 종료를 확인한다. 이 검사는 사용자 앱이나 GPU 창을 실행하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000009",
+        "line": 25,
+        "text": "iiGUI, 에이전트 뷰모델과 앱은 ABI가 같은 iiSDKCore로 빌드해야 한다. 같은 Core",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      }
+    ],
+    "commands": [],
+    "links": [],
+    "tables": []
+  },
+  "provenance": {
+    "generator": "workspace-docs",
+    "version": "1.0.0",
+    "profile": "lossless-blocks-v1",
+    "derived": true
+  }
+}

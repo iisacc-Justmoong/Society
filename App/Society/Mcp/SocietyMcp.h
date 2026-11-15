@@ -1,3 +1,4 @@
 #pragma once
 class QObject;
-void installSocietyMcp(QObject* root, QObject* lifetime);
+namespace society::native { class OverlayShutdown; }
+void installSocietyMcp(QObject* root, QObject* lifetime, society::native::OverlayShutdown* shutdown);

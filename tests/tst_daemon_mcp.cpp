@@ -1,6 +1,7 @@
 #include "Daemon/DaemonMcp.h"
 #include "Daemon/ModelBackendServer.h"
 #include <SocietyDrive.h>
+#include <SharedStorage.h>
 #include <iiMultimodalAgent/mcp/HttpClient.h>
 #include <iiMultimodalAgent/mcp/LocalApplications.h>
 #include <QDir>
@@ -21,6 +22,61 @@ namespace m=iiMultimodalAgent::mcp;
 class DaemonMcpTests final : public QObject {
     Q_OBJECT
 private slots:
+    void workspaceAgentWorksWithoutAnyWindow() {
+        QTemporaryDir fixture(QDir::cleanPath(QStringLiteral(SOCIETY_TEST_DIRECTORY)+"/../../.daemon-agent-mcp-XXXXXX"));
+        QVERIFY(fixture.isValid());
+        const auto previous=qgetenv("SOCIETY_JOB_STATE_ROOT"); const bool hadPrevious=qEnvironmentVariableIsSet("SOCIETY_JOB_STATE_ROOT");
+        qputenv("SOCIETY_JOB_STATE_ROOT",fixture.filePath("jobs").toUtf8());
+        const auto restore=qScopeGuard([&]{if(hadPrevious)qputenv("SOCIETY_JOB_STATE_ROOT",previous);else qunsetenv("SOCIETY_JOB_STATE_ROOT");});
+        const auto root=fixture.filePath("drive.societycontainer"); QVERIFY(QDir().mkdir(root)); QVERIFY(iiSocietyContainer::SocietyDrive::create(root));
+        QFile sample(root+"/Files/example.txt"); QVERIFY(sample.open(QIODevice::WriteOnly)); sample.write("example"); sample.close();
+        const auto storage=iiSocietyContainer::SharedStorage::open(root); QVERIFY(storage);
+        { auto repository=storage->fileRepository(); (void)repository->observe("files/example.txt"); }
+        const auto broker=fixture.filePath("broker"), registry=fixture.filePath("endpoints");
+        QVERIFY(QDir().mkdir(broker)); QVERIFY(QDir().mkdir(registry));
+        const auto ownerOnly=QFileDevice::ReadOwner|QFileDevice::WriteOwner|QFileDevice::ExeOwner;
+        QVERIFY(QFile::setPermissions(broker,ownerOnly)); QVERIFY(QFile::setPermissions(registry,ownerOnly));
+        ModelBackendServer backend; backend.selectContainer(root); QVERIFY(backend.listen(broker));
+        DaemonMcp service(broker,registry); QVERIFY2(service.start(),qPrintable(service.errorString()));
+        const auto found=m::discoverLocalApplications(registry); QCOMPARE(found.applications.size(),1);
+        auto future=std::async(std::launch::async,[endpoint=found.applications.first()] {
+            m::HttpOptions options; options.endpoint=endpoint.endpoint;
+            options.bearerToken=[token=endpoint.bearerToken]{return token;};
+            options.initializeTimeoutMs=10000; options.requestTimeoutMs=30000;
+            m::HttpClient client(options);
+            const auto call=[&](const QString &name,QJsonObject args={}) {
+                return client.request("tools/call",{{"name",name},{"arguments",args}});
+            };
+            const auto state=call("workspace_agent_status");
+            if (state.value("isError").toBool() || !state.value("structuredContent").toObject().contains("messages"))
+                throw std::runtime_error("headless agent status failed");
+            const auto suggested=call("suggested_status");
+            if (suggested.value("isError").toBool() || !suggested.value("structuredContent").toObject().contains("items"))
+                throw std::runtime_error("headless Suggested status failed: "+QJsonDocument(suggested).toJson(QJsonDocument::Compact).toStdString());
+            const auto refreshed=call("suggested_refresh");
+            if (refreshed.value("isError").toBool() || !refreshed.value("structuredContent").toObject().contains("items"))
+                throw std::runtime_error("headless Suggested refresh failed: "+QJsonDocument(refreshed).toJson(QJsonDocument::Compact).toStdString());
+            const auto recent=call("recent_status");
+            if (recent.value("isError").toBool() || !recent.value("structuredContent").toObject().contains("items"))
+                throw std::runtime_error("headless Recent status failed: "+QJsonDocument(recent).toJson(QJsonDocument::Compact).toStdString());
+            const auto recentRefresh=call("recent_refresh");
+            if (recentRefresh.value("isError").toBool() || !recentRefresh.value("structuredContent").toObject().contains("items"))
+                throw std::runtime_error("headless Recent refresh failed: "+QJsonDocument(recentRefresh).toJson(QJsonDocument::Compact).toStdString());
+            const auto resource=call("resource_inspect",{{"path","Files/example.txt"}});
+            if (resource.value("isError").toBool() || resource.value("structuredContent").toObject().value("resource").toObject().value("id").toString().isEmpty())
+                throw std::runtime_error("headless resource inspection failed: "+QJsonDocument(resource).toJson(QJsonDocument::Compact).toStdString());
+            if (!call("resource_inspect",{{"path","Files/../outside"}}).value("isError").toBool())
+                throw std::runtime_error("resource inspection accepted traversal");
+            if (!call("workspace_agent_send",{{"prompt","fixture"}}).value("isError").toBool())
+                throw std::runtime_error("an agent with no model must reject a prompt");
+            if (!call("workspace_agent_select",{{"model","model://missing"}}).value("isError").toBool())
+                throw std::runtime_error("an unavailable agent model must be rejected");
+            client.close(); return true;
+        });
+        QTRY_VERIFY_WITH_TIMEOUT(future.wait_for(std::chrono::milliseconds(0))==std::future_status::ready,90000);
+        try { QVERIFY(future.get()); } catch (const std::exception &error) { QFAIL(error.what()); }
+        service.stop();
+    }
     void daemonOwnsEndpointForItsLifetime() {
         QTemporaryDir fixture(QDir::cleanPath(QStringLiteral(SOCIETY_TEST_DIRECTORY)+"/../../.daemon-process-mcp-XXXXXX"));
         QVERIFY(fixture.isValid());
@@ -92,6 +148,13 @@ private slots:
             const auto state=call("status");
             if (state.value("isError").toBool() || state.value("structuredContent").toObject().value("selectedContainer").toString().isEmpty())
                 throw std::runtime_error("daemon status failed");
+            const auto agent=call("workspace_agent_status");
+            if (agent.value("isError").toBool() || !agent.value("structuredContent").toObject().contains("messages"))
+                throw std::runtime_error("headless agent status failed");
+            if (!call("workspace_agent_send",{{"prompt","fixture"}}).value("isError").toBool())
+                throw std::runtime_error("an agent with no model must reject a prompt");
+            if (!call("workspace_agent_select",{{"model","model://missing"}}).value("isError").toBool())
+                throw std::runtime_error("an unavailable agent model must be rejected");
             if (!call("open_section",{{"key","files"}}).value("isError").toBool())
                 throw std::runtime_error("window navigation must fail cleanly without a UI");
             if (!call("navigate",{{"path","/fixture"}}).value("isError").toBool()
@@ -167,7 +230,9 @@ private slots:
             if (!importedDone) throw std::runtime_error("headless model import did not finish");
             client.close(); return true;
         });
-        QTRY_VERIFY_WITH_TIMEOUT(future.wait_for(std::chrono::milliseconds(0))==std::future_status::ready,45000);
+        const int configuredTimeout=qEnvironmentVariableIntValue("SOCIETY_TEST_FILE_JOB_TIMEOUT_MS");
+        const int completionTimeout=configuredTimeout>45000 && configuredTimeout<=180000 ? configuredTimeout : 45000;
+        QTRY_VERIFY_WITH_TIMEOUT(future.wait_for(std::chrono::milliseconds(0))==std::future_status::ready,completionTimeout);
         try { QVERIFY(future.get()); } catch (const std::exception &error) { QFAIL(error.what()); }
         QVERIFY(QFileInfo::exists(root+"/Files/renamed.txt"));
         QVERIFY(QFileInfo::exists(root+"/Files/imported.txt")); QVERIFY(QFileInfo::exists(outsideSource));

@@ -126,7 +126,10 @@ void LegacyNavigationBridge::navigate(const QString &destination)
     }
     const bool hosting = destination == QLatin1String("Hosting");
     m_hosting = m_pendingHosting = false;
-    const auto page = hosting ? QStringLiteral("Environment") : destination;
+    // The first segment is the Workspace entry point; the separate Hosting
+    // action still opens the environment overview and its hosting section.
+    const auto page = hosting ? QStringLiteral("Environment")
+        : destination == QLatin1String("Environment") ? QStringLiteral("Dashboard") : destination;
     QMetaObject::invokeMethod(m_view, "tabRequested", Q_ARG(QString, page));
     if (page == QLatin1String("Environment")) {
         if (m_environment) m_environment->setProperty("page", QStringLiteral("Overview"));

@@ -13,6 +13,10 @@
 
 ## 객체와 책임
 
+Resource, Content Revision, Location과 Replica의 공용 타입 및 Society의 현재
+저장소 어댑터는 [iiResource 연결 문서](ResourceModule.md)를 따른다. 기존 데이터
+이전이나 모든 저장소 간 ID 통합이 완료되었다는 뜻은 아니다.
+
 | 객체 | 의미 | 분리해야 하는 것 |
 | --- | --- | --- |
 | Asset / Resource | 파일·모델·창작 에셋의 논리적 정체성. 이름·경로·기기와 독립된 `resource_id`를 갖는다. | 이름, 표시 경로, 기기, 내용 해시 |

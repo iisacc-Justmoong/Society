@@ -3,6 +3,8 @@
 #include <QJsonObject>
 #include <QString>
 #include <iiProjectManager/ProjectManager.h>
+#include <iiResource/Resource.h>
+#include <optional>
 
 namespace iiFileProvider { class FileCatalog; }
 
@@ -16,6 +18,7 @@ public:
     [[nodiscard]] static QJsonObject stored(const iiProjectManager::Resource &resource);
     static void attach(iiProjectManager::Resource &resource, const QJsonObject &binding);
     [[nodiscard]] static QString assetId(const QJsonObject &binding);
+    [[nodiscard]] static std::optional<ii::resource::ResourceId> resourceId(const QJsonObject &binding);
     [[nodiscard]] static bool sameInput(const iiProjectManager::Resource &resource,
         const QJsonObject &binding, const QString &locator, bool copy);
     [[nodiscard]] static QString displayLocator(const iiProjectManager::Resource &resource,

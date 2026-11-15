@@ -42,6 +42,76 @@ bool DaemonMcp::start()
             return a::ToolResult{QStringLiteral("Society state"),data};
         };
         registry->add(std::move(state));
+        const auto agentTool=[&](const QString &name,const QString &operation,const QString &description,bool takesPrompt,bool readOnly) {
+            a::Tool tool;
+            QJsonObject properties;
+            if (takesPrompt) properties.insert("prompt",QJsonObject{{"type","string"},{"minLength",1},{"maxLength",16384}});
+            QJsonObject schema{{"type","object"},{"properties",properties},{"additionalProperties",false}};
+            if (takesPrompt) schema.insert("required",QJsonArray{"prompt"});
+            tool.definition={name,description,schema,{},readOnly,readOnly};
+            tool.execute=[broker,operation,takesPrompt](const QJsonObject &arguments,const a::ToolContext &context) {
+                context.cancellation.throwIfCancelled();
+                QJsonObject payload;
+                if (takesPrompt) payload.insert("prompt",arguments.value("prompt"));
+                const auto reply=societyBackendCommand(broker,operation,payload);
+                if (!reply.ok()) return a::ToolResult{reply.error,{{"uncertain",reply.uncertain}},true};
+                return a::ToolResult{QStringLiteral("Society agent state"),reply.response.value("agent").toObject()};
+            };
+            return tool;
+        };
+        registry->add(agentTool("workspace_agent_status","agentSubscribe","Inspect the current Society workspace conversation.",false,true));
+        registry->add(agentTool("workspace_agent_send","agentSend","Submit a text message to the Society workspace agent.",true,false));
+        registry->add(agentTool("workspace_agent_new","agentNew","Start a new Society workspace conversation.",false,false));
+        registry->add(agentTool("workspace_agent_cancel","agentCancel","Cancel the current Society workspace response.",false,false));
+        a::Tool selectAgentModel;
+        selectAgentModel.definition={"workspace_agent_select","Set the default model preference for this workspace conversation; routing remains automatic.",
+            {{"type","object"},{"properties",QJsonObject{{"model",QJsonObject{{"type","string"},{"minLength",1},{"maxLength",136}}}}},
+             {"required",QJsonArray{"model"}},{"additionalProperties",false}}, {},false,false};
+        selectAgentModel.execute=[broker](const QJsonObject &arguments,const a::ToolContext &context) {
+            context.cancellation.throwIfCancelled();
+            const auto reply=societyBackendCommand(broker,"agentSelect",{{"model",arguments.value("model")}});
+            if (!reply.ok()) return a::ToolResult{reply.error,{{"uncertain",reply.uncertain}},true};
+            return a::ToolResult{QStringLiteral("Society agent state"),reply.response.value("agent").toObject()};
+        };
+        registry->add(std::move(selectAgentModel));
+        const auto suggestedTool=[&](const QString &name,const QString &operation,const QString &description,bool readOnly) {
+            a::Tool tool;
+            tool.definition={name,description,{{"type","object"},{"properties",QJsonObject{}},{"additionalProperties",false}}, {},readOnly,readOnly};
+            tool.execute=[broker,operation](const QJsonObject &,const a::ToolContext &context) {
+                context.cancellation.throwIfCancelled();
+                const auto reply=societyBackendCommand(broker,operation);
+                if (!reply.ok()) return a::ToolResult{reply.error,{{"uncertain",reply.uncertain}},true};
+                return a::ToolResult{QStringLiteral("Suggested unfinished work"),reply.response.value("suggested").toObject()};
+            };
+            return tool;
+        };
+        // The first subscription may schedule indexing and model preparation.
+        registry->add(suggestedTool("suggested_status","suggestedSubscribe","Read the current unfinished-work recommendations and their provenance.",false));
+        registry->add(suggestedTool("suggested_refresh","suggestedRefresh","Schedule a fresh local unfinished-work assessment.",false));
+        const auto recentTool=[&](const QString &name,const QString &operation,const QString &description) {
+            a::Tool tool;
+            tool.definition={name,description,{{"type","object"},{"properties",QJsonObject{}},{"additionalProperties",false}}, {},false,false};
+            tool.execute=[broker,operation](const QJsonObject &,const a::ToolContext &context) {
+                context.cancellation.throwIfCancelled();
+                const auto reply=societyBackendCommand(broker,operation);
+                if (!reply.ok()) return a::ToolResult{reply.error,{{"uncertain",reply.uncertain}},true};
+                return a::ToolResult{QStringLiteral("Recent files"),reply.response.value("recent").toObject()};
+            };
+            return tool;
+        };
+        registry->add(recentTool("recent_status","recentSubscribe","Read up to 500 recent files ordered by observed activity."));
+        registry->add(recentTool("recent_refresh","recentRefresh","Refresh the background Recent snapshot."));
+        a::Tool resourceInspect;
+        resourceInspect.definition={"resource_inspect","Read the last-observed resource, revision, locations, and declared replicas for a Society Files or Models item.",
+            {{"type","object"},{"properties",QJsonObject{{"path",QJsonObject{{"type","string"},{"minLength",1},{"maxLength",4096}}}}},
+             {"required",QJsonArray{"path"}},{"additionalProperties",false}}, {},true,false};
+        resourceInspect.execute=[broker](const QJsonObject &args,const a::ToolContext &context) {
+            context.cancellation.throwIfCancelled();
+            const auto reply=societyBackendCommand(broker,"resourceInspect",{{"path",args.value("path")}},QString(),30000);
+            if (!reply.ok()) return a::ToolResult{reply.error,{{"uncertain",reply.uncertain}},true};
+            return a::ToolResult{QStringLiteral("Society resource observation"),reply.response.value("resource").toObject()};
+        };
+        registry->add(std::move(resourceInspect));
         const auto uiTool=[&](const QString &name,const QString &remote,const QString &description,QJsonObject schema,bool readOnly) {
             a::Tool tool;
             tool.definition={name,description,std::move(schema),{},readOnly,readOnly};
@@ -145,7 +215,12 @@ bool DaemonMcp::start()
                 {"open_section",a::PermissionBehavior::Allow}, {"navigate",a::PermissionBehavior::Allow},
                 {"refresh",a::PermissionBehavior::Allow}, {"AskUserQuestion",a::PermissionBehavior::Allow},
                 {"semantic_set_metadata",a::PermissionBehavior::Allow}, {"semantic_set_relation",a::PermissionBehavior::Allow},
-                {"semantic_remove_relation",a::PermissionBehavior::Allow}, {"semantic_rebind",a::PermissionBehavior::Allow}});
+                {"semantic_remove_relation",a::PermissionBehavior::Allow}, {"semantic_rebind",a::PermissionBehavior::Allow},
+                {"workspace_agent_send",a::PermissionBehavior::Allow}, {"workspace_agent_new",a::PermissionBehavior::Allow},
+                {"workspace_agent_cancel",a::PermissionBehavior::Allow}, {"workspace_agent_select",a::PermissionBehavior::Allow},
+                {"suggested_status",a::PermissionBehavior::Allow}, {"suggested_refresh",a::PermissionBehavior::Allow},
+                {"recent_status",a::PermissionBehavior::Allow}, {"recent_refresh",a::PermissionBehavior::Allow},
+                {"resource_inspect",a::PermissionBehavior::Allow}});
         a::McpServerOptions bridge; bridge.workingDirectory=QDir::currentPath(); bridge.appId="com.iisacc.society";
         auto protocol=a::mcpServerOptions(registry,policy,std::move(bridge));
         protocol.experimentalCapabilities["iisacc/userQuestions"]=QJsonObject{

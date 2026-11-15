@@ -10,8 +10,8 @@
   },
   "source": {
     "path": "docs/NativeNavigation.md",
-    "sha256": "8faec95df51283c73a6c8907db483569173fe909bb6343dfa5d5f6f36f4e4adc",
-    "bytes": 3933,
+    "sha256": "07d3a54b7e63e4842d850318bb8a395d7916fbc3b88c2136a999ca62a209d41a",
+    "bytes": 3943,
     "line_count": 15,
     "encoding": "utf-8",
     "language": "en"
@@ -57,7 +57,7 @@
       "kind": "paragraph",
       "start_line": 5,
       "end_line": 5,
-      "raw": "Tasks opens the existing Tools view, Library opens Storage, and Browse opens the existing Browse view. Environment exposes the environment view and its route to the workspace. Hosting opens the existing environment hosting information. Space and People must not pretend an unimplemented service exists: their activation reports that the feature is not connected and preserves the current selection. The selection follows navigation initiated elsewhere in the application as well as a segment click.\n"
+      "raw": "Tasks opens the existing Tools view, Library opens Storage, and Browse opens the existing Browse view. The first segment opens the Workspace (Dashboard) containing Suggested and Recent. Hosting opens the existing environment hosting information. Space and People must not pretend an unimplemented service exists: their activation reports that the feature is not connected and preserves the current selection. The selection follows navigation initiated elsewhere in the application as well as a segment click.\n"
     },
     {
       "id": "b000006",
@@ -145,7 +145,7 @@
       {
         "block_id": "b000005",
         "line": 5,
-        "text": "Tasks opens the existing Tools view, Library opens Storage, and Browse opens the existing Browse view. Environment exposes the environment view and its route to the workspace. Hosting opens the existing environment hosting information. Space and People must not pretend an unimplemented service exists: their activation reports that the feature is not connected and preserves the current selection. The selection follows navigation initiated elsewhere in the application as well as a segment click.",
+        "text": "Tasks opens the existing Tools view, Library opens Storage, and Browse opens the existing Browse view. The first segment opens the Workspace (Dashboard) containing Suggested and Recent. Hosting opens the existing environment hosting information. Space and People must not pretend an unimplemented service exists: their activation reports that the feature is not connected and preserves the current selection. The selection follows navigation initiated elsewhere in the application as well as a segment click.",
         "basis": "lexical_match",
         "context": "paragraph"
       },

@@ -45,9 +45,13 @@ Markdown is the maintained human source. Agent JSON is a structured, source-trac
 | [`docs/ModelPackagingNativeChooser.md`](ModelPackagingNativeChooser.md) | [JSON](ModelPackagingNativeChooser.agent.json) |
 | [`docs/ModelPackagingVerification.md`](ModelPackagingVerification.md) | [JSON](ModelPackagingVerification.agent.json) |
 | [`docs/Models.md`](Models.md) | [JSON](Models.agent.json) |
+| [`docs/NativeAccountOverlay.md`](NativeAccountOverlay.md) | [JSON](NativeAccountOverlay.agent.json) |
 | [`docs/NativeMigrationBackend.md`](NativeMigrationBackend.md) | [JSON](NativeMigrationBackend.agent.json) |
 | [`docs/NativeNavigation.md`](NativeNavigation.md) | [JSON](NativeNavigation.agent.json) |
+| [`docs/NativePhotoOverlay.md`](NativePhotoOverlay.md) | [JSON](NativePhotoOverlay.agent.json) |
+| [`docs/NativeQuestionOverlay.md`](NativeQuestionOverlay.md) | [JSON](NativeQuestionOverlay.agent.json) |
 | [`docs/NativeStorageView.md`](NativeStorageView.md) | [JSON](NativeStorageView.agent.json) |
+| [`docs/NativeWorkspace.md`](NativeWorkspace.md) | [JSON](NativeWorkspace.agent.json) |
 | [`docs/NetworkDrive.md`](NetworkDrive.md) | [JSON](NetworkDrive.agent.json) |
 | [`docs/OfflineStartupVerification.md`](OfflineStartupVerification.md) | [JSON](OfflineStartupVerification.agent.json) |
 | [`docs/Onboarding.md`](Onboarding.md) | [JSON](Onboarding.agent.json) |
@@ -61,6 +65,7 @@ Markdown is the maintained human source. Agent JSON is a structured, source-trac
 | [`docs/Projects.md`](Projects.md) | [JSON](Projects.agent.json) |
 | [`docs/QtBoundary.md`](QtBoundary.md) | [JSON](QtBoundary.agent.json) |
 | [`docs/ResourceIdentityAndProtection.md`](ResourceIdentityAndProtection.md) | [JSON](ResourceIdentityAndProtection.agent.json) |
+| [`docs/ResourceModule.md`](ResourceModule.md) | [JSON](ResourceModule.agent.json) |
 | [`docs/ResourceOptimization.md`](ResourceOptimization.md) | [JSON](ResourceOptimization.agent.json) |
 | [`docs/ResourceSearchAndViews.md`](ResourceSearchAndViews.md) | [JSON](ResourceSearchAndViews.agent.json) |
 | [`docs/RuntimeRetirement.md`](RuntimeRetirement.md) | [JSON](RuntimeRetirement.agent.json) |
@@ -77,6 +82,9 @@ Markdown is the maintained human source. Agent JSON is a structured, source-trac
 | [`docs/ToolsDesktopConcept.md`](ToolsDesktopConcept.md) | [JSON](ToolsDesktopConcept.agent.json) |
 | [`docs/VersionTrashReplicaBackup.md`](VersionTrashReplicaBackup.md) | [JSON](VersionTrashReplicaBackup.agent.json) |
 | [`docs/WindowsValidation.md`](WindowsValidation.md) | [JSON](WindowsValidation.agent.json) |
+| [`docs/WorkspaceAgent.md`](WorkspaceAgent.md) | [JSON](WorkspaceAgent.agent.json) |
+| [`docs/WorkspaceAgentTools.md`](WorkspaceAgentTools.md) | [JSON](WorkspaceAgentTools.agent.json) |
+| [`docs/WorkspaceSuggested.md`](WorkspaceSuggested.md) | [JSON](WorkspaceSuggested.agent.json) |
 | [`docs/documentation-structure.md`](documentation-structure.md) | [JSON](documentation-structure.agent.json) |
 | [`docs/iOS.md`](iOS.md) | [JSON](iOS.agent.json) |
 | [`resources/Appicon/README.md`](../resources/Appicon/README.md) | [JSON](mirrors/resources/Appicon/README.agent.json) |

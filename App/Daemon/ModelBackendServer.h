@@ -13,6 +13,11 @@
 #include <memory>
 
 class QLockFile;
+class RecentBackend;
+#ifdef SOCIETY_AGENT_BACKEND
+class WorkspaceAgentBackend;
+class SuggestedBackend;
+#endif
 
 // Local, same-user interface to the SDK-owned model operations. The service
 // and its workers outlive every individual window or socket connection.
@@ -38,11 +43,15 @@ private:
     QLocalServer m_server;
     iiSocietyContainer::ModelImportService m_models;
     iiSocietyContainer::FileJobService m_fileJobs;
+    std::unique_ptr<RecentBackend> m_recent;
+    QHash<QLocalSocket *, QString> m_recentClients;
     QSet<QLocalSocket *> m_clients;
     QString m_selected, m_selectedId;
     struct FileQuery { QPointer<QLocalSocket> socket; QString requestId, container; };
     QHash<QString, FileQuery> m_fileQueries;
     QHash<QString, QString> m_fileJobContainers;
+    quint64 m_resourceGeneration = 0;
+    int m_resourceQueries = 0;
     QJsonObject m_systemDrive;
     UiPeerVerifier m_uiPeerVerifier;
     QPointer<QLocalSocket> m_uiSocket;
@@ -54,4 +63,11 @@ private:
 #endif
     QHash<QString, QPair<QByteArray, QJsonObject>> m_replies;
     QQueue<QString> m_replyOrder;
+#ifdef SOCIETY_AGENT_BACKEND
+    std::unique_ptr<WorkspaceAgentBackend> m_agent;
+    std::unique_ptr<SuggestedBackend> m_suggested;
+    QHash<QLocalSocket *, QString> m_agentClients;
+    QHash<QLocalSocket *, QString> m_suggestedClients;
+    QHash<QLocalSocket *, QHash<QString, QPair<QByteArray, QJsonObject>>> m_agentReplies;
+#endif
 };

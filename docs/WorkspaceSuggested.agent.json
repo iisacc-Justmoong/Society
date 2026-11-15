@@ -1,0 +1,220 @@
+{
+  "format": "iisacc.agent-document",
+  "schema_version": 1,
+  "document_id": "urn:iisacc:document:f934261aa9ae04fbd8b7a8fc75f0aecd09236b6bf547b8290e3953ab1c8fd207",
+  "project": {
+    "id": "urn:iisacc:project:Product%2FSociety",
+    "name": "Society",
+    "root": "Product/Society",
+    "kind": "application"
+  },
+  "source": {
+    "path": "docs/WorkspaceSuggested.md",
+    "sha256": "7dee0680ac344243d649f31aad52d596c63f5afe688feb5ae27454f338c3f6b1",
+    "bytes": 5618,
+    "line_count": 87,
+    "encoding": "utf-8",
+    "language": "en"
+  },
+  "document": {
+    "title": "Suggested unfinished work",
+    "role": "guide",
+    "authority": "markdown_source"
+  },
+  "blocks": [
+    {
+      "id": "b000001",
+      "kind": "heading",
+      "start_line": 1,
+      "end_line": 1,
+      "raw": "# Suggested unfinished work\n",
+      "level": 1,
+      "title": "Suggested unfinished work"
+    },
+    {
+      "id": "b000002",
+      "kind": "blank",
+      "start_line": 2,
+      "end_line": 2,
+      "raw": "\n"
+    },
+    {
+      "id": "b000003",
+      "kind": "paragraph",
+      "start_line": 3,
+      "end_line": 7,
+      "raw": "Suggested is a read-only recommendation view over the selected Society drive's\nFiles catalog. It is not a directory listing. Recommendations refer to existing\nresources and retain their catalog identity and content version; a file path is\nonly the current locator. Opening a recommendation uses the container's normal\nvalidated file activation path.\n"
+    },
+    {
+      "id": "b000004",
+      "kind": "blank",
+      "start_line": 8,
+      "end_line": 8,
+      "raw": "\n"
+    },
+    {
+      "id": "b000005",
+      "kind": "paragraph",
+      "start_line": 9,
+      "end_line": 20,
+      "raw": "The daemon evaluates indexed resident files in the background. Explicit,\nrecorded workflow status takes precedence: draft, work in progress and\nneeds revision are candidates; complete, approved, released and published are\nexcluded. Open Markdown checkboxes and explicit TODO/FIXME markers in a bounded\ntext prefix are additional signals, as are clear draft markers in file names.\nModification time alone never proves incompleteness. A missing, stale or\nconflicting status is unknown, not a completed file. Private metadata and\ncontrol files are not candidates. The supported status fields are\n`workflow.status`, `workflow:status` and `status` in iiFileProvider\nclassification. Status fields marked with AI/model/agent provenance are not\ntreated as rule evidence; conflicting statuses are deferred. An annotation\nwhose metadata publication is pending is not used as a recommendation.\n"
+    },
+    {
+      "id": "b000006",
+      "kind": "blank",
+      "start_line": 21,
+      "end_line": 21,
+      "raw": "\n"
+    },
+    {
+      "id": "b000007",
+      "kind": "paragraph",
+      "start_line": 22,
+      "end_line": 31,
+      "raw": "Only unresolved candidates with usable descriptive evidence go to the local\niiMultimodalAgent model. The model's estimate and explanation are uncalibrated\nand must not be recorded as authored facts. iiDecision evaluates the proposed\nrecommendation using the estimate; absent, invalid or insufficient evidence\ndefers instead of inventing a result. The model receives a bounded text/metadata\nprojection, does not gain tool or file-write permissions, and does not claim to\nhave examined image pixels, audio or video. Recommendations from rules and\nmodel estimates remain distinguishable in the view. The application reports\nindexing, unavailability and partial results honestly, and retains rule-based\nrecommendations if the model is unavailable.\n"
+    },
+    {
+      "id": "b000008",
+      "kind": "blank",
+      "start_line": 32,
+      "end_line": 32,
+      "raw": "\n"
+    },
+    {
+      "id": "b000009",
+      "kind": "paragraph",
+      "start_line": 33,
+      "end_line": 38,
+      "raw": "When more than one text model is available, the same iiDecision model-routing\npolicy used by the workspace agent selects the assessment model. In the\nabsence of a host policy, iisaccson supplies uncalibrated routing estimates;\nAsimov or another compatible local model can be selected if the decision\nsupports it. The routing request contains only the bounded file evidence, not\nthe user's chat history. If no route meets the policy, assessment is deferred.\n"
+    },
+    {
+      "id": "b000010",
+      "kind": "blank",
+      "start_line": 39,
+      "end_line": 39,
+      "raw": "\n"
+    },
+    {
+      "id": "b000011",
+      "kind": "paragraph",
+      "start_line": 40,
+      "end_line": 53,
+      "raw": "The scanner reads at most 4,096 indexed entries per refresh and presents at most\n200 recommendations; it marks the result partial when a limit is reached or\nan indexed entry cannot yet be read or matched to a resource safely.\nRule-based results have priority; if they already fill the visible limit, the\ndaemon does not load a model to evaluate items that cannot be shown.\nEach refresh assesses at most 64 previously uncached uncertain files in\nbatches of four. Further files are marked partial and can be assessed in later\nrefreshes as successful estimates enter the version-scoped cache.\nFor `.txt`, `.md` and `.markdown` it reads at most 4 KiB of valid UTF-8; other\nfiles use classification metadata and a verified one-byte identity check.\nNo image pixels, canvas contents or file payloads of other formats are sent to\nthe model. Files with insufficient descriptive evidence remain unassessed.\nAn index that does not yet exist is reported as pending, rather than built by\nthe GUI or treated as an empty completed inventory.\n"
+    },
+    {
+      "id": "b000012",
+      "kind": "blank",
+      "start_line": 54,
+      "end_line": 54,
+      "raw": "\n"
+    },
+    {
+      "id": "b000013",
+      "kind": "paragraph",
+      "start_line": 55,
+      "end_line": 67,
+      "raw": "Evaluation does not run on the GUI or file-operation thread. The first\nSuggested subscription activates it; the daemon refreshes after successful\nfile jobs, on a debounced file-list change, and periodically when idle. A\nuser-requested chat cancels lower-priority model assessment using the SDK's\ncooperative cancellation token. A runtime that does not promptly honor\ncancellation can delay the next model call, but not the GUI or file jobs.\nThe in-memory cache is tied to resource identity, observed working-copy version,\nmetadata revision and committed revision; it is not persisted as metadata.\nResults are bounded, invalidated on container changes and rechecked against the\nobserved content version before publication. A late result from an old scan\nmust not replace a newer scan, or another container's state. Result caches are\nadvisory and do not become asset identity, ownership, lifecycle state, or a new\ncontent revision.\n"
+    },
+    {
+      "id": "b000014",
+      "kind": "blank",
+      "start_line": 68,
+      "end_line": 68,
+      "raw": "\n"
+    },
+    {
+      "id": "b000015",
+      "kind": "paragraph",
+      "start_line": 69,
+      "end_line": 72,
+      "raw": "The Suggested table adds a **Reason** column in the Society\n[Figma view](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=18-14).\nIt uses the LVUI table cell component. Recent remains a separate chronological\nfile view.\n"
+    },
+    {
+      "id": "b000016",
+      "kind": "blank",
+      "start_line": 73,
+      "end_line": 73,
+      "raw": "\n"
+    },
+    {
+      "id": "b000017",
+      "kind": "paragraph",
+      "start_line": 74,
+      "end_line": 81,
+      "raw": "`society-cli suggested status|refresh`, the Python client's\n`suggested_status()` / `suggested_refresh()`, and the daemon's\n`suggested_status` / `suggested_refresh` MCP tools access the same snapshot.\nOn builds with the daemon agent backend enabled (currently Unix platforms),\nonly verified local application peers can subscribe; a refresh schedules work\nand returns the current snapshot without waiting for the model. Both MCP tools\nare declared non-read-only because they can schedule indexing or model\npreparation, and the daemon's tool policy explicitly permits those operations.\n"
+    },
+    {
+      "id": "b000018",
+      "kind": "blank",
+      "start_line": 82,
+      "end_line": 82,
+      "raw": "\n"
+    },
+    {
+      "id": "b000019",
+      "kind": "paragraph",
+      "start_line": 83,
+      "end_line": 87,
+      "raw": "The current macOS agent runtime also exports an older `FileCatalog` ABI. The\ndaemon and test hosts link the current catalog before the agent library so a\ncatalog object's constructors and destructor resolve to one implementation.\n`Society.SuggestedCatalogAbi` checks the resulting Mach-O bindings; rebuilding\nor replacing either SDK requires keeping that check green.\n"
+    }
+  ],
+  "outline": [
+    {
+      "block_id": "b000001",
+      "parent_id": null,
+      "level": 1,
+      "title": "Suggested unfinished work",
+      "anchor": "suggested-unfinished-work",
+      "start_line": 1
+    }
+  ],
+  "indexes": {
+    "directive_candidates": [
+      {
+        "block_id": "b000005",
+        "line": 14,
+        "text": "Modification time alone never proves incompleteness. A missing, stale or",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000007",
+        "line": 24,
+        "text": "and must not be recorded as authored facts. iiDecision evaluates the proposed",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000013",
+        "line": 65,
+        "text": "must not replace a newer scan, or another container's state. Result caches are",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000013",
+        "line": 66,
+        "text": "advisory and do not become asset identity, ownership, lifecycle state, or a new",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      }
+    ],
+    "commands": [],
+    "links": [
+      {
+        "block_id": "b000015",
+        "label": "Figma view",
+        "target": "https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=18-14",
+        "kind": "external",
+        "line": 70
+      }
+    ],
+    "tables": []
+  },
+  "provenance": {
+    "generator": "workspace-docs",
+    "version": "1.0.0",
+    "profile": "lossless-blocks-v1",
+    "derived": true
+  }
+}

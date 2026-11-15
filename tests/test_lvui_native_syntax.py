@@ -13,6 +13,7 @@ SDK_COPY = ROOT / "resources/dependencies/lvui-native-model-chooser"
 SOURCES = (
     ROOT / "App/Society/Native/NativeFiles.lvui",
     ROOT / "App/Society/Native/NativeNavigation.lvui",
+    ROOT / "App/Society/Native/NativeWorkspace.lvui",
     ROOT / "App/Society/Tools/NativeModelChooser.lvui",
     ROOT / "App/Society/Tools/NativeModelCalibrator.lvui",
 )

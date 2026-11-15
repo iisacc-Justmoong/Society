@@ -1,5 +1,6 @@
 #include <DeliveryStore.h>
 #include <SocietyDrive.h>
+#include <SharedStorage.h>
 #include <iiSocietyHelper.h>
 #include "Society/Files/ModelImporter.h"
 #include "Shared/LocalBackendAddress.h"
@@ -8,6 +9,7 @@
 #include "Daemon/ModelBackendServer.h"
 #include "Daemon/NativeDirectorySession.h"
 #include <QDir>
+#include <QDateTime>
 #include <QElapsedTimer>
 #include <QFileInfo>
 #include <QFile>
@@ -114,6 +116,31 @@ private slots:
         QTRY_VERIFY_WITH_TIMEOUT(future.wait_for(std::chrono::milliseconds(0))==std::future_status::ready,5000);
         const auto result=future.get(); QVERIFY(!result.ok()); QVERIFY(result.uncertain);
     }
+    void headlessAgentCommandsUseTheSelectedContainer()
+    {
+#ifdef SOCIETY_CLI_EXECUTABLE
+        QTemporaryDir fixture(QDir::cleanPath(QStringLiteral(SOCIETY_TEST_DIRECTORY) + "/../../.agent-commands-XXXXXX"));
+        QVERIFY(fixture.isValid());
+        const auto previous=qgetenv("SOCIETY_JOB_STATE_ROOT");
+        const bool hadPrevious=qEnvironmentVariableIsSet("SOCIETY_JOB_STATE_ROOT");
+        qputenv("SOCIETY_JOB_STATE_ROOT",fixture.filePath("jobs").toUtf8());
+        const auto restore=qScopeGuard([&]{if(hadPrevious)qputenv("SOCIETY_JOB_STATE_ROOT",previous);else qunsetenv("SOCIETY_JOB_STATE_ROOT");});
+        const auto root=fixture.filePath("drive.societycontainer");
+        QVERIFY(QDir().mkdir(root)); QVERIFY(iiSocietyContainer::SocietyDrive::create(root));
+        const auto broker=fixture.filePath("broker"); QVERIFY(QDir().mkdir(broker));
+        QVERIFY(QFile::setPermissions(broker,QFileDevice::ReadOwner|QFileDevice::WriteOwner|QFileDevice::ExeOwner));
+        ModelBackendServer server; server.selectContainer(root); QVERIFY(server.listen(broker));
+        QProcess python;
+        python.start(QStringLiteral(SOCIETY_PYTHON_EXECUTABLE),{"-B",QStringLiteral(SOCIETY_SOURCE_DIRECTORY "/tests/python_client_probe.py"),
+            QStringLiteral(SOCIETY_SOURCE_DIRECTORY "/App/Society/Bindings/society.py"),QStringLiteral(SOCIETY_CLI_EXECUTABLE),broker,root,"--agent-only"});
+        QVERIFY(python.waitForStarted());
+        QTRY_COMPARE_WITH_TIMEOUT(python.state(),QProcess::NotRunning,90000);
+        const auto errors=python.readAllStandardError();
+        QVERIFY2(python.exitCode()==0,errors.constData());
+#else
+        QSKIP("Society CLI is not available in this build");
+#endif
+    }
     void headlessFileCommandsUseTheSelectedContainer()
     {
         QTemporaryDir fixture(QDir::cleanPath(QStringLiteral(SOCIETY_TEST_DIRECTORY) + "/../../.file-commands-XXXXXX"));
@@ -137,9 +164,11 @@ private slots:
         const auto accepted=pending.get(); QVERIFY2(accepted.ok(),qPrintable(accepted.error));
         QCOMPARE(accepted.response.value("state").toString(),QStringLiteral("queued"));
         const auto id=accepted.response.value("jobId").toString(); QVERIFY(!id.isEmpty());
+        const int configuredTimeout=qEnvironmentVariableIntValue("SOCIETY_TEST_FILE_JOB_TIMEOUT_MS");
+        const int completionTimeout=configuredTimeout>30000 && configuredTimeout<=180000 ? configuredTimeout : 30000;
         bool complete=false; SocietyBackendCommandReply last;
         QElapsedTimer completionDeadline; completionDeadline.start();
-        while (completionDeadline.elapsed()<30000 && !complete) {
+        while (completionDeadline.elapsed()<completionTimeout && !complete) {
             auto query=invoke("fileJobStatus",{{"jobId",id}},root);
             QTRY_VERIFY_WITH_TIMEOUT(query.wait_for(std::chrono::milliseconds(0))==std::future_status::ready,20000);
             last=query.get();
@@ -149,6 +178,7 @@ private slots:
             if (!complete) QTest::qWait(100);
         }
         QVERIFY2(complete,qPrintable(last.error+" "+QString::fromUtf8(QJsonDocument(last.response).toJson(QJsonDocument::Compact))));
+        qInfo("File job completed in %lld ms",static_cast<long long>(completionDeadline.elapsed()));
         QVERIFY(QFileInfo::exists(root+"/Files/renamed.txt"));
         auto invalid=invoke("fileOperation",{{"action","trash"},{"path","Files/../escape"}},root);
         QTRY_VERIFY_WITH_TIMEOUT(invalid.wait_for(std::chrono::milliseconds(0))==std::future_status::ready,20000);
@@ -176,7 +206,7 @@ private slots:
         python.start(QStringLiteral(SOCIETY_PYTHON_EXECUTABLE),{"-B",QStringLiteral(SOCIETY_SOURCE_DIRECTORY "/tests/python_client_probe.py"),
             QStringLiteral(SOCIETY_SOURCE_DIRECTORY "/App/Society/Bindings/society.py"),QStringLiteral(SOCIETY_CLI_EXECUTABLE),broker,root});
         QVERIFY(python.waitForStarted());
-        QTRY_COMPARE_WITH_TIMEOUT(python.state(),QProcess::NotRunning,45000);
+        QTRY_COMPARE_WITH_TIMEOUT(python.state(),QProcess::NotRunning,qMax(45000,completionTimeout+30000));
         QVERIFY2(python.exitCode()==0,python.readAllStandardError().constData());
         QVERIFY(QFileInfo::exists(root+"/Files/python-renamed.txt"));
 #endif
@@ -590,6 +620,216 @@ private slots:
         QTRY_VERIFY(!view.backendConnected());
         QVERIFY(!view.busy());
         QVERIFY(!view.errorString().isEmpty());
+    }
+    void oldAgentRepliesCannotCrossContainerSelection()
+    {
+        QTemporaryDir fixture(QDir::cleanPath(QStringLiteral(SOCIETY_TEST_DIRECTORY) + "/../../.agent-peer-XXXXXX"));
+        QVERIFY(fixture.isValid());
+        QLocalServer server; QVERIFY(server.listen(fixture.filePath("backend.sock")));
+        const auto oldBroker=qgetenv("SOCIETY_LOCAL_BROKER_DIR"), oldAuto=qgetenv("SOCIETY_DISABLE_BACKEND_AUTOSTART");
+        const bool hadBroker=qEnvironmentVariableIsSet("SOCIETY_LOCAL_BROKER_DIR"), hadAuto=qEnvironmentVariableIsSet("SOCIETY_DISABLE_BACKEND_AUTOSTART");
+        const auto restore=qScopeGuard([&] {
+            if (hadBroker) qputenv("SOCIETY_LOCAL_BROKER_DIR",oldBroker); else qunsetenv("SOCIETY_LOCAL_BROKER_DIR");
+            if (hadAuto) qputenv("SOCIETY_DISABLE_BACKEND_AUTOSTART",oldAuto); else qunsetenv("SOCIETY_DISABLE_BACKEND_AUTOSTART");
+        });
+        qputenv("SOCIETY_LOCAL_BROKER_DIR",fixture.path().toUtf8()); qputenv("SOCIETY_DISABLE_BACKEND_AUTOSTART","1");
+        const auto first=fixture.filePath("first.societycontainer"), second=fixture.filePath("second.societycontainer");
+        ModelBackendClient client(nullptr,5000); client.setContainerPath(first); client.start();
+        QTRY_VERIFY(client.connected()); QTRY_VERIFY(server.hasPendingConnections());
+        auto *peer=server.nextPendingConnection(); QVERIFY(peer);
+        QByteArray input;
+        QString currentSubscription;
+        const auto findRequest=[&](const QString &operation,QString &id) {
+            input+=peer->readAll();
+            while (input.size()>=4) {
+                const auto size=qFromBigEndian<quint32>(input.constData());
+                if (input.size()<qsizetype(size+4)) break;
+                const auto message=QJsonDocument::fromJson(input.mid(4,size)).object(); input.remove(0,size+4);
+                if (message.value("op").toString()==operation) {
+                    id=message.value("id").toString(); currentSubscription=message.value("subscription").toString(); return true;
+                }
+            }
+            return false;
+        };
+        QSignalSpy state(&client,&ModelBackendClient::agentStateReceived), result(&client,&ModelBackendClient::agentResultReceived), errors(&client,&ModelBackendClient::requestError);
+        QVERIFY(client.request("agentSend",{{"prompt","old"}},true));
+        QString oldId; bool foundOldRequest = false;
+        QTRY_VERIFY_WITH_TIMEOUT(foundOldRequest || (foundOldRequest = findRequest("agentSend",oldId)),5000);
+        client.setContainerPath(second);
+        client.setContainerPath(first); // A -> B -> A still invalidates A's old requests.
+        const auto send=[&](const QJsonObject &message) {
+            const auto body=QJsonDocument(message).toJson(QJsonDocument::Compact);
+            QByteArray frame(4,'\0'); qToBigEndian(quint32(body.size()),frame.data()); peer->write(frame+body); peer->flush();
+        };
+        const QJsonObject oldState{{"messages",QJsonArray{QJsonObject{{"text","old private message"}}}}};
+        send({{"type","agentState"},{"container",first},{"agent",oldState}});
+        send({{"type","result"},{"id",oldId},{"accepted",false},{"error","old failure"},{"agent",oldState}});
+        QTRY_VERIFY_WITH_TIMEOUT(!client.pendingMutation(),5000);
+        QCOMPARE(state.size(),0); QCOMPARE(result.size(),0); QCOMPARE(errors.size(),0);
+        QVERIFY(client.request("agentSubscribe"));
+        QString newId; bool foundNewRequest = false;
+        QTRY_VERIFY_WITH_TIMEOUT(foundNewRequest || (foundNewRequest = findRequest("agentSubscribe",newId)),5000);
+        send({{"type","result"},{"id",newId},{"accepted",true},{"agent",QJsonObject{{"status","new"}}}});
+        QTRY_COMPARE_WITH_TIMEOUT(state.size(),1,5000);
+        QCOMPARE(state.first().at(0).toJsonObject().value("status").toString(),QStringLiteral("new"));
+        QVERIFY(!currentSubscription.isEmpty());
+        send({{"type","agentState"},{"container",first},{"subscription","old-token"},{"agent",oldState}});
+        QTest::qWait(50); QCOMPARE(state.size(),1);
+        send({{"type","agentState"},{"container",first},{"subscription",currentSubscription},{"agent",QJsonObject{{"status","live"}}}});
+        QTRY_COMPARE_WITH_TIMEOUT(state.size(),2,5000);
+        QCOMPARE(state.last().at(0).toJsonObject().value("status").toString(),QStringLiteral("live"));
+    }
+    void oldSuggestedEventsCannotCrossContainerSelection()
+    {
+        QTemporaryDir fixture(QDir::cleanPath(QStringLiteral(SOCIETY_TEST_DIRECTORY)+"/../../.suggested-peer-XXXXXX"));
+        QVERIFY(fixture.isValid()); QLocalServer server; QVERIFY(server.listen(fixture.filePath("backend.sock")));
+        const auto previous=qgetenv("SOCIETY_LOCAL_BROKER_DIR"); const bool had=qEnvironmentVariableIsSet("SOCIETY_LOCAL_BROKER_DIR");
+        const auto restore=qScopeGuard([&]{if(had)qputenv("SOCIETY_LOCAL_BROKER_DIR",previous);else qunsetenv("SOCIETY_LOCAL_BROKER_DIR");});
+        qputenv("SOCIETY_LOCAL_BROKER_DIR",fixture.path().toUtf8());
+        const auto first=fixture.filePath("first.societycontainer"),second=fixture.filePath("second.societycontainer");
+        ModelBackendClient client(nullptr,5000,[]{}); client.setContainerPath(first); client.start();
+        QTRY_VERIFY(client.connected()); QTRY_VERIFY(server.hasPendingConnections()); auto *peer=server.nextPendingConnection(); QVERIFY(peer);
+        QByteArray input; QString id,subscription;
+        const auto findSubscribe=[&] {
+            input+=peer->readAll();
+            while(input.size()>=4) {
+                const auto n=qFromBigEndian<quint32>(input.constData()); if(input.size()<qsizetype(n+4)) break;
+                const auto request=QJsonDocument::fromJson(input.mid(4,n)).object(); input.remove(0,n+4);
+                if(request.value("op")=="suggestedSubscribe") {id=request.value("id").toString();subscription=request.value("subscription").toString();return true;}
+            }
+            return false;
+        };
+        const auto send=[&](const QJsonObject &message) {
+            const auto body=QJsonDocument(message).toJson(QJsonDocument::Compact); QByteArray frame(4,'\0');
+            qToBigEndian(quint32(body.size()),frame.data()); peer->write(frame+body); peer->flush();
+        };
+        QSignalSpy states(&client,&ModelBackendClient::suggestedStateReceived);
+        QVERIFY(client.request("suggestedSubscribe")); bool found=false;
+        QTRY_VERIFY_WITH_TIMEOUT(found || (found=findSubscribe()),5000); const auto oldId=id,oldSubscription=subscription;
+        client.setContainerPath(second); client.setContainerPath(first);
+        send({{"type","result"},{"id",oldId},{"accepted",true},{"suggested",QJsonObject{{"status","old"}}}});
+        send({{"type","suggestedState"},{"container",first},{"subscription",oldSubscription},{"suggested",QJsonObject{{"status","old"}}}});
+        QVERIFY(client.request("suggestedSubscribe")); found=false;
+        QTRY_VERIFY_WITH_TIMEOUT(found || (found=findSubscribe()),5000);
+        send({{"type","result"},{"id",id},{"accepted",true},{"suggested",QJsonObject{{"status","new"}}}});
+        QTRY_COMPARE_WITH_TIMEOUT(states.size(),1,5000);
+        QCOMPARE(states.first().at(0).toJsonObject().value("status").toString(),QStringLiteral("new"));
+        send({{"type","suggestedState"},{"container",first},{"subscription",oldSubscription},{"suggested",QJsonObject{{"status","old"}}}});
+        QTest::qWait(30); QCOMPARE(states.size(),1);
+        send({{"type","suggestedState"},{"container",first},{"subscription",subscription},{"suggested",QJsonObject{{"status","live"}}}});
+        QTRY_COMPARE_WITH_TIMEOUT(states.size(),2,5000);
+    }
+    void resourceInspectionWorksThroughPythonAndCli()
+    {
+#ifdef SOCIETY_CLI_EXECUTABLE
+        QTemporaryDir fixture(QDir::cleanPath(QStringLiteral(SOCIETY_TEST_DIRECTORY)+"/../../.resource-client-XXXXXX"));
+        QVERIFY(fixture.isValid()); const auto root=fixture.filePath("drive.societycontainer");
+        QVERIFY(QDir().mkdir(root)); QVERIFY(iiSocietyContainer::SocietyDrive::create(root));
+        QFile file(root+"/Files/example.txt"); QVERIFY(file.open(QIODevice::WriteOnly)); file.write("example"); file.close();
+        const auto storage=iiSocietyContainer::SharedStorage::open(root); QVERIFY(storage);
+        { auto repository=storage->fileRepository(); (void)repository->observe("files/example.txt"); }
+        const auto broker=fixture.filePath("broker"); QVERIFY(QDir().mkdir(broker));
+        QVERIFY(QFile::setPermissions(broker,QFileDevice::ReadOwner|QFileDevice::WriteOwner|QFileDevice::ExeOwner));
+        ModelBackendServer server; server.selectContainer(root); QVERIFY(server.listen(broker));
+        QProcess python;
+        python.start(QStringLiteral(SOCIETY_PYTHON_EXECUTABLE),{"-B",QStringLiteral(SOCIETY_SOURCE_DIRECTORY "/tests/resource_client_probe.py"),
+            QStringLiteral(SOCIETY_SOURCE_DIRECTORY "/App/Society/Bindings/society.py"),QStringLiteral(SOCIETY_CLI_EXECUTABLE),broker,root});
+        QVERIFY(python.waitForStarted()); QTRY_COMPARE_WITH_TIMEOUT(python.state(),QProcess::NotRunning,90000);
+        QVERIFY2(python.exitCode()==0,python.readAllStandardError().constData());
+#else
+        QSKIP("Society CLI is unavailable in this build");
+#endif
+    }
+    void recentOpenAndRenameReachTheClient()
+    {
+        QTemporaryDir fixture(QDir::cleanPath(QStringLiteral(SOCIETY_TEST_DIRECTORY)+"/../../.recent-roundtrip-XXXXXX"));
+        QVERIFY(fixture.isValid()); const auto root=fixture.filePath("drive.societycontainer");
+        QVERIFY(QDir().mkdir(root)); QVERIFY(iiSocietyContainer::SocietyDrive::create(root));
+        const auto base=QDateTime::currentDateTimeUtc().addDays(-1);
+        const auto make=[&](const QString &name,int seconds) {
+            QFile file(root+"/Files/"+name);
+            return file.open(QIODevice::WriteOnly) && file.write("x")==1 && file.flush()
+                && file.setFileTime(base.addSecs(seconds),QFileDevice::FileModificationTime);
+        };
+        QVERIFY(make("old.txt",1)); QVERIFY(make("new.txt",2));
+        const auto broker=fixture.filePath("broker"); QVERIFY(QDir().mkdir(broker));
+        QVERIFY(QFile::setPermissions(broker,QFileDevice::ReadOwner|QFileDevice::WriteOwner|QFileDevice::ExeOwner));
+        const auto previousBroker=qgetenv("SOCIETY_LOCAL_BROKER_DIR"),previousJobs=qgetenv("SOCIETY_JOB_STATE_ROOT");
+        const bool hadBroker=qEnvironmentVariableIsSet("SOCIETY_LOCAL_BROKER_DIR"),hadJobs=qEnvironmentVariableIsSet("SOCIETY_JOB_STATE_ROOT");
+        qputenv("SOCIETY_LOCAL_BROKER_DIR",broker.toUtf8()); qputenv("SOCIETY_JOB_STATE_ROOT",fixture.filePath("jobs").toUtf8());
+        const auto restore=qScopeGuard([&] {
+            if(hadBroker)qputenv("SOCIETY_LOCAL_BROKER_DIR",previousBroker);else qunsetenv("SOCIETY_LOCAL_BROKER_DIR");
+            if(hadJobs)qputenv("SOCIETY_JOB_STATE_ROOT",previousJobs);else qunsetenv("SOCIETY_JOB_STATE_ROOT");
+        });
+        ModelBackendServer server; server.selectContainer(root); QVERIFY(server.listen(broker));
+        ModelBackendClient client(nullptr,15000,[]{}); client.setContainerPath(root); client.start();
+        QTRY_VERIFY_WITH_TIMEOUT(client.connected(),10000);
+        QSignalSpy states(&client,&ModelBackendClient::recentStateReceived);
+        QVERIFY(client.request("recentSubscribe"));
+        const auto firstPath=[&] {
+            if (states.isEmpty()) return QString();
+            const auto state=states.last().at(0).toJsonObject(); const auto rows=state.value("items").toArray();
+            return rows.size()==2 && !state.value("loading").toBool()?rows.first().toObject().value("path").toString():QString();
+        };
+        QTRY_COMPARE_WITH_TIMEOUT(firstPath(),root+"/Files/new.txt",30000);
+        QVERIFY(client.request("recentOpened",{{"path",root+"/Files/old.txt"}}));
+        QTRY_COMPARE_WITH_TIMEOUT(firstPath(),root+"/Files/old.txt",30000);
+        QSignalSpy jobResults(&client,&ModelBackendClient::fileResultReceived);
+        QString submitted;
+        QVERIFY(client.request("fileOperation",{{"action","rename"},{"path","Files/old.txt"},{"argument","renamed.txt"}},true,&submitted));
+        QTRY_VERIFY_WITH_TIMEOUT(!jobResults.isEmpty(),30000);
+        QCOMPARE(jobResults.first().at(0).toString(),QStringLiteral("fileOperation"));
+        QCOMPARE(jobResults.first().at(1).toString(),submitted);
+        const auto job=jobResults.first().at(2).toJsonObject().value("jobId").toString();
+        QVERIFY(!job.isEmpty());
+        QString inspection;
+        QVERIFY(client.request("fileJobStatus",{{"jobId",job}},false,&inspection));
+        QTRY_VERIFY_WITH_TIMEOUT(jobResults.size()>=2,30000);
+        QCOMPARE(jobResults.last().at(0).toString(),QStringLiteral("fileJobStatus"));
+        QCOMPARE(jobResults.last().at(1).toString(),inspection);
+        QTRY_VERIFY_WITH_TIMEOUT(QFileInfo::exists(root+"/Files/renamed.txt"),30000);
+        QTRY_COMPARE_WITH_TIMEOUT(firstPath(),root+"/Files/renamed.txt",30000);
+    }
+    void oldRecentEventsCannotCrossContainerSelection()
+    {
+        QTemporaryDir fixture(QDir::cleanPath(QStringLiteral(SOCIETY_TEST_DIRECTORY)+"/../../.recent-peer-XXXXXX"));
+        QVERIFY(fixture.isValid()); QLocalServer server; QVERIFY(server.listen(fixture.filePath("backend.sock")));
+        const auto previous=qgetenv("SOCIETY_LOCAL_BROKER_DIR"); const bool had=qEnvironmentVariableIsSet("SOCIETY_LOCAL_BROKER_DIR");
+        const auto restore=qScopeGuard([&]{if(had)qputenv("SOCIETY_LOCAL_BROKER_DIR",previous);else qunsetenv("SOCIETY_LOCAL_BROKER_DIR");});
+        qputenv("SOCIETY_LOCAL_BROKER_DIR",fixture.path().toUtf8());
+        const auto first=fixture.filePath("first.societycontainer"),second=fixture.filePath("second.societycontainer");
+        ModelBackendClient client(nullptr,5000,[]{}); client.setContainerPath(first); client.start();
+        QTRY_VERIFY_WITH_TIMEOUT(server.hasPendingConnections(),5000); auto *peer=server.nextPendingConnection(); QVERIFY(peer);
+        QTRY_VERIFY_WITH_TIMEOUT(client.connected(),5000);
+        QByteArray input; QString id,subscription;
+        const auto findSubscribe=[&] {
+            input+=peer->readAll();
+            while(input.size()>=4) {
+                const auto n=qFromBigEndian<quint32>(input.constData()); if(input.size()<qsizetype(n+4)) break;
+                const auto request=QJsonDocument::fromJson(input.mid(4,n)).object(); input.remove(0,n+4);
+                if(request.value("op")=="recentSubscribe") {id=request.value("id").toString();subscription=request.value("subscription").toString();return true;}
+            }
+            return false;
+        };
+        const auto send=[&](const QJsonObject &message) {
+            const auto body=QJsonDocument(message).toJson(QJsonDocument::Compact); QByteArray frame(4,'\0');
+            qToBigEndian(quint32(body.size()),frame.data()); peer->write(frame+body); peer->flush();
+        };
+        QSignalSpy states(&client,&ModelBackendClient::recentStateReceived);
+        QVERIFY(client.request("recentSubscribe")); bool found=false;
+        QTRY_VERIFY_WITH_TIMEOUT(found || (found=findSubscribe()),5000); const auto oldId=id,oldSubscription=subscription;
+        client.setContainerPath(second); client.setContainerPath(first);
+        send({{"type","result"},{"id",oldId},{"accepted",true},{"recent",QJsonObject{{"status","old"}}}});
+        send({{"type","recentState"},{"container",first},{"subscription",oldSubscription},{"recent",QJsonObject{{"status","old"}}}});
+        QVERIFY(client.request("recentSubscribe")); found=false;
+        QTRY_VERIFY_WITH_TIMEOUT(found || (found=findSubscribe()),5000);
+        send({{"type","result"},{"id",id},{"accepted",true},{"recent",QJsonObject{{"status","new"}}}});
+        QTRY_COMPARE_WITH_TIMEOUT(states.size(),1,5000);
+        QCOMPARE(states.first().at(0).toJsonObject().value("status").toString(),QStringLiteral("new"));
+        send({{"type","recentState"},{"container",first},{"subscription",oldSubscription},{"recent",QJsonObject{{"status","old"}}}});
+        QTest::qWait(30); QCOMPARE(states.size(),1);
+        send({{"type","recentState"},{"container",first},{"subscription",subscription},{"recent",QJsonObject{{"status","live"}}}});
+        QTRY_COMPARE_WITH_TIMEOUT(states.size(),2,5000);
     }
     void loginServiceTakesOverWhenTheOnDemandBackendStops()
     {

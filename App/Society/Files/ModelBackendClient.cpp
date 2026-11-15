@@ -41,7 +41,7 @@ ModelBackendClient::ModelBackendClient(QObject *parent, int requestTimeoutMs, st
     });
     connect(&m_socket, &QLocalSocket::disconnected, this, [this] {
         const bool uncertain = !m_mutations.isEmpty();
-        m_pending.clear(); m_mutations.clear(); m_input.clear();
+        m_pending.clear(); m_pendingOperations.clear(); m_pendingAgentContainers.clear(); m_pendingAgentGenerations.clear(); m_agentSubscription.clear(); m_suggestedSubscription.clear(); m_recentSubscription.clear(); m_mutations.clear(); m_input.clear();
         emit connectedChanged(); emit pendingChanged();
         if (uncertain && m_enabled) emit requestError(tr("Connection interrupted. Check the operation status before retrying."));
     });
@@ -62,13 +62,13 @@ void ModelBackendClient::start()
 void ModelBackendClient::stop()
 {
     m_enabled = false; m_retry.stop(); m_socket.abort();
-    m_pending.clear(); m_mutations.clear(); m_input.clear();
+    m_pending.clear(); m_pendingOperations.clear(); m_pendingAgentContainers.clear(); m_pendingAgentGenerations.clear(); m_agentSubscription.clear(); m_suggestedSubscription.clear(); m_recentSubscription.clear(); m_mutations.clear(); m_input.clear();
 }
 void ModelBackendClient::setContainerPath(const QString &path)
 {
     const auto clean = path.isEmpty() ? QString() : QDir::cleanPath(path);
     if (m_container == clean) return;
-    m_container = clean;
+    m_container = clean; ++m_selectionGeneration; m_agentSubscription.clear(); m_suggestedSubscription.clear(); m_recentSubscription.clear();
     if (connected() && !m_container.isEmpty()) request(QStringLiteral("snapshot"));
     else if (m_enabled) connectIfNeeded();
 }
@@ -95,13 +95,26 @@ void ModelBackendClient::connectIfNeeded()
     }
 }
 
-bool ModelBackendClient::request(const QString &operation, QJsonObject arguments, bool mutation)
+bool ModelBackendClient::request(const QString &operation, QJsonObject arguments, bool mutation, QString *requestId)
 {
+    if (requestId) requestId->clear();
     if (!connected() || m_container.isEmpty() || m_pending.size() >= 64) {
         if (mutation) emit requestError(tr("The Society background service is unavailable. Try again when it reconnects."));
         return false;
     }
     const auto id = QUuid::createUuid().toString(QUuid::WithoutBraces);
+    if (operation=="agentSubscribe") {
+        m_agentSubscription=QUuid::createUuid().toString(QUuid::WithoutBraces);
+        arguments.insert("subscription",m_agentSubscription);
+    }
+    if (operation=="suggestedSubscribe") {
+        m_suggestedSubscription=QUuid::createUuid().toString(QUuid::WithoutBraces);
+        arguments.insert("subscription",m_suggestedSubscription);
+    }
+    if (operation=="recentSubscribe") {
+        m_recentSubscription=QUuid::createUuid().toString(QUuid::WithoutBraces);
+        arguments.insert("subscription",m_recentSubscription);
+    }
     arguments.insert("id", id); arguments.insert("op", operation); arguments.insert("container", m_container);
     const auto body = QJsonDocument(arguments).toJson(QJsonDocument::Compact);
     if (body.isEmpty() || body.size() > maxFrame || m_socket.bytesToWrite() + body.size() > 2 * maxFrame) {
@@ -115,11 +128,29 @@ bool ModelBackendClient::request(const QString &operation, QJsonObject arguments
         return false;
     }
     m_pending.insert(id);
+    m_pendingOperations.insert(id,operation);
+    if (operation.startsWith("agent") || operation.startsWith("suggested") || operation.startsWith("recent") || operation.startsWith("file")) {
+        m_pendingAgentContainers.insert(id,m_container); m_pendingAgentGenerations.insert(id,m_selectionGeneration);
+    }
     if (mutation) { m_mutations.insert(id); emit pendingChanged(); }
+    if (requestId) *requestId=id;
     QTimer::singleShot(m_requestTimeoutMs, this, [this, id] {
         if (!m_pending.remove(id)) return;
-        if (!m_mutations.remove(id)) return;
+        const auto operation=m_pendingOperations.take(id);
+        const auto container=m_pendingAgentContainers.take(id);
+        const auto generation=m_pendingAgentGenerations.take(id);
+        const bool current=generation==m_selectionGeneration && societySameBackendPath(container,m_container);
+        if (operation.startsWith("file") && current)
+            emit fileResultReceived(operation,id,{{"accepted",false},{"error",tr("The background service did not respond. Check the job before retrying.")}});
+        if (!m_mutations.remove(id)) {
+            if (operation.startsWith("suggested") && generation==m_selectionGeneration && societySameBackendPath(container,m_container))
+                emit suggestedResultReceived(operation,false,tr("The background service did not respond."));
+            if (operation.startsWith("recent") && generation==m_selectionGeneration && societySameBackendPath(container,m_container))
+                emit recentResultReceived(operation,false,tr("The background service did not respond."));
+            return;
+        }
         emit pendingChanged();
+        if ((operation.startsWith("agent") || operation.startsWith("suggested") || operation.startsWith("recent") || operation.startsWith("file")) && !current) return;
         emit requestError(tr("The background service did not respond. Check the operation status before retrying."));
         m_socket.abort();
     });
@@ -148,8 +179,25 @@ void ModelBackendClient::handle(const QJsonObject &message)
     if (type == "result") {
         const auto id = message.value("id").toString();
         if (!m_pending.remove(id)) return;
+        const auto operation = m_pendingOperations.take(id);
+        const auto agentContainer=m_pendingAgentContainers.take(id);
+        const auto agentGeneration=m_pendingAgentGenerations.take(id);
         const bool mutation = m_mutations.remove(id);
         if (mutation) emit pendingChanged();
+        if ((operation.startsWith("agent") || operation.startsWith("suggested") || operation.startsWith("recent") || operation.startsWith("file")) && (agentGeneration!=m_selectionGeneration || !societySameBackendPath(agentContainer,m_container))) return;
+        if (operation=="fileOperation" || operation=="fileJobStatus") emit fileResultReceived(operation,id,message);
+        if (operation.startsWith("agent")) {
+            if (message.value("agent").isObject()) emit agentStateReceived(message.value("agent").toObject());
+            emit agentResultReceived(operation,message.value("accepted").toBool(),message.value("error").toString());
+        }
+        if (operation.startsWith("suggested")) {
+            if (message.value("suggested").isObject()) emit suggestedStateReceived(message.value("suggested").toObject());
+            emit suggestedResultReceived(operation,message.value("accepted").toBool(),message.value("error").toString());
+        }
+        if (operation.startsWith("recent")) {
+            if (message.value("recent").isObject()) emit recentStateReceived(message.value("recent").toObject());
+            emit recentResultReceived(operation,message.value("accepted").toBool(),message.value("error").toString());
+        }
         if (mutation && !message.value("accepted").toBool()) {
             auto error = message.value("error").toString();
             if (error.isEmpty()) error = tr("The background service could not start the operation.");
@@ -167,6 +215,20 @@ void ModelBackendClient::handle(const QJsonObject &message)
         }
         if (societySameBackendPath(state.value("containerPath").toString(), m_container)
             && societySameBackendPath(state.value("selectedContainer").toString(), m_container)) emit stateReceived(state);
+    } else if (type == "agentState" && !m_agentSubscription.isEmpty() && message.value("subscription").toString()==m_agentSubscription
+               && societySameBackendPath(message.value("container").toString(), m_container)
+               && message.value("agent").isObject()) {
+        emit agentStateReceived(message.value("agent").toObject());
+    } else if (type == "suggestedState" && !m_suggestedSubscription.isEmpty() && message.value("subscription").toString()==m_suggestedSubscription
+               && societySameBackendPath(message.value("container").toString(), m_container)
+               && message.value("suggested").isObject()) {
+        emit suggestedStateReceived(message.value("suggested").toObject());
+    } else if (type == "recentState" && !m_recentSubscription.isEmpty() && message.value("subscription").toString()==m_recentSubscription
+               && societySameBackendPath(message.value("container").toString(), m_container)
+               && message.value("recent").isObject()) {
+        emit recentStateReceived(message.value("recent").toObject());
+    } else if (type == "fileJobChanged" && societySameBackendPath(message.value("container").toString(),m_container)) {
+        emit fileJobChanged(message);
     } else if ((type == "finished" || type == "organized" || type == "recategorized")
                && message.value("container").toString() == m_container) {
         emit eventReceived(message);

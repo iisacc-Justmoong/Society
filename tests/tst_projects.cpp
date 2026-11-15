@@ -1,5 +1,6 @@
 #include "Society/Dashboard/ProjectRepository.h"
 #include "Society/Dashboard/ProjectWorkspace.h"
+#include "Society/Dashboard/ProjectResourceBinding.h"
 #include <FileOperations.h>
 #include <SocietyDrive.h>
 #include <QDir>
@@ -29,6 +30,12 @@ static QQuickItem *visual(QQuickItem *parent, const QString &name) {
 class ProjectTests : public QObject {
     Q_OBJECT
   private slots:
+    void projectBindingExposesTypedResourceIdentity() {
+        const QJsonObject binding{{"kind","files-catalog-v1"},{"container","drive-id"},{"key","catalog-key"}};
+        const auto value=ProjectResourceBinding::resourceId(binding); QVERIFY(value);
+        QCOMPARE(QString::fromStdString(value->value),ProjectResourceBinding::assetId(binding));
+        QVERIFY(!ProjectResourceBinding::resourceId(QJsonObject{{"kind","files-catalog-v1"},{"container","drive-id"}}));
+    }
     void createEditAndReopenAsSingleCatalogPackage() {
         QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/projects-XXXXXX.societycontainer");
         QVERIFY(fixture.isValid());
