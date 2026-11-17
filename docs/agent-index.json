@@ -14,21 +14,21 @@
       "document_id": "urn:iisacc:document:e8d5bb8c34e9ead09c97715802a40b312b5105e23c0a0d473fa7a93b8583c6b2",
       "source": "AGENT.md",
       "agent_json": "docs/entrypoints/AGENT.agent.json",
-      "source_sha256": "3f35ed9cd5707d9ba89edec6a368ecb4ad493b03ca382dd36e232706d089e32e",
+      "source_sha256": "e74707ff46b32d4d3cf1fff4e37d9f9d6b2a9a0a66adaf7ec6113b7fa08e9198",
       "role": "instructions"
     },
     {
       "document_id": "urn:iisacc:document:6f9d6c6311a30e62a88b1daaaef5b103a11d89b466e222897d9c16a21ead5a68",
       "source": "LICENSING.md",
       "agent_json": "docs/entrypoints/LICENSING.agent.json",
-      "source_sha256": "629af7be7391f3cda4d302ef93b8f164fde800b301464da5aadcd13f3c1d0082",
+      "source_sha256": "5a909f6577f7319cc59dc6df661c4e182ce3f31365bc48a1f909fc029ccfe239",
       "role": "guide"
     },
     {
       "document_id": "urn:iisacc:document:a8e949809ff94f51752856b9cbb45c547abeab4dc549b1d63d72e710bbc83abe",
       "source": "README.md",
       "agent_json": "docs/entrypoints/README.agent.json",
-      "source_sha256": "36c96951cb44f6ba48d327626661d19b667507dec6e89c6185d1506bcd30e084",
+      "source_sha256": "0a5ae6934d50d1a0fefa824b56ce9523501617ddf890a220a97843d71e9f9866",
       "role": "overview"
     },
     {
