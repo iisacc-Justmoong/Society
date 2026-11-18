@@ -1,5 +1,5 @@
 #pragma once
-#include <StorageModelCatalog.h>
+#include <iiSocietyContainer>
 #include <QtQml/qqmlregistration.h>
 
 // QML registration only; metadata browsing and explicit downloads belong to SDK.

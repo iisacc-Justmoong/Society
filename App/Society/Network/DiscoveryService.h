@@ -1,2 +1,2 @@
 #pragma once
-#include <iiSocietyHelper/DiscoveryService.h>
+#include <iiSocietyHelper>

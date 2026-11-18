@@ -16,6 +16,8 @@ public:
     bool activateControl(const QString &id);
     bool focusControl(const QString &id);
     [[nodiscard]] QRectF controlBounds(const QString &id) const;
+    [[nodiscard]] QRectF keyedControlBounds(const QString &id, const QString &key) const;
+    [[nodiscard]] QPointF controlScrollPosition(const QString &id) const;
     [[nodiscard]] bool controlOpened(const QString &id) const;
     void refresh();
     void paint(QPainter *painter) override;

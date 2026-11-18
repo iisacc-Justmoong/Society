@@ -1,8 +1,7 @@
 #include "ProjectResourceBinding.h"
 
-#include <FileCatalog.h>
-#include <ObjectSource.h>
-#include <SharedStorage.h>
+#include <iiFileProvider>
+#include <iiSocietyContainer>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>

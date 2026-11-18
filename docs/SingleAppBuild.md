@@ -66,3 +66,13 @@ When the verified `resources/dependencies/macos-mlx-runtime/` pair is present,
 it is selected automatically for native macOS unless the caller has set an
 explicit `SOCIETY_MLX_RUNTIME_DIR`. Compatible local SDK packages are likewise
 found from `resources/dependencies/`, with explicit package choices preserved.
+
+그룹 상태 저장의 기존 아홉 사례는 CTest 실행기로 유지하고 제품과 SDK 소비자에서 QtTest를 링크하지 않는다. 암호화 컨텍스트와 지연 저장 취소는 가짜 키 저장소를 사용하는 단독 사례로 선택할 수 있다. 지연 콜백의 결과는 호출 뒤 검사하며 임시 파일은 resources fixture에 둔다.
+
+네이티브 파일 실행기의 기존 사례와 파일 열기 이벤트의 세 사례도 QtTest 없이 CTest에서 유지한다. 실행기 검사는 가짜 시작 함수를 사용하고 파일 fixture는 resources 작업 공간 안에 둔다.
+
+제품 의존성의 세 기존 사례도 CTest 실행기로 유지한다. 파일 공유의 제어 파일 경계는 앱을 시작하지 않고 단독 검사하며, 실제 패키지 앱을 시작하는 피어 검사는 별도의 실행 범위로 남긴다.
+
+작업 저장소의 중단 복구 사례와 추천 모델의 세 사례도 QtTest 없이 CTest에서 유지한다. 추천 검사는 가짜 모델을 사용하며 잘못된 응답에 대한 예외 계약을 보존한다.
+
+알림 센터·최근 항목 백엔드·상주 게이트웨이의 기존 여섯 사례는 QtTest 없이 CTest에서 실행한다. 알림 모델 신호와 게이트웨이 이벤트의 인자를 직접 기록하며, 최근 항목의 지연 작업은 실패 시에도 대기 장벽을 해제한다. 이 검사는 가짜 백엔드와 비시각 QML 바인딩만 사용한다.

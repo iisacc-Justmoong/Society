@@ -1,5 +1,5 @@
 #include "PhotoController.h"
-#include <FileActions.h>
+#include <iiSocietyContainer>
 #include <QDesktopServices>
 #include <QDebug>
 #include <QFileInfo>

@@ -1,6 +1,6 @@
 #include "Society/Native/PhotoPreviewResolver.h"
-#include <iiGUI/Image.h>
-#include <iiSDKCore/Core/Property/ObservableReadScope.h>
+#include <iiGUI>
+#include <iiSDKCore>
 #include <memory>
 #include <stdexcept>
 #include <string>

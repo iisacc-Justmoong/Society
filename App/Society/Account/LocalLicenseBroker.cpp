@@ -1,5 +1,5 @@
 #include "AccountController.h"
-#include <iiSocietyHelper/LocalService.h>
+#include <iiSocietyHelper>
 #include <QLocalSocket>
 #include <cerrno>
 #include <QDir>
@@ -54,7 +54,7 @@ bool AccountController::startLocalHelperBroker(const QString &directory) {
     if (!prepareBrokerDirectory(base)) return false;
     auto helper = std::make_unique<iiSocietyHelper::LocalService>(this, [this](const QString &product, const QString &app) {
         static const QHash<QString, QString> apps{{"congregation", "com.iisacc.congregation.painter"},
-            {"dreamscapes", "com.iisacc.dreamscapes"}, {"vincent", "com.iisacc.vincent"}};
+            {"dreamscapes", "com.iisacc.dreamscapes"}};
         return apps.contains(product) && apps.value(product) == app && signedIn()
             && manager()->licenseManager()->allows(product);
     });
@@ -107,10 +107,13 @@ bool AccountController::startLocalLicenseBroker(const QString &directory, bool s
                 QJsonParseError error;const auto parsed=QJsonDocument::fromJson(bytes.mid(4),&error);
                 if(error.error!=QJsonParseError::NoError||!parsed.isObject()){socket->abort();return;}
                 const auto input=parsed.object();const auto product=input.value("productId").toString();const auto requestId=input.value("requestId").toString();
-                static const QHash<QString,QString> apps{{"congregation","com.iisacc.congregation.painter"},{"dreamscapes","com.iisacc.dreamscapes"},{"vincent","com.iisacc.vincent"}};
+                const auto operation=input.value("operation").toString();
+                static const QHash<QString,QString> apps{{"congregation","com.iisacc.congregation.painter"},{"dreamscapes","com.iisacc.dreamscapes"}};
                 static const QRegularExpression nonce("\\A[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}\\z");
-                if(!apps.contains(product)||input.value("appId")!=apps.value(product)||!nonce.match(requestId).hasMatch()) { respond(socket,{{"allowed",false},{"code","invalid_app_request"},{"requestId",requestId}});return; }
-                withBrokerAccount(socket, [socket=QPointer<QLocalSocket>(socket),input,product,requestId](AccountController *account) {
+                if(!apps.contains(product)||input.value("appId")!=apps.value(product)||!nonce.match(requestId).hasMatch()
+                    || (!operation.isEmpty() && operation!="local-license-v2" && operation!="update")) { respond(socket,{{"allowed",false},{"code","invalid_app_request"},{"requestId",requestId}});return; }
+                QTimer::singleShot(750,socket,[socket,requestId]{respond(socket,{{"code","verification_unavailable"},{"requestId",requestId}});});
+                withBrokerAccount(socket, [broker=QPointer<AccountController>(this),socket=QPointer<QLocalSocket>(socket),input,product,requestId](AccountController *account) {
                     if (!socket) return;
                     if (!account || !account->signedIn() || input.value("deviceId").toString()!=account->manager()->deviceInfo().value("id").toString()) {
                         respond(socket,{{"allowed",false},{"code","society_account_required"},{"requestId",requestId}});return;
@@ -120,16 +123,24 @@ bool AccountController::startLocalLicenseBroker(const QString &directory, bool s
                     auto* licenses=account->manager()->licenseManager();
                     auto connection=std::make_shared<QMetaObject::Connection>();
                     auto completed=std::make_shared<bool>(false);
-                    auto finish=[socket,currentAccount,input,product,requestId,binding,connection,completed] {
+                    auto finish=[broker,socket,currentAccount,input,product,requestId,binding,connection,completed] {
                         if(!socket || !currentAccount){QObject::disconnect(*connection);return;}
                         if(*completed)return;
                         auto* manager=currentAccount->manager();auto* checked=manager->licenseManager();if(checked->busy())return;
                         *completed=true;
                         QObject::disconnect(*connection);
-                        const bool current=manager->matchesSessionBinding(binding);
-                        const auto token=current?checked->authorizationToken():QByteArray{};
-                        const bool allowed=current&&checked->allows(product);
+                        const bool current=broker && broker->brokerAccountIsCurrent(currentAccount)
+                            && manager->matchesSessionBinding(binding);
+                        if (!current) {
+                            respond(socket,{{"allowed",false},{"code","society_account_required"},{"requestId",requestId}});return;
+                        }
+                        const auto token=checked->authorizationToken();
+                        const bool allowed=checked->allows(product);
                         if (input.value("operation") != "update") {
+                            if (input.value("operation") == "local-license-v2") {
+                                respond(socket,{{"requestId",requestId},{"localToken",QString::fromLatin1(token)},
+                                    {"code",token.isEmpty()?checked->code():"local_token"}});return;
+                            }
                             respond(socket,{{"allowed",allowed},{"requestId",requestId},{"licenseToken",QString::fromLatin1(token)},
                                 {"code",token.isEmpty()?checked->code():allowed?"licensed":"license_not_owned"}});return;
                         }
@@ -148,13 +159,14 @@ bool AccountController::startLocalLicenseBroker(const QString &directory, bool s
                         QObject::connect(reply,&QNetworkReply::finished,reply,&QObject::deleteLater);
                         QObject::connect(socket.data(),&QObject::destroyed,reply,&QNetworkReply::abort);
                         QObject::connect(reply,&QIODevice::readyRead,socket.data(),[reply] { if(reply->bytesAvailable()>65536)reply->abort(); });
-                        QObject::connect(reply,&QNetworkReply::finished,socket.data(),[currentAccount,reply,socket,requestId,binding,product] {
+                        QObject::connect(reply,&QNetworkReply::finished,socket.data(),[broker,currentAccount,reply,socket,requestId,binding,product] {
                             const auto data=reply->readAll();const auto status=reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
                             QJsonParseError error;const auto root=QJsonDocument::fromJson(data,&error).object();
                             const auto result=root.value("data").toObject().value("accountUpdates").toObject();
                             const bool ok=currentAccount && reply->error()==QNetworkReply::NoError && status==200 && data.size()<=65536 &&
                                 error.error==QJsonParseError::NoError && !root.contains("errors") && !result.isEmpty() &&
                                 reply->header(QNetworkRequest::ContentTypeHeader).toString().split(';').first().trimmed()=="application/json" &&
+                                broker && broker->brokerAccountIsCurrent(currentAccount) &&
                                 currentAccount->manager()->matchesSessionBinding(binding) && currentAccount->manager()->licenseManager()->allows(product);
                             if(ok)respond(socket,{{"requestId",requestId},{"result",result}});
                             else respond(socket,{{"requestId",requestId},{"code","update_unavailable"}});

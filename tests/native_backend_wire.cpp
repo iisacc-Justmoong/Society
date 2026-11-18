@@ -1,5 +1,5 @@
 #include "Society/Native/NativeBackendWire.h"
-#include <iiJson/Json.h>
+#include <iiJson>
 #include <cstdlib>
 #include <iostream>
 #include <string>

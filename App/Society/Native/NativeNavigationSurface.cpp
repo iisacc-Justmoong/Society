@@ -1,9 +1,8 @@
 #include "NativeNavigationSurface.h"
 #include "NativeNavigation.generated.h"
 #include "QtPaintDevice.h"
-#include <LVUI/IconButtonDefaults.generated.h>
-#include <LVUI/SegmentedDefaults.generated.h>
-#include <iiGUI/PaintView.h>
+#include <LVUI>
+#include <iiGUI>
 #include <QAccessible>
 #include <QAccessibleObject>
 #include <QFocusEvent>

@@ -1,6 +1,6 @@
 #include "CloudFilesController.h"
-#include <SharedStorage.h>
-#include <File.h>
+#include <iiSocietyContainer>
+#include <iiFileProvider>
 #include <QDir>
 #include <QFileInfo>
 #include <QJsonArray>

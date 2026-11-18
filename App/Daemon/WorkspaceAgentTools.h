@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Shared/BackendCommand.h"
-#include <iiMultimodalAgent/agent/Tools.h>
+#include <iiMultimodalAgent>
 #include <functional>
 #include <memory>
 

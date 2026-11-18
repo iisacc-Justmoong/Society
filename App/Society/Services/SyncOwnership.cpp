@@ -1,4 +1,4 @@
-#include <iiFileProviderDevice.h>
+#include <iiFileProvider>
 #include "SyncOwnership.h"
 #include "ContainerRuntimePath.h"
 #include <QJsonDocument>

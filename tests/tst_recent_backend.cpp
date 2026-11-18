@@ -1,13 +1,16 @@
+#include "CTestSupport.h"
+#include "QtEventWait.h"
+#include <QCoreApplication>
+#include <QEvent>
+#include <QScopeGuard>
 #include "Daemon/RecentBackend.h"
 #include <QJsonArray>
 #include <QSemaphore>
-#include <QTest>
 #include <atomic>
 #include <mutex>
 
 class RecentBackendTest final : public QObject {
-    Q_OBJECT
-private slots:
+public:
     void switchesWithoutPublishingStaleResultsAndPersistsOldDriveActivity() {
         QSemaphore started,release;
         std::atomic_int aCalls=0;
@@ -17,19 +20,22 @@ private slots:
             if (root=="/drive-a" && ++aCalls==1) { started.release(); release.acquire(); }
             { std::lock_guard lock(mutex); for (const auto &event:events) recorded.append(event); }
             society::recent::Snapshot result;
-            result.items.append({root+"/Files/file",root,100,1});
+            result.items.append({root+"/Files/file",root,100,1,42});
             if (limit!=500) result.error="Invalid limit";
             return result;
         });
+        bool gateReleased = false;
+        const auto releaseOnExit = qScopeGuard([&] { if (!gateReleased) release.release(); });
         backend.selectContainer("/drive-a"); backend.activate();
-        bool running=false; QTRY_VERIFY_WITH_TIMEOUT(running || (running=started.tryAcquire()),5000);
+        bool running=false; CTEST_WAIT_VERIFY(running || (running=started.tryAcquire()),5000);
         backend.record("/drive-a","/drive-a/Files/edited",200);
-        backend.selectContainer("/drive-b"); release.release();
-        QTRY_COMPARE_WITH_TIMEOUT(backend.snapshot().value("items").toArray().size(),1,5000);
-        QCOMPARE(backend.snapshot().value("items").toArray().at(0).toObject().value("name").toString(),QStringLiteral("/drive-b"));
-        QTRY_VERIFY_WITH_TIMEOUT(([&] { std::lock_guard lock(mutex); return !recorded.isEmpty(); })(),5000);
-        { std::lock_guard lock(mutex); QCOMPARE(recorded.front().path,QStringLiteral("/drive-a/Files/edited")); }
-        QCOMPARE(backend.snapshot().value("items").toArray().at(0).toObject().value("name").toString(),QStringLiteral("/drive-b"));
+        backend.selectContainer("/drive-b"); gateReleased = true; release.release();
+        CTEST_WAIT_COMPARE_TIMEOUT(backend.snapshot().value("items").toArray().size(),1,5000);
+        CTEST_COMPARE(backend.snapshot().value("items").toArray().at(0).toObject().value("name").toString(),QStringLiteral("/drive-b"));
+        CTEST_COMPARE(backend.snapshot().value("items").toArray().at(0).toObject().value("modifiedMs").toString(),QStringLiteral("42"));
+        CTEST_WAIT_VERIFY(([&] { std::lock_guard lock(mutex); return !recorded.isEmpty(); })(),5000);
+        { std::lock_guard lock(mutex); CTEST_COMPARE(recorded.front().path,QStringLiteral("/drive-a/Files/edited")); }
+        CTEST_COMPARE(backend.snapshot().value("items").toArray().at(0).toObject().value("name").toString(),QStringLiteral("/drive-b"));
     }
     void failedWritesAreRetainedForRetry() {
         std::atomic_int calls=0,eventsSeen=0;
@@ -44,12 +50,19 @@ private slots:
         });
         backend.selectContainer("/drive");
         backend.record("/drive","/drive/Files/file",100);
-        QTRY_COMPARE_WITH_TIMEOUT(backend.snapshot().value("status").toString(),QStringLiteral("Fixture write failure"),5000);
-        QCOMPARE(eventsSeen.load(),1);
+        CTEST_WAIT_COMPARE_TIMEOUT(backend.snapshot().value("status").toString(),QStringLiteral("Fixture write failure"),5000);
+        CTEST_COMPARE(eventsSeen.load(),1);
         backend.refresh();
-        QTRY_COMPARE_WITH_TIMEOUT(backend.snapshot().value("items").toArray().size(),1,5000);
-        QCOMPARE(eventsSeen.load(),2);
+        CTEST_WAIT_COMPARE_TIMEOUT(backend.snapshot().value("items").toArray().size(),1,5000);
+        CTEST_COMPARE(eventsSeen.load(),2);
     }
 };
-QTEST_GUILESS_MAIN(RecentBackendTest)
-#include "tst_recent_backend.moc"
+int main(int argc, char** argv)
+{
+    QCoreApplication application(argc, argv);
+    society_ctest::Runner runner(argc == 2 ? argv[1] : "");
+    RecentBackendTest test;
+    runner.run("switchesWithoutPublishingStaleResultsAndPersistsOldDriveActivity", [&] { const auto cleanup = qScopeGuard([] { QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete); }); test.switchesWithoutPublishingStaleResultsAndPersistsOldDriveActivity(); });
+    runner.run("failedWritesAreRetainedForRetry", [&] { const auto cleanup = qScopeGuard([] { QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete); }); test.failedWritesAreRetainedForRetry(); });
+    return runner.result();
+}

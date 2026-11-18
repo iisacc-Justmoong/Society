@@ -1,5 +1,5 @@
 #pragma once
-#include <iiFileProviderStorage.h>
+#include <iiFileProvider>
 #include <sqlite3.h>
 #include <memory>
 #include <stdexcept>

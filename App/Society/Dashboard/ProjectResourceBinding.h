@@ -2,8 +2,8 @@
 
 #include <QJsonObject>
 #include <QString>
-#include <iiProjectManager/ProjectManager.h>
-#include <iiResource/Resource.h>
+#include <iiProjectManager>
+#include <iiResource>
 #include <optional>
 
 namespace iiFileProvider { class FileCatalog; }

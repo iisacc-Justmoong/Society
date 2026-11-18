@@ -1,6 +1,6 @@
 #include "CanvasFilePreview.h"
 #include <Render/DocumentPreview.h>
-#include <iiFileProviderPresentation.h>
+#include <iiFileProvider>
 #include <QBuffer>
 #include <QImage>
 

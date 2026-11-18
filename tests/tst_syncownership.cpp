@@ -1,7 +1,7 @@
 #include "Society/Services/SyncOwnership.h"
 #include <QFile>
 #include <QDir>
-#include <SharedStorage.h>
+#include <iiSocietyContainer>
 #include <QSignalSpy>
 #include <QProcess>
 #include <QTextStream>

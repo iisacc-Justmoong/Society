@@ -1,31 +1,31 @@
 #include "Society/Jobs/JobStorage.h"
 
 #include <Job.h>
-#include <TemporaryLease.h>
-#include <iiFileProviderNative.h>
+#include <iiFileProvider>
 #include <QTemporaryDir>
-#include <QTest>
+#include "CTestSupport.h"
+#include <QCoreApplication>
+#include <QEvent>
 
-class JobStorageTest : public QObject
+class JobStorageTest
 {
-    Q_OBJECT
-private slots:
+public:
     void reopensAndProtectsAnInterruptedWorker()
     {
         QTemporaryDir directory(SOCIETY_TEST_DIRECTORY "/job-storage-XXXXXX");
-        QVERIFY(directory.isValid());
+        CTEST_CHECK(directory.isValid());
         const auto root = std::filesystem::path(directory.path().toStdU16String());
         SocietyJobStorage storage(root);
-        QVERIFY(!storage.open(false));
+        CTEST_CHECK(!storage.open(false));
         {
             auto store = storage.open(true);
             store->create({"job", "model-import", "local", "drive", "revision", "node", true},
                           {{"one", "source-a", "", "", "First"},
                            {"two", "source-b", "", "", "Second"}});
             auto lease = storage.tryLease("job", true);
-            QVERIFY(lease && lease->locked());
+            CTEST_CHECK(lease && lease->locked());
             auto contender = storage.tryLease("job", false);
-            QVERIFY(contender && !contender->locked());
+            CTEST_CHECK(contender && !contender->locked());
             store->begin("job", "node", "copying");
             const auto first = store->claim("job", "one");
             store->succeed("job", "one", first.token, "artifact-a");
@@ -33,17 +33,26 @@ private slots:
             store->checkpoint("job", "two", second.token, "published:artifact-b");
         }
         auto lease = storage.tryLease("job", false);
-        QVERIFY(lease && lease->locked());
+        CTEST_CHECK(lease && lease->locked());
         auto reopened = storage.open(false);
         reopened->recoverInterrupted("job");
         const auto job = reopened->job("job");
-        QVERIFY(job);
-        QCOMPARE(job->succeeded, std::uint64_t(1));
-        QCOMPARE(job->unknown, std::uint64_t(1));
-        QCOMPARE(reopened->item("job", "two")->checkpoint, std::string("published:artifact-b"));
-        QCOMPARE(reopened->retryFailed("job"), std::uint64_t(0));
+        CTEST_CHECK(job);
+        CTEST_COMPARE(job->succeeded, std::uint64_t(1));
+        CTEST_COMPARE(job->unknown, std::uint64_t(1));
+        CTEST_COMPARE(reopened->item("job", "two")->checkpoint, std::string("published:artifact-b"));
+        CTEST_COMPARE(reopened->retryFailed("job"), std::uint64_t(0));
     }
 };
 
-QTEST_GUILESS_MAIN(JobStorageTest)
-#include "tst_jobstorage.moc"
+int main(int argc, char** argv)
+{
+    QCoreApplication application(argc, argv);
+    society_ctest::Runner runner(argc == 2 ? argv[1] : "");
+    JobStorageTest tests;
+    struct FlushDeferredDeletes {
+        ~FlushDeferredDeletes() { QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete); }
+    };
+    runner.run("reopensAndProtectsAnInterruptedWorker", [&] { FlushDeferredDeletes cleanup; tests.reopensAndProtectsAnInterruptedWorker(); });
+    return runner.result();
+}

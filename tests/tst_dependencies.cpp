@@ -1,44 +1,44 @@
-#include <iiSocietyHelper.h>
-#include <iiSocietyContainer.h>
-#include <iiWebServer.h>
+#include <iiSocietyHelper>
+#include <iiSocietyContainer>
+#include <iiWebServer>
 #include <QFile>
 #include <QJsonArray>
-#include <QTest>
+#include "CTestSupport.h"
+#include "QtEventWait.h"
+#include <QCoreApplication>
+#include <QEvent>
 #include <QProcess>
 #include <QProcessEnvironment>
 #include <QTemporaryDir>
-#include <SharedStorage.h>
 
-class DependencyTest final : public QObject
+class DependencyTest final
 {
-    Q_OBJECT
-
-private slots:
+public:
     void fileProjectionHidesProviderControlFiles()
     {
         QTemporaryDir directory(SOCIETY_TEST_DIRECTORY "/share-boundary-XXXXXX");
-        QVERIFY(directory.isValid());
+        CTEST_CHECK(directory.isValid());
         for (const auto *name : {"original.txt", ".original.txt.iisacc-preview", ".iisacc-temporary.lock"}) {
             QFile file(directory.filePath(QString::fromLatin1(name)));
-            QVERIFY(file.open(QIODevice::WriteOnly)); QVERIFY(file.write("fixture") > 0);
+            CTEST_CHECK(file.open(QIODevice::WriteOnly)); CTEST_CHECK(file.write("fixture") > 0);
         }
         iiWebServer::FileShare share(directory.path());
         const auto listed = share.handle({{"op", "list"}, {"path", ""}});
-        QVERIFY(listed.value("ok").toBool());
+        CTEST_CHECK(listed.value("ok").toBool());
         QStringList names;
         for (const auto &entry : listed.value("entries").toArray()) names.append(entry.toObject().value("name").toString());
-        QCOMPARE(names, QStringList{"original.txt"});
+        CTEST_COMPARE(names, QStringList{"original.txt"});
         for (const auto *name : {".original.txt.iisacc-preview", ".iisacc-temporary.lock"})
-            QVERIFY(!share.handle({{"op", "stat"}, {"path", QString::fromLatin1(name)}}).value("ok").toBool());
+            CTEST_CHECK(!share.handle({{"op", "stat"}, {"path", QString::fromLatin1(name)}}).value("ok").toBool());
     }
 
     void packagedApplicationObservesPeers()
     {
         QTemporaryDir presence(SOCIETY_TEST_DIRECTORY "/helper-XXXXXX.societycontainer");
-        QVERIFY(iiSocietyContainer::SocietyDrive::create(presence.path()));
+        CTEST_CHECK(iiSocietyContainer::SocietyDrive::create(presence.path()));
         const auto directory = presence.filePath(".society-runtime/helpers/v1");
         iiSocietyHelper::Helper observer;
-        QVERIFY(observer.start({"com.iisacc.society.test", "Society test", "1"},
+        CTEST_CHECK(observer.start({"com.iisacc.society.test", "Society test", "1"},
                                 {directory, 1000, 15000}));
         auto environment = QProcessEnvironment::systemEnvironment();
         for (const auto *name : {"DYLD_LIBRARY_PATH", "DYLD_FRAMEWORK_PATH", "DYLD_FALLBACK_LIBRARY_PATH",
@@ -59,13 +59,13 @@ private slots:
         app.setProcessEnvironment(environment);
         app.setProcessChannelMode(QProcess::MergedChannels);
         app.start(QStringLiteral(SOCIETY_EXECUTABLE_PATH), {"--container", presence.path()});
-        QVERIFY(app.waitForStarted());
+        CTEST_CHECK(app.waitForStarted());
         QByteArray output;
         QElapsedTimer elapsed;
         elapsed.start();
         while (elapsed.elapsed() < 90000 && (observer.peers().isEmpty()
                || !output.contains("com.iisacc.society observed com.iisacc.society.test"))) {
-            QTest::qWait(50);
+            society_ctest::processFor(50);
             output += app.readAll();
         }
         const auto peers = observer.peers();
@@ -73,39 +73,49 @@ private slots:
         app.terminate();
         if (!app.waitForFinished(3000)) { app.kill(); app.waitForFinished(3000); }
         output += app.readAll();
-        QVERIFY2(peers.size() == 1, qPrintable(QString("state=%1 exit=%2: %3").arg(beforeStop).arg(beforeExit).arg(QString::fromUtf8(output))));
-        QCOMPARE(peers.first().application.id, "com.iisacc.society");
-        QVERIFY2(output.contains("com.iisacc.society observed com.iisacc.society.test"), output.constData());
+        CTEST_CHECK_MESSAGE(peers.size() == 1, qPrintable(QString("state=%1 exit=%2: %3").arg(beforeStop).arg(beforeExit).arg(QString::fromUtf8(output))));
+        CTEST_COMPARE(peers.first().application.id, "com.iisacc.society");
+        CTEST_CHECK_MESSAGE(output.contains("com.iisacc.society observed com.iisacc.society.test"), output.constData());
     }
 
     void directDependenciesMatchProductFeatures()
     {
         QFile file(QString::fromUtf8(SOCIETY_DIRECT_LINKS_FILE));
-        QVERIFY(file.open(QIODevice::ReadOnly));
+        CTEST_CHECK(file.open(QIODevice::ReadOnly));
         const auto links = QString::fromUtf8(file.readAll()).split('\n', Qt::SkipEmptyParts);
-        QCOMPARE(links.count(QStringLiteral("iiPhotoLibrary::iiPhotoLibrary")), 1);
+        CTEST_COMPARE(links.count(QStringLiteral("iiPhotoLibrary::iiPhotoLibrary")), 1);
 #ifdef SOCIETY_TEST_WITH_LOCAL_MCP
-        QVERIFY(links.contains(QStringLiteral("iiMultimodalAgent::iiMultimodalAgent")));
-        QVERIFY(!links.contains(QStringLiteral("iiLocalLLM::iiLocalLLM")));
+        CTEST_CHECK(links.contains(QStringLiteral("iiMultimodalAgent::iiMultimodalAgent")));
+        CTEST_CHECK(!links.contains(QStringLiteral("iiLocalLLM::iiLocalLLM")));
 #endif
         for (const auto *target : {"iiAccountManager::Quick", "iiCalendar::iiCalendar",
                 "iiPhotoLibrary::iiPhotoLibrary", "iiSocietyContainer::Gui",
                 "iiSocietyHelper::iiSocietyHelper",
                 "iiFileProvider::Native", "SocietyModelPackaging"})
-            QVERIFY2(links.contains(QString::fromLatin1(target)), target);
+            CTEST_CHECK_MESSAGE(links.contains(QString::fromLatin1(target)), target);
         for (const auto *target : {"iiGeneralDocument::iiGeneralDocument",
                 "iiLicenseManager::iiLicenseManager", "iiUpdateManager::iiUpdateManager",
                 "iiVoiceOver::iiVoiceOver", "iiWhatsNew::iiWhatsNew",
                 "iiSharedCanvas::Core", "iiSharedCanvas::iiSharedCanvas",
                 "iiLocalDiffusion::iiLocalDiffusion"})
-            QVERIFY2(!links.contains(QString::fromLatin1(target)), target);
+            CTEST_CHECK_MESSAGE(!links.contains(QString::fromLatin1(target)), target);
         for (const auto *target : {"iiSocietySync::iiSocietySync", "iiSocietyMonitor::iiSocietyMonitor",
                 "iiSocietyGeneration::Remote", "iiSocietyGeneration::Host"})
-            QVERIFY2(!links.contains(QString::fromLatin1(target)), target);
+            CTEST_CHECK_MESSAGE(!links.contains(QString::fromLatin1(target)), target);
     }
 
 };
 
-QTEST_GUILESS_MAIN(DependencyTest)
-
-#include "tst_dependencies.moc"
+int main(int argc, char** argv)
+{
+    QCoreApplication application(argc, argv);
+    society_ctest::Runner runner(argc == 2 ? argv[1] : "");
+    DependencyTest tests;
+    struct FlushDeferredDeletes {
+        ~FlushDeferredDeletes() { QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete); }
+    };
+    runner.run("fileProjectionHidesProviderControlFiles", [&] { FlushDeferredDeletes cleanup; tests.fileProjectionHidesProviderControlFiles(); });
+    runner.run("packagedApplicationObservesPeers", [&] { FlushDeferredDeletes cleanup; tests.packagedApplicationObservesPeers(); });
+    runner.run("directDependenciesMatchProductFeatures", [&] { FlushDeferredDeletes cleanup; tests.directDependenciesMatchProductFeatures(); });
+    return runner.result();
+}

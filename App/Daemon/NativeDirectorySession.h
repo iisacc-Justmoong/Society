@@ -1,6 +1,6 @@
 #pragma once
 
-#include <StorageDirectoryModel.h>
+#include <iiSocietyContainer>
 #include <QJsonObject>
 #include <QHash>
 #include <QObject>

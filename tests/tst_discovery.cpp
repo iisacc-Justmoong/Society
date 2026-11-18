@@ -2,12 +2,12 @@
 #include "FakeDiscoveryService.h"
 #include "PairingCredentialsFixture.h"
 #include "Society/Network/PairingCredentials.h"
-#include <iiWebServer.h>
+#include <iiWebServer>
 #include <QSignalSpy>
 #include <QJsonDocument>
 #include <QTest>
 #include <QUuid>
-#include <iiSocietyHelper/Sync/NearbyBootstrap.h>
+#include <iiSocietyHelper>
 
 class DiscoveryTests : public QObject {
     Q_OBJECT

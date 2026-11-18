@@ -13,6 +13,12 @@ PLATFORM_SOURCE = re.compile(r'\$\{CMAKE_CURRENT_SOURCE_DIR\}/(App/[^"\n]+)')
 
 
 class SourceLayoutTests(unittest.TestCase):
+    def test_photo_view_comes_from_the_sdk_without_a_local_duplicate(self):
+        self.assertFalse((ROOT / "App/Society/Photos/PhotosView.qml").exists())
+        photo_cmake = (ROOT / "cmake/PhotoLibrary.cmake").read_text(encoding="utf-8")
+        self.assertIn('${iiPhotoLibrary_QML_IMPORT_PATH}/iiPhotoLibrary/${name}', photo_cmake)
+        self.assertIn('PhotosView.qml', photo_cmake)
+
     def test_platform_packaging_sources_exist(self):
         checked = []
         for helper in ("cmake/AndroidQr.cmake", "cmake/AppIcons.cmake"):

@@ -48,8 +48,7 @@ private:
     void startInspection();
 };
 
-#include <StorageDirectoryModel.h>
-#include <FileActions.h>
+#include <iiSocietyContainer>
 class FileActions : public iiSocietyContainer::FileActions {
     Q_OBJECT
     QML_ELEMENT

@@ -1,8 +1,7 @@
 #include "NativeFiles.generated.h"
 #include "NativeFilesClient.h"
 #include "NativeFileOpen.h"
-#include <iiGUI/Application.h>
-#include <iiGUI/Desktop.h>
+#include <iiGUI>
 #include <cstdlib>
 #include <filesystem>
 #include <memory>

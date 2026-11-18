@@ -1,6 +1,6 @@
 #include "Society/Resources/ContainerResourceAdapter.h"
 #include "Society/Resources/ResourceInspection.h"
-#include <SharedStorage.h>
+#include <iiSocietyContainer>
 #include <QDir>
 #include <QFile>
 #include <QJsonArray>

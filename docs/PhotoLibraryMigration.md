@@ -13,9 +13,11 @@
   패키징은 SDK Java 파일을 복사하고 이전 빌드의 생성된 SocietyPhotoLibrary.java만 제거한다.
 - iOS/Android 빌드 도구와 iOS preset에 타깃 ABI용 iiPhotoLibrary 설치 경로를 추가했다.
 
-기존 `App/Society/Photos`의 C++/QML과 원본 `SocietyPhotoLibrary.java`는 수정하지 않고 보존한다.
-이 파일들은 사진 기능의 현재 빌드·런타임 경로가 아니다. 공용 `App/Gallery`는 파일 갤러리에서도
-사용하므로 Society에 그대로 남긴다. 기존 저장 형식과 인증·동기화 채널은 변경하지 않는다.
+2026-09-24 전환 당시 기존 `App/Society/Photos`의 C++/QML과 원본
+`SocietyPhotoLibrary.java`를 보존했다. 해당 경로는 사진 기능의 현재 빌드·런타임
+경로가 아니다. 2026-11-17에는 사용하지 않는 Society의 `PhotosView.qml`만 제거했으며,
+사진 화면은 계속 SDK가 제공한다. 공용 `App/Gallery`는 파일 갤러리에서도 사용한다.
+기존 저장 형식과 인증·동기화 채널은 변경하지 않는다.
 
 ## 재현
 
@@ -47,7 +49,7 @@ DYLD 환경 변수로 SDK 선택을 덮어쓰지 않고 json-c 등 구성에 지
 
 사진 회귀 35개, SDK 연결·비활성화·미인증 요청 검사, 실제 StorageView의 Photos 진입·모바일 조작,
 모바일 패키징 구성 검사가 통과했다. 실행 파일 심벌에서도 SDK 컨트롤러가 연결되고 기존
-`society::photos` 컨트롤러가 없음을 확인했다. 원본 사진 구현 11개의 해시도 보존되어 있다.
+`society::photos` 컨트롤러가 없음을 확인했다. 당시 원본 사진 구현 11개의 해시를 보존했다.
 
 별도로 실행한 전체 NetworkDrive/ClientOnlyNetwork 스위트에는 각각 7개의 실패가 남았다.
 기존 테스트는 현재의 계정·호스트 등록 요건 없이 연결을 시도하며, 모바일 버튼 문구도 현재 UI와

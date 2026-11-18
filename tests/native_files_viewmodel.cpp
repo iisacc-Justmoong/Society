@@ -1,5 +1,5 @@
 #include "Society/Native/NativeFilesViewModel.h"
-#include <iiJson/Json.h>
+#include <iiJson>
 #include <cstdlib>
 #include <iostream>
 #include <stdexcept>

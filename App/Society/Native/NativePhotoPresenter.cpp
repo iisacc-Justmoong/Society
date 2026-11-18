@@ -8,10 +8,8 @@
 #include "PhotoPreviewLoader.h"
 #include "PhotoPreviewResolver.h"
 #include "PhotosView.generated.h"
-#include <iiGUI/Host.h>
-#include <iiPhotoLibrary/PhotoController.h>
-#include <iiPhotoLibrary/PhotoPresentationBridge.h>
-#include <iiPhotoLibrary/PhotoViewModel.h>
+#include <iiGUI>
+#include <iiPhotoLibrary>
 #include <QCoreApplication>
 #include <QDebug>
 #include <QEvent>

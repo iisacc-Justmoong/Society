@@ -4,10 +4,8 @@
 #include "NativeOverlayCoordinator.h"
 #include "OverlayShutdown.h"
 #include "AccountDialog.generated.h"
-#include <iiAccountManager/AccountManager.h>
-#include <iiAccountManager/AccountPresentationBridge.h>
-#include <iiAccountManager/Quick/AccountViews.h>
-#include <iiGUI/Host.h>
+#include <iiAccountManager>
+#include <iiGUI>
 #include <QCoreApplication>
 #include <QDesktopServices>
 #include <QEvent>

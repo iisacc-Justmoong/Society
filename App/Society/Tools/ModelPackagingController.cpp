@@ -1,7 +1,6 @@
 #include "ModelPackagingController.h"
-#include <SharedStorage.h>
-#include <FileOperations.h>
-#include <TemporaryLease.h>
+#include <iiSocietyContainer>
+#include <iiFileProvider>
 
 #include <QClipboard>
 #include <QCoreApplication>

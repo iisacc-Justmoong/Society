@@ -1,7 +1,6 @@
 #include "Daemon/RecentCatalog.h"
-#include <SocietyDrive.h>
-#include <SharedStorage.h>
-#include <FileCatalog.h>
+#include <iiSocietyContainer>
+#include <iiFileProvider>
 #include <QDateTime>
 #include <QDir>
 #include <QFile>
@@ -36,6 +35,7 @@ private slots:
         const auto opened=society::recent::RecentCatalog::update(root,{{old,now}},500);
         QVERIFY2(opened.error.isEmpty(),qPrintable(opened.error)); QCOMPARE(opened.items.front().name,QStringLiteral("file-0000.txt"));
         QCOMPARE(opened.items.front().activityMs,now);
+        QCOMPARE(opened.items.front().modifiedMs,base.toMSecsSinceEpoch());
         const auto renamed=files+"/renamed.txt"; QVERIFY(QFile::rename(old,renamed));
         const auto restored=society::recent::RecentCatalog::update(root,{},500);
         QVERIFY2(restored.error.isEmpty(),qPrintable(restored.error)); QCOMPARE(restored.items.front().name,QStringLiteral("renamed.txt"));

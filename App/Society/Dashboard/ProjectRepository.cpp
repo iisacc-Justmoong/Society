@@ -1,9 +1,9 @@
 #include "ProjectRepository.h"
 #include "ProjectResourceBinding.h"
 #include <ProviderPackage.h>
-#include <iiProjectManager/ProjectManager.h>
-#include <FileCatalog.h>
-#include <SharedStorage.h>
+#include <iiProjectManager>
+#include <iiFileProvider>
+#include <iiSocietyContainer>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>

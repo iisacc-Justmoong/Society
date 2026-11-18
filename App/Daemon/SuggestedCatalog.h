@@ -1,6 +1,6 @@
 #pragma once
 #include "SuggestedPolicy.h"
-#include <iiResource/Resource.h>
+#include <iiResource>
 #include <atomic>
 #include <cstddef>
 #include <cstdint>

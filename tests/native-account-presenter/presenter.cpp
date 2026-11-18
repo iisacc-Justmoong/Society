@@ -2,8 +2,7 @@
 #include "Society/Native/NativeAccountPresenter.h"
 #include "Society/Native/NativeOverlayCoordinator.h"
 #include "Society/Native/OverlayShutdown.h"
-#include <iiAccountManager/AccountManager.h>
-#include <iiAccountManager/Quick/AccountViews.h>
+#include <iiAccountManager>
 #include <QEvent>
 #include <QEventLoop>
 #include <QGuiApplication>

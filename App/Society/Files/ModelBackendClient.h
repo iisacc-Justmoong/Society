@@ -34,7 +34,12 @@ signals:
     void suggestedResultReceived(const QString &operation, bool accepted, const QString &error);
     void recentStateReceived(const QJsonObject &state);
     void recentResultReceived(const QString &operation, bool accepted, const QString &error);
+    void directoryResultReceived(const QString &operation, const QString &id, const QJsonObject &result);
+    void directoryStateReceived(const QJsonObject &state);
+    void directoryActivated(const QJsonObject &event);
     void fileResultReceived(const QString &operation, const QString &id, const QJsonObject &result);
+    void resourceResultReceived(const QString &id, const QJsonObject &result);
+    void workspaceResultReceived(const QString &operation, const QString &id, const QJsonObject &result);
     void fileJobChanged(const QJsonObject &event);
     void requestError(const QString &error);
 private:

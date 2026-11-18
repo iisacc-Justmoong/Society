@@ -6,7 +6,7 @@
 #include <atomic>
 #include <optional>
 #include <mutex>
-#include <SocietyDrive.h>
+#include <iiSocietyContainer>
 
 namespace society::photos {
 // Serialized by PhotoController's worker, with a process lock for GUI/daemon

@@ -5,9 +5,7 @@
 #include "UiBridgeRegistration.h"
 #include "Society/Drive/DriveController.h"
 #include "Shared/LocalBackendAddress.h"
-#include <iiMultimodalAgent/agent/ObjectTools.h>
-#include <iiMultimodalAgent/agent/QuestionInbox.h>
-#include <iiMultimodalAgent/agent/UserQuestions.h>
+#include <iiMultimodalAgent>
 #include <QCoreApplication>
 #include <QDebug>
 #include <QDir>

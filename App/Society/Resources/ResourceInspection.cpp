@@ -1,7 +1,7 @@
 #include "ResourceInspection.h"
 #include "ContainerResourceAdapter.h"
-#include <SharedStorage.h>
-#include <iiFileProviderPresentation.h>
+#include <iiSocietyContainer>
+#include <iiFileProvider>
 #include <QDir>
 #include <QFileInfo>
 #include <QJsonArray>

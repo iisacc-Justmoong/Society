@@ -1,4 +1,4 @@
-#include <iiFileProviderDevice.h>
+#include <iiFileProvider>
 #pragma once
 #include <QObject>
 #include <QTimer>

@@ -1,10 +1,7 @@
-#include <iiMultimodalAgent/mcp/LocalApplications.h>
-#include <iiMultimodalAgent/mcp/HttpClient.h>
-#include <iiMultimodalAgent/agent/McpTools.h>
+#include <iiMultimodalAgent>
 #include <atomic>
 #include <future>
-#include <iiMultimodalAgent/agent/McpConnections.h>
-#include <SocietyDrive.h>
+#include <iiSocietyContainer>
 #include <QtTest/QtTest>
 #include <QProcess>
 #include <QProcessEnvironment>
@@ -13,7 +10,7 @@
 #include <QJsonDocument>
 #include <QSet>
 #ifdef SOCIETY_MCP_TEST_GGUF
-#include <iiMultimodalAgent/agent/Engine.h>
+#include <iiMultimodalAgent>
 #include <filesystem>
 #endif
 

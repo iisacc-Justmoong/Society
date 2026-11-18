@@ -1,6 +1,6 @@
 #include "ExternalPhotoSurface.h"
 #include "PhotoNativeRegion.h"
-#include <iiGUI/Host.h>
+#include <iiGUI>
 #include <QCoreApplication>
 #include <QTimer>
 #include <utility>

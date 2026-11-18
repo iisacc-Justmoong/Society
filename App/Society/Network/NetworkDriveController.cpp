@@ -1,4 +1,4 @@
-#include <iiFileProviderDevice.h>
+#include <iiFileProvider>
 #include "NetworkDriveController.h"
 #include "PairingCredentials.h"
 #include <QCoreApplication>

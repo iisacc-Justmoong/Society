@@ -1,4 +1,5 @@
 #include "ModelBackendServer.h"
+#include "WorkspaceAddService.h"
 #include "NativeDirectorySession.h"
 #include "RecentBackend.h"
 #include "Society/Resources/ResourceInspection.h"
@@ -7,8 +8,9 @@
 #ifdef SOCIETY_AGENT_BACKEND
 #include "WorkspaceAgentBackend.h"
 #include "SuggestedBackend.h"
+#include "ResidentGateway.h"
 #endif
-#include <SocietyDrive.h>
+#include <iiSocietyContainer>
 #include <QDir>
 #include <QCoreApplication>
 #include <QFile>
@@ -65,6 +67,24 @@ ModelBackendServer::ModelBackendServer(QObject *parent, UiPeerVerifier uiPeerVer
 #ifdef SOCIETY_AGENT_BACKEND
     m_agent = std::make_unique<WorkspaceAgentBackend>();
     m_suggested = std::make_unique<SuggestedBackend>(m_agent.get());
+    connect(m_agent->residentGateway(), &ResidentGateway::changed, this, [this](const QJsonObject &resident) {
+        const auto subscriptions=m_residentClients;
+        for (auto it=subscriptions.cbegin();it!=subscriptions.cend();++it)
+            send(it.key(), {{"type","iisaccsonState"},{"subscription",it.value()},{"resident",resident}});
+    });
+    connect(m_agent->residentGateway(), &ResidentGateway::event, this, [this](const QString &ticket,const QJsonObject &value) {
+        const auto found=m_residentOwners.find(ticket);
+        if (found==m_residentOwners.end()) return;
+        const auto owner=*found;
+        if (value.value("kind").toString()=="finished") {
+            m_residentOwners.erase(found);
+            if (owner.socket) {
+                auto it=m_residentRequests.find(owner.socket);
+                if (it!=m_residentRequests.end()) { it->remove(owner.id); if (it->isEmpty()) m_residentRequests.erase(it); }
+            }
+        }
+        if (owner.socket) send(owner.socket,{{"type","iisaccsonEvent"},{"id",owner.id},{"event",value}});
+    });
     connect(m_agent.get(), &WorkspaceAgentBackend::changed, this, [this](const QJsonObject &agent) {
         for (auto it=m_agentClients.cbegin();it!=m_agentClients.cend();++it)
             send(it.key(), {{"type","agentState"},{"container",m_selected},{"subscription",it.value()},{"agent",agent}});
@@ -80,14 +100,23 @@ ModelBackendServer::ModelBackendServer(QObject *parent, UiPeerVerifier uiPeerVer
     connect(&m_models, &iiSocietyContainer::ModelImportService::finished, this, [this](const QString &root, const QStringList &paths) {
         broadcast({{"type", "finished"}, {"container", root}, {"paths", QJsonArray::fromStringList(paths)}});
         reconcileContainer();
+#ifdef SOCIETY_AGENT_BACKEND
+        if (m_agent) m_agent->modelFilesChanged(root,paths);
+#endif
     });
     connect(&m_models, &iiSocietyContainer::ModelImportService::organized, this, [this](const QString &root, const QStringList &paths) {
         broadcast({{"type", "organized"}, {"container", root}, {"paths", QJsonArray::fromStringList(paths)}});
         reconcileContainer();
+#ifdef SOCIETY_AGENT_BACKEND
+        if (m_agent) m_agent->modelFilesChanged(root,paths);
+#endif
     });
     connect(&m_models, &iiSocietyContainer::ModelImportService::recategorized, this, [this](const QString &root, const QString &oldPath, const QString &path) {
         broadcast({{"type", "recategorized"}, {"container", root}, {"previousPath", oldPath}, {"path", path}});
         reconcileContainer();
+#ifdef SOCIETY_AGENT_BACKEND
+        if (m_agent) m_agent->modelFilesChanged(root,{oldPath,path});
+#endif
     });
     connect(&m_fileJobs,&iiSocietyContainer::FileJobService::recorded,this,[this](const QString &id) {
         broadcast({{"type","fileJobChanged"},{"jobId",id},{"container",m_fileJobContainers.value(id)},{"state","recorded"}});
@@ -120,6 +149,9 @@ ModelBackendServer::ModelBackendServer(QObject *parent, UiPeerVerifier uiPeerVer
 
 ModelBackendServer::~ModelBackendServer()
 {
+#ifdef SOCIETY_AGENT_BACKEND
+    if (m_agent) disconnect(m_agent->residentGateway(), nullptr, this, nullptr);
+#endif
     disconnect(&m_models, nullptr, this, nullptr);
     const auto clients = m_clients;
     for (auto *socket : clients) {
@@ -212,6 +244,9 @@ void ModelBackendServer::setSystemDriveState(const QJsonObject &state)
     m_systemDrive = state;
     broadcastState();
 }
+#ifdef SOCIETY_AGENT_BACKEND
+ResidentGateway *ModelBackendServer::residentGateway() const { return m_agent->residentGateway(); }
+#endif
 
 void ModelBackendServer::reconcileContainer()
 {
@@ -252,12 +287,12 @@ void ModelBackendServer::accept()
         m_clients.insert(socket);
         auto *directory = new NativeDirectorySession(socket);
         connect(directory, &NativeDirectorySession::changed, socket, [this, socket](const QJsonObject &state) {
-            send(socket, {{"type", "directoryChanged"}, {"directory", state}});
+            send(socket, {{"type", "directoryChanged"}, {"container",m_selected}, {"directory", state}});
         });
         connect(directory, &NativeDirectorySession::openResult, socket, [this, socket](QJsonObject result) {
             if (result.value("error").toString().isEmpty() && !result.value("path").toString().isEmpty())
                 m_recent->record(m_selected,result.value("path").toString());
-            result.insert("type","directoryActivated"); send(socket,result);
+            result.insert("type","directoryActivated"); result.insert("container",m_selected); send(socket,result);
         });
         socket->setReadBufferSize(maxFrame + 4);
         auto *deadline = new QTimer(socket); deadline->setSingleShot(true); deadline->setInterval(10000);
@@ -266,6 +301,12 @@ void ModelBackendServer::accept()
             m_recentClients.remove(socket);
 #ifdef SOCIETY_AGENT_BACKEND
             m_suggestedClients.remove(socket);
+            m_residentClients.remove(socket);
+            const auto resident=m_residentRequests.take(socket);
+            for (const auto &ticket:resident) {
+                m_residentOwners.remove(ticket);
+                m_agent->residentGateway()->cancel(ticket);
+            }
 #endif
             if (m_uiSocket == socket) {
                 m_uiSocket.clear();
@@ -369,6 +410,38 @@ void ModelBackendServer::receive(QLocalSocket *socket, const QJsonObject &reques
         reply.insert("accepted",true); reply.insert("recent",m_recent->snapshot()); send(socket,reply); return;
     }
 #ifdef SOCIETY_AGENT_BACKEND
+    if (operation=="iisaccsonStatus" || operation=="iisaccsonSubscribe" || operation=="iisaccsonGenerate" || operation=="iisaccsonCancel") {
+        QJsonObject reply{{"type","result"},{"id",id},{"accepted",false},{"operation",operation}};
+        auto *resident=m_agent->residentGateway();
+        if (operation=="iisaccsonStatus" || operation=="iisaccsonSubscribe") {
+            if (operation=="iisaccsonSubscribe") {
+                const auto subscription=request.value("subscription").toString(id);
+                if (subscription.isEmpty() || subscription.size()>128) { reply.insert("error","Invalid subscription."); send(socket,reply); return; }
+                m_residentClients.insert(socket,subscription);
+            }
+            reply.insert("accepted",true); reply.insert("resident",resident->status());
+        } else if (operation=="iisaccsonCancel") {
+            const auto target=request.value("requestId").toString();
+            const auto ticket=m_residentRequests.value(socket).value(target);
+            if (ticket.isEmpty() || !resident->cancel(ticket)) reply.insert("error","No matching request belongs to this connection.");
+            else reply.insert("accepted",true);
+        } else {
+            if (!request.value("messages").isArray() || (request.contains("options") && !request.value("options").isObject()))
+                reply.insert("error","Messages must be an array and options must be an object.");
+            else if (m_residentRequests.value(socket).contains(id)) reply.insert("error","The request ID is already active on this connection.");
+            else {
+                QString error;
+                const auto ticket=resident->start(request.value("messages").toArray(),request.value("options").toObject(),&error);
+                if (ticket.isEmpty()) reply.insert("error",error);
+                else {
+                    m_residentRequests[socket].insert(id,ticket);
+                    m_residentOwners.insert(ticket,{socket,id});
+                    reply.insert("accepted",true);
+                }
+            }
+        }
+        send(socket,reply); return;
+    }
     if (operation=="suggestedSubscribe" || operation=="suggestedRefresh") {
         QJsonObject reply{{"type","result"},{"id",id},{"accepted",false},{"operation",operation}};
         const auto directory=QDir(QCoreApplication::applicationDirPath());
@@ -415,7 +488,10 @@ void ModelBackendServer::receive(QLocalSocket *socket, const QJsonObject &reques
             if (subscription.isEmpty() || subscription.size()>128) error="Invalid agent subscription.";
             else { m_agentClients.insert(socket,subscription); accepted=true; }
         } else if (operation=="agentSelect") accepted=m_agent->selectModel(request.value("model").toString(),&error);
-        else if (operation=="agentSend") accepted=m_agent->submit(request.value("prompt").toString(),&error);
+        else if (operation=="agentSend") {
+            if (request.contains("attachments") && !request.value("attachments").isArray()) error="Attachments must be an array of file paths.";
+            else accepted=m_agent->submit(request.value("prompt").toString(),request.value("attachments").toArray(),&error);
+        }
         else if (operation=="agentNew") accepted=m_agent->newConversation(&error);
         else if (operation=="agentCancel") accepted=m_agent->cancel(&error);
         else error="Unknown agent operation.";
@@ -468,6 +544,10 @@ void ModelBackendServer::receive(QLocalSocket *socket, const QJsonObject &reques
         if (previous.first != bytes) { socket->abort(); return; }
         send(socket, previous.second); return;
     }
+    if (operation=="workspaceAdd" && m_addPending.contains(id)) {
+        if (m_addPending.value(id)!=bytes) { socket->abort(); return; }
+        send(socket,{{"type","result"},{"id",id},{"accepted",false},{"error","This operation is already running; check its result before retrying."}}); return;
+    }
     QJsonObject reply{{"type", "result"}, {"id", id}, {"accepted", false}};
     const auto requested = QDir::cleanPath(request.value("container").toString());
     if (operation=="fileJobStatus" && societySameBackendPath(requested,m_selected)) {
@@ -519,11 +599,33 @@ void ModelBackendServer::receive(QLocalSocket *socket, const QJsonObject &reques
         reply.insert("accepted",!jobId.isEmpty());
         if (jobId.isEmpty()) reply.insert("error",error);
         else { m_fileJobContainers.insert(jobId,m_selected); reply.insert("jobId",jobId); reply.insert("state","queued"); }
+    } else if (operation=="workspaceAdd") {
+        const auto directory=QDir(QCoreApplication::applicationDirPath());
+        if (!m_uiPeerVerifier(socket) && societyBackendPeerPid(socket)!=QCoreApplication::applicationPid()
+            && !societyBackendPeerMatchesExecutable(socket,directory.filePath("society-cli"))
+            && !societyBackendPeerMatchesExecutable(socket,directory.filePath("bin/society-cli"))) {
+            reply.insert("error","The Add client could not be verified.");
+        } else if (m_addPending.size()>=8 || request.value("actor").toString().size()>512) {
+            reply.insert("error","Too many Add operations or an invalid actor.");
+        } else {
+            const auto root=m_selected, actor=request.value("actor").toString();
+            const QPointer<QLocalSocket> client(socket); m_addPending.insert(id,bytes);
+            auto *watcher=new QFutureWatcher<QJsonObject>(this);
+            connect(watcher,&QFutureWatcher<QJsonObject>::finished,this,[this,watcher,client,id,bytes] {
+                auto result=watcher->result(); watcher->deleteLater(); m_addPending.remove(id);
+                result.insert("type","result"); result.insert("id",id); result.insert("operation","workspaceAdd");
+                m_replies.insert(id,{bytes,result}); m_replyOrder.enqueue(id);
+                if (m_replyOrder.size()>256) m_replies.remove(m_replyOrder.dequeue());
+                send(client,result);
+            });
+            watcher->setFuture(QtConcurrent::run([root,actor,request] { return society::workspace::executeAdd(root,actor,request); }));
+            return;
+        }
     } else if (!societySameBackendPath(m_models.containerPath(), m_selected)) {
         reply.insert("error", "The selected Society drive is unavailable or has changed.");
     } else if (operation == "snapshot") {
         reply.insert("accepted", true);
-    } else if (operation == "import") {
+    } else if (operation == "import" || operation == "workspaceAddModels") {
         const auto items = request.value("sources").toArray();
         QList<iiSocietyContainer::ModelImportSource> sources;
         bool valid = !items.isEmpty() && items.size() <= 512;

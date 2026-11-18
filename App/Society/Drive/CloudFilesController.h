@@ -1,5 +1,5 @@
 #pragma once
-#include <iiAccountManager/AccountManager.h>
+#include <iiAccountManager>
 #include <QFile>
 #include <QJsonObject>
 #include <QNetworkAccessManager>

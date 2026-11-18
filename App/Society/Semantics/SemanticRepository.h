@@ -22,6 +22,10 @@ public:
     // Relation metadata is a JSON object and the returned ID is stable on edits.
     [[nodiscard]] QJsonObject putRelation(const QString &source, const QString &predicate, const QString &target,
                                           const QJsonObject &metadata, const QString &expectedRevision) const;
+    // Create a relation without replacing metadata on an existing matching
+    // relation. The supplied owner revision is still checked.
+    [[nodiscard]] QJsonObject putRelationIfAbsent(const QString &source, const QString &predicate, const QString &target,
+                                                  const QJsonObject &metadata, const QString &expectedRevision) const;
     [[nodiscard]] QJsonObject removeRelation(const QString &source, const QString &relationId,
                                              const QString &expectedRevision) const;
     // Incoming and outgoing results are bounded. 'incomplete' reports truncation,
@@ -37,5 +41,7 @@ public:
     [[nodiscard]] QJsonObject rebindRelocation(const QString &sourceAddress, const QString &destinationAddress) const;
 
 private:
+    [[nodiscard]] QJsonObject putRelationImpl(const QString &source, const QString &predicate, const QString &target,
+                                               const QJsonObject &metadata, const QString &expectedRevision, bool onlyIfAbsent) const;
     QString containerPath_, actorId_;
 };

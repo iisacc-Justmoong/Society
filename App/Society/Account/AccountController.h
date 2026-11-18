@@ -1,9 +1,9 @@
 #pragma once
 #include <QtQml/qqmlregistration.h>
-#include <iiAccountManager/LicenseManager.h>
+#include <iiAccountManager>
 #include <QTcpServer>
 #include <QLocalServer>
-#include <iiSocietyHelper/AccountSession.h>
+#include <iiSocietyHelper>
 #include <memory>
 #include <functional>
 #include <utility>
@@ -39,6 +39,11 @@ class AccountController : public AccountSession
     QUrl licenseBrokerUrl() const;
     using BrokerAccountFactory = std::function<AccountController *(QObject *)>;
     void setBrokerAccountFactory(BrokerAccountFactory factory) { brokerAccountFactory_ = std::move(factory); }
+    // A nonempty revision identifies the current encrypted account session.
+    // An absent or changed revision invalidates the cached broker account.
+    using BrokerAccountRevision = std::function<QByteArray(AccountController *)>;
+    void setBrokerAccountRevision(BrokerAccountRevision revision) { brokerAccountRevision_ = std::move(revision); }
+    void prewarmLocalLicenses();
     bool startLocalLicenseBroker(const QString &directory = {}, bool startHelper = true);
     bool startLocalHelperBroker(const QString &directory = {});
     QString localLicenseBrokerPath() const { return localBroker_.fullServerName(); }
@@ -65,5 +70,13 @@ class AccountController : public AccountSession
     int brokerRequests_ = 0;
     void authorizeApp(QTcpSocket*, const QJsonObject&);
     void withBrokerAccount(QObject*, std::function<void(AccountController*)>);
+    bool brokerAccountIsCurrent(AccountController*) const;
     BrokerAccountFactory brokerAccountFactory_;
+    struct BrokerWaiter { QPointer<QObject> scope; std::function<void(AccountController*)> done; };
+    BrokerAccountRevision brokerAccountRevision_;
+    QPointer<AccountController> brokerAccount_;
+    QByteArray brokerRevision_;
+    QList<BrokerWaiter> brokerWaiters_;
+    bool brokerRestoring_ = false;
+    quint64 brokerGeneration_ = 0;
 };

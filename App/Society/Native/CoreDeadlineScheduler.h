@@ -1,5 +1,5 @@
 #pragma once
-#include <iiAccountManager/AccountViewModel.h>
+#include <iiAccountManager>
 class QObject;
 namespace society::native {
 // Qt supplies only the one-shot wakeup. The explicitly requested work and

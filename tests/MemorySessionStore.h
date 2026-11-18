@@ -1,5 +1,5 @@
 #pragma once
-#include <iiAccountManager/SessionStore.h>
+#include <iiAccountManager>
 #include <QHash>
 #include <QTimer>
 

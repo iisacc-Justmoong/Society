@@ -1,6 +1,6 @@
 #include "NativeFilesViewModel.h"
-#include <LVUI/StyleTokens.h>
-#include <iiNetwork/Wire.h>
+#include <LVUI>
+#include <iiNetwork>
 #include <algorithm>
 #include <filesystem>
 #include <limits>

@@ -1,4 +1,4 @@
-#include <iiFileProviderDevice.h>
+#include <iiFileProvider>
 #include "PhotoLibrary.h"
 #include <QCoreApplication>
 #include <QDesktopServices>

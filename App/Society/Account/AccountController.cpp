@@ -1,5 +1,5 @@
 #include "AccountController.h"
-#include <iiSocietyHelper/LocalService.h>
+#include <iiSocietyHelper>
 #include <QDateTime>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -7,7 +7,7 @@
 #include <QRegularExpression>
 #ifndef SOCIETY_HEADLESS
 #include <QCoreApplication>
-#include <iiAccountManager/Quick/AccountViews.h>
+#include <iiAccountManager>
 static void registerSocietyAccountViews() { iisacc::accounts::registerAccountViews(); }
 Q_COREAPP_STARTUP_FUNCTION(registerSocietyAccountViews)
 #endif
@@ -26,7 +26,7 @@ AccountController::AccountController(const QUrl &serviceUrl, iisacc::accounts::S
 }
 void AccountController::mountLicenses()
 {
-    manager()->licenseManager()->configure({"congregation", "dreamscapes", "vincent"});
+    manager()->licenseManager()->configure({"congregation", "dreamscapes"});
     connect(manager(), &iisacc::accounts::AccountManager::authenticatedChanged, this, [this] {
         if((licenseBroker_.isListening()||localBroker_.isListening()||localHelper_)&&signedIn()) QTimer::singleShot(0, this, [this]{manager()->licenseManager()->ensure();});
     });
@@ -51,9 +51,62 @@ void AccountController::mountLicenses()
 }
 
 AccountController::~AccountController() { clearConnections(); stopLocalLicenseBroker(); }
+bool AccountController::brokerAccountIsCurrent(AccountController *account) const
+{
+    if (!brokerAccountFactory_ || !brokerAccountRevision_) return account != nullptr;
+    return account && brokerAccount_ == account && !brokerRevision_.isEmpty()
+        && brokerAccountRevision_(account) == brokerRevision_;
+}
 void AccountController::withBrokerAccount(QObject *scope, std::function<void(AccountController *)> done)
 {
     if (!brokerAccountFactory_) { done(this); return; }
+    if (brokerAccountRevision_) {
+        if (brokerRestoring_) {
+            brokerWaiters_.removeIf([](const BrokerWaiter &waiter) {return !waiter.scope;});
+            brokerWaiters_.append({scope,std::move(done)});return;
+        }
+        if (brokerAccount_) {
+            const auto current=brokerAccountRevision_(brokerAccount_);
+            if (!current.isEmpty() && current==brokerRevision_ && !brokerAccount_->busy()
+                && brokerAccount_->signedIn()) { done(brokerAccount_); return; }
+            brokerAccount_->deleteLater();brokerAccount_=nullptr;brokerRevision_.clear();
+        }
+        const QPointer<AccountController> account(brokerAccountFactory_(this));
+        if (!account) {done(nullptr);return;}
+        brokerAccount_=account;brokerRestoring_=true;brokerWaiters_.append({scope,std::move(done)});
+        const auto generation=++brokerGeneration_;
+        connect(account.data(),&QObject::destroyed,this,[this,generation] {
+            if (brokerGeneration_ != generation) return;
+            brokerAccount_=nullptr;brokerRevision_.clear();
+            if (!brokerRestoring_) return;
+            brokerRestoring_=false;
+            auto waiters=std::exchange(brokerWaiters_,{});
+            const QPointer<AccountController> guard(this);
+            for (auto &waiter:waiters) {
+                if (!guard) return;
+                if (waiter.scope && waiter.done) waiter.done(nullptr);
+            }
+        });
+        const auto expected=brokerAccountRevision_(account);
+        const auto changed=std::make_shared<QMetaObject::Connection>();
+        const auto finish=[this,account,expected,changed] {
+            if (!brokerRestoring_ || !account || brokerAccount_!=account || account->busy()) return;
+            QObject::disconnect(*changed);
+            const auto current=brokerAccountRevision_ ? brokerAccountRevision_(account) : QByteArray{};
+            const bool stable=!expected.isEmpty() && current==expected && account->signedIn();
+            brokerRestoring_=false;brokerRevision_=stable?current:QByteArray{};
+            if (!stable) {brokerAccount_=nullptr;account->deleteLater();}
+            auto waiters=std::exchange(brokerWaiters_,{});
+            const QPointer<AccountController> guard(this);
+            for (auto &waiter:waiters) {
+                if (!guard) return;
+                if (waiter.scope && waiter.done) waiter.done(stable?account.data():nullptr);
+            }
+        };
+        *changed=connect(account.data(),&AccountSession::changed,this,[this,finish] {QTimer::singleShot(0,this,finish);});
+        if (!account->manager()->restoreSession() && !account->busy()) QTimer::singleShot(0,this,finish);
+        return;
+    }
     const QPointer<AccountController> account(brokerAccountFactory_(scope));
     if (!account) { done(nullptr); return; }
     const auto completed = std::make_shared<bool>(false);
@@ -64,6 +117,15 @@ void AccountController::withBrokerAccount(QObject *scope, std::function<void(Acc
     };
     connect(account.data(), &AccountSession::changed, scope, [scope, finish] { QTimer::singleShot(0, scope, finish); });
     if (!account->manager()->restoreSession() && !account->busy()) QTimer::singleShot(0, scope, finish);
+}
+void AccountController::prewarmLocalLicenses()
+{
+    withBrokerAccount(this, [](AccountController *account) {
+        if (account && account->signedIn()) {
+            auto *licenses=account->manager()->licenseManager();
+            if (licenses->authorizationToken().isEmpty() && !licenses->busy()) licenses->ensure();
+        }
+    });
 }
 void AccountController::clearConnections()
 {
@@ -204,6 +266,10 @@ bool AccountController::requestConnections(const QJsonObject &input, bool revoke
                     QDateTime::fromString(row.value("expiresAt").toString(), Qt::ISODate).toUTC() >
                         QDateTime::currentDateTimeUtc();
                 ids << id;
+                // Keep historical account records on the service, but do not
+                // present retired Vincent sessions as Society connections.
+                if (device.value("appId").toString() == "com.iisacc.vincent")
+                    continue;
                 rows << QVariantMap{{"id", id},
                                     {"current", row.value("current").toBool()},
                                     {"client", row.value("client").toString()},
@@ -211,7 +277,7 @@ bool AccountController::requestConnections(const QJsonObject &input, bool revoke
                                     {"appId", device.value("appId").toString()},
                                     {"expiresAt", row.value("expiresAt").toString()}};
             }
-            if (rows.size() > 512)
+            if (payload.value("sessions").toArray().size() > 512)
                 scoped = false;
             connections_ = scoped ? rows : QVariantList{};
             connectionsCode_ = scoped ? "verified" : "verification_unavailable";

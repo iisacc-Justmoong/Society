@@ -17,11 +17,11 @@ iiLocalDiffusion이 들어오던 경로와 클라이언트의 불필요한 호�
 SDK 목록과 앱 링크 양쪽에 있던 iiPhotoLibrary의 중복 직접 참조는 하나로
 통합한다. 최종 생성 링크 목록에서 정확히 한 번 선언되는지 검사한다.
 
-현재 Helper와 같은 iiSharedCanvas 0.32.0을 사용한다. 이름 변경 이전의
-`iiAcountManager`를 요구하는 오래된 빌드 캐시를 재사용하지 않는다. 앱 버전과
-패키지·ABI 선택은 별개의 값이며 SDK 전역 설치를 덮어쓰지 않는다.
-배포기는 선택한 Core 바이너리를 명시적인 탐색 입력으로 받아, 이전 번들의
-0.31 계열 라이브러리를 새 0.32 의존성의 대체물로 사용하지 않는다.
+Society와 Helper Core는 `iiSharedCanvas 0.35.39 EXACT`를 사용한다.
+`iiSharedCanvas_DIR`에는 해당 Canvas 패키지를 지정하고, `iiSocietyHelper_DIR`에는
+같은 Canvas 버전으로 빌드한 Helper 패키지를 지정한다. 앱 버전과 SDK의 패키지·ABI 버전은 별개이다.
+배포기는 선택한 Core 바이너리의 디렉터리를 명시적인 탐색 입력으로 받아
+해당 패키지에서 앱 번들에 포함할 라이브러리를 선택한다.
 
 `LIBRARY_PATH` 때문에 SDK 디렉터리가 CMake의 암묵적 링크 경로가 되면
 자동 실행 경로가 생략될 수 있다. 설치 패키지의 호환성 파사드만 실행 경로를

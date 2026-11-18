@@ -1,19 +1,52 @@
 # Workspace agent
 
+## Shared iisaccson residency
+
+For the selected Society drive, the daemon prepares and actually loads iisaccson
+in the background, then pins the loaded model for the daemon's lifetime or until
+the drive changes. Package readiness is distinct from runtime residency. A
+loading or load-error state is reported explicitly. On a drive change or daemon
+shutdown, in-flight app requests are cancelled and the old runtime is released.
+Applications use the same-user daemon endpoint for independent, bounded,
+stateless requests; responses and cancellation are scoped to the originating
+connection and request. A client does not receive the shared Society workspace
+transcript. No model weights are sent to clients. Readiness changes are events,
+not a reason to poll. Absence, unsupported models and memory limits are errors,
+not claims that inference is ready.
+Pending stream events are bounded; a client that cannot keep up has its own
+request cancelled and receives a terminal error rather than causing unbounded
+daemon memory growth.
+
 The Workspace agent panel is a client of the Society background service. The
 service owns local model discovery and iiMultimodalAgent sessions; closing the
 window does not cancel an accepted conversation. Model loading and generation
 must never run on the UI or backend event loop. The user chooses a registered
 chat model before submitting a message. A model identifier is a catalog entry,
-not a content hash or an inferred file identity. Catalog discovery does not
-initialize iiLocalLLM's inference runtime; the runtime is created on the first
-accepted conversation that needs inference.
+not a content hash or an inferred file identity. Catalog discovery alone does
+not mean that inference is ready: the daemon separately prepares, loads and
+pins the iisaccson runtime in its background worker.
 
 The panel displays the current conversation, generation state, and failures. A
 new conversation starts a distinct session and stopping an active run requests
 cancellation. A failed or disconnected submission must not silently discard
 the draft. Snapshot and event messages must not be broadcast to unrelated
 clients. Replies from an older run must not overwrite a newer session.
+An accepted message waits for model preparation and loading instead of being
+discarded; the snapshot distinguishes queued preparation, residency, routing,
+generation, cancellation and failures. An empty completion is a retryable
+failure, not an answer. A streamed answer remains valid when the terminal
+event has no final text. The client keeps this status visible above the
+transcript while preserving the composer and cancellation controls.
+Stale preparation events from a cancelled model selection cannot fail or
+overwrite a newer request after the user selects that model again.
+When iiLocalLLM reports insufficient available memory, the daemon waits and
+retries admission after memory increases, with a periodic retry even when a
+change cannot be measured. It does not bypass memory or integrity checks. Stopping a queued
+request removes it without cancelling other clients' shared model preparation.
+Other load failures are reported with their reason and can be retried after the
+underlying condition is corrected. The shared service retains one KV context:
+its scheduler executes one inference at a time, and other sessions may rebuild
+their context when needed.
 The client also fences requests by container-selection generation and uses a
 fresh subscription token after each selection, including an A → B → A switch.
 
@@ -21,7 +54,7 @@ The selected default is included as a routing preference, not a forced model;
 iiDecision can still select another eligible route for a particular turn.
 Changing the default retains the current conversation and its session history.
 `society-cli agent status|new|cancel`, `agent select MODEL_ID`, and
-`agent send --stdin` access the same background session; `send` acknowledges
+`agent send --stdin [--attach FILE]... [--container DIR]` access the same background session; `send` acknowledges
 submission and `status` reads its latest snapshot. The Python `Client` exposes
 the corresponding `agent_*` methods. The daemon MCP server offers
 `workspace_agent_status`, `workspace_agent_send`, `workspace_agent_new` and
@@ -35,8 +68,13 @@ their status and connected-window navigation; it captures the selected container
 actions require approval for the exact tool and arguments through the existing
 question interface. A job acknowledgement is not completion. See
 [Workspace agent tool contract](WorkspaceAgentTools.md) for scope and failure
-behavior. File attachments and reading or editing file contents are not yet
-available. Runtime failures and unsupported model formats are reported rather
+behavior. The caller may explicitly attach Society Files items; the daemon
+captures supported bounded content and passes it to iiMultimodalAgent. The
+Python `agent_send` method accepts an optional attachment list and the MCP
+`workspace_agent_send` tool accepts an `attachments` array. Attachment format,
+size, staging and transcript retention are described in [Native Workspace](NativeWorkspace.md).
+This does not grant the agent general file-content editing or read access.
+Runtime failures and unsupported model formats are reported rather
 than represented as answers. The model instruction cannot guarantee that a
 model will never make an incorrect claim.
 
@@ -79,13 +117,74 @@ before loading; discovery alone does not prove that inference will succeed.
 The Asimov route uses its embedded Nemotron text model only; its LiLiCorr
 draft model and multimodal projector are not attached by this adapter.
 Catalog and session data are private runtime state, not files displayed
-in Society Files. The installed packaging SDK has no public path-selecting
-materialization API, so the first Asimov activation reconstructs its verified
-package in temporary private storage and retains the exact language-model
-component. This can require additional free space and take time; cancellation
-removes the adapter's own temporary files. iiLocalLLM rechecks the retained
+in Society Files. The packaging SDK materializes the selected embedded
+language-model component by its verified package path, without reconstructing
+unrelated components. This can require additional free space and take time;
+cancellation removes the adapter's own temporary files. iiLocalLLM rechecks the retained
 component before loading it. The source Society model remains unchanged. The
 digest in an internal inference-package URI identifies cached bytes; it is not
 the logical Society resource ID or evidence that distinct resources are equal.
 The reconstructed text-model manifest currently limits the inference context
 to 2,048 tokens; longer conversations can hit the runtime context limit.
+
+The daemon records the app-selected model through iiSocietyContainer's private
+model cache and restores that preference when the same resource and revision
+are still available. iisaccson remains the default and the model used for
+uncalibrated routing assessments. Selecting another preference does not disable
+iiDecision or force every request to that model. The selected package is prepared
+on the agent worker before it is requested; the GUI and container file workers
+do not perform the conversion. Changing the selection or container cancels the
+previous preparation. The agent snapshot reports cache state, progress, reuse and
+errors. The selected cache is queued before separate resident model loading.
+Cache preparation does not run inference. The separate resident state
+reports whether iiLocalLLM actually loaded and pinned the weights.
+
+The cache retains the existing private `agent/models` catalog so installed model
+entries are not lost. A valid prepared component is reused without extracting it
+again. The original Society model is never moved or replaced. A provider resource
+ID is used when available; otherwise the reference is explicitly path-scoped and
+is not treated as a stable resource identity. iiLocalLLM still verifies model
+contents before loading, and a cache on the same device does not guarantee faster
+physical reads. No automatic cache eviction or storage limit is currently set.
+
+Building the workspace agent requires an iiSocietyContainer SDK that exports
+`iiSocietyContainer_HAS_MODEL_CACHE`; use matching headers and libraries from
+the rebuilt SDK. A successful local build does not update an installed app.
+The iiLocalLLM runtime must also include the layer-aware GGUF KV reservation
+fix to avoid over-reserving iisaccson's per-layer head arrays. Older runtimes
+retain the conservative fallback and may continue waiting for more memory.
+
+A ready cache has an initialized inference-service delegate, but does not
+establish successful runtime loading. The resident status reports that result.
+If the model cannot be loaded, the daemon reports the error; preparation itself
+does not run inference. On desktop Windows and Linux the backend requires the
+matching iiLocalDiffusion model-packaging, iiMultimodalAgent and iiLocalLLM SDK
+packages. Their native build and runtime behavior must be verified separately.
+The local desktop broker is not a mobile background-service implementation.
+
+The daemon reacts to Society model-import, organization and recategorization
+events affecting `iisaccson.safetensors`. A background metadata check keeps
+the current loaded model when the component digest is unchanged. A new or
+unavailable component reinitializes the selected drive agent and cancels its
+in-flight requests; an import can also retry an earlier load failure. Society
+retains the workspace conversation and its persisted session when the same
+drive is refreshed. Interrupted workspace responses remain visible and retryable.
+Arbitrary external filesystem changes are not observed by this import-event path.
+
+### Per-device llama execution policy
+
+The backend optionally reads `iisacc/Society/agent-runtime.json` from the
+platform's per-user generic configuration directory when creating its local
+inference service. The optional `llama.maxGpuLayers` integer is `-1` for
+automatic device selection, `0` for CPU, or a positive GPU layer limit. If the
+file or field is absent, the existing automatic policy remains unchanged. An
+unreadable, malformed, or invalid policy is reported as a preparation error.
+For example, `{"llama":{"maxGpuLayers":0}}` selects CPU for this device.
+The policy belongs to this device and user, not to the Society container or a
+model manifest. It changes neither model routing nor the memory and integrity
+checks. Restart the backend after changing it. CPU execution is a recovery
+option when the native GPU runtime cannot complete a request; it can be slower.
+When this policy explicitly selects CPU, the resident model disables llama.cpp's
+optional CPU weight repacking. This keeps the existing mapped weights instead of
+creating a second, eagerly repacked copy. Other execution policies keep their
+existing defaults; CPU token generation may be slower without the optimized copy.

@@ -10,8 +10,8 @@
   },
   "source": {
     "path": "docs/NativeNavigation.md",
-    "sha256": "07d3a54b7e63e4842d850318bb8a395d7916fbc3b88c2136a999ca62a209d41a",
-    "bytes": 3943,
+    "sha256": "6288d54d03f9608bfb1fc41be97c96c2adb114a97621e840d933262fd1900fa4",
+    "bytes": 4175,
     "line_count": 15,
     "encoding": "utf-8",
     "language": "en"
@@ -85,7 +85,7 @@
       "kind": "paragraph",
       "start_line": 9,
       "end_line": 9,
-      "raw": "The existing application shell hosts the generated view through `NativeNavigationSurface` and iiGUI's `PaintView`; `QtPaintDevice` translates the resulting drawing commands to the existing window's surface. It does not introduce application-specific button or color tokens. Input is sent to iiGUI, and the host exposes the same seven named and selectable buttons to the platform accessibility interface. A queued destination request prevents a page change from reentering an active iiGUI input dispatch.\n"
+      "raw": "The existing application shell hosts the generated view through `NativeNavigationSurface` and iiGUI's `PaintView`; `QtPaintDevice` translates the resulting drawing commands to the existing window's surface. It does not introduce application-specific button or color tokens. Input is sent to iiGUI, and the host exposes the same seven named and selectable buttons to the platform accessibility interface. Each of the seven icon buttons uses LVUI’s `pointerFocusVisible: false`. A mouse click displays the selected background when the shell confirms the destination. Tab focus and keyboard activation display the focus ring on the focused segment. A queued destination request prevents a page change from reentering an active iiGUI input dispatch.\n"
     },
     {
       "id": "b000010",
@@ -127,7 +127,7 @@
       "kind": "paragraph",
       "start_line": 15,
       "end_line": 15,
-      "raw": "The desktop segment is replaced as one unit. The existing mobile bottom navigation remains a separate layout. The rest of the Society shell still uses QML and LVRS; this change does not represent a complete application migration to LVUI. `Society.NativeNavigationViewModel`, `Society.NativeNavigationView`, and `Society.NativeNavigationSurface` cover destination mapping, generated controls and geometry, pointer delivery, rendering, keyboard focus and accessibility on isolated test surfaces. `Society.ToolbarSegmentAppearance` and `Society.TasksNavigation` cover the app shell's selection and routing. An installed application or a real OS window requires separate verification.\n"
+      "raw": "The desktop segment is replaced as one unit. The existing mobile bottom navigation remains a separate layout. The rest of the Society shell still uses QML and LVRS; this change does not represent a complete application migration to LVUI. `Society.NativeNavigationFocus` checks pointer presses, page requests, selection, and keyboard focus using the generated view’s iiGUI paint frames. `Society.NativeWorkspaceSurface` checks the Workspace route through the desktop shell bridge. `Society.ToolbarSegmentAppearance` and `Society.TasksNavigation` cover the app shell's selection and routing. An installed application or a real OS window requires separate verification.\n"
     }
   ],
   "outline": [

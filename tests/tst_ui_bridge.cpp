@@ -4,13 +4,8 @@
 #include "Shared/LocalBackendAddress.h"
 #include "Shared/LocalBackendPeer.h"
 #include "Society/Mcp/UiBridgeRegistration.h"
-#include <SocietyDrive.h>
-#include <iiMultimodalAgent/agent/McpServer.h>
-#include <iiMultimodalAgent/agent/QuestionInbox.h>
-#include <iiMultimodalAgent/agent/UserQuestions.h>
-#include <iiMultimodalAgent/mcp/HttpClient.h>
-#include <iiMultimodalAgent/mcp/HttpServer.h>
-#include <iiMultimodalAgent/mcp/LocalApplications.h>
+#include <iiSocietyContainer>
+#include <iiMultimodalAgent>
 #include <QCoreApplication>
 #include <QDir>
 #include <QFile>

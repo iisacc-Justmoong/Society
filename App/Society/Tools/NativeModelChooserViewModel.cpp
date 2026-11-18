@@ -1,5 +1,5 @@
 #include "NativeModelChooserViewModel.h"
-#include <LVUI/StyleTokens.h>
+#include <LVUI>
 
 #include <algorithm>
 #include <stdexcept>
@@ -37,9 +37,8 @@ void NativeModelChooserViewModel::initialize(std::vector<society::ModelChoice> c
 
 void NativeModelChooserViewModel::focus(std::size_t index, const lvui::ListEntry &entry)
 {
-    const auto snapshot = source->snapshot();
-    if (!snapshot || index >= (*snapshot)->entries.size() || index >= state.choices().size()
-        || (*snapshot)->entries[index].key != entry.key) return;
+    const auto rows = source->index();
+    if (!rows || rows->find(entry.key) != index || index >= state.choices().size()) return;
     focused = index;
     focusedKey = entry.key;
     canToggle.set(true);
@@ -48,26 +47,21 @@ void NativeModelChooserViewModel::focus(std::size_t index, const lvui::ListEntry
 void NativeModelChooserViewModel::toggleFocused()
 {
     if (!focused) return;
-    const auto snapshot = source->snapshot();
-    if (!snapshot || *focused >= (*snapshot)->entries.size()
-        || (*snapshot)->entries[*focused].key != focusedKey) {
-        focused.reset(); focusedKey.clear(); canToggle.set(false);
+    const auto rows = source->index();
+    if (!rows) return;
+    const auto index = rows->find(focusedKey);
+    if (index != focused) {
+        focused.reset();
+        focusedKey.clear();
+        canToggle.set(false);
         return;
     }
-    toggle(*focused, (*snapshot)->entries[*focused]);
-}
-
-void NativeModelChooserViewModel::toggle(std::size_t index, const lvui::ListEntry &entry)
-{
-    const auto snapshot = source->snapshot();
-    if (!snapshot || index >= (*snapshot)->entries.size() || (*snapshot)->entries[index].key != entry.key
-        || index >= state.choices().size()) return;
-    auto replacement = (*snapshot)->entries[index];
-    const bool selected = !state.isSelected(index);
-    replacement.description = description(state.choices()[index], selected);
-    const auto updated = source->apply({.revision = (*snapshot)->revision, .kind = lvui::ListEditKind::replace,
-                                        .key = entry.key, .item = replacement});
-    if (!updated || !state.toggle(index)) return;
+    auto replacement = rows->entry(*index);
+    const bool selected = !state.isSelected(*index);
+    replacement.description = description(state.choices()[*index], selected);
+    const auto updated = source->apply({.revision = rows->revision(), .kind = lvui::ListEditKind::replace,
+                                        .key = focusedKey, .item = std::move(replacement)});
+    if (!updated || !state.toggle(*index)) return;
     revision.set(static_cast<std::int64_t>(*updated));
     refreshStatus();
 }

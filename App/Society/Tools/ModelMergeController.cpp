@@ -1,4 +1,4 @@
-#include <iiFileProviderDevice.h>
+#include <iiFileProvider>
 #include "ModelMergeController.h"
 #include "MergeModelCatalog.h"
 
@@ -12,7 +12,7 @@
 #include <QJsonObject>
 #include <QLocale>
 #include <QStandardPaths>
-#include <SharedStorage.h>
+#include <iiSocietyContainer>
 #include <QUuid>
 #include <cmath>
 #if defined(SOCIETY_MODEL_MERGE_PROCESS) && defined(Q_OS_UNIX)

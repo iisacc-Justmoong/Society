@@ -1,5 +1,5 @@
 #include "SuggestedPolicy.h"
-#include <iiMultimodalAgent/agent/DecisionGate.h>
+#include <iiMultimodalAgent>
 #include <algorithm>
 #include <array>
 #include <cctype>

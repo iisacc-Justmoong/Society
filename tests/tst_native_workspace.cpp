@@ -2,15 +2,39 @@
 #include "Society/Native/LegacyNavigationBridge.h"
 #include "Society/Native/LegacyWorkspaceBridge.h"
 #include "Society/Native/NativeNavigationSurface.h"
+#include <iiGUI>
 #include <QGuiApplication>
+#include <QClipboard>
 #include <QImage>
+#include <QDir>
+#include <QFile>
+#include <QLocalServer>
+#include <QLocalSocket>
+#include <QJsonArray>
+#include <QJsonDocument>
 #include <QKeyEvent>
 #include <QKeySequence>
 #include <QMouseEvent>
+#include <QWheelEvent>
+#include <QMimeData>
 #include <QPainter>
 #include <QSignalSpy>
 #include <QQuickWindow>
+#include <QTemporaryDir>
+#include <QUrl>
+#include <QUuid>
+#include <QScopeGuard>
+#include <QtEndian>
+#include <QtMath>
 #include <QtTest>
+#include <algorithm>
+
+namespace {
+constexpr int ribbonCommandHeight = 22;
+constexpr int ribbonCommandAreaHeight = 4 * ribbonCommandHeight;
+constexpr int ribbonCaptionGap = 4;
+constexpr int ribbonGroupGap = 32;
+}
 
 class WorkspaceShell final : public QQuickItem {
     Q_OBJECT
@@ -30,10 +54,12 @@ class WorkspaceDashboard final : public QQuickItem {
     Q_PROPERTY(bool activityPageVisible MEMBER activity NOTIFY activityPageVisibleChanged)
     Q_PROPERTY(QString filesRoot MEMBER root NOTIFY filesRootChanged)
     Q_PROPERTY(QString dashboardPath MEMBER path NOTIFY dashboardPathChanged)
+    Q_PROPERTY(QObject* viewModel MEMBER fileModel)
 public:
     using QQuickItem::QQuickItem;
     bool projects = false, calendar = false, activity = false;
     QString root, path;
+    QObject *fileModel = nullptr;
     Q_INVOKABLE void goHome() {
         projects = calendar = activity = false;
         emit projectsPageVisibleChanged(); emit calendarPageVisibleChanged(); emit activityPageVisibleChanged();
@@ -49,9 +75,432 @@ signals:
     void fileRequested(const QString &path);
 };
 
+class WorkspaceFileModel final : public QObject {
+    Q_OBJECT
+    Q_PROPERTY(QString containerPath MEMBER containerPath NOTIFY containerPathChanged)
+public:
+    QString containerPath;
+signals:
+    void containerPathChanged(); void filesChanged(); void loadingChanged();
+};
+
 class NativeWorkspaceTest final : public QObject {
     Q_OBJECT
 private slots:
+    void agentTranscriptFollowsNewMessagesUntilUserScrollsUp() {
+        NativeWorkspaceSurface surface; surface.setSize({1440,772}); surface.refresh();
+        auto *vm=surface.model(); QVERIFY(vm);
+        vm->setAgentModels({{"model://small","iisaccson"}});
+        vm->setAgentState("model://small",false,"Ready",{}); surface.refresh();
+        std::vector<NativeAgentMessage> messages;
+        for (int i=0;i<16;++i)
+            messages.push_back({"message-"+std::to_string(i),"Agent",std::string(120,'a')});
+        vm->setAgentState("model://small",true,"Responding…",messages); surface.refresh();
+        const auto viewport=surface.controlBounds(QStringLiteral("workspace-agent-history"));
+        auto scroll=surface.controlScrollPosition(QStringLiteral("workspace-agent-history"));
+        QVERIFY(!viewport.isEmpty());
+        QVERIFY2(scroll.y()>1.0,"The conversation must extend beyond the viewport.");
+        QVERIFY2(scroll.x()+1.0>=scroll.y(),"The latest reply must be visible when following the conversation.");
+        messages.back().text+=std::string(250,'b');
+        vm->setAgentState("model://small",true,"Responding…",messages); surface.refresh();
+        scroll=surface.controlScrollPosition(QStringLiteral("workspace-agent-history"));
+        QVERIFY2(scroll.x()+1.0>=scroll.y(),"A growing streamed reply must remain visible.");
+        const auto position=viewport.center();
+        QWheelEvent wheel(position,position,QPoint{},QPoint{0,-9600},Qt::NoButton,Qt::NoModifier,Qt::NoScrollPhase,false);
+        QCoreApplication::sendEvent(&surface,&wheel);
+        scroll=surface.controlScrollPosition(QStringLiteral("workspace-agent-history"));
+        QVERIFY2(scroll.x()+1.0<scroll.y(),"Scrolling up must leave the latest message below the viewport.");
+        messages.push_back({"message-16","Agent","A newer message"});
+        vm->setAgentState("model://small",false,"Ready",messages); surface.refresh();
+        const auto newer=surface.controlScrollPosition(QStringLiteral("workspace-agent-history"));
+        QVERIFY2(newer.x()+1.0<newer.y(),"New replies must not force a reader back to the bottom.");
+    }
+    void agentWaitStateAndComposerRemainVisibleWithAttachments() {
+        NativeWorkspaceSurface surface; surface.setSize({1440,772});
+        auto *vm=surface.model(); QVERIFY(vm);
+        std::vector<NativeWorkspaceFile> files; std::vector<std::string> paths;
+        for (int i=0;i<8;++i) {
+            const auto path="/Files/attachment-"+std::to_string(i)+".txt";
+            files.push_back({path,path,"","Text","1 B",false,i,1}); paths.push_back(path);
+        }
+        vm->setSuggestedFiles(std::move(files)); vm->gridSelected(paths); vm->addSelectedContext();
+        QCOMPARE(vm->context.get().size(),std::size_t(8));
+        vm->setAgentModels({{"model://small","iisaccson"}});
+        vm->setAgentState("model://small",true,"Waiting for memory to load iisaccson…",{{"1","You","Hello"}});
+        surface.refresh(); QVERIFY2(surface.ready(),qPrintable(surface.errorString()));
+        const auto panel=surface.controlBounds(QStringLiteral("workspace-agent"));
+        const auto status=surface.controlBounds(QStringLiteral("workspace-agent-status"));
+        const auto history=surface.controlBounds(QStringLiteral("workspace-agent-history"));
+        const auto prompt=surface.controlBounds(QStringLiteral("workspace-prompt"));
+        const auto stop=surface.controlBounds(QStringLiteral("workspace-agent-stop"));
+        QVERIFY(!panel.isEmpty() && !status.isEmpty() && !history.isEmpty() && !prompt.isEmpty() && !stop.isEmpty());
+        QVERIFY(status.bottom() <= history.top());
+        QVERIFY(prompt.bottom() <= panel.bottom());
+        QVERIFY2(stop.bottom() <= panel.bottom(),"Stop must remain reachable during a memory wait.");
+        int cancellations=0; vm->onStopAgent=[&] { ++cancellations; };
+        QVERIFY(surface.activateControl(QStringLiteral("workspace-agent-stop")));
+        QCOMPARE(cancellations,1);
+    }
+    void ribbonTabsSupportKeyboardFocusAndActivation() {
+        NativeWorkspaceSurface surface; surface.setSize({1440,772}); surface.refresh();
+        auto *vm=surface.model(); QVERIFY(vm); QVERIFY(vm->ribbonHomeActive.get());
+        QVERIFY(!surface.controlBounds(QStringLiteral("workspace-ribbon-tabbar")).isEmpty());
+        const auto homeBounds=surface.controlBounds(QStringLiteral("workspace-ribbon-home"));
+        const auto manageBounds=surface.controlBounds(QStringLiteral("workspace-ribbon-manage"));
+        const auto addBounds=surface.controlBounds(QStringLiteral("workspace-ribbon-add"));
+        const auto searchBounds=surface.controlBounds(QStringLiteral("workspace-ribbon-search"));
+        QVERIFY(!homeBounds.isEmpty() && !manageBounds.isEmpty() && !addBounds.isEmpty() && !searchBounds.isEmpty());
+        QVERIFY(searchBounds.left() >= addBounds.right());
+        surface.setSize({1800,772}); surface.refresh();
+        const auto wideHome=surface.controlBounds(QStringLiteral("workspace-ribbon-home"));
+        const auto wideManage=surface.controlBounds(QStringLiteral("workspace-ribbon-manage"));
+        QVERIFY2(qAbs(wideHome.left()-homeBounds.left())<1.0 && qAbs(wideManage.right()-manageBounds.right())<1.0,
+                 "Ribbon tabs must remain packed at the left as the workspace widens.");
+        surface.setSize({1440,772}); surface.refresh();
+        QVERIFY(vm->iconSource);
+        for (const auto *name : {"ribbon-tab-home", "ribbon-tab-share", "ribbon-tab-view", "ribbon-tab-manage", "generaladd", "generalsearch"}) {
+            QVERIFY(QFile::exists(QStringLiteral(":/society/workspace/") + QString::fromLatin1(name) + QStringLiteral(".svg")));
+            const auto asset=vm->iconSource->resolve(name); QVERIFY(asset.has_value());
+            const auto decoded=ii::gui::CachedSvgDecoder::decode(*asset,(*asset)->svg,18);
+            QVERIFY2(decoded.has_value(), decoded ? "" : decoded.error().message.c_str());
+            const auto rgba=(*decoded)->rgba(); bool visible=false;
+            for (std::size_t i=3;i<rgba.size();i+=4) if (rgba[i]) { visible=true; break; }
+            QVERIFY2(visible, "Each Figma tab icon must render visible pixels.");
+        }
+        QVERIFY(surface.focusControl(QStringLiteral("workspace-ribbon-home")));
+        const auto key=[&](int value) {
+            QKeyEvent press(QEvent::KeyPress,value,Qt::NoModifier);
+            QCoreApplication::sendEvent(&surface,&press);
+            QKeyEvent release(QEvent::KeyRelease,value,Qt::NoModifier);
+            QCoreApplication::sendEvent(&surface,&release);
+        };
+        key(Qt::Key_Right);
+        QVERIFY2(vm->ribbonHomeActive.get(), "Moving tab focus must not change the selected ribbon.");
+        key(Qt::Key_Return);
+        QVERIFY2(vm->ribbonShareActive.get(), "Enter must activate the tab reached with the arrow key.");
+        QCOMPARE(vm->ribbonTabIndex.get(),1);
+        key(Qt::Key_Right);
+        QVERIFY(vm->ribbonShareActive.get());
+        key(Qt::Key_Space);
+        QVERIFY2(vm->ribbonViewActive.get(), "Space must activate the focused tab.");
+        QCOMPARE(vm->ribbonTabIndex.get(),2);
+        QVERIFY(surface.activateControl(QStringLiteral("workspace-ribbon-view")));
+        QVERIFY2(vm->ribbonViewActive.get(), "Activating the selected tab keeps its commands active.");
+        QVERIFY2(!surface.controlBounds(QStringLiteral("workspace-ribbon-groups")).isEmpty(), "The selected ribbon remains visible.");
+    }
+    void ribbonRemainsVisibleAcrossTabsAndWorkspacePages() {
+        NativeWorkspaceSurface surface; surface.setSize({1440, 772}); surface.refresh();
+        QVERIFY2(surface.controlBounds(QStringLiteral("workspace-ribbon-collapse")).isEmpty(),
+                 "An always-expanded ribbon must not offer a collapse control.");
+        const auto verifyTabs = [&] {
+            for (const auto *tab : {"home", "share", "view", "manage", "add", "search"}) {
+                const auto id = QStringLiteral("workspace-ribbon-") + QString::fromLatin1(tab);
+                for (int activation = 0; activation < 2; ++activation) {
+                    QVERIFY(surface.activateControl(id));
+                    QVERIFY2(!surface.controlBounds(QStringLiteral("workspace-ribbon-groups")).isEmpty(),
+                             "Ribbon commands must remain visible after switching or reselecting a tab.");
+                }
+            }
+        };
+        verifyTabs();
+        QVERIFY(surface.activateControl(QStringLiteral("workspace-recent")));
+        verifyTabs();
+        QVERIFY(surface.activateControl(QStringLiteral("workspace-suggested")));
+        verifyTabs();
+    }
+    void ribbonGroupsKeepTheirContentWidthWhenWindowChanges() {
+        NativeWorkspaceSurface surface; surface.setSize({1200,772});
+        auto *vm=surface.model(); QVERIFY(vm);
+        const auto checkTab=[&] {
+            surface.setSize({1200,772}); surface.refresh();
+            const auto groups=vm->ribbonGroups.get();
+            const auto ribbon=surface.controlBounds(QStringLiteral("workspace-ribbon-groups"));
+            QVERIFY(!ribbon.isEmpty());
+            std::vector<QRectF> narrow;
+            for (const auto &item : groups) {
+                const auto bounds=surface.keyedControlBounds(QStringLiteral("workspace-ribbon-group-list"),QString::fromStdString(item.id));
+                QVERIFY2(!bounds.isEmpty(), "Every ribbon group must have visible, nonzero bounds.");
+                QVERIFY2(bounds.right() <= ribbon.right()+1.0,
+                         qPrintable(QStringLiteral("Ribbon group %1 exceeds the available width (%2 > %3).")
+                             .arg(QString::fromStdString(item.id)).arg(bounds.right()).arg(ribbon.right())));
+                if (!narrow.empty()) {
+                    const auto gap=bounds.left()-narrow.back().right();
+                    QVERIFY2(qAbs(gap - ribbonGroupGap) <= 1.0, "Adjacent ribbon groups must be separated by the LVUI 32px spacing.");
+                }
+                narrow.push_back(bounds);
+            }
+            surface.setSize({1800,772}); surface.refresh();
+            for (std::size_t i=0;i<groups.size();++i) {
+                const auto bounds=surface.keyedControlBounds(QStringLiteral("workspace-ribbon-group-list"),QString::fromStdString(groups[i].id));
+                QVERIFY2(!bounds.isEmpty(), "Ribbon groups must remain visible after a resize.");
+                QVERIFY2(qAbs(bounds.left()-narrow[i].left())<=1.0 && qAbs(bounds.width()-narrow[i].width())<=1.0,
+                         "Widening the window must not stretch or redistribute ribbon groups.");
+            }
+        };
+        vm->showRibbonHome(); checkTab();
+        vm->showRibbonShare(); checkTab();
+        vm->showRibbonView(); checkTab();
+        vm->showRibbonManage(); checkTab();
+        vm->selectRibbonTab(4); checkTab();
+        vm->selectRibbonTab(5); checkTab();
+    }
+    void ribbonCommandsAreBorderlessWhenEnabledAndDisabled() {
+        NativeWorkspaceSurface surface; surface.setSize({1440, 772});
+        auto *vm = surface.model(); QVERIFY(vm);
+        vm->setFileActionsAvailable(true); vm->showRibbonHome(); surface.refresh();
+        QVERIFY2(surface.ready(), qPrintable(surface.errorString()));
+        QImage frame(1440, 772, QImage::Format_ARGB32_Premultiplied); frame.fill(Qt::transparent);
+        QPainter painter(&frame); surface.paint(&painter); painter.end();
+        for (const auto *name : {"new", "clipboard"}) {
+            const auto bounds = surface.keyedControlBounds(QStringLiteral("workspace-ribbon-group-list"), QString::fromLatin1(name));
+            QVERIFY(!bounds.isEmpty());
+            const auto x = qRound(bounds.center().x());
+            const auto command = frame.pixelColor(x, qRound(bounds.top() + 2));
+            const auto background = frame.pixelColor(x, qRound(bounds.top() + ribbonCommandAreaHeight + ribbonCaptionGap / 2));
+            QVERIFY2(command == background,
+                     qPrintable(QStringLiteral("The %1 ribbon command has a background (%2 versus %3)")
+                         .arg(QString::fromLatin1(name), command.name(QColor::HexArgb), background.name(QColor::HexArgb))));
+        }
+    }
+    void ribbonCommandIconsShareTheirGroupsLeadingEdge() {
+        const QSize size(1440, 772);
+        NativeWorkspaceSurface surface;
+        surface.setSize(size);
+        QVERIFY(surface.model());
+        const auto verifyClipboard = [&] {
+            surface.refresh();
+            QVERIFY2(surface.ready(), qPrintable(surface.errorString()));
+            const auto group = surface.keyedControlBounds(QStringLiteral("workspace-ribbon-group-list"), QStringLiteral("clipboard"));
+            QVERIFY(!group.isEmpty());
+            QImage frame(size, QImage::Format_ARGB32_Premultiplied);
+            frame.fill(Qt::transparent);
+            QPainter painter(&frame);
+            surface.paint(&painter);
+            painter.end();
+            const auto leadingInk = [&](int row) {
+                const auto top = qRound(group.top()) + row * ribbonCommandHeight;
+                const auto area = QRect(qCeil(group.left()), top, qFloor(group.width()), ribbonCommandHeight).intersected(frame.rect());
+                for (int x = area.left(); x <= area.right(); ++x)
+                    for (int y = area.top(); y <= area.bottom(); ++y)
+                        if (frame.pixelColor(x, y).alpha() > 20) return x;
+                return -1;
+            };
+            // Both commands use the same icon, so their leading ink should align.
+            const auto copy = leadingInk(2);
+            const auto copyPath = leadingInk(3);
+            QVERIFY(copy >= 0 && copyPath >= 0);
+            QCOMPARE(copy, copyPath);
+        };
+        verifyClipboard();
+        QVERIFY(surface.activateControl(QStringLiteral("workspace-recent")));
+        verifyClipboard();
+    }
+    void ribbonGroupCaptionsRenderBeneathCommands() {
+        NativeWorkspaceSurface surface; surface.setSize({1800, 772});
+        auto *vm = surface.model(); QVERIFY(vm);
+        const auto check = [&] {
+            surface.refresh(); QVERIFY2(surface.ready(), qPrintable(surface.errorString()));
+            QImage image(1800, 772, QImage::Format_ARGB32_Premultiplied); image.fill(Qt::transparent);
+            QPainter painter(&image); surface.paint(&painter); painter.end();
+            if (const auto prefix = qEnvironmentVariable("SOCIETY_RIBBON_CAPTION_TEST_OUTPUT"); !prefix.isEmpty())
+                QVERIFY(image.save(prefix + QString::number(vm->ribbonTabIndex.get()) + QStringLiteral(".png")));
+            const auto checkCaption = [&](const QRectF &bounds, const QString &group) {
+                QVERIFY2(!bounds.isEmpty(), qPrintable(QStringLiteral("Ribbon group %1 has no layout bounds.").arg(group)));
+                const auto top = qCeil(bounds.top() + ribbonCommandAreaHeight + ribbonCaptionGap);
+                const auto area = QRect(qCeil(bounds.left()), top, qFloor(bounds.width()), qFloor(bounds.bottom()) - top)
+                                      .intersected(image.rect());
+                int left = area.right()+1, right = area.left()-1;
+                for (int y = area.top(); y <= area.bottom(); ++y)
+                    for (int x = area.left(); x <= area.right(); ++x)
+                        if (image.pixelColor(x,y).alpha() > 20) { left = qMin(left,x); right = qMax(right,x); }
+                QVERIFY2(right >= left, qPrintable(QStringLiteral("Ribbon group %1 has no visible caption below its commands.")
+                    .arg(group)));
+                QVERIFY2(qAbs((left+right)/2.0-bounds.center().x()) <= 4.0,
+                    qPrintable(QStringLiteral("Ribbon group %1 caption is not centered (ink %2–%3; bounds %4,%5 %6x%7).")
+                        .arg(group).arg(left).arg(right)
+                        .arg(bounds.x()).arg(bounds.y()).arg(bounds.width()).arg(bounds.height())));
+            };
+            for (const auto &group : vm->ribbonGroups.get()) {
+                const auto id = QString::fromStdString(group.id);
+                checkCaption(surface.keyedControlBounds(QStringLiteral("workspace-ribbon-group-list"), id), id);
+            }
+            if (vm->ribbonSearchActive.get()) {
+                const auto ribbon = surface.controlBounds(QStringLiteral("workspace-ribbon-groups"));
+                const auto media = surface.keyedControlBounds(QStringLiteral("workspace-ribbon-group-list"), QStringLiteral("search-media"));
+                const auto searchWidth = media.left() - ribbon.left() - ribbonGroupGap;
+                checkCaption(QRectF(ribbon.topLeft(), QSizeF(searchWidth, media.height())), QStringLiteral("search"));
+            }
+        };
+        vm->showRibbonHome(); check();
+        vm->showRibbonShare(); check();
+        vm->showRibbonView(); check();
+        vm->showRibbonManage(); check();
+        vm->selectRibbonTab(4); check();
+        vm->selectRibbonTab(5); check();
+    }
+    void ribbonGroupCaptionsMatchFigma() {
+        NativeWorkspaceSurface surface; surface.setSize({1440, 772});
+        auto *vm = surface.model(); QVERIFY(vm);
+        const auto check = [&](const QStringList &expected) {
+            QStringList actual;
+            for (const auto &group : vm->ribbonGroups.get()) actual.append(QString::fromStdString(group.label));
+            QCOMPARE(actual, expected);
+        };
+        vm->showRibbonHome(); check({"Clipboard", "Organize", "New", "Open", "Select"});
+        vm->showRibbonShare(); check({"Share", "Access", "Publication", "Release", "Review"});
+        vm->showRibbonView(); check({"Layout", "Arrange", "Panels", "Display", "Navigate"});
+        vm->showRibbonManage(); check({"Resource", "Revision", "Copies", "Integrity", "Workflow"});
+        vm->selectRibbonTab(4); check({"Create", "Import", "Reference", "Project"});
+        vm->selectRibbonTab(5); check({"Media", "Type"});
+    }
+    void ribbonReplacesTheRedundantFileMenu() {
+        NativeWorkspaceSurface surface; surface.setSize({1440, 772});
+        auto *vm = surface.model(); QVERIFY(vm);
+        vm->setFileActionsAvailable(true); surface.refresh();
+        QVERIFY2(surface.controlBounds(QStringLiteral("workspace-file-button")).isEmpty(),
+                 "The ribbon must not show a redundant File menu button.");
+        const auto group = surface.keyedControlBounds(QStringLiteral("workspace-ribbon-group-list"), QStringLiteral("new"));
+        QVERIFY(!group.isEmpty());
+        const auto click = [&](int row) {
+            const QPointF position(group.x() + 10, group.y() + row * 22 + 11);
+            QMouseEvent press(QEvent::MouseButtonPress, position, position, Qt::LeftButton, Qt::LeftButton, Qt::NoModifier);
+            QCoreApplication::sendEvent(&surface, &press);
+            QMouseEvent release(QEvent::MouseButtonRelease, position, position, Qt::LeftButton, Qt::NoButton, Qt::NoModifier);
+            QCoreApplication::sendEvent(&surface, &release);
+        };
+        click(0); QVERIFY2(vm->folderOpen.get(), "New folder remains available directly on Home.");
+        vm->closeCreateFolder(); surface.refresh();
+        click(1); QVERIFY2(vm->importOpen.get(), "Import remains available directly on Home.");
+    }
+    void searchRibbonFiltersAndReplacesControlsRow() {
+        NativeWorkspaceSurface surface; surface.setSize({1440, 772});
+        auto *vm=surface.model(); QVERIFY(vm);
+        vm->setSuggestedFiles({{"/Files/picture.png", "picture.png", "", "Image", "1 B", false, 1, 1},
+                               {"/Files/notes.txt", "notes.txt", "", "Text", "1 B", false, 1, 1}});
+        surface.refresh();
+        QVERIFY(surface.controlBounds(QStringLiteral("workspace-list")).isEmpty());
+        QVERIFY(surface.controlBounds(QStringLiteral("workspace-grid")).isEmpty());
+        QVERIFY(surface.activateControl(QStringLiteral("workspace-ribbon-search")));
+        QVERIFY(vm->ribbonSearchActive.get());
+        const auto ribbon=surface.controlBounds(QStringLiteral("workspace-ribbon-groups"));
+        QVERIFY(!ribbon.isEmpty());
+        const auto collection=surface.controlBounds(QStringLiteral("workspace-collection"));
+        QVERIFY2(collection.bottom()<=surface.height()-32, "The file list must leave room for the status and action footer.");
+        const auto click = [&](QPointF point) {
+            QMouseEvent press(QEvent::MouseButtonPress,point,point,Qt::LeftButton,Qt::LeftButton,Qt::NoModifier);
+            QCoreApplication::sendEvent(&surface,&press);
+            QMouseEvent release(QEvent::MouseButtonRelease,point,point,Qt::LeftButton,Qt::NoButton,Qt::NoModifier);
+            QCoreApplication::sendEvent(&surface,&release);
+        };
+        const auto media=surface.keyedControlBounds(QStringLiteral("workspace-ribbon-group-list"),QStringLiteral("search-media"));
+        QVERIFY(!media.isEmpty());
+        click({media.x()+10,media.y()+11});
+        QCOMPARE(vm->searchFilter.get(),std::string("Type: Images"));
+        QCOMPARE(vm->rows.get().size(),std::size_t(1));
+        click({ribbon.x()+40,ribbon.y()+11});
+        QKeyEvent character(QEvent::KeyPress,Qt::Key_P,Qt::NoModifier,QStringLiteral("p"));
+        QCoreApplication::sendEvent(&surface,&character);
+        QCOMPARE(vm->query.get(),std::string("p"));
+        click({ribbon.x()+10,ribbon.y()+55});
+        QCOMPARE(vm->searchFilter.get(),std::string("Type: All files"));
+        QVERIFY(vm->query.get().empty());
+        QCOMPARE(vm->rows.get().size(),std::size_t(2));
+    }
+    void ribbonIconAndLabelShareOneHitArea() {
+        NativeWorkspaceSurface surface; surface.setSize({1440,772});
+        auto *vm=surface.model(); QVERIFY(vm); vm->setFileActionsAvailable(true);
+        vm->setSuggestedFiles({{"/Files/a.txt","a.txt","","Text","1 B",false,1,1}});
+        vm->gridSelected({"/Files/a.txt"}); surface.refresh();
+        const auto group=surface.keyedControlBounds(QStringLiteral("workspace-ribbon-group-list"),QStringLiteral("organize"));
+        QVERIFY(!group.isEmpty());
+        const QPointF origin(group.x(),group.y()+2*22);
+        const auto click=[&](double x) {
+            const QPointF position=origin+QPointF(x,11);
+            QMouseEvent press(QEvent::MouseButtonPress,position,position,Qt::LeftButton,Qt::LeftButton,Qt::NoModifier);
+            QCoreApplication::sendEvent(&surface,&press);
+            QMouseEvent release(QEvent::MouseButtonRelease,position,position,Qt::LeftButton,Qt::NoButton,Qt::NoModifier);
+            QCoreApplication::sendEvent(&surface,&release);
+        };
+        for (const auto x : {24.0, 10.0, 40.0}) {
+            click(x);
+            QVERIFY2(vm->renameOpen.get(), "Icon, gap, and label must each activate the same ribbon command.");
+            vm->closeRename(); surface.refresh();
+        }
+        vm->clearSelection(); surface.refresh();
+        for (const auto x : {10.0, 24.0, 40.0}) {
+            click(x);
+            QVERIFY2(!vm->renameOpen.get(), "A disabled ribbon command must not respond in any part of its hit area.");
+        }
+    }
+    void ribbonButtonDispatchesTheSelectedFile() {
+        NativeWorkspaceSurface surface; surface.setSize({1440,772});
+        auto *vm=surface.model(); QVERIFY(vm); vm->setFileActionsAvailable(true);
+        vm->setSuggestedFiles({{"/Files/a.txt","a.txt","","Text","1 B",false,1,1}});
+        vm->gridSelected({"/Files/a.txt"}); surface.refresh();
+        const auto group=surface.keyedControlBounds(QStringLiteral("workspace-ribbon-group-list"),QStringLiteral("organize"));
+        QVERIFY(!group.isEmpty());
+        const QPointF position(group.x()+11,group.y()+2*22+11);
+        QMouseEvent press(QEvent::MouseButtonPress,position,position,Qt::LeftButton,Qt::LeftButton,Qt::NoModifier);
+        QCoreApplication::sendEvent(&surface,&press);
+        QMouseEvent release(QEvent::MouseButtonRelease,position,position,Qt::LeftButton,Qt::NoButton,Qt::NoModifier);
+        QCoreApplication::sendEvent(&surface,&release);
+        QVERIFY2(vm->renameOpen.get(),"The Rename ribbon button must open the selected file's editor.");
+        std::string action,path,name;
+        vm->onFileAction=[&](const auto &a,const auto &p,const auto &n) { action=a; path=p; name=n; return true; };
+        vm->renameEdited("new.txt"); vm->renameSelected();
+        QCOMPARE(QString::fromStdString(action),QStringLiteral("rename"));
+        QCOMPARE(QString::fromStdString(path),QStringLiteral("/Files/a.txt"));
+        QCOMPARE(QString::fromStdString(name),QStringLiteral("new.txt"));
+    }
+    void gridUsesIconEvenWhenPreviewExists() {
+        QTemporaryDir fixture(QStringLiteral(SOCIETY_TEST_DIRECTORY)+"/workspace-preview-XXXXXX");
+        QVERIFY(fixture.isValid());
+        const auto path=fixture.filePath("preview.png");
+        QImage source(12,12,QImage::Format_RGBA8888); source.fill(QColor(243,7,195)); QVERIFY(source.save(path));
+        NativeWorkspaceSurface surface; surface.setSize({1440,772});
+        NativeWorkspaceFile file{path.toStdString(),"preview.png","","PNG image","1 B",false,1,1};
+        file.previewSource=QUrl::fromLocalFile(path).toString(QUrl::FullyEncoded).toStdString();
+        surface.model()->setSuggestedFiles({file}); surface.model()->showGrid(); surface.refresh();
+        QVERIFY2(surface.ready(),qPrintable(surface.errorString()));
+        const auto hasPreview=[&] {
+            surface.refresh();
+            QImage frame(1440,772,QImage::Format_ARGB32_Premultiplied); frame.fill(Qt::transparent);
+            QPainter painter(&frame); surface.paint(&painter); painter.end();
+            const auto grid=surface.controlBounds(QStringLiteral("workspace-collection")).toAlignedRect().intersected(frame.rect());
+            for (int y=grid.top();y<qMin(grid.bottom(),grid.top()+140);y+=2)
+                for (int x=grid.left();x<qMin(grid.right(),grid.left()+140);x+=2) {
+                    const auto color=frame.pixelColor(x,y);
+                    if (color.red()>210 && color.green()<40 && color.blue()>160) return true;
+                }
+            return false;
+        };
+        QTest::qWait(1000);
+        QVERIFY2(!hasPreview(), "Grid files must use type icons even when a thumbnail is available.");
+        QCOMPARE(surface.model()->rows.get().front().previewSource, file.previewSource);
+        const auto hasImageIcon=[&] {
+            surface.refresh();
+            QImage frame(1440,772,QImage::Format_ARGB32_Premultiplied); frame.fill(Qt::transparent);
+            QPainter painter(&frame); surface.paint(&painter); painter.end();
+            const auto area=surface.controlBounds(QStringLiteral("workspace-collection")).toAlignedRect().intersected(frame.rect());
+            for (int y=area.top();y<qMin(area.bottom(),area.top()+140);++y)
+                for (int x=area.left();x<qMin(area.right(),area.left()+140);++x) {
+                    const auto c=frame.pixelColor(x,y);
+                    if (c.red()<90 && c.green()>70 && c.green()<160 && c.blue()>160) return true;
+                }
+            return false;
+        };
+        QVERIFY2(hasImageIcon(), "The LVUI image file icon is visible in grid view.");
+        surface.model()->showList();
+        QVERIFY2(hasImageIcon(), "The LVUI image file icon is visible in list view.");
+        const auto &catalog=surface.model()->iconSource;
+        QVERIFY(catalog);
+        for (const auto *name : {"nodesfolder", "fileTypesdiagram", "fileTypesimage", "audio-track", "import-video",
+                                  "fileTypestext", "fileTypesarchive", "fileTypesunknown"}) {
+            QVERIFY2(QFile::exists(QStringLiteral(":/society/workspace/") + QString::fromLatin1(name) + QStringLiteral(".svg")), name);
+            QVERIFY2(catalog->resolve(name).has_value(), name);
+        }
+        QVERIFY2(surface.ready(),qPrintable(surface.errorString()));
+    }
     void rendersAndRoutesWorkspacePages() {
         NativeWorkspaceSurface surface;
         surface.setSize({1440, 772});
@@ -72,10 +521,20 @@ private slots:
 
         surface.model()->setSuggestedFiles({{"/Files/example.txt", "example.txt", "2026-11-12", "Text document", "2 B", false, 1, 2}});
         surface.refresh();
-        QVERIFY(surface.activateControl(QStringLiteral("workspace-grid")));
+        QVERIFY(surface.activateControl(QStringLiteral("workspace-ribbon-view")));
+        const auto layoutGroup = surface.keyedControlBounds(QStringLiteral("workspace-ribbon-group-list"), QStringLiteral("layout"));
+        QVERIFY(!layoutGroup.isEmpty());
+        const auto activateLayoutRow = [&](int row) {
+            const QPointF position(layoutGroup.x()+10, layoutGroup.y()+row*22+11);
+            QMouseEvent press(QEvent::MouseButtonPress,position,position,Qt::LeftButton,Qt::LeftButton,Qt::NoModifier);
+            QCoreApplication::sendEvent(&surface,&press);
+            QMouseEvent release(QEvent::MouseButtonRelease,position,position,Qt::LeftButton,Qt::NoButton,Qt::NoModifier);
+            QCoreApplication::sendEvent(&surface,&release);
+        };
+        activateLayoutRow(2);
         QVERIFY(surface.model()->gridActive.get());
         QVERIFY2(surface.ready(), qPrintable(surface.errorString()));
-        QVERIFY(surface.activateControl(QStringLiteral("workspace-list")));
+        activateLayoutRow(1);
         QVERIFY(!surface.model()->gridActive.get());
         QVERIFY(surface.activateControl(QStringLiteral("workspace-ribbon-share")));
         QVERIFY(surface.model()->ribbonShareActive.get());
@@ -83,23 +542,18 @@ private slots:
         QVERIFY(surface.model()->ribbonViewActive.get());
         QVERIFY(surface.activateControl(QStringLiteral("workspace-ribbon-manage")));
         QVERIFY(surface.model()->ribbonManageActive.get());
-        QVERIFY(surface.activateControl(QStringLiteral("workspace-ribbon-collapse")));
-        QVERIFY(!surface.model()->ribbonExpanded.get());
         QVERIFY(surface.activateControl(QStringLiteral("workspace-ribbon-home")));
-        QVERIFY(surface.model()->ribbonHomeActive.get() && surface.model()->ribbonExpanded.get());
+        QVERIFY(surface.model()->ribbonHomeActive.get());
+        QVERIFY(!surface.controlBounds(QStringLiteral("workspace-ribbon-groups")).isEmpty());
         QVERIFY2(surface.ready(), qPrintable(surface.errorString()));
-        QVERIFY(surface.activateControl(QStringLiteral("workspace-file-button")));
-        QVERIFY(surface.model()->fileMenuOpen.get());
-        QVERIFY(surface.controlOpened(QStringLiteral("workspace-file-menu")));
-        QVERIFY(surface.activateControl(QStringLiteral("workspace-file-button")));
-        QVERIFY(!surface.model()->fileMenuOpen.get());
-        QVERIFY(!surface.controlOpened(QStringLiteral("workspace-file-menu")));
+        QVERIFY(surface.controlBounds(QStringLiteral("workspace-file-button")).isEmpty());
 
         surface.model()->setSuggestedFiles({{"/Files/a.txt", "a.txt", "", "Text", "1 B", false, 1, 1},
                                             {"/Files/b.txt", "b.txt", "", "Text", "2 B", false, 2, 2},
                                             {"/Files/c.txt", "c.txt", "", "Text", "3 B", false, 3, 3}});
         surface.refresh();
-        const auto table=surface.controlBounds(QStringLiteral("workspace-table"));
+        QVERIFY2(surface.ready(),qPrintable(surface.errorString()));
+        const auto table=surface.controlBounds(QStringLiteral("workspace-collection"));
         QVERIFY(!table.isEmpty());
         const auto click=[&](QPointF position,Qt::KeyboardModifiers modifiers) {
             QMouseEvent press(QEvent::MouseButtonPress,position,position,Qt::LeftButton,Qt::LeftButton,modifiers);
@@ -107,11 +561,20 @@ private slots:
             QMouseEvent release(QEvent::MouseButtonRelease,position,position,Qt::LeftButton,Qt::NoButton,modifiers);
             QCoreApplication::sendEvent(&surface,&release);
         };
-        click({table.x()+30,table.y()+36},Qt::NoModifier);
+        click({table.x()+40,table.y()+36},Qt::NoModifier);
         QCOMPARE(surface.model()->selectionCount.get(),std::int64_t(1));
-        click({table.x()+30,table.y()+84},Qt::ShiftModifier);
+        click({table.x()+40,table.y()+100},Qt::MetaModifier);
+        QCOMPARE(surface.model()->selectionCount.get(),std::int64_t(2));
+        QVERIFY(surface.activateControl(QStringLiteral("workspace-agent-add")));
+        QCOMPARE(surface.model()->context.get().size(),std::size_t(2));
+        surface.model()->invertSelection();
+        QCOMPARE(surface.model()->selectionCount.get(),std::int64_t(1));
+        click({table.x()+40,table.y()+36},Qt::NoModifier);
+        click({table.x()+40,table.y()+100},Qt::ShiftModifier);
         QCOMPARE(surface.model()->selectionCount.get(),std::int64_t(3));
-        surface.model()->showGrid(); surface.refresh(); surface.model()->selectAll();
+        surface.model()->showGrid(); surface.refresh();
+        QCOMPARE(surface.model()->selectionCount.get(),std::int64_t(3));
+        surface.model()->selectAll();
         QCOMPARE(surface.model()->selectionCount.get(),std::int64_t(3));
         surface.model()->invertSelection();
         QCOMPARE(surface.model()->selectionCount.get(),std::int64_t(0));
@@ -146,8 +609,20 @@ private slots:
         surface.refresh();
         QVERIFY2(surface.ready(), qPrintable(surface.errorString()));
         QCOMPARE(surface.model()->agentMessages.get().back().text,std::string("A longer streamed fixture response."));
+        const auto agentStatus=surface.controlBounds(QStringLiteral("workspace-agent-status"));
+        const auto agentHistory=surface.controlBounds(QStringLiteral("workspace-agent-history"));
+        const auto agentPrompt=surface.controlBounds(QStringLiteral("workspace-prompt"));
+        const auto agentPanel=surface.controlBounds(QStringLiteral("workspace-agent"));
+        QVERIFY(!agentStatus.isEmpty());
+        QVERIFY(agentStatus.bottom() <= agentHistory.top());
+        QVERIFY(!agentPrompt.isEmpty());
+        QVERIFY2(agentPrompt.bottom() <= agentPanel.bottom(), "The agent composer must remain visible with attachments.");
 
-        QVERIFY(surface.focusControl(QStringLiteral("workspace-search")));
+        QVERIFY(surface.controlBounds(QStringLiteral("workspace-old-controls")).isEmpty());
+        QVERIFY(surface.activateControl(QStringLiteral("workspace-ribbon-search")));
+        const auto searchRibbon=surface.controlBounds(QStringLiteral("workspace-ribbon-groups"));
+        QVERIFY(!searchRibbon.isEmpty());
+        click({searchRibbon.x()+40,searchRibbon.y()+11},Qt::NoModifier);
         QKeyEvent first(QEvent::KeyPress, Qt::Key_A, Qt::NoModifier, QStringLiteral("a"));
         QCoreApplication::sendEvent(&surface, &first);
         QKeyEvent space(QEvent::KeyPress, Qt::Key_Space, Qt::NoModifier, QStringLiteral(" "));
@@ -210,6 +685,216 @@ private slots:
         QVERIFY(surface->model()->suggestedActive.get());
         surface->openRequested(QStringLiteral("/outside/file"));
         QCOMPARE(QString::fromStdString(surface->model()->status.get()), QStringLiteral("The file is not in the current Society drive."));
+    }
+    void cutPasteAndImportUseIndependentBackendJobs() {
+        // Keep the Unix-domain socket path below macOS's sockaddr_un limit.
+        QTemporaryDir fixture(QDir::cleanPath(QStringLiteral(SOCIETY_TEST_DIRECTORY)+"/../../.workspace-jobs-XXXXXX")); QVERIFY(fixture.isValid());
+        const auto broker=fixture.filePath("broker"); QVERIFY(QDir().mkdir(broker));
+        QLocalServer server; QVERIFY(server.listen(broker+"/backend.sock"));
+        const auto previous=qgetenv("SOCIETY_LOCAL_BROKER_DIR"); const bool had=qEnvironmentVariableIsSet("SOCIETY_LOCAL_BROKER_DIR");
+        qputenv("SOCIETY_LOCAL_BROKER_DIR",broker.toUtf8());
+        const auto restore=qScopeGuard([&] { if (had) qputenv("SOCIETY_LOCAL_BROKER_DIR",previous); else qunsetenv("SOCIETY_LOCAL_BROKER_DIR"); });
+        QJsonArray jobs; QByteArray input;
+        connect(&server,&QLocalServer::newConnection,this,[&] {
+            auto *peer=server.nextPendingConnection();
+            connect(peer,&QLocalSocket::readyRead,this,[&,peer] {
+                input+=peer->readAll();
+                while (input.size()>=4) {
+                    const auto size=qFromBigEndian<quint32>(input.constData());
+                    if (input.size()<qsizetype(size+4)) break;
+                    const auto request=QJsonDocument::fromJson(input.mid(4,size)).object(); input.remove(0,size+4);
+                    const auto operation=request.value("op").toString();
+                    QJsonObject response{{"type","result"},{"id",request.value("id")},{"accepted",true}};
+                    if (operation=="fileOperation") { jobs.append(request); response.insert("jobId",QString::number(jobs.size())); }
+                    if (operation=="fileJobStatus") response.insert("job",QJsonObject{{"state","succeeded"}});
+                    const auto body=QJsonDocument(response).toJson(QJsonDocument::Compact);
+                    QByteArray frame(4,'\0'); qToBigEndian(quint32(body.size()),frame.data()); peer->write(frame+body); peer->flush();
+                }
+            });
+        });
+        QQuickWindow window;
+        WorkspaceDashboard dashboard(window.contentItem()); dashboard.setObjectName("dashboardView"); dashboard.setSize({1200,760});
+        WorkspaceFileModel files; files.containerPath=fixture.filePath("drive.societycontainer"); dashboard.fileModel=&files;
+        dashboard.root=files.containerPath+"/Files";
+        QQuickItem sidebar(&dashboard); sidebar.setObjectName("dashboardSidebar"); sidebar.setWidth(170);
+        QQuickItem content(&dashboard); QQuickItem scroll(&content); scroll.setObjectName("dashboardScroll");
+        auto *surface=LegacyWorkspaceBridge::install(&window); QVERIFY(surface);
+        QTRY_VERIFY_WITH_TIMEOUT(surface->model()->fileActionsAvailable.get(),10000);
+        const auto a=dashboard.root+"/a.txt",b=dashboard.root+"/b.txt";
+        surface->model()->setSuggestedFiles({{a.toStdString(),"a.txt","","Text","1 B",false,1,1},
+                                             {b.toStdString(),"b.txt","","Text","1 B",false,1,1}});
+        surface->model()->gridSelected({a.toStdString(),b.toStdString()});
+        surface->model()->cutFiles(); surface->model()->showPaste(); surface->model()->pasteEdited("Files/Target"); surface->model()->pasteFiles();
+        QTRY_COMPARE_WITH_TIMEOUT(jobs.size(),2,10000);
+        QCOMPARE(jobs[0].toObject().value("action").toString(),QStringLiteral("move"));
+        QCOMPARE(jobs[0].toObject().value("path").toString(),QStringLiteral("Files/a.txt"));
+        QCOMPARE(jobs[1].toObject().value("path").toString(),QStringLiteral("Files/b.txt"));
+        surface->model()->gridSelected({a.toStdString()});
+        surface->model()->copyFiles(); surface->model()->showPaste(); surface->model()->pasteEdited("Files/Target"); surface->model()->pasteFiles();
+        QTRY_COMPARE_WITH_TIMEOUT(jobs.size(),3,10000);
+        QCOMPARE(jobs[2].toObject().value("action").toString(),QStringLiteral("copy"));
+        QCOMPARE(jobs[2].toObject().value("path").toString(),a);
+        surface->model()->showCopyTo(); surface->model()->moveEdited("Files/Target"); surface->model()->moveSelected();
+        QTRY_COMPARE_WITH_TIMEOUT(jobs.size(),4,10000);
+        QCOMPARE(jobs[3].toObject().value("action").toString(),QStringLiteral("copy"));
+        QCOMPARE(jobs[3].toObject().value("path").toString(),a);
+        surface->model()->showImport(); surface->model()->importEdited(fixture.filePath("outside.txt").toStdString());
+        surface->model()->importDestinationEdited("Files/Target"); surface->model()->importFile();
+        QTRY_COMPARE_WITH_TIMEOUT(jobs.size(),5,10000);
+        QCOMPARE(jobs[4].toObject().value("action").toString(),QStringLiteral("copy"));
+        QCOMPARE(jobs[4].toObject().value("argument").toString(),QStringLiteral("Files/Target"));
+    }
+    void openWaitsForTheSelectedDriveDaemon() {
+        QTemporaryDir fixture(QDir::cleanPath(QStringLiteral(SOCIETY_TEST_DIRECTORY)+"/../../.workspace-open-XXXXXX")); QVERIFY(fixture.isValid());
+        const auto broker=fixture.filePath("broker"); QVERIFY(QDir().mkdir(broker));
+        QLocalServer server; QVERIFY(server.listen(broker+"/backend.sock"));
+        const auto previous=qgetenv("SOCIETY_LOCAL_BROKER_DIR"); const bool had=qEnvironmentVariableIsSet("SOCIETY_LOCAL_BROKER_DIR");
+        qputenv("SOCIETY_LOCAL_BROKER_DIR",broker.toUtf8());
+        const auto restore=qScopeGuard([&] { if (had) qputenv("SOCIETY_LOCAL_BROKER_DIR",previous); else qunsetenv("SOCIETY_LOCAL_BROKER_DIR"); });
+        QPointer<QLocalSocket> peer; QByteArray input; QJsonArray opens, activations;
+        const auto send=[&](const QJsonObject &object) {
+            const auto body=QJsonDocument(object).toJson(QJsonDocument::Compact);
+            QByteArray frame(4,'\0'); qToBigEndian(quint32(body.size()),frame.data());
+            if (peer) { peer->write(frame+body); peer->flush(); }
+        };
+        connect(&server,&QLocalServer::newConnection,this,[&] {
+            peer=server.nextPendingConnection();
+            connect(peer,&QLocalSocket::readyRead,this,[&] {
+                input+=peer->readAll();
+                while (input.size()>=4) {
+                    const auto size=qFromBigEndian<quint32>(input.constData());
+                    if (input.size()<qsizetype(size+4)) break;
+                    const auto request=QJsonDocument::fromJson(input.mid(4,size)).object(); input.remove(0,size+4);
+                    const auto operation=request.value("op").toString();
+                    QJsonObject response{{"type","result"},{"id",request.value("id")},{"accepted",true}};
+                    if (operation=="directoryOpen") {
+                        opens.append(request);
+                        response.insert("directory",QJsonObject{{"path",request.value("path")},{"generation",QStringLiteral("generation-%1").arg(opens.size())},
+                                                               {"revision","revision-1"},{"status","ready"},{"count",1}});
+                    } else if (operation=="directoryActivate") activations.append(request);
+                    send(response);
+                }
+            });
+        });
+        QQuickWindow window;
+        WorkspaceDashboard dashboard(window.contentItem()); dashboard.setObjectName("dashboardView"); dashboard.setSize({1200,760});
+        WorkspaceFileModel files; files.containerPath=fixture.filePath("drive.societycontainer"); dashboard.fileModel=&files;
+        dashboard.root=files.containerPath+"/Files";
+        QQuickItem sidebar(&dashboard); sidebar.setObjectName("dashboardSidebar"); sidebar.setWidth(170);
+        QQuickItem content(&dashboard); QQuickItem scroll(&content); scroll.setObjectName("dashboardScroll");
+        QSignalSpy opened(&dashboard,SIGNAL(fileRequested(QString)));
+        auto *surface=LegacyWorkspaceBridge::install(&window); QVERIFY(surface);
+        QTRY_VERIFY_WITH_TIMEOUT(surface->model()->fileActionsAvailable.get(),10000);
+        const auto path=dashboard.root+"/Drafts/a.txt";
+        surface->model()->setSuggestedFiles({{path.toStdString(),"a.txt","","Text","1 B",false,1,1}});
+        surface->model()->gridSelected({path.toStdString()}); surface->model()->openSelected();
+        QTRY_COMPARE_WITH_TIMEOUT(opens.size(),1,5000);
+        QCOMPARE(opens[0].toObject().value("path").toString(),QStringLiteral("Files/Drafts"));
+        QTRY_COMPARE_WITH_TIMEOUT(activations.size(),1,5000);
+        const auto first=activations[0].toObject();
+        QCOMPARE(first.value("path").toString(),QStringLiteral("Files/Drafts/a.txt"));
+        QCOMPARE(opened.size(),0);
+        files.containerPath=fixture.filePath("other.societycontainer"); emit files.containerPathChanged();
+        files.containerPath=fixture.filePath("drive.societycontainer"); emit files.containerPathChanged();
+        send({{"type","directoryActivated"},{"id",first.value("id")},{"generation",first.value("generation")},{"path",path}});
+        QTest::qWait(50); QCOMPARE(opened.size(),0);
+        surface->model()->setSuggestedFiles({{path.toStdString(),"a.txt","","Text","1 B",false,1,1}});
+        surface->model()->gridSelected({path.toStdString()}); surface->model()->openSelected();
+        QTRY_COMPARE_WITH_TIMEOUT(activations.size(),2,5000);
+        const auto second=activations[1].toObject();
+        send({{"type","directoryActivated"},{"id",first.value("id")},{"generation",first.value("generation")},{"path",path}});
+        QTest::qWait(50); QCOMPARE(opened.size(),0);
+        send({{"type","directoryActivated"},{"id",second.value("id")},{"generation",second.value("generation")},{"path",path}});
+        QTRY_COMPARE_WITH_TIMEOUT(opened.size(),1,5000);
+        QCOMPARE(opened.first().first().toString(),path);
+        QVERIFY(surface->model()->status.get()!="Preparing file…");
+    }
+    void cutKeepsFailedAndPendingFilesUntilCompletion() {
+        QTemporaryDir fixture(QDir::cleanPath(QStringLiteral(SOCIETY_TEST_DIRECTORY)+"/../../.workspace-cut-XXXXXX")); QVERIFY(fixture.isValid());
+        const auto broker=fixture.filePath("broker"); QVERIFY(QDir().mkdir(broker));
+        QLocalServer server; QVERIFY(server.listen(broker+"/backend.sock"));
+        const auto previous=qgetenv("SOCIETY_LOCAL_BROKER_DIR"); const bool had=qEnvironmentVariableIsSet("SOCIETY_LOCAL_BROKER_DIR");
+        qputenv("SOCIETY_LOCAL_BROKER_DIR",broker.toUtf8());
+        const auto restore=qScopeGuard([&] { if (had) qputenv("SOCIETY_LOCAL_BROKER_DIR",previous); else qunsetenv("SOCIETY_LOCAL_BROKER_DIR"); });
+        const auto jobB=QUuid::createUuid().toString(QUuid::WithoutBraces),jobA=QUuid::createUuid().toString(QUuid::WithoutBraces);
+        QPointer<QLocalSocket> peer; QByteArray input; QJsonArray moves, polls;
+        const auto send=[&](const QJsonObject &object) {
+            const auto body=QJsonDocument(object).toJson(QJsonDocument::Compact);
+            QByteArray frame(4,'\0'); qToBigEndian(quint32(body.size()),frame.data());
+            if (peer) { peer->write(frame+body); peer->flush(); }
+        };
+        connect(&server,&QLocalServer::newConnection,this,[&] {
+            peer=server.nextPendingConnection();
+            connect(peer,&QLocalSocket::readyRead,this,[&] {
+                input+=peer->readAll();
+                while (input.size()>=4) {
+                    const auto size=qFromBigEndian<quint32>(input.constData());
+                    if (input.size()<qsizetype(size+4)) break;
+                    const auto request=QJsonDocument::fromJson(input.mid(4,size)).object(); input.remove(0,size+4);
+                    const auto operation=request.value("op").toString();
+                    QJsonObject response{{"type","result"},{"id",request.value("id")},{"accepted",true}};
+                    if (operation=="fileOperation") {
+                        moves.append(request);
+                        if (moves.size()==1) { response.insert("accepted",false); response.insert("error","Destination temporarily unavailable"); }
+                        else if (moves.size()==4) { peer->disconnectFromServer(); return; }
+                        else response.insert("jobId",moves.size()==2?jobB:jobA);
+                    } else if (operation=="fileJobStatus") {
+                        polls.append(request);
+                        if (polls.size()==1) { response.insert("accepted",false); response.insert("error","The file job was not found."); }
+                        else response.insert("job",QJsonObject{{"state","running"}});
+                    }
+                    send(response);
+                }
+            });
+        });
+        QQuickWindow window;
+        WorkspaceDashboard dashboard(window.contentItem()); dashboard.setObjectName("dashboardView"); dashboard.setSize({1200,760});
+        WorkspaceFileModel files; files.containerPath=fixture.filePath("drive.societycontainer"); dashboard.fileModel=&files;
+        dashboard.root=files.containerPath+"/Files";
+        QQuickItem sidebar(&dashboard); sidebar.setObjectName("dashboardSidebar"); sidebar.setWidth(170);
+        QQuickItem content(&dashboard); QQuickItem scroll(&content); scroll.setObjectName("dashboardScroll");
+        auto *surface=LegacyWorkspaceBridge::install(&window); QVERIFY(surface);
+        QTRY_VERIFY_WITH_TIMEOUT(surface->model()->fileActionsAvailable.get(),10000);
+        const auto a=dashboard.root+"/a.txt",b=dashboard.root+"/b.txt";
+        surface->model()->setSuggestedFiles({{a.toStdString(),"a.txt","","Text","1 B",false,1,1},
+                                             {b.toStdString(),"b.txt","","Text","1 B",false,1,1}});
+        surface->model()->gridSelected({a.toStdString(),b.toStdString()}); surface->model()->cutFiles();
+        surface->model()->showPaste(); surface->model()->pasteEdited("Files/Target"); surface->model()->pasteFiles();
+        QTRY_COMPARE_WITH_TIMEOUT(moves.size(),2,5000);
+        QTRY_VERIFY_WITH_TIMEOUT(surface->model()->hasOperationError.get() &&
+            surface->model()->operationStatus.get().find("queued")!=std::string::npos,5000);
+        QCOMPARE(polls.size(),0);
+        surface->model()->refreshFiles();
+        QTRY_COMPARE_WITH_TIMEOUT(polls.size(),1,5000);
+        QTRY_VERIFY_WITH_TIMEOUT(surface->model()->operationStatus.get().find("not available yet")!=std::string::npos,5000);
+        QVERIFY(surface->model()->operationError.get().find("Could not check job")==std::string::npos);
+        auto paths=[] { QStringList result; if (const auto *mime=QGuiApplication::clipboard()->mimeData())
+            for (const auto &url:mime->urls()) result.push_back(url.toLocalFile()); return result; };
+        QCOMPARE(paths(),QStringList({a,b}));
+        send({{"type","fileJobChanged"},{"jobId",jobB},{"container",files.containerPath},{"state","finished"},{"path","Files/Target/b.txt"},{"error",""}});
+        QTRY_COMPARE_WITH_TIMEOUT(paths(),QStringList({a}),5000);
+        surface->model()->showPaste(); surface->model()->pasteEdited("Files/Target"); surface->model()->pasteFiles();
+        QTRY_COMPARE_WITH_TIMEOUT(moves.size(),3,5000);
+        QCOMPARE(moves[2].toObject().value("path").toString(),QStringLiteral("Files/a.txt"));
+        QTRY_VERIFY_WITH_TIMEOUT(surface->model()->operationStatus.get().find("queued")!=std::string::npos,5000);
+        send({{"type","fileJobChanged"},{"jobId",jobA},{"container",files.containerPath},{"state","finished"},{"path","Files/Target/a.txt"},{"error",""}});
+        QTRY_VERIFY_WITH_TIMEOUT(paths().isEmpty(),5000);
+        surface->model()->gridSelected({a.toStdString()}); surface->model()->cutFiles();
+        surface->model()->showPaste(); surface->model()->pasteEdited("Files/Target"); surface->model()->pasteFiles();
+        QTRY_COMPARE_WITH_TIMEOUT(moves.size(),4,5000);
+        QTRY_VERIFY_WITH_TIMEOUT(surface->model()->fileActionsAvailable.get() &&
+            surface->model()->operationError.get().find("Connection interrupted")!=std::string::npos,10000);
+        QCOMPARE(paths(),QStringList({a}));
+        surface->model()->showPaste(); surface->model()->pasteEdited("Files/Target"); surface->model()->pasteFiles();
+        QTest::qWait(100); QCOMPARE(moves.size(),4);
+        QVERIFY(surface->model()->operationError.get().find("uncertain outcome")!=std::string::npos);
+        surface->model()->setSuggestedFiles({{a.toStdString(),"a.txt","","Text","1 B",false,1,1}});
+        surface->model()->gridSelected({a.toStdString()}); surface->model()->cutFiles();
+        surface->model()->showPaste(); surface->model()->pasteEdited("Files/Target"); surface->model()->pasteFiles();
+        QTRY_COMPARE_WITH_TIMEOUT(moves.size(),5,5000);
+        QTRY_VERIFY_WITH_TIMEOUT(surface->model()->operationStatus.get().find("queued")!=std::string::npos,5000);
+        send({{"type","fileJobChanged"},{"jobId",jobA},{"container",files.containerPath},{"state","finished"},{"path","Files/Target/a.txt"},{"error",""}});
+        QTRY_VERIFY_WITH_TIMEOUT(paths().isEmpty(),5000);
     }
 };
 

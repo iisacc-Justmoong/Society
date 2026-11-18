@@ -11,7 +11,13 @@
 #include <QtEndian>
 #include <utility>
 
-namespace { constexpr qsizetype maxFrame = 1024 * 1024; }
+namespace {
+constexpr qsizetype maxFrame = 1024 * 1024;
+bool driveBound(const QString &operation) {
+    return operation.startsWith("agent") || operation.startsWith("suggested") || operation.startsWith("recent")
+        || operation.startsWith("file") || operation.startsWith("directory") || operation.startsWith("workspaceAdd") || operation=="resourceInspect";
+}
+}
 
 ModelBackendClient::ModelBackendClient(QObject *parent, int requestTimeoutMs, std::function<void()> startService)
     : QObject(parent), m_requestTimeoutMs(qMax(1, requestTimeoutMs)), m_startService(std::move(startService))
@@ -129,7 +135,7 @@ bool ModelBackendClient::request(const QString &operation, QJsonObject arguments
     }
     m_pending.insert(id);
     m_pendingOperations.insert(id,operation);
-    if (operation.startsWith("agent") || operation.startsWith("suggested") || operation.startsWith("recent") || operation.startsWith("file")) {
+    if (driveBound(operation)) {
         m_pendingAgentContainers.insert(id,m_container); m_pendingAgentGenerations.insert(id,m_selectionGeneration);
     }
     if (mutation) { m_mutations.insert(id); emit pendingChanged(); }
@@ -141,7 +147,13 @@ bool ModelBackendClient::request(const QString &operation, QJsonObject arguments
         const auto generation=m_pendingAgentGenerations.take(id);
         const bool current=generation==m_selectionGeneration && societySameBackendPath(container,m_container);
         if (operation.startsWith("file") && current)
-            emit fileResultReceived(operation,id,{{"accepted",false},{"error",tr("The background service did not respond. Check the job before retrying.")}});
+            emit fileResultReceived(operation,id,{{"accepted",false},{"uncertain",true},{"error",tr("The background service did not respond. Check the job before retrying.")}});
+        if (operation=="resourceInspect" && current)
+            emit resourceResultReceived(id,{{"accepted",false},{"error",tr("The resource inspection timed out.")}});
+        if (operation.startsWith("workspaceAdd") && current)
+            emit workspaceResultReceived(operation,id,{{"accepted",false},{"uncertain",true},{"error",tr("The Add operation timed out. Check its result before retrying.")}});
+        if (operation.startsWith("directory") && current)
+            emit directoryResultReceived(operation,id,{{"accepted",false},{"error",tr("The file preparation request timed out.")}});
         if (!m_mutations.remove(id)) {
             if (operation.startsWith("suggested") && generation==m_selectionGeneration && societySameBackendPath(container,m_container))
                 emit suggestedResultReceived(operation,false,tr("The background service did not respond."));
@@ -150,7 +162,7 @@ bool ModelBackendClient::request(const QString &operation, QJsonObject arguments
             return;
         }
         emit pendingChanged();
-        if ((operation.startsWith("agent") || operation.startsWith("suggested") || operation.startsWith("recent") || operation.startsWith("file")) && !current) return;
+        if (driveBound(operation) && !current) return;
         emit requestError(tr("The background service did not respond. Check the operation status before retrying."));
         m_socket.abort();
     });
@@ -184,8 +196,11 @@ void ModelBackendClient::handle(const QJsonObject &message)
         const auto agentGeneration=m_pendingAgentGenerations.take(id);
         const bool mutation = m_mutations.remove(id);
         if (mutation) emit pendingChanged();
-        if ((operation.startsWith("agent") || operation.startsWith("suggested") || operation.startsWith("recent") || operation.startsWith("file")) && (agentGeneration!=m_selectionGeneration || !societySameBackendPath(agentContainer,m_container))) return;
+        if (driveBound(operation) && (agentGeneration!=m_selectionGeneration || !societySameBackendPath(agentContainer,m_container))) return;
         if (operation=="fileOperation" || operation=="fileJobStatus") emit fileResultReceived(operation,id,message);
+        if (operation=="resourceInspect") emit resourceResultReceived(id,message);
+        if (operation.startsWith("workspaceAdd")) emit workspaceResultReceived(operation,id,message);
+        if (operation.startsWith("directory")) emit directoryResultReceived(operation,id,message);
         if (operation.startsWith("agent")) {
             if (message.value("agent").isObject()) emit agentStateReceived(message.value("agent").toObject());
             emit agentResultReceived(operation,message.value("accepted").toBool(),message.value("error").toString());
@@ -229,6 +244,12 @@ void ModelBackendClient::handle(const QJsonObject &message)
         emit recentStateReceived(message.value("recent").toObject());
     } else if (type == "fileJobChanged" && societySameBackendPath(message.value("container").toString(),m_container)) {
         emit fileJobChanged(message);
+    } else if (type == "directoryChanged" && message.value("directory").isObject()
+               && (!message.contains("container") || societySameBackendPath(message.value("container").toString(),m_container))) {
+        emit directoryStateReceived(message.value("directory").toObject());
+    } else if (type == "directoryActivated"
+               && (!message.contains("container") || societySameBackendPath(message.value("container").toString(),m_container))) {
+        emit directoryActivated(message);
     } else if ((type == "finished" || type == "organized" || type == "recategorized")
                && message.value("container").toString() == m_container) {
         emit eventReceived(message);

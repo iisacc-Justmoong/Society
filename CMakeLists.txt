@@ -89,7 +89,10 @@ unset(_society_iigui_include)
 find_package(LVUI 0.1 CONFIG REQUIRED COMPONENTS Native HINTS "${SOCIETY_NAV_LVUI_DIR}")
 set(CMAKE_PREFIX_PATH "${_society_prefix_before_native}")
 unset(_society_prefix_before_native)
-find_package(iiSharedCanvas 0.32.0 EXACT CONFIG REQUIRED COMPONENTS Core)
+find_package(iiSharedCanvas 0.35.39 EXACT CONFIG REQUIRED COMPONENTS Core HINTS
+    "$ENV{HOME}/.local/SDK/iiSharedCanvas")
+# Helper's package lookup can change iiSharedCanvas_VERSION after Core is imported.
+set(society_canvas_version "${iiSharedCanvas_VERSION}")
 if(APPLE AND NOT IOS)
     # An SDK directory in LIBRARY_PATH is an implicit linker directory, so
     # CMake can omit its automatic dyld rpath. Core consumers must not need
@@ -125,6 +128,9 @@ foreach(society_sdk IN LISTS society_sdk_packages)
         find_package(iiCalendar 0.1 CONFIG REQUIRED HINTS "$ENV{HOME}/.local/SDK/iiCalendar")
     elseif(society_sdk STREQUAL "iiPhotoLibrary")
         find_package(iiPhotoLibrary 0.1 CONFIG REQUIRED HINTS "$ENV{HOME}/.local/SDK/iiPhotoLibrary")
+        if(NOT iiPhotoLibrary_PROVIDER_DEVICE_SHA256)
+            message(FATAL_ERROR "The selected iiPhotoLibrary does not record its iiFileProvider device ABI. Rebuild iiPhotoLibrary with the selected iiFileProvider package before building Society.")
+        endif()
     elseif(society_sdk STREQUAL "iiSocietyContainer")
         find_package(iiSocietyContainer 0.16.1 CONFIG REQUIRED COMPONENTS Gui Maintenance HINTS "$ENV{HOME}/.local/SDK/iiSocietyContainer")
     elseif(society_sdk STREQUAL "iiWebServer")
@@ -135,7 +141,9 @@ foreach(society_sdk IN LISTS society_sdk_packages)
         find_package(iiSocietyHelper 0.11.0 CONFIG REQUIRED HINTS
             "${CMAKE_CURRENT_SOURCE_DIR}/resources/dependencies/iiSocietyHelper"
             "$ENV{HOME}/.local/SDK/iiSocietyHelper")
-
+        if(NOT iiSocietyHelper_CANVAS_VERSION STREQUAL society_canvas_version)
+            message(FATAL_ERROR "Society requires iiSocietyHelper Core built with iiSharedCanvas ${society_canvas_version}. Set iiSocietyHelper_DIR to the matching package.")
+        endif()
     else()
         find_package(${society_sdk} CONFIG REQUIRED HINTS "$ENV{HOME}/.local/SDK/${society_sdk}")
     endif()
@@ -146,7 +154,10 @@ foreach(society_sdk IN LISTS society_sdk_packages)
 endforeach()
 list(APPEND society_sdk_targets iiFileProvider::Temporary)
 set(society_agent_runtime_targets)
-if(UNIX AND NOT IOS AND NOT ANDROID AND NOT EMSCRIPTEN)
+if((UNIX OR WIN32) AND NOT IOS AND NOT ANDROID AND NOT EMSCRIPTEN)
+    if(NOT TARGET iiLocalDiffusion::ModelPackaging)
+        find_package(iiLocalDiffusion CONFIG REQUIRED HINTS "$ENV{HOME}/.local/SDK/iiLocalDiffusion")
+    endif()
     find_package(iiMultimodalAgent 0.1 CONFIG REQUIRED HINTS "$ENV{HOME}/.local/SDK/iiMultimodalAgent")
     list(APPEND society_agent_runtime_targets iiMultimodalAgent::iiMultimodalAgent
         iiMultimodalAgent::NativeImages iiLocalLLM::iiLocalLLM iiFileProvider::Native)
@@ -182,6 +193,9 @@ if(NOT iiSocietyContainer_HAS_MANAGED_FILES OR NOT iiSocietyHelper_HAS_MANAGED_F
 endif()
 if(NOT iiSocietyContainer_HAS_RELOCATION_PARTICIPANT)
     message(FATAL_ERROR "Society requires an iiSocietyContainer build with the relocation participant API")
+endif()
+if(NOT iiSocietyContainer_HAS_WAITING_FILE_JOBS)
+    message(FATAL_ERROR "Society requires an iiSocietyContainer build whose file jobs wait for the commit lock. Rebuild the SDK.")
 endif()
 if(NOT iiSocietyContainer_HAS_APPLICATION_STORAGE OR NOT iiSocietyHelper_HAS_APPLICATION_STORAGE)
     message(FATAL_ERROR "Society requires shared logical storage and safe first-host adoption in both storage SDKs")
@@ -283,8 +297,13 @@ target_link_libraries(SocietyResourceAdapter PUBLIC iiResource::iiResource Qt6::
 if(TARGET SocietyDaemon)
     target_link_libraries(SocietyDaemon PRIVATE SocietyResourceAdapter)
 endif()
-if(UNIX AND TARGET SocietyDaemon AND TARGET iiLocalDiffusion::ModelPackaging AND TARGET iiMultimodalAgent::iiMultimodalAgent)
+if((UNIX OR WIN32) AND NOT IOS AND NOT ANDROID AND NOT EMSCRIPTEN AND TARGET SocietyDaemon AND TARGET iiLocalDiffusion::ModelPackaging AND TARGET iiMultimodalAgent::iiMultimodalAgent)
+    if(NOT iiSocietyContainer_HAS_MODEL_CACHE)
+        message(FATAL_ERROR "Society's workspace agent requires an iiSocietyContainer SDK with model cache support. Rebuild or stage the updated SDK.")
+    endif()
     add_library(SocietyWorkspaceAgentBackend STATIC App/Daemon/WorkspaceAgentBackend.cpp App/Daemon/WorkspaceAgentBackend.h
+        App/Daemon/WorkspaceAgentRuntimePolicy.h
+        App/Daemon/ResidentGateway.cpp App/Daemon/ResidentGateway.h
         App/Daemon/WorkspaceAgentRouter.cpp App/Daemon/WorkspaceAgentRouter.h
         App/Daemon/WorkspaceAgentTools.cpp App/Daemon/WorkspaceAgentTools.h
         App/Daemon/UiToolBridge.cpp App/Daemon/UiToolBridge.h
@@ -297,7 +316,7 @@ if(UNIX AND TARGET SocietyDaemon AND TARGET iiLocalDiffusion::ModelPackaging AND
     set_target_properties(SocietyWorkspaceAgentBackend PROPERTIES AUTOMOC ON)
     target_include_directories(SocietyWorkspaceAgentBackend PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/App")
     target_link_libraries(SocietyWorkspaceAgentBackend PUBLIC Qt6::Core Qt6::Concurrent Qt6::Network iiFileProvider::Catalog iiMultimodalAgent::iiMultimodalAgent
-        iiSocietyContainer::iiSocietyContainer iiLocalDiffusion::ModelPackaging SocietyResourceAdapter)
+        iiSocietyContainer::iiSocietyContainer iiLocalDiffusion::ModelPackaging iiLocalLLM::iiLocalLLM SocietyResourceAdapter iiFileProvider::Objects)
     target_compile_definitions(SocietyWorkspaceAgentBackend INTERFACE SOCIETY_AGENT_BACKEND=1)
     target_link_libraries(SocietyDaemon PRIVATE SocietyWorkspaceAgentBackend)
 endif()
@@ -327,6 +346,11 @@ target_include_directories(SocietyProjectRepository BEFORE PRIVATE ${society_cat
 target_link_libraries(SocietyProjectRepository PUBLIC iiResource::iiResource PRIVATE Qt6::Core iiSocietyContainer::iiSocietyContainer
     iiFileProvider::Catalog iiFileProvider::Objects iiProjectManagerFileProvider::Provider)
 if(TARGET SocietyDaemon)
+    add_library(SocietyWorkspaceAddBackend STATIC App/Daemon/WorkspaceAddService.cpp App/Daemon/WorkspaceAddService.h)
+    target_include_directories(SocietyWorkspaceAddBackend PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/App")
+    target_link_libraries(SocietyWorkspaceAddBackend PUBLIC SocietyProjectRepository Qt6::Core
+        iiSocietyContainer::iiSocietyContainer iiSharedCanvas::Core)
+    target_link_libraries(SocietyDaemon PRIVATE SocietyWorkspaceAddBackend)
     add_library(SocietyRecentBackend STATIC App/Daemon/RecentCatalog.cpp App/Daemon/RecentCatalog.h
         App/Daemon/RecentBackend.cpp App/Daemon/RecentBackend.h)
     set_target_properties(SocietyRecentBackend PROPERTIES AUTOMOC ON)
@@ -346,6 +370,8 @@ set_target_properties(SocietyModelBackendClient PROPERTIES AUTOMOC ON)
 target_include_directories(SocietyModelBackendClient PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/App")
 target_link_libraries(SocietyModelBackendClient PUBLIC Qt6::Core Qt6::Network)
 set(society_native_files_launcher_sources App/Society/Native/NativeFilesLauncher.cpp App/Society/Native/NativeFilesLauncher.h)
+set(society_notification_sources App/Society/Notifications/NotificationStore.h
+    App/Society/Notifications/NotificationCenter.cpp App/Society/Notifications/NotificationCenter.h)
 set(society_backend_command_sources App/Shared/BackendCommand.cpp App/Shared/BackendCommand.h)
 lvui_generate(NAME NativeNavigation SOURCE App/Society/Native/NativeNavigation.lvui
     INCLUDES NativeNavigationViewModel.h OUTPUT_VARIABLE society_native_navigation_view)
@@ -358,6 +384,8 @@ add_library(SocietyNativeNavigationSurface STATIC
     App/Society/Native/QtPaintDevice.cpp App/Society/Native/QtPaintDevice.h
     App/Society/Native/NativeWorkspaceViewModel.cpp App/Society/Native/NativeWorkspaceViewModel.h
     App/Society/Native/NativeWorkspaceSurface.cpp App/Society/Native/NativeWorkspaceSurface.h
+    App/Society/Native/PhotoPreviewLoader.cpp App/Society/Native/PhotoPreviewLoader.h
+    App/Society/Native/PhotoPreviewResolver.cpp App/Society/Native/PhotoPreviewResolver.h
     App/Society/Native/LegacyWorkspaceBridge.cpp App/Society/Native/LegacyWorkspaceBridge.h
     App/Society/Native/NavigationIcons.qrc App/Society/Native/WorkspaceIcons.qrc
     "${society_native_navigation_view}" "${society_native_workspace_view}")
@@ -365,8 +393,9 @@ set_target_properties(SocietyNativeNavigationSurface PROPERTIES AUTOMOC ON AUTOR
 target_compile_features(SocietyNativeNavigationSurface PUBLIC cxx_std_23)
 target_include_directories(SocietyNativeNavigationSurface PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/App"
     PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/App/Society/Native" "${CMAKE_CURRENT_BINARY_DIR}")
-target_link_libraries(SocietyNativeNavigationSurface PUBLIC Qt6::Quick SocietyModelBackendClient PRIVATE LVUI::Native iiGUI::iiGUI iiSocietyContainer::Gui)
+target_link_libraries(SocietyNativeNavigationSurface PUBLIC Qt6::Quick SocietyModelBackendClient PRIVATE LVUI::Native iiGUI::iiGUI iiSocietyContainer::Gui Qt6::Concurrent)
 qt_add_executable(Society
+    ${society_notification_sources}
     ${society_environment_sources}
     ${society_calendar_sources}
     ${society_project_sources}
@@ -409,7 +438,7 @@ endforeach()
 # Qt 6.8's generated registrar includes QML_ELEMENT headers by basename.
 target_include_directories(Society PRIVATE
     App/Society/Account App/Society/Dashboard App/Society/Drive App/Society/Network
-    App/Society/Environment App/Society/Files App/Society/Models App/Society/Tools)
+    App/Society/Environment App/Society/Files App/Society/Models App/Society/Notifications App/Society/Tools)
 target_include_directories(Society BEFORE PRIVATE ${society_provider_include})
 if(TARGET iiLocalDiffusion::ModelPackaging)
     # Prefer the header paired with the linked packaging library over an older
@@ -428,7 +457,7 @@ qt_add_qml_module(Society
     URI Society VERSION 1.0 RESOURCE_PREFIX "/qt/qml"
     IMPORT_PATH "${iiAccountManager_QML_IMPORT_PATH}" "${iiPhotoLibrary_QML_IMPORT_PATH}"
     DEPENDENCIES QtQuick iiAccountManager iiPhotoLibrary
-    QML_FILES App/Society/PanelOutline.qml App/Society/NotificationCenter.qml App/Society/NotificationPopover.qml App/Society/Gallery/GalleryTile.qml App/Society/Gallery/GalleryZoom.qml App/Society/Gallery/GalleryInfo.qml App/Society/Main.qml App/Society/MobileGestures.qml App/Society/FileGridView.qml App/Society/Network/NetworkDevices.qml App/Society/Network/PairingPanel.qml
+    QML_FILES App/Society/PanelOutline.qml App/Society/NotificationPopover.qml App/Society/Gallery/GalleryTile.qml App/Society/Gallery/GalleryZoom.qml App/Society/Gallery/GalleryInfo.qml App/Society/Main.qml App/Society/MobileGestures.qml App/Society/FileGridView.qml App/Society/Network/NetworkDevices.qml App/Society/Network/PairingPanel.qml
         App/Society/SocietyView.qml App/Society/OnboardingView.qml App/Society/StorageView.qml App/Society/Dashboard/Dashboard.qml App/Society/Dashboard/DashboardSidebar.qml App/Society/Dashboard/DashboardFileSection.qml App/Society/Dashboard/QuickGenerate.qml App/Society/Dashboard/DashboardCalendarView.qml
         App/Society/Dashboard/CalendarEntry.qml App/Society/Dashboard/CalendarDetailSection.qml
         App/Society/Dashboard/CalendarWorkspaceView.qml App/Society/Dashboard/CalendarPeriodView.qml
@@ -807,6 +836,14 @@ endif()
 
 include(CTest)
 if(BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)
+    add_executable(SocietyNotificationStoreTests tests/notification_store.cpp)
+    target_include_directories(SocietyNotificationStoreTests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/App")
+    target_compile_features(SocietyNotificationStoreTests PRIVATE cxx_std_23)
+    add_test(NAME Society.NotificationStore COMMAND SocietyNotificationStoreTests)
+    qt_add_executable(SocietyNotificationCenterTests tests/tst_notification_center.cpp ${society_notification_sources})
+    target_include_directories(SocietyNotificationCenterTests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/App")
+    target_link_libraries(SocietyNotificationCenterTests PRIVATE Qt6::Qml)
+    add_test(NAME Society.NotificationCenter COMMAND SocietyNotificationCenterTests)
     add_test(NAME Society.NativeAccountPlatform
         COMMAND "${CMAKE_COMMAND}"
             "-DSOCIETY_ACCOUNT_PLATFORM_FILE=${CMAKE_CURRENT_SOURCE_DIR}/cmake/NativeAccountPlatform.cmake"
@@ -815,6 +852,13 @@ if(BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)
         COMMAND "${CMAKE_COMMAND}"
             "-DSOCIETY_PHOTO_PLATFORM_FILE=${CMAKE_CURRENT_SOURCE_DIR}/cmake/NativePhotoPlatform.cmake"
             -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/native_photo_platform.cmake")
+    add_executable(SocietyNativeNavigationFocusTests tests/native_navigation_focus.cpp
+        App/Society/Native/NativeNavigationViewModel.cpp "${society_native_navigation_view}")
+    set_target_properties(SocietyNativeNavigationFocusTests PROPERTIES AUTOMOC OFF AUTOUIC OFF)
+    target_include_directories(SocietyNativeNavigationFocusTests PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/App/Society/Native" "${CMAKE_CURRENT_BINARY_DIR}")
+    target_link_libraries(SocietyNativeNavigationFocusTests PRIVATE LVUI::Native iiGUI::iiGUI)
+    add_test(NAME Society.NativeNavigationFocus COMMAND SocietyNativeNavigationFocusTests)
     add_executable(SocietyNativeWorkspaceViewModelTests tests/native_workspace_viewmodel.cpp)
     target_link_libraries(SocietyNativeWorkspaceViewModelTests PRIVATE SocietyNativeNavigationSurface LVUI::Native iiGUI::iiGUI)
     target_compile_features(SocietyNativeWorkspaceViewModelTests PRIVATE cxx_std_23)
@@ -849,12 +893,20 @@ if(BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)
         ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 10)
     find_package(Qt6 6.8.3 EXACT REQUIRED COMPONENTS Test)
     if(TARGET SocietyWorkspaceAgentBackend)
+        add_executable(SocietyResidentGatewayTests tests/tst_resident_gateway.cpp)
+        set_target_properties(SocietyResidentGatewayTests PROPERTIES AUTOMOC ON)
+        target_link_libraries(SocietyResidentGatewayTests PRIVATE SocietyWorkspaceAgentBackend)
+        add_test(NAME Society.ResidentGateway COMMAND SocietyResidentGatewayTests)
         add_executable(SocietyWorkspaceAgentTests tests/tst_workspace_agent.cpp)
         set_target_properties(SocietyWorkspaceAgentTests PROPERTIES AUTOMOC ON)
         target_link_libraries(SocietyWorkspaceAgentTests PRIVATE iiFileProvider::Catalog SocietyWorkspaceAgentBackend Qt6::Test)
         target_compile_definitions(SocietyWorkspaceAgentTests PRIVATE SOCIETY_TEST_DIRECTORY="${_society_test_directory}")
         add_test(NAME Society.WorkspaceAgent COMMAND SocietyWorkspaceAgentTests)
         set_tests_properties(Society.WorkspaceAgent PROPERTIES FIXTURES_REQUIRED societyTestOutput TIMEOUT 120)
+        add_test(NAME Society.ResidentModelRefresh COMMAND SocietyWorkspaceAgentTests relevantModelImportRefreshesUnavailableResident)
+        set_tests_properties(Society.ResidentModelRefresh PROPERTIES FIXTURES_REQUIRED societyTestOutput TIMEOUT 120)
+        add_test(NAME Society.WorkspaceAgentAttachment COMMAND SocietyWorkspaceAgentTests attachmentsReachTheModelAndStayInsideTheSelectedDrive)
+        set_tests_properties(Society.WorkspaceAgentAttachment PROPERTIES FIXTURES_REQUIRED societyTestOutput TIMEOUT 120)
         add_executable(SocietySuggestedPolicyTests tests/tst_suggested_policy.cpp)
         target_include_directories(SocietySuggestedPolicyTests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/App")
         target_link_libraries(SocietySuggestedPolicyTests PRIVATE iiFileProvider::Catalog SocietyWorkspaceAgentBackend)
@@ -868,7 +920,7 @@ if(BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)
         set_tests_properties(Society.SuggestedCatalog PROPERTIES FIXTURES_REQUIRED societyTestOutput TIMEOUT 300)
         add_executable(SocietySuggestedModelTests tests/tst_suggested_model.cpp)
         set_target_properties(SocietySuggestedModelTests PROPERTIES AUTOMOC ON)
-        target_link_libraries(SocietySuggestedModelTests PRIVATE iiFileProvider::Catalog SocietyWorkspaceAgentBackend Qt6::Test)
+        target_link_libraries(SocietySuggestedModelTests PRIVATE iiFileProvider::Catalog SocietyWorkspaceAgentBackend)
         add_test(NAME Society.SuggestedModel COMMAND SocietySuggestedModelTests)
         add_executable(SocietySuggestedBackendTests tests/tst_suggested_backend.cpp)
         set_target_properties(SocietySuggestedBackendTests PROPERTIES AUTOMOC ON)
@@ -887,7 +939,7 @@ if(BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)
         set_tests_properties(Society.RecentCatalog PROPERTIES FIXTURES_REQUIRED societyTestOutput TIMEOUT 300)
         add_executable(SocietyRecentBackendTests tests/tst_recent_backend.cpp)
         set_target_properties(SocietyRecentBackendTests PROPERTIES AUTOMOC ON)
-        target_link_libraries(SocietyRecentBackendTests PRIVATE SocietyRecentBackend Qt6::Test)
+        target_link_libraries(SocietyRecentBackendTests PRIVATE SocietyRecentBackend)
         add_test(NAME Society.RecentBackend COMMAND SocietyRecentBackendTests)
         set_tests_properties(Society.RecentBackend PROPERTIES TIMEOUT 120)
     endif()
@@ -902,8 +954,15 @@ if(BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)
     add_executable(SocietyNativeWorkspaceSurfaceTests tests/tst_native_workspace.cpp)
     set_target_properties(SocietyNativeWorkspaceSurfaceTests PROPERTIES AUTOMOC ON)
     target_link_libraries(SocietyNativeWorkspaceSurfaceTests PRIVATE SocietyNativeNavigationSurface Qt6::Test LVUI::Native iiGUI::iiGUI)
+    target_compile_definitions(SocietyNativeWorkspaceSurfaceTests PRIVATE SOCIETY_TEST_DIRECTORY="${_society_test_directory}")
     add_test(NAME Society.NativeWorkspaceSurface COMMAND SocietyNativeWorkspaceSurfaceTests)
     set_tests_properties(Society.NativeWorkspaceSurface PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software")
+    add_executable(SocietyPaintDevicePixelsTests
+        tests/qt_paint_device_pixels.cpp App/Society/Native/QtPaintDevice.cpp)
+    target_include_directories(SocietyPaintDevicePixelsTests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/App")
+    target_link_libraries(SocietyPaintDevicePixelsTests PRIVATE Qt6::Gui iiGUI::iiGUI)
+    add_test(NAME Society.PaintDevicePixels COMMAND SocietyPaintDevicePixelsTests)
+    set_tests_properties(Society.PaintDevicePixels PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
     qt_add_executable(SocietyPhotoTests tests/tst_photos.cpp)
     society_add_photo_qml(SocietyPhotoTests)
     target_link_libraries(SocietyPhotoTests PRIVATE iiPhotoLibrary::iiPhotoLibrary iiSocietyHelper::iiSocietyHelper Qt6::Test Qt6::Quick Qt6::QuickControls2)
@@ -915,16 +974,37 @@ if(BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)
     set_tests_properties(Society.Photos PROPERTIES TIMEOUT 300
         ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software;QML_DISABLE_DISK_CACHE=1")
     qt_add_executable(SocietyGroupStateTests tests/tst_groupstate.cpp)
-    target_link_libraries(SocietyGroupStateTests PRIVATE SocietyGroupState Qt6::Test)
+    target_link_libraries(SocietyGroupStateTests PRIVATE SocietyGroupState)
     target_compile_definitions(SocietyGroupStateTests PRIVATE SOCIETY_TEST_DIRECTORY="${_society_test_directory}")
     add_test(NAME Society.GroupState COMMAND SocietyGroupStateTests)
     set_tests_properties(Society.GroupState PROPERTIES TIMEOUT 30)
+    add_test(NAME Society.GroupStateOffline COMMAND SocietyGroupStateTests cryptoUsesFreshNoncesAndAuthenticatesContext)
+    set_tests_properties(Society.GroupStateOffline PROPERTIES TIMEOUT 30)
+    add_test(NAME Society.GroupStateRevocationOffline COMMAND SocietyGroupStateTests logoutInvalidatesPendingWriteFromAnotherStore)
+    set_tests_properties(Society.GroupStateRevocationOffline PROPERTIES TIMEOUT 30)
+    add_executable(SocietyCTestSupportTests tests/ctest_support.cpp)
+    target_compile_features(SocietyCTestSupportTests PRIVATE cxx_std_23)
+    add_test(NAME Society.CTestSupport COMMAND SocietyCTestSupportTests)
+    add_executable(SocietyCTestEventWaitTests tests/ctest_event_wait.cpp)
+    target_link_libraries(SocietyCTestEventWaitTests PRIVATE Qt6::Core)
+    target_compile_features(SocietyCTestEventWaitTests PRIVATE cxx_std_23)
+    add_test(NAME Society.CTestEventWait COMMAND SocietyCTestEventWaitTests)
     qt_add_executable(SocietyDiscoveryTests tests/tst_discovery.cpp)
     target_link_libraries(SocietyDiscoveryTests PRIVATE SocietyDiscovery Qt6::Test)
     add_test(NAME Society.Discovery COMMAND SocietyDiscoveryTests)
     set_tests_properties(Society.Discovery PROPERTIES TIMEOUT 45)
     find_package(Qt6 6.8.3 EXACT REQUIRED COMPONENTS Test)
     find_package(Python3 REQUIRED COMPONENTS Interpreter)
+    add_test(NAME Society.GroupStateCTestContract COMMAND "${Python3_EXECUTABLE}" -B
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_ctest_group_state.py")
+    add_test(NAME Society.NativeEntryCTestContract COMMAND "${Python3_EXECUTABLE}" -B
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_ctest_native_entry.py")
+    add_test(NAME Society.DependenciesCTestContract COMMAND "${Python3_EXECUTABLE}" -B
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_ctest_dependencies.py")
+    add_test(NAME Society.JobAndSuggestionsCTestContract COMMAND "${Python3_EXECUTABLE}" -B
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_ctest_job_and_suggestions.py")
+    add_test(NAME Society.RecentGatewayNotificationCTestContract COMMAND "${Python3_EXECUTABLE}" -B
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_ctest_recent_gateway_notification.py")
     if(APPLE AND TARGET SocietySuggestedCatalogTests AND TARGET SocietyDaemon)
         add_test(NAME Society.SuggestedCatalogAbi COMMAND "${Python3_EXECUTABLE}"
             "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_suggested_symbol_binding.py"
@@ -1038,7 +1118,7 @@ if(BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)
         ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software;QML_DISABLE_DISK_CACHE=1")
     qt_add_executable(SocietyContainerFileOpenTests tests/tst_containerfileopen.cpp)
     target_include_directories(SocietyContainerFileOpenTests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/App")
-    target_link_libraries(SocietyContainerFileOpenTests PRIVATE Qt6::Test Qt6::Gui)
+    target_link_libraries(SocietyContainerFileOpenTests PRIVATE Qt6::Gui)
     add_test(NAME Society.ContainerFileOpen COMMAND SocietyContainerFileOpenTests)
 
     qt_add_executable(SocietyRuntimeTests tests/tst_runtime.cpp)
@@ -1097,6 +1177,22 @@ if(BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)
         offlineQueueAndLateSocietyReceiver)
     set_tests_properties(Society.DaemonHeadless PROPERTIES TIMEOUT 45)
     if(UNIX)
+        if(TARGET SocietyWorkspaceAgentBackend)
+            add_executable(SocietyWorkspaceFileIntegrationTests tests/tst_workspace_file_integration.cpp
+                App/Daemon/ModelBackendServer.cpp App/Daemon/ModelBackendServer.h
+                App/Daemon/NativeDirectorySession.cpp App/Daemon/NativeDirectorySession.h
+                App/Society/Files/ModelImporter.cpp App/Society/Files/ModelImporter.h
+                ${society_backend_command_sources})
+            set_target_properties(SocietyWorkspaceFileIntegrationTests PROPERTIES AUTOMOC ON)
+            target_include_directories(SocietyWorkspaceFileIntegrationTests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/App")
+            target_link_libraries(SocietyWorkspaceFileIntegrationTests PRIVATE iiFileProvider::Catalog Qt6::Test Qt6::Quick Qt6::Network
+                SocietyNativeNavigationSurface SocietyServices SocietyRecentBackend SocietyResourceAdapter
+                SocietyWorkspaceAgentBackend iiSocietyContainer::iiSocietyContainer LVUI::Native iiGUI::iiGUI)
+            target_compile_definitions(SocietyWorkspaceFileIntegrationTests PRIVATE SOCIETY_TEST_DIRECTORY="${_society_test_directory}")
+            add_test(NAME Society.WorkspaceFileIntegration COMMAND SocietyWorkspaceFileIntegrationTests)
+            set_tests_properties(Society.WorkspaceFileIntegration PROPERTIES TIMEOUT 600
+                ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software;SOCIETY_DISABLE_BACKEND_AUTOSTART=1")
+        endif()
         qt_add_executable(SocietyBackendDaemonTests tests/tst_backend_daemon.cpp
             App/Daemon/ModelBackendServer.cpp App/Daemon/ModelBackendServer.h
             App/Daemon/NativeDirectorySession.cpp App/Daemon/NativeDirectorySession.h
@@ -1116,6 +1212,9 @@ if(BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)
             add_dependencies(SocietyBackendDaemonTests SocietyCli)
         endif()
         add_test(NAME Society.BackendDaemon COMMAND SocietyBackendDaemonTests)
+        if(TARGET SocietyWorkspaceAgentBackend)
+            add_test(NAME Society.ResidentProtocol COMMAND SocietyBackendDaemonTests residentRequestsStayOnTheirOwnConnection)
+        endif()
         set_tests_properties(Society.BackendDaemon PROPERTIES TIMEOUT 120)
         add_test(NAME Society.NativeDirectoryBackend COMMAND SocietyBackendDaemonTests
             nativeDirectorySessionsExposeBoundedIndependentSnapshots)
@@ -1143,7 +1242,7 @@ if(BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)
         qt_add_executable(SocietyNativeFilesLauncherTests tests/tst_native_files_launcher.cpp
             App/Society/Native/NativeFilesLauncher.cpp App/Society/Native/NativeFilesLauncher.h)
         target_include_directories(SocietyNativeFilesLauncherTests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/App")
-        target_link_libraries(SocietyNativeFilesLauncherTests PRIVATE Qt6::Test)
+        target_link_libraries(SocietyNativeFilesLauncherTests PRIVATE Qt6::Core)
         target_compile_definitions(SocietyNativeFilesLauncherTests PRIVATE SOCIETY_TEST_DIRECTORY="${_society_test_directory}")
         add_test(NAME Society.NativeFilesLauncher COMMAND SocietyNativeFilesLauncherTests)
     endif()
@@ -1273,6 +1372,13 @@ if(BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)
     add_test(NAME Society.Projects COMMAND SocietyProjectTests)
     set_tests_properties(Society.Projects PROPERTIES TIMEOUT 600
         ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software;QML_DISABLE_DISK_CACHE=1")
+    if(TARGET SocietyWorkspaceAddBackend)
+        qt_add_executable(SocietyWorkspaceAddTests tests/tst_workspace_add.cpp)
+        target_link_libraries(SocietyWorkspaceAddTests PRIVATE Qt6::Test SocietyWorkspaceAddBackend)
+        target_compile_definitions(SocietyWorkspaceAddTests PRIVATE SOCIETY_TEST_DIRECTORY="${_society_test_directory}")
+        add_test(NAME Society.WorkspaceAdd COMMAND SocietyWorkspaceAddTests)
+        set_tests_properties(Society.WorkspaceAdd PROPERTIES TIMEOUT 600)
+    endif()
     qt_add_executable(SocietySemanticRelationsTests tests/tst_semantic_relations.cpp)
     target_include_directories(SocietySemanticRelationsTests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/App")
     target_include_directories(SocietySemanticRelationsTests BEFORE PRIVATE ${society_catalog_include})
@@ -1288,7 +1394,7 @@ if(BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)
     set_tests_properties(Society.ProjectResourceIdentity PROPERTIES TIMEOUT 300
         ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software;QML_DISABLE_DISK_CACHE=1")
 
-    qt_add_executable(SocietyDriveTests tests/tst_drive.cpp ${society_environment_sources} ${society_calendar_sources} ${society_project_sources} ${society_job_sources} ${society_model_merge_sources} ${society_model_packaging_sources} ${society_model_calibrator_sources}
+    qt_add_executable(SocietyDriveTests tests/tst_drive.cpp ${society_notification_sources} ${society_environment_sources} ${society_calendar_sources} ${society_project_sources} ${society_job_sources} ${society_model_merge_sources} ${society_model_packaging_sources} ${society_model_calibrator_sources}
         ${society_native_files_launcher_sources}
         App/Society/Drive/CloudFilesController.cpp App/Society/Drive/CloudFilesController.h
         ${society_pairing_sources}
@@ -1341,6 +1447,10 @@ if(BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)
         globalToolbarShowsOnlyTheSelectedSegmentBackground)
     set_tests_properties(Society.ToolbarSegmentAppearance PROPERTIES TIMEOUT 240
         ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software;QML_DISABLE_DISK_CACHE=1")
+    add_test(NAME Society.NotificationPopoverIntegration COMMAND SocietyDriveTests
+        notificationCenterIntegratesWithExistingPopover)
+    set_tests_properties(Society.NotificationPopoverIntegration PROPERTIES TIMEOUT 60
+        ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software;QML_DISABLE_DISK_CACHE=1;SOCIETY_DISABLE_BACKEND_AUTOSTART=1;IILOCALLLM_DISABLE_APP_MCP=1")
     add_test(NAME Society.TasksNavigation COMMAND SocietyDriveTests
         tasksSegmentOpensExistingTools globalToolbarMatchesFigmaAndRoutesActions)
     set_tests_properties(Society.TasksNavigation PROPERTIES TIMEOUT 300
@@ -1386,7 +1496,7 @@ if(BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)
 
     qt_add_executable(SocietyJobStorageTests tests/tst_jobstorage.cpp App/Society/Jobs/JobStorage.cpp App/Society/Jobs/JobStorage.h)
     target_include_directories(SocietyJobStorageTests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/App")
-    target_link_libraries(SocietyJobStorageTests PRIVATE Qt6::Test iiSocietyContainer::iiSocietyContainer iiFileProvider::Native iiFileProvider::Temporary iiJob::iiJob)
+    target_link_libraries(SocietyJobStorageTests PRIVATE iiSocietyContainer::iiSocietyContainer iiFileProvider::Native iiFileProvider::Temporary iiJob::iiJob)
     target_compile_definitions(SocietyJobStorageTests PRIVATE SOCIETY_TEST_DIRECTORY="${_society_test_directory}")
     add_test(NAME Society.JobStorage COMMAND SocietyJobStorageTests)
 
@@ -1501,7 +1611,7 @@ if(BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)
     endforeach()
 
     qt_add_executable(SocietyDependencyTests tests/tst_dependencies.cpp)
-    target_link_libraries(SocietyDependencyTests PRIVATE Qt6::Test iiSocietyHelper::iiSocietyHelper iiWebServer::iiWebServer)
+    target_link_libraries(SocietyDependencyTests PRIVATE iiSocietyHelper::iiSocietyHelper iiWebServer::iiWebServer)
     target_compile_definitions(SocietyDependencyTests PRIVATE
         SOCIETY_TEST_DIRECTORY="${_society_test_directory}"
         SOCIETY_DIRECT_LINKS_FILE="${CMAKE_CURRENT_BINARY_DIR}/SocietyDirectLinks-$<CONFIG>.txt"
@@ -1512,7 +1622,8 @@ if(BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)
         QT_QML_MODULE_NO_IMPORT_SCAN TRUE
     )
     add_test(NAME Society.Dependencies COMMAND SocietyDependencyTests)
-    set_tests_properties(Society.Dependencies PROPERTIES
+    add_test(NAME Society.DependenciesOffline COMMAND SocietyDependencyTests fileProjectionHidesProviderControlFiles)
+    set_tests_properties(Society.Dependencies Society.DependenciesOffline PROPERTIES
         ENVIRONMENT_MODIFICATION "DYLD_LIBRARY_PATH=unset:;DYLD_FALLBACK_LIBRARY_PATH=unset:"
         TIMEOUT 120
     )
@@ -1675,6 +1786,11 @@ if(BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)
 endif()
 
 # Share the asynchronous client implementation across the app and test hosts.
+foreach(_society_add_host SocietyWorkspaceFileIntegrationTests SocietyBackendDaemonTests SocietyDaemonMcpTests SocietyUiBridgeTests)
+    if(TARGET ${_society_add_host} AND TARGET SocietyWorkspaceAddBackend)
+        target_link_libraries(${_society_add_host} PRIVATE SocietyWorkspaceAddBackend)
+    endif()
+endforeach()
 foreach(_society_client_target Society SocietyBackendDaemonTests SocietyDriveBackendTests SocietyDriveTests SocietyModelImportTests SocietyAppleModelSourceTests)
     if(TARGET ${_society_client_target})
         target_link_libraries(${_society_client_target} PRIVATE SocietyModelBackendClient)
@@ -1709,7 +1825,7 @@ if(TARGET SocietyWorkspaceAgentBackend)
                     SocietySuggestedModelTests SocietySuggestedBackendTests
                     SocietyRecentCatalogTests SocietyRecentBackendTests
                     SocietyResourceAdapterTests
-                    SocietyBackendDaemonTests SocietyDaemonMcpTests SocietyUiBridgeTests)
+                    SocietyBackendDaemonTests SocietyDaemonMcpTests SocietyUiBridgeTests SocietyWorkspaceFileIntegrationTests)
                 if(TARGET ${_society_catalog_host})
                     target_link_options(${_society_catalog_host} PRIVATE
                         "LINKER:-needed_library,$<TARGET_FILE:iiFileProvider::Catalog>")

@@ -1,7 +1,7 @@
 #pragma once
 
-#include <LVUI/NativeImageResolver.h>
-#include <iiGUI/Image.h>
+#include <LVUI>
+#include <iiGUI>
 #include <cstddef>
 #include <cstdint>
 #include <functional>

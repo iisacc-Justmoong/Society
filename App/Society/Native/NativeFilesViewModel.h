@@ -1,7 +1,7 @@
 #pragma once
-#include <LVUI/Table.h>
-#include <iiJson/Json.h>
-#include <iiSDKCore/Core/Property/Observable.h>
+#include <LVUI>
+#include <iiJson>
+#include <iiSDKCore>
 #include <functional>
 #include <memory>
 #include <optional>

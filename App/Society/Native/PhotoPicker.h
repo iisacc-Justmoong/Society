@@ -1,5 +1,5 @@
 #pragma once
-#include <iiGUI/Desktop.h>
+#include <iiGUI>
 #include <functional>
 #include <memory>
 

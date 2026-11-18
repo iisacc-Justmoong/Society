@@ -1,6 +1,5 @@
 #include "native_link.h"
-#include <iiPhotoLibrary/PhotoStore.h>
-#include <iiPhotoLibrary/PhotoController.h>
+#include <iiPhotoLibrary>
 #include <QFile>
 #include <QResource>
 #include <QDir>
@@ -22,7 +21,7 @@
 #include <QQuickWindow>
 #include <QQuickItem>
 #include "backend/runtime/appbootstrap.h"
-#include <iiSocietyHelper/Sync/Sync.h>
+#include <iiSocietyHelper>
 
 using namespace iiPhotoLibrary;
 namespace {

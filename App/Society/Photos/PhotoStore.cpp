@@ -1,4 +1,4 @@
-#include <iiFileProviderDevice.h>
+#include <iiFileProvider>
 #include "PhotoStore.h"
 #include <QCryptographicHash>
 #include <QDirIterator>

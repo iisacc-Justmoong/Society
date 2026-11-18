@@ -2,8 +2,8 @@
 
 #include "NativeModelChooserState.h"
 
-#include <LVUI/List.h>
-#include <iiSDKCore/Core/Property/Observable.h>
+#include <LVUI>
+#include <iiSDKCore>
 #include <functional>
 #include <memory>
 #include <optional>
@@ -33,7 +33,6 @@ struct NativeModelChooserViewModel final {
     void browse();
     void resize(double width, double height);
 private:
-    void toggle(std::size_t index, const lvui::ListEntry &entry);
     void refreshStatus();
     society::ModelChooserState state;
     std::optional<std::size_t> focused;

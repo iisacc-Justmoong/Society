@@ -1,7 +1,6 @@
 #pragma once
 #include "SuggestedPolicy.h"
-#include <iiMultimodalAgent/agent/DecisionGate.h>
-#include <iiMultimodalAgent/agent/Types.h>
+#include <iiMultimodalAgent>
 
 namespace society::suggested {
 // Resolve a text-model route through the same Decision policy as the agent.

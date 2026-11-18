@@ -2,8 +2,7 @@
 #include "Society/Tools/MergeModelCatalog.h"
 #include "backend/runtime/appbootstrap.h"
 #include <QDir>
-#include <SharedStorage.h>
-#include <FileOperations.h>
+#include <iiSocietyContainer>
 #include <QScopeGuard>
 #include <QClipboard>
 #include <QGuiApplication>

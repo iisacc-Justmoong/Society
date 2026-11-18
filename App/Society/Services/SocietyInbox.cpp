@@ -1,5 +1,5 @@
 #include "SocietyInbox.h"
-#include <DeliveryStore.h>
+#include <iiSocietyHelper>
 #include <QLoggingCategory>
 #include <QPointer>
 #include <condition_variable>

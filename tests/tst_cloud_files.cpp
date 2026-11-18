@@ -1,7 +1,7 @@
 #include "../App/Society/Drive/CloudFilesController.h"
 #include "AccountServer.h"
-#include <SocietyDrive.h>
-#include <File.h>
+#include <iiSocietyContainer>
+#include <iiFileProvider>
 #include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QTest>

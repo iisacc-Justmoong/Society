@@ -39,6 +39,11 @@
 
 ## 현재 사용할 수 있는 기반
 
+모델 선택기는 활성화할 때 목록을 구성한다. 선택 표시를 바꾸는 입력은 키로 찾은 한
+행의 설명과 선택 개수만 바꾸며, 기존 목록 컨트롤러에 편집 리비전을 한 번 게시한다.
+다른 행은 불변 값을 공유한다. `Society.NativeChooserViewModel`은 선택 유지,
+리비전 통지 횟수와 관련 없는 행의 재사용을 검사한다.
+
 - LVUI `QueryConnection`은 Core `QueryStream`의 선택·다중 수신을 뷰 세션과 Scene에
   연결한다. 페이로드를 받는 메서드, 인자 없는 메서드, 선언형 이벤트 블록과 조건부
   구독을 지원한다. 상세 수명·유한 큐·재시도 계약은
@@ -148,3 +153,15 @@ python3 -B tests/test_lvui_native_syntax.py --compiler /path/to/lvui-compile
 호환성도 별도로 빌드해야 한다. 예약어 전체를 보여 주는 `ReservedComponents.lvui`는
 구문만 검사한다. 이 예제의 `CardInformationContent`는 현재 네이티브 AOT 구현이 없어
 코드 생성 성공을 주장하지 않는다.
+
+## 알림 상태 이관 — 2026-11-17
+
+알림의 원인별 중복 억제, 개별 삭제와 전체 삭제 상태를 Qt에 의존하지 않는
+`NotificationStore`로 분리한다. 삭제한 알림은 해당 원인이 해소된 뒤 다시 발생하기
+전에는 되살리지 않는다. 기존 화면에는 일시적인 Qt 모델 어댑터를 제공하며,
+이 어댑터는 목록의 삽입·삭제와 개수 변경을 기존 화면에 전달한다. 이 작업은
+알림 팝오버나 Society의 애플리케이션 창을 LVUI로 이전했다는 뜻은 아니다.
+같은 시점에 Society 앱 소스에는 QML 52개, 테스트에는 QML 6개가 남아 있다.
+앱 시작점과 Storage·Tasks·Projects·Calendar 등은 아직 QML을 사용하며, 이 파일들은
+각 기능의 LVUI 대체와 검사가 완료되기 전까지 유지한다. SDK에서 제공하는 외부 QML은
+이 숫자에 포함하지 않는다.

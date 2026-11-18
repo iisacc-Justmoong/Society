@@ -10,8 +10,8 @@
   },
   "source": {
     "path": "docs/ResourceOptimization.md",
-    "sha256": "328c5697486776d8c5b99ecd609bd631d40cda17856a7b83cb96603e7418ada1",
-    "bytes": 10410,
+    "sha256": "796c34ca4a52aec2d2ad15a7bd6ffacb97c3c52171c5c4c4c82e2367abc8bbce",
+    "bytes": 10420,
     "line_count": 143,
     "encoding": "utf-8",
     "language": "ko"
@@ -73,7 +73,7 @@
       "kind": "paragraph",
       "start_line": 20,
       "end_line": 24,
-      "raw": "현재 Helper와 같은 iiSharedCanvas 0.32.0을 사용한다. 이름 변경 이전의\n`iiAcountManager`를 요구하는 오래된 빌드 캐시를 재사용하지 않는다. 앱 버전과\n패키지·ABI 선택은 별개의 값이며 SDK 전역 설치를 덮어쓰지 않는다.\n배포기는 선택한 Core 바이너리를 명시적인 탐색 입력으로 받아, 이전 번들의\n0.31 계열 라이브러리를 새 0.32 의존성의 대체물로 사용하지 않는다.\n"
+      "raw": "Society와 Helper Core는 `iiSharedCanvas 0.35.39 EXACT`를 사용한다.\n`iiSharedCanvas_DIR`에는 해당 Canvas 패키지를 지정하고, `iiSocietyHelper_DIR`에는\n같은 Canvas 버전으로 빌드한 Helper 패키지를 지정한다. 앱 버전과 SDK의 패키지·ABI 버전은 별개이다.\n배포기는 선택한 Core 바이너리의 디렉터리를 명시적인 탐색 입력으로 받아\n해당 패키지에서 앱 번들에 포함할 라이브러리를 선택한다.\n"
     },
     {
       "id": "b000008",
@@ -481,14 +481,14 @@
       {
         "block_id": "b000007",
         "line": 21,
-        "text": "`iiAcountManager`를 요구하는 오래된 빌드 캐시를 재사용하지 않는다. 앱 버전과",
+        "text": "`iiSharedCanvas_DIR`에는 해당 Canvas 패키지를 지정하고, `iiSocietyHelper_DIR`에는",
         "basis": "lexical_match",
         "context": "paragraph"
       },
       {
         "block_id": "b000007",
         "line": 24,
-        "text": "0.31 계열 라이브러리를 새 0.32 의존성의 대체물로 사용하지 않는다.",
+        "text": "해당 패키지에서 앱 번들에 포함할 라이브러리를 선택한다.",
         "basis": "lexical_match",
         "context": "paragraph"
       },

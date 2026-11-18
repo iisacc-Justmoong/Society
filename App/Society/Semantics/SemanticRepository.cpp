@@ -2,12 +2,10 @@
 #include "PhysicalIdentity.h"
 #include "RelocationVerification.h"
 
-#include <FileCatalog.h>
-#include <OntologyFileSystem.h>
-#include <ObjectSource.h>
+#include <iiFileProvider>
 #include <ProviderPackage.h>
-#include <SharedStorage.h>
-#include <iiProjectManager/ProjectManager.h>
+#include <iiSocietyContainer>
+#include <iiProjectManager>
 #include <QCryptographicHash>
 #include <QDir>
 #include <QDirIterator>
@@ -969,6 +967,14 @@ QJsonObject SemanticRepository::setMetadata(const QString &address, const QJsonO
 }
 QJsonObject SemanticRepository::putRelation(const QString &source, const QString &predicate, const QString &target,
                                              const QJsonObject &metadata, const QString &expectedRevision) const {
+    return putRelationImpl(source, predicate, target, metadata, expectedRevision, false);
+}
+QJsonObject SemanticRepository::putRelationIfAbsent(const QString &source, const QString &predicate, const QString &target,
+                                                     const QJsonObject &metadata, const QString &expectedRevision) const {
+    return putRelationImpl(source, predicate, target, metadata, expectedRevision, true);
+}
+QJsonObject SemanticRepository::putRelationImpl(const QString &source, const QString &predicate, const QString &target,
+                                                 const QJsonObject &metadata, const QString &expectedRevision, bool onlyIfAbsent) const {
     validText(source, 4096, "source address"); validText(predicate, 1024, "predicate"); validText(target, 4096, "target address");
     (void)jsonBytes(metadata);
     auto link = linkDocument(source, predicate, target, metadata);
@@ -994,6 +1000,13 @@ QJsonObject SemanticRepository::putRelation(const QString &source, const QString
             if (candidateKey != targetIdentity) continue;
             if (existingLink) throw std::runtime_error("Multiple project relations match this predicate and target");
             existingLink = candidate;
+        }
+        if (existingLink && onlyIfAbsent) {
+            auto repository = openRepository(storage, actorId_, false);
+            auto result = presentProjectLink(storage, repository ? &repository->ontology() : nullptr, *existingLink, source);
+            result.insert("revision", QString::number(snapshot.manifest.revision));
+            result.insert("alreadyExists", true);
+            return result;
         }
         if (existingLink) { link = *existingLink; link.insert("metadata", metadata); }
         else {
@@ -1056,6 +1069,13 @@ QJsonObject SemanticRepository::putRelation(const QString &source, const QString
         const auto previous = containerLink(node, oldFacts);
         if (previous.value("source") != from.identity || previous.value("predicate") != predicate || previous.value("target") != to.identity)
             throw std::runtime_error("Semantic relation identity conflict");
+        if (onlyIfAbsent) {
+            const auto revision=graph.revision();
+            if (revision!=expected(expectedRevision)) throw std::runtime_error("ontology revision conflict");
+            auto result=presentContainerLink(storage,graph,previous);
+            result.insert("revision",QString::number(revision)); result.insert("alreadyExists",true);
+            return result;
+        }
     }
     replace(graph, changes, node, sourceProperty, OntologyValue::resource(from.resource));
     replace(graph, changes, node, targetProperty, OntologyValue::resource(to.resource));

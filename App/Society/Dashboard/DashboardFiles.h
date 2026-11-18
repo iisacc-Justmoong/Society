@@ -1,5 +1,5 @@
 #pragma once
-#include <iiSocietyContainer/DashboardFiles.h>
+#include <iiSocietyContainer>
 #include <QtQml/qqmlregistration.h>
 
 // QML registration only; both Society and Dreamscapes use the SDK snapshot.

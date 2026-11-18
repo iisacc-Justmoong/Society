@@ -1,5 +1,5 @@
 #include "Society/Native/NativeBackendConnection.h"
-#include <iiNetwork/Local.h>
+#include <iiNetwork>
 #include <chrono>
 #include <cstdlib>
 #include <filesystem>

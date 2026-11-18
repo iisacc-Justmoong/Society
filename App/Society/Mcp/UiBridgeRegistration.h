@@ -4,7 +4,7 @@
 #include <QTimer>
 #include <QHash>
 #include <QThreadPool>
-#include <iiMultimodalAgent/agent/Tools.h>
+#include <iiMultimodalAgent>
 #include <functional>
 #include <memory>
 

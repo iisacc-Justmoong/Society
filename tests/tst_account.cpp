@@ -7,9 +7,10 @@
 #include <QNetworkReply>
 #include "Society/State/GroupSessionStore.h"
 #include <QCryptographicHash>
+#include <QDir>
 #include <QScopeGuard>
-#include <iiSocietyHelper.h>
-#include <StorageMap.h>
+#include <iiSocietyHelper>
+#include <iiSocietyContainer>
 #include <QFile>
 #include <QFileInfo>
 #include <QGuiApplication>
@@ -52,8 +53,8 @@ private slots:
         QVERIFY(account.licenses().isEmpty());QVERIFY(!account.refreshLicenses());
         QVERIFY(account.login("builder@example.com","FixtureOnly1!"));QTRY_VERIFY(account.signedIn());
         QCOMPARE(server.licenseRequests,0);QVERIFY(licenses->ensure());
-        QTRY_COMPARE(account.licensesCode(),QString("verified"));QCOMPARE(account.licenses().size(),3);
-        QVERIFY(licenses->allows("congregation"));QVERIFY(!licenses->allows("foreign"));
+        QTRY_COMPARE(account.licensesCode(),QString("verified"));QCOMPARE(account.licenses().size(),2);
+        QVERIFY(licenses->allows("congregation"));QVERIFY(!licenses->allows("vincent"));QVERIFY(!licenses->allows("foreign"));
         QVERIFY(!licenses->authorizationToken().isEmpty());
         auto requests=server.licenseRequests;
         licenses->clear();server.licenseHang=true;QVERIFY(licenses->ensure());
@@ -77,7 +78,11 @@ private slots:
         auto* reply=authorize(input);QTRY_VERIFY(reply->isFinished());auto answer=QJsonDocument::fromJson(reply->readAll()).object();reply->deleteLater();
         QVERIFY(answer.value("allowed").toBool());QVERIFY(!answer.value("licenseToken").toString().isEmpty());
         QCOMPARE(answer.value("requestId"),input.value("requestId"));QCOMPARE(server.licenseRequests,requests);
-        QTemporaryDir localDir(QStringLiteral(SOCIETY_TEST_RESOURCES) + "/local-account-XXXXXX");
+        auto retired=input;retired.insert("productId","vincent");retired.insert("appId","com.iisacc.vincent");
+        reply=authorize(retired);QTRY_VERIFY(reply->isFinished());QCOMPARE(reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt(),400);reply->deleteLater();
+        // Unix-domain sockets have short path limits. Keep the fixture under
+        // resources, but avoid the long per-CTest output directory name.
+        QTemporaryDir localDir(QDir::cleanPath(QStringLiteral(SOCIETY_TEST_RESOURCES) + "/../../.account-XXXXXX"));
         QVERIFY(localDir.isValid());QVERIFY(account.startLocalLicenseBroker(localDir.path()));
         QLocalSocket local;local.connectToServer(account.localLicenseBrokerPath());QVERIFY(local.waitForConnected(2000));
         QJsonObject localInput=input;localInput.remove("subject");const auto localBody=QJsonDocument(localInput).toJson(QJsonDocument::Compact);

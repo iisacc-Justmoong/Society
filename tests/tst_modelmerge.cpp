@@ -1,7 +1,7 @@
 #include "native_link.h"
 #include "Society/Tools/ModelMergeController.h"
 #include "Society/Tools/MergeModelCatalog.h"
-#include <SocietyDrive.h>
+#include <iiSocietyContainer>
 #include "backend/runtime/appbootstrap.h"
 
 #include <QFile>

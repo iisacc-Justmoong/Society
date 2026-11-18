@@ -1,6 +1,6 @@
 #include "Society/Services/SocietyRuntime.h"
 #include <QDir>
-#include <SharedStorage.h>
+#include <iiSocietyContainer>
 #include <QFile>
 #include <QSignalSpy>
 #include <QElapsedTimer>

@@ -1,5 +1,5 @@
 #include "PhotoPreviewResolver.h"
-#include <iiSDKCore/Core/Property/Observable.h>
+#include <iiSDKCore>
 #include <limits>
 #include <map>
 #include <stdexcept>

@@ -2,7 +2,7 @@
 #include "Society/Native/OverlayShutdown.h"
 #include "Society/Native/ExternalOverlaySurface.h"
 #include "Society/Native/NativeModalPresence.h"
-#include <iiMultimodalAgent/agent/QuestionInbox.h>
+#include <iiMultimodalAgent>
 #include <QEvent>
 #include <QGuiApplication>
 #include <QWindow>

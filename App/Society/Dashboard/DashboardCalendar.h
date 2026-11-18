@@ -1,5 +1,5 @@
 #pragma once
-#include <iiCalendar/iiCalendar.h>
+#include <iiCalendar>
 #include <QFutureWatcher>
 #include <QObject>
 #include <QTimer>

@@ -1,7 +1,6 @@
 #pragma once
 
-#include <ModelImportService.h>
-#include <FileJobService.h>
+#include <iiSocietyContainer>
 #include <QHash>
 #include <QJsonObject>
 #include <QLocalServer>
@@ -17,6 +16,7 @@ class RecentBackend;
 #ifdef SOCIETY_AGENT_BACKEND
 class WorkspaceAgentBackend;
 class SuggestedBackend;
+class ResidentGateway;
 #endif
 
 // Local, same-user interface to the SDK-owned model operations. The service
@@ -30,6 +30,9 @@ public:
     bool listen(const QString &directory);
     void selectContainer(const QString &path);
     void setSystemDriveState(const QJsonObject &state);
+#ifdef SOCIETY_AGENT_BACKEND
+    ResidentGateway *residentGateway() const;
+#endif
 signals:
     void systemDriveConnectRequested();
 private:
@@ -62,6 +65,7 @@ private:
     std::unique_ptr<QLockFile> m_windowsLock;
 #endif
     QHash<QString, QPair<QByteArray, QJsonObject>> m_replies;
+    QHash<QString, QByteArray> m_addPending;
     QQueue<QString> m_replyOrder;
 #ifdef SOCIETY_AGENT_BACKEND
     std::unique_ptr<WorkspaceAgentBackend> m_agent;
@@ -69,5 +73,9 @@ private:
     QHash<QLocalSocket *, QString> m_agentClients;
     QHash<QLocalSocket *, QString> m_suggestedClients;
     QHash<QLocalSocket *, QHash<QString, QPair<QByteArray, QJsonObject>>> m_agentReplies;
+    struct ResidentRequest { QPointer<QLocalSocket> socket; QString id; };
+    QHash<QString, ResidentRequest> m_residentOwners;
+    QHash<QLocalSocket *, QHash<QString, QString>> m_residentRequests;
+    QHash<QLocalSocket *, QString> m_residentClients;
 #endif
 };

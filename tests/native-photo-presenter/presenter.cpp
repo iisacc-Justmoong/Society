@@ -1,7 +1,7 @@
 #include "Society/Native/NativePhotoPresenter.h"
 #include "Society/Native/NativeModalPresence.h"
 #include "Society/Native/OverlayShutdown.h"
-#include <iiPhotoLibrary/PhotoController.h>
+#include <iiPhotoLibrary>
 #include <QEvent>
 #include <QGuiApplication>
 #include <QPointer>

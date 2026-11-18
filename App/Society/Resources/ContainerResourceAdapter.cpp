@@ -1,6 +1,6 @@
 #include "ContainerResourceAdapter.h"
-#include <FileRepository.h>
-#include <ObjectSource.h>
+#include <iiSocietyContainer>
+#include <iiFileProvider>
 #include <filesystem>
 
 namespace society::resources {

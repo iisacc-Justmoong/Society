@@ -1,5 +1,5 @@
 #pragma once
-#include <iiMultimodalAgent/agent/Engine.h>
+#include <iiMultimodalAgent>
 #include <QHash>
 #include <QJsonObject>
 #include <functional>

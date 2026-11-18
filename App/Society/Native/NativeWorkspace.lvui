@@ -1,6 +1,8 @@
 import vm NativeWorkspaceViewModel
 import nav NativeFilesNavigation
 
+@Static const ribbonCommandAreaHeight: Metric = Metric.size22 * 4
+
 Window(accent: .green) {
     HStack(id: "workspace-root", spacing: Metric.space8, alignment: .top) {
         VStack(id: "workspace-sidebar", width: 170, spacing: Metric.space8, alignment: .leading) {
@@ -28,51 +30,45 @@ Window(accent: .green) {
         HStack(id: "workspace-content", visible: vm.contentVisible, spacing: Metric.space8, alignment: .top) {
             VStack(id: "workspace-files", width: vm.fileWidth, spacing: Metric.space8, alignment: .leading) {
                 HStack(id: "workspace-ribbon-tabs", width: vm.fileWidth, spacing: Metric.space8) {
-                    LabelMenuButton(id: "workspace-file-button", text: "File", onClick: vm.toggleFileMenu)
-                    LabelButton(id: "workspace-ribbon-home", text: "Home", iconMode: true, iconName: "home", checked: vm.ribbonHomeActive, selectionStyle: .segmented, onClick: vm.showRibbonHome)
-                    LabelButton(id: "workspace-ribbon-share", text: "Share", iconMode: true, iconName: "cwmShare", iconSource: vm.iconSource, checked: vm.ribbonShareActive, selectionStyle: .segmented, onClick: vm.showRibbonShare)
-                    LabelButton(id: "workspace-ribbon-view", text: "View", iconMode: true, iconName: "grid", iconSource: vm.iconSource, checked: vm.ribbonViewActive, selectionStyle: .segmented, onClick: vm.showRibbonView)
-                    LabelButton(id: "workspace-ribbon-manage", text: "Manage", iconMode: true, iconName: "settings", checked: vm.ribbonManageActive, selectionStyle: .segmented, onClick: vm.showRibbonManage)
+                    TabBar(id: "workspace-ribbon-tabbar", currentIndex: vm.ribbonTabIndex, onCurrentIndexChanged: vm.selectRibbonTab, accessibilityName: "Ribbon") {
+                        Tab(id: "workspace-ribbon-home", text: "Home", iconName: "ribbon-tab-home", iconSource: vm.iconSource)
+                        Tab(id: "workspace-ribbon-share", text: "Share", iconName: "ribbon-tab-share", iconSource: vm.iconSource)
+                        Tab(id: "workspace-ribbon-view", text: "View", iconName: "ribbon-tab-view", iconSource: vm.iconSource)
+                        Tab(id: "workspace-ribbon-manage", text: "Manage", iconName: "ribbon-tab-manage", iconSource: vm.iconSource)
+                        Tab(id: "workspace-ribbon-add", text: "Add", iconName: "generaladd", iconSource: vm.iconSource)
+                        Tab(id: "workspace-ribbon-search", text: "Search", iconName: "generalsearch", iconSource: vm.iconSource)
+                    }
                     Spacer()
-                    LabelButton(id: "workspace-ribbon-collapse", text: vm.ribbonToggleLabel, onClick: vm.toggleRibbon)
                 }
-                Menu(id: "workspace-file-menu", targetId: "workspace-file-button", accessibilityName: "File", onClosed: vm.closeFileMenu) {
-                    MenuItem(label: "New folder", hasChildItems: false, enabled: vm.fileActionsAvailable, onClick: vm.showCreateFolder)
-                    MenuItem(label: "Import files…", hasChildItems: false, enabled: false)
-                    MenuItem(label: "New window", hasChildItems: false, enabled: false)
-                    MenuDivider()
-                    MenuItem(label: "Switch storage…", hasChildItems: false, enabled: false)
-                    MenuItem(label: "Storage settings…", hasChildItems: false, enabled: false)
-                    MenuItem(label: "Export…", hasChildItems: false, enabled: false)
-                    MenuDivider()
-                    MenuItem(label: "Preferences…", hasChildItems: false, enabled: false)
-                    MenuItem(label: "Close menu", hasChildItems: false, onClick: vm.closeFileMenu)
-                }
-                if (vm.ribbonExpanded) {
-                    HStack(id: "workspace-ribbon-groups", width: vm.fileWidth, spacing: Metric.space8, alignment: .top) {
-                        for (group in vm.ribbonGroups, key: group.id, id: "workspace-ribbon-group-list", horizontal: true, spacing: Metric.space8) {
-                            VStack(width: vm.ribbonGroupWidth, height: 116, spacing: 0, alignment: .leading) {
-                                for (action in group.actions, key: action.id, id: "workspace-ribbon-actions", spacing: 0) {
-                                    HStack(spacing: Metric.space4) {
-                                        IconButton(iconName: action.icon, iconSource: vm.iconSource, accessibilityName: action.label, enabled: action.enabled, onClick: callback(vm.invokeRibbon(action.id)))
-                                        LabelButton(text: action.label, enabled: action.enabled, onClick: callback(vm.invokeRibbon(action.id)))
-                                    }
-                                }
-                                Spacer()
-                                Label(text: group.label, style: .caption)
+                HStack(id: "workspace-ribbon-groups", width: vm.fileWidth, spacing: Metric.space32, alignment: .top) {
+                    if (vm.ribbonSearchActive) {
+                        VStack(id: "workspace-search-group", width: 205, spacing: Metric.space4, alignment: .center) {
+                            VStack(width: 205, minimumHeight: ribbonCommandAreaHeight, spacing: Metric.space0, alignment: .leading) {
+                                InputField(id: "workspace-search", text: vm.query, placeholder: "Search files in this view", surface: .flat, size: .compact, clearButtonVisible: true, width: 205, onEdited: vm.searchEdited)
+                                Label(text: vm.searchScope, style: .caption)
+                                Label(text: vm.searchFilter, style: .caption)
+                                LabelButton(id: "workspace-search-reset", text: "Reset", tone: .borderless, height: Metric.size22,
+                                            iconMode: true, iconName: "generalclose", iconSize: 18, iconSpacing: Metric.space8,
+                                            iconSource: vm.iconSource, onClick: vm.resetSearch)
                             }
+                            Label(text: "Search", style: .description, selectable: false)
                         }
                     }
-                }
-                HStack(width: vm.fileWidth, spacing: Metric.space8) {
-                    LabelSegmentedControl {
-                        PushButton(id: "workspace-list", text: "List", tone: .default, checked: !vm.gridActive, selectionStyle: .segmented, onClick: vm.showList)
-                        PushButton(id: "workspace-grid", text: "Grid", tone: .default, checked: vm.gridActive, selectionStyle: .segmented, onClick: vm.showGrid)
+                    for (group in vm.ribbonGroups, key: group.id, id: "workspace-ribbon-group-list", horizontal: true, spacing: Metric.space32) {
+                        VStack(spacing: Metric.space4, alignment: .center, intrinsicWidth: true) {
+                            VStack(minimumHeight: ribbonCommandAreaHeight, spacing: Metric.space0, alignment: .leading, intrinsicWidth: true) {
+                                for (action in group.actions, key: action.id, id: "workspace-ribbon-actions", spacing: Metric.space0) {
+                                    // Retain the button's natural width inside the stretched repeat row.
+                                    HStack(spacing: Metric.space0) {
+                                        LabelButton(text: action.label, tone: .borderless, height: Metric.size22,
+                                                    iconMode: true, iconName: action.icon, iconSize: 18, iconSpacing: Metric.space8,
+                                                    iconSource: vm.iconSource, enabled: action.enabled, onClick: callback(vm.invokeRibbon(action.id)))
+                                    }
+                                }
+                            }
+                            Label(text: group.label, style: .description, selectable: false)
+                        }
                     }
-                    LabelMenuButton(text: "Sort", onClick: vm.toggleSort)
-                    PushButton(text: "Back", visible: vm.canUp, onClick: vm.up)
-                    Spacer()
-                    InputField(id: "workspace-search", text: vm.query, placeholder: "Search Files", surface: .flat, size: .compact, width: 205, onEdited: vm.searchEdited)
                 }
                 if (vm.sortMenuVisible) {
                     HStack(spacing: Metric.space8) {
@@ -82,20 +78,54 @@ Window(accent: .green) {
                         PushButton(text: "Size", enabled: vm.canSortSize, onClick: vm.sortSize)
                     }
                 }
-                if (vm.gridActive) {
+                if (vm.filterMenuVisible) {
+                    HStack(spacing: Metric.space8) {
+                        PushButton(text: "All", onClick: vm.filterAll)
+                        PushButton(text: "Images", onClick: vm.filterImages)
+                        PushButton(text: "Audio & video", onClick: vm.filterMedia)
+                        PushButton(text: "Documents", onClick: vm.filterDocuments)
+                        PushButton(text: "Other", onClick: vm.filterOther)
+                    }
+                }
+                VStack(id: "workspace-collection", width: vm.fileWidth, spacing: 0) {
+                VStack(id: "workspace-grid-pane", visible: vm.gridActive, width: vm.fileWidth, spacing: 0) {
                     for (item in vm.rows, key: item.path, id: "workspace-grid-rows", itemHeight: 140, itemWidth: 140, spacing: Metric.space8, width: vm.fileWidth, height: vm.tableHeight, navigation: nav, selectionMode: .multiple, onSelectionChanged: vm.gridSelected, onActivate: vm.gridActivated) {
                         VStack(spacing: Metric.space8, padding: Metric.space8, alignment: .leading) {
-                            Label(text: item.name, style: .body)
-                            Label(text: item.kind, style: .caption)
-                            Label(text: item.size, style: .caption)
-                            if (vm.suggestedActive) { Label(text: item.reason, style: .caption) }
+                            Image(iconName: item.iconName, iconSize: Metric.size48, iconSource: vm.iconSource)
+                            Label(text: item.displayName, style: .body, selectable: false)
                             CheckBox(checked: nav.is_selected(item.path), enabled: false)
                         }
                     }
                 }
-                Table(id: "workspace-table", visible: !vm.gridActive, model: vm.controller, modelRevision: vm.revision, width: vm.fileWidth, height: vm.tableHeight, editable: false, sortingEnabled: false, onSelectionChanged: vm.selected)
+                    VStack(id: "workspace-list-pane", visible: !vm.gridActive, width: vm.fileWidth, spacing: 0) {
+                        HStack(width: vm.fileWidth, height: 24, spacing: Metric.space4) {
+                            HStack(width: 24) { Label(text: "") }
+                            HStack(width: vm.fileNameWidth) { Label(text: "Name", style: .caption) }
+                            HStack(width: vm.fileDateWidth) {
+                                if (vm.suggestedActive) { Label(text: "Date modified", style: .caption) }
+                                else { Label(text: "Last activity", style: .caption) }
+                            }
+                            HStack(width: vm.fileKindWidth) { Label(text: "Kind", style: .caption) }
+                            HStack(width: vm.fileSizeWidth) { Label(text: "Size", style: .caption) }
+                            if (vm.suggestedActive) { HStack(width: vm.fileReasonWidth) { Label(text: "Reason", style: .caption) } }
+                        }
+                        for (item in vm.rows, key: item.path, id: "workspace-list-rows", itemHeight: vm.listRowHeight, width: vm.fileWidth, height: vm.tableHeight, navigation: nav, selectionMode: .multiple, onSelectionChanged: vm.gridSelected, onActivate: vm.gridActivated) {
+                            HStack(width: vm.fileWidth, height: vm.listRowHeight, spacing: Metric.space4) {
+                                CheckBox(checked: nav.is_selected(item.path), enabled: false)
+                                HStack(width: vm.fileNameWidth, spacing: Metric.space4) {
+                                    Image(iconName: item.iconName, iconSource: vm.iconSource)
+                                    Label(text: item.displayName, style: .body, selectable: false)
+                                }
+                                HStack(width: vm.fileDateWidth) { Label(text: item.modified, style: .body, selectable: false) }
+                                HStack(width: vm.fileKindWidth) { Label(text: item.kind, style: .body, selectable: false) }
+                                HStack(width: vm.fileSizeWidth) { Label(text: item.size, style: .body, selectable: false) }
+                                if (vm.suggestedActive) { HStack(width: vm.fileReasonWidth) { Label(text: item.reason, style: .caption, selectable: false) } }
+                            }
+                        }
+                    }
+                }
                 HStack(spacing: Metric.space8) {
-                    Label(text: vm.status, style: .caption)
+                    if (vm.statusVisible) { Label(text: vm.status, style: .caption) }
                     PushButton(text: "Open", enabled: vm.canOpenSelection, onClick: vm.openSelected)
                 }
                 Label(text: vm.operationStatus, style: .caption)
@@ -125,6 +155,44 @@ Window(accent: .green) {
                       onSecondaryClicked: vm.closePaste, onCanceled: vm.closePaste, onClosed: vm.closePaste) {
                     InputField(text: vm.pasteDraft, placeholder: "Destination in Society", surface: .flat, onEdited: vm.pasteEdited)
                 }
+                Modal(title: "Import file", open: vm.importOpen, showIcon: false, motionEnabled: false, buttonCount: 2,
+                      primaryText: "Import", secondaryText: "Cancel", onPrimaryClicked: vm.importFile,
+                      onSecondaryClicked: vm.closeImport, onCanceled: vm.closeImport, onClosed: vm.closeImport) {
+                    VStack(spacing: Metric.space8, alignment: .leading) {
+                        InputField(text: vm.importDraft, placeholder: "Absolute path on this device", surface: .flat, onEdited: vm.importEdited)
+                        InputField(text: vm.importDestination, placeholder: "Destination in Society", surface: .flat, onEdited: vm.importDestinationEdited)
+                    }
+                }
+                Modal(title: vm.addTitle, open: vm.addOpen, showIcon: false, motionEnabled: false, buttonCount: 2,
+                      primaryText: "Continue", secondaryText: "Cancel", onPrimaryClicked: vm.submitAdd,
+                      onSecondaryClicked: vm.closeAdd, onCanceled: vm.closeAdd, onClosed: vm.closeAdd) {
+                    VStack(spacing: Metric.space8, alignment: .leading) {
+                        Label(text: vm.addLabel1, style: .description)
+                        if (vm.addMultiline) {
+                            InputField(text: vm.addDraft1, width: 480, height: 80, multiline: true, surface: .flat, onEdited: vm.addEdited1)
+                        } else {
+                            InputField(text: vm.addDraft1, width: 480, surface: .flat, onEdited: vm.addEdited1)
+                        }
+                        if (vm.addSecondVisible) {
+                            VStack(spacing: Metric.space8, alignment: .leading) {
+                                Label(text: vm.addLabel2, style: .description)
+                                InputField(text: vm.addDraft2, width: 480, surface: .flat, onEdited: vm.addEdited2)
+                            }
+                        }
+                        if (vm.addThirdVisible) {
+                            VStack(spacing: Metric.space8, alignment: .leading) {
+                                Label(text: vm.addLabel3, style: .description)
+                                InputField(text: vm.addDraft3, width: 480, surface: .flat, onEdited: vm.addEdited3)
+                            }
+                        }
+                        if (vm.addFourthVisible) {
+                            VStack(spacing: Metric.space8, alignment: .leading) {
+                                Label(text: vm.addLabel4, style: .description)
+                                InputField(text: vm.addDraft4, width: 480, surface: .flat, onEdited: vm.addEdited4)
+                            }
+                        }
+                    }
+                }
                 Modal(title: "Properties", open: vm.detailsOpen, showIcon: false, motionEnabled: false, buttonCount: 1,
                       primaryText: "Done", onPrimaryClicked: vm.closeDetails, onCanceled: vm.closeDetails, onClosed: vm.closeDetails) {
                     VStack(spacing: Metric.space8, alignment: .leading) {
@@ -135,6 +203,14 @@ Window(accent: .green) {
                         Label(text: vm.detailsModified, style: .body)
                         if (vm.detailsHasResourceId) { Label(text: vm.detailsResourceId, style: .caption) }
                         if (vm.detailsHasReason) { Label(text: vm.detailsReason, style: .caption) }
+                        InputField(text: vm.detailsInspection, width: 480, height: 160, surface: .flat, readOnly: true, multiline: true, wrapEnabled: true)
+                    }
+                }
+                Modal(title: "Preview", open: vm.previewOpen, showIcon: false, motionEnabled: false, buttonCount: 1,
+                      primaryText: "Done", onPrimaryClicked: vm.closePreview, onCanceled: vm.closePreview, onClosed: vm.closePreview) {
+                    VStack(spacing: Metric.space8, alignment: .leading) {
+                        Image(source: vm.detailsPreviewSource, width: 480, height: 320, fit: .Contain, allowEmpty: true)
+                        Label(text: "Some file formats may not have a preview.", style: .caption)
                     }
                 }
             }
@@ -146,6 +222,7 @@ Window(accent: .green) {
                     IconButton(iconName: "document-history", iconSource: vm.iconSource, accessibilityName: "Conversation history", enabled: false)
                 }
                 LabelMenuButton(id: "workspace-agent-model", text: vm.agentModelLabel, width: vm.agentWidth, enabled: !vm.agentBusy, onClick: vm.toggleAgentModels)
+                Label(id: "workspace-agent-status", text: vm.agentStatus, style: .caption, elideRight: true)
                 if (vm.agentModelMenuVisible) {
                     for (item in vm.agentModels, key: item.id, id: "workspace-agent-models") {
                         PushButton(text: item.name, onClick: callback(vm.selectAgentModel(item.id)))
@@ -154,10 +231,16 @@ Window(accent: .green) {
                 HStack(width: vm.agentWidth, spacing: Metric.space8) {
                     Label(text: "Context", style: .body)
                     Spacer()
-                    PushButton(text: "Add", enabled: false)
+                    PushButton(id: "workspace-agent-add", text: "Add selected", enabled: vm.canAddContext, onClick: vm.addSelectedContext)
                 }
-                Label(text: "File context is not available yet", style: .caption)
-                ScrollView(id: "workspace-agent-history", width: vm.agentWidth, height: vm.agentTranscriptHeight) {
+                for (item in vm.context, key: item.path, id: "workspace-agent-context") {
+                    HStack(width: vm.agentWidth, spacing: Metric.space4) {
+                        Label(text: item.name, style: .caption)
+                        Spacer()
+                        IconButton(iconName: "generalclose", iconSource: vm.iconSource, accessibilityName: "Remove attachment", onClick: callback(vm.removeContext(item.path)))
+                    }
+                }
+                ScrollView(id: "workspace-agent-history", width: vm.agentWidth, height: 0, flex: 1) {
                     VStack(width: vm.agentWidth, spacing: Metric.space8, alignment: .leading) {
                         if (vm.agentEmpty) {
                             VStack(spacing: Metric.space8, alignment: .leading) {
@@ -173,13 +256,12 @@ Window(accent: .green) {
                         }
                     }
                 }
-                Label(text: vm.agentStatus, style: .caption)
                 InputField(id: "workspace-prompt", text: vm.prompt, placeholder: "Message the agent…", surface: .flat, size: .compact, width: vm.agentWidth, onEdited: vm.promptEdited, onSubmit: vm.send)
                 HStack(width: vm.agentWidth, spacing: Metric.space8) {
                     Label(text: "Text conversation", style: .caption)
                     Spacer()
                     PushButton(text: "Retry", visible: vm.agentRetryable, onClick: vm.retryAgent)
-                    PushButton(text: "Stop", visible: vm.agentBusy, onClick: vm.stopAgent)
+                    PushButton(id: "workspace-agent-stop", text: "Stop", visible: vm.agentBusy, onClick: vm.stopAgent)
                     PushButton(text: "Send", tone: .accent, enabled: vm.canSend, onClick: vm.send)
                 }
             }

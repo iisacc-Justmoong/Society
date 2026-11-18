@@ -1,5 +1,19 @@
 <RCC>
   <qresource prefix="/society/workspace">
+    <file alias="ribbon-tab-home.svg">WorkspaceIcons/ribbon-tab-home.svg</file>
+    <file alias="ribbon-tab-share.svg">WorkspaceIcons/ribbon-tab-share.svg</file>
+    <file alias="ribbon-tab-view.svg">WorkspaceIcons/ribbon-tab-view.svg</file>
+    <file alias="ribbon-tab-manage.svg">WorkspaceIcons/ribbon-tab-manage.svg</file>
+    <file alias="generaladd.svg">WorkspaceIcons/generaladd.svg</file>
+    <file alias="generalsearch.svg">WorkspaceIcons/generalsearch.svg</file>
+    <file alias="nodesfolder.svg">WorkspaceIcons/nodesfolder.svg</file>
+    <file alias="fileTypesdiagram.svg">WorkspaceIcons/fileTypesdiagram.svg</file>
+    <file alias="fileTypesimage.svg">WorkspaceIcons/fileTypesimage.svg</file>
+    <file alias="audio-track.svg">WorkspaceIcons/audio-track.svg</file>
+    <file alias="import-video.svg">WorkspaceIcons/import-video.svg</file>
+    <file alias="fileTypestext.svg">WorkspaceIcons/fileTypestext.svg</file>
+    <file alias="fileTypesarchive.svg">WorkspaceIcons/fileTypesarchive.svg</file>
+    <file alias="fileTypesunknown.svg">WorkspaceIcons/fileTypesunknown.svg</file>
     <file alias="toolwindowspark.svg">WorkspaceIcons/toolwindowspark.svg</file>
     <file alias="panel-time-offset.svg">WorkspaceIcons/panel-time-offset.svg</file>
     <file alias="projectModels.svg">WorkspaceIcons/projectModels.svg</file>

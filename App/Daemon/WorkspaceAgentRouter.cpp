@@ -46,7 +46,7 @@ a::DecisionInput WorkspaceAgentRouter::assess(const a::DecisionRequest &request)
             descriptions.append(QJsonObject{{"key",key},{"name",QString::fromStdString(candidate.name)},
                 {"description",QString::fromStdString(candidate.description)},{"arguments",QString::fromStdString(candidate.arguments)}});
         }
-        if (m_status) m_status("Assessing Society tools with iisaccson (uncalibrated)…");
+        if (m_status) m_status("Assessing tools · uncalibrated…");
         a::ModelRequest assessment;
         assessment.model=m_primary; assessment.systemPromptOnly=true;
         assessment.systemPrompt=QStringLiteral("Assess the proposed tool candidates for the user's current request. "
@@ -76,7 +76,7 @@ a::DecisionInput WorkspaceAgentRouter::assess(const a::DecisionRequest &request)
     std::lock_guard lock(m_mutex);
     if (request.runId!=m_cachedRun || request.goal!=m_cachedGoal || m_estimates.empty()) {
         if (!m_estimator || m_primary.isEmpty() || m_policy.modelRoutes.empty()) return input;
-        if (m_status) m_status("Estimating the model route with iisaccson (uncalibrated)…");
+        if (m_status) m_status("Routing · uncalibrated estimate…");
         QJsonObject routeProperties;
         QJsonArray routeRequired, routeDescriptions;
         for (const auto &route : m_policy.modelRoutes) {

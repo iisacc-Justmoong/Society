@@ -10,8 +10,10 @@ function(society_use_local_macos_runtime_packages root)
             "iiLocalLLM|iiLocalLLM-onnx-free"
             "iiMultimodalAgent|iiMultimodalAgent-onnx-free"
             "iiVoiceOver|iiVoiceOver-onnx-free"
+            "iiSocietyContainer|iiSocietyContainer-model-cache"
             "iiSocietyHelper|iiSocietyHelper"
-            "iiPhotoLibrary|iiPhotoLibrary"
+            "iiWebServer|iiWebServer-core-compatible"
+            "iiPhotoLibrary|iiPhotoLibrary-fileprovider"
             "LVRS|LVRS")
         string(REPLACE "|" ";" parts "${entry}")
         list(GET parts 0 package)

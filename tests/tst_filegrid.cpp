@@ -1,11 +1,8 @@
 #include "Society/Files/DirectoryLocation.h"
 #include "Society/Files/CanvasFilePreview.h"
 #include <Serialization/IiscCodec.h>
-#include <iiSocietyContainer/PreviewCache.h>
-#include <FileCatalog.h>
-#include <SharedStorage.h>
-#include <SocietyDrive.h>
-#include <FileOperations.h>
+#include <iiSocietyContainer>
+#include <iiFileProvider>
 #include "backend/runtime/appbootstrap.h"
 
 #include <QAbstractItemModel>

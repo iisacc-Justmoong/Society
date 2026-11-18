@@ -1,6 +1,6 @@
 #include "QtPaintDevice.h"
-#include <iiGUI/Image.h>
-#include <QFont>
+#include <iiGUI>
+#include <QCache>
 #include <QLinearGradient>
 #include <QPainter>
 #include <QPainterPath>
@@ -21,6 +21,24 @@ ii::core::Result<void> unsupported(const char *message) {
     return ii::core::fail(ii::core::ErrorCode::unsupported, message);
 }
 }
+
+struct QtPaintDevice::TextRasters {
+    struct Key {
+        ii::gui::TextRun run;
+        qreal density;
+        bool operator==(const Key &) const = default;
+        friend size_t qHash(const Key &key, size_t seed = 0) noexcept {
+            const auto &r = key.run;
+            return qHashMulti(seed, std::hash<std::string>{}(r.text), std::hash<std::string>{}(r.font_family),
+                              r.bounds.width, r.bounds.height, r.font_size, r.font_weight, unsigned(r.alignment),
+                              r.line_height, r.elide_right, r.underline, r.letter_spacing,
+                              r.color.red, r.color.green, r.color.blue, r.color.alpha, key.density);
+        }
+    };
+    struct Entry { QImage image; qreal scale, verticalOffset; };
+    QCache<Key, Entry> entries{4 * 1024 * 1024};
+    std::uint64_t fontRevision = 0;
+};
 
 QtPaintDevice::QtPaintDevice() = default;
 QtPaintDevice::~QtPaintDevice() = default;
@@ -75,20 +93,68 @@ ii::core::Result<void> QtPaintDevice::draw_panels(std::span<const ii::gui::Panel
     return {};
 }
 ii::core::Result<void> QtPaintDevice::draw_text(std::span<const ii::gui::TextRun> runs) {
+    const auto world = m_painter->worldTransform();
+    const auto frameScale = m_pending.devicePixelRatio();
+    const auto density = frameScale * world.m11();
+    if (!(density > 0) || !std::isfinite(density)) return unsupported("Invalid native text scale");
+    if (runs.empty()) return {};
+    if (!m_textRasters) m_textRasters = std::make_unique<TextRasters>();
+    auto &cache = *m_textRasters;
+    const auto revision = ii::gui::FontDatabase::application()->revision();
+    if (cache.fontRevision != revision) {
+        cache.entries.clear();
+        cache.fontRevision = revision;
+    }
     for (const auto &run : runs) {
+        const auto bounds = rect(run.bounds);
+        const auto paintClip = run.clip ? bounds.intersected(rect(*run.clip)) : bounds;
+        if (paintClip.isEmpty() || run.text.empty() || run.color.alpha == 0) continue;
+
+        // Scrolling and clipping can reuse the same shaped raster.
+        TextRasters::Key key{run, density};
+        key.run.bounds.x = key.run.bounds.y = 0;
+        key.run.clip.reset();
+        const auto *entry = cache.entries.object(key);
+        std::unique_ptr<TextRasters::Entry> transient;
+        if (!entry) {
+            const auto metrics = ii::gui::measure_wrapped_text_layout(key.run);
+            if (!metrics) return std::unexpected(metrics.error());
+            auto local = key.run;
+            local.bounds.height = std::min(local.bounds.height, static_cast<float>(metrics->height));
+            if (!(local.bounds.height > 0)) continue;
+            // Extremely large transformed bounds fall back to a bounded, scaled raster.
+            constexpr double maxPixels = 8192;
+            auto scale = std::min({density, 8., maxPixels / local.bounds.width, maxPixels / local.bounds.height});
+            if (local.bounds.width * scale > maxPixels || local.bounds.height * scale > maxPixels)
+                scale = std::nextafter(scale, 0.);
+            auto bitmap = ii::gui::render_text(std::move(local), scale);
+            if (!bitmap) return std::unexpected(bitmap.error());
+            if (bitmap->rgba.empty()) continue;
+            const QImage rgba(std::as_const(bitmap->rgba).data(), static_cast<int>(bitmap->width),
+                              static_cast<int>(bitmap->height), qsizetype(bitmap->width) * 4, QImage::Format_RGBA8888);
+            auto image = rgba.convertToFormat(QImage::Format_ARGB32_Premultiplied);
+            if (image.isNull()) return ii::core::fail(ii::core::ErrorCode::full, "Cannot allocate native text presentation image");
+            const auto height = std::min<double>(run.bounds.height, static_cast<float>(metrics->height));
+            transient = std::make_unique<TextRasters::Entry>(TextRasters::Entry{
+                std::move(image), scale, (run.bounds.height - height) / 2});
+            entry = transient.get();
+            const auto cost = std::max<qsizetype>(16 * 1024, entry->image.sizeInBytes() + key.run.text.size() + key.run.font_family.size());
+            if (cost <= cache.entries.maxCost()) cache.entries.insert(std::move(key), transient.release(), cost);
+        }
+
+        auto x = bounds.x(), y = bounds.y() + entry->verticalOffset;
         m_painter->save();
-        m_painter->setClipRect(run.clip ? rect(*run.clip) : rect(run.bounds), Qt::IntersectClip);
-        QFont font(QString::fromStdString(run.font_family));
-        font.setPixelSize(std::max(1, qRound(run.font_size)));
-        font.setWeight(static_cast<QFont::Weight>(run.font_weight));
-        font.setUnderline(run.underline);
-        m_painter->setFont(font);
-        m_painter->setPen(color(run.color));
-        const auto alignment = run.alignment == ii::gui::TextAlignment::right ? Qt::AlignRight
-            : run.alignment == ii::gui::TextAlignment::center ? Qt::AlignHCenter : Qt::AlignLeft;
-        auto text = QString::fromStdString(run.text);
-        if (run.elide_right) text = m_painter->fontMetrics().elidedText(text, Qt::ElideRight, qRound(run.bounds.width));
-        m_painter->drawText(rect(run.bounds), alignment | Qt::AlignVCenter, text);
+        m_painter->setClipRect(paintClip, Qt::IntersectClip);
+        if (entry->scale == density) {
+            const auto align = [density](qreal position, qreal offset) {
+                return (std::round(position * density + offset) - offset) / density;
+            };
+            x = align(x, world.dx() * frameScale);
+            y = align(y, world.dy() * frameScale);
+            m_painter->setRenderHint(QPainter::SmoothPixmapTransform, false);
+        }
+        m_painter->drawImage(QRectF{x, y, entry->image.width() / entry->scale, entry->image.height() / entry->scale},
+                             entry->image, QRectF(entry->image.rect()));
         m_painter->restore();
     }
     return {};
@@ -112,9 +178,24 @@ ii::core::Result<void> QtPaintDevice::draw_images(std::span<const ii::gui::Image
             clip.addRoundedRect(rect(run.bounds), run.radius, run.radius);
             m_painter->setClipPath(clip, Qt::IntersectClip);
         }
-        const QRectF sourceRect(run.source.x * source.width(), run.source.y * source.height(),
-                                run.source.width * source.width(), run.source.height * source.height());
-        m_painter->drawImage(rect(run.bounds), source, sourceRect);
+        QRectF target = rect(run.bounds);
+        QRectF sourceRect(run.source.x * source.width(), run.source.y * source.height(),
+                          run.source.width * source.width(), run.source.height * source.height());
+        const auto world = m_painter->worldTransform();
+        if (world.type() <= QTransform::TxTranslate) {
+            const auto scale = m_pending.devicePixelRatio();
+            auto translated = run.bounds;
+            translated.x += static_cast<float>(world.dx());
+            translated.y += static_cast<float>(world.dy());
+            if (const auto pixels = ii::gui::device_image_pixels(run, translated, scale)) {
+                target = {pixels->x / scale - world.dx(), pixels->y / scale - world.dy(),
+                          pixels->width / scale, pixels->height / scale};
+                sourceRect = {qreal(pixels->source_x), qreal(pixels->source_y),
+                              qreal(pixels->width), qreal(pixels->height)};
+                m_painter->setRenderHint(QPainter::SmoothPixmapTransform, false);
+            }
+        }
+        m_painter->drawImage(target, source, sourceRect);
         m_painter->restore();
     }
     return {};

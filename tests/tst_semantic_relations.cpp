@@ -1,13 +1,10 @@
 #include "Society/Dashboard/ProjectRepository.h"
 #include "Society/Semantics/RelocationVerification.h"
 #include "Society/Semantics/SemanticRepository.h"
-#include <FileCatalog.h>
-#include <FileOperations.h>
+#include <iiFileProvider>
+#include <iiSocietyContainer>
 #include <ProviderPackage.h>
-#include <SocietyDrive.h>
-#include <SharedStorage.h>
-#include <iiFileProviderNative.h>
-#include <iiProjectManager/ProjectManager.h>
+#include <iiProjectManager>
 #include <QDir>
 #include <QCryptographicHash>
 #include <QFile>

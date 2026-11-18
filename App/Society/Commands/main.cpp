@@ -2,6 +2,7 @@
 #include <QCoreApplication>
 #include <QDir>
 #include <QJsonDocument>
+#include <QJsonArray>
 #include <QJsonObject>
 #include <QSet>
 #include <QTextStream>
@@ -25,7 +26,7 @@ int main(int argc, char **argv)
             "       society-cli [--broker DIR] suggested status|refresh\n"
             "       society-cli [--broker DIR] recent status|refresh\n"
             "       society-cli [--broker DIR] resource inspect Files/PATH|Models/PATH [--container DIR]\n"
-            "       society-cli [--broker DIR] agent send --stdin\n"
+            "       society-cli [--broker DIR] agent send --stdin [--attach FILE]... [--container DIR]\n"
             "       society-cli [--broker DIR] agent select MODEL_ID\n";
         return 0;
     }
@@ -51,10 +52,19 @@ int main(int argc, char **argv)
         else if (args.size()==2 && command=="new") operation="agentNew";
         else if (args.size()==2 && command=="cancel") operation="agentCancel";
         else if (args.size()==3 && command=="select") { operation="agentSelect"; parameters.insert("model",args.at(2)); }
-        else if (args.size()==3 && command=="send" && args.at(2)=="--stdin") {
+        else if (args.size()>=3 && command=="send" && args.at(2)=="--stdin") {
             QTextStream input(stdin); const auto prompt=input.read(16385);
             if (prompt.size()>16384 || !input.atEnd()) return fail("The agent message exceeds 16 KiB.");
             operation="agentSend"; parameters.insert("prompt",prompt);
+            args.erase(args.begin(),args.begin()+3); QJsonArray attachments; bool sawContainer=false;
+            while (!args.isEmpty()) {
+                if (args.size()<2) return fail("An option value is missing.");
+                const auto key=args.takeFirst(), value=args.takeFirst();
+                if (key=="--attach" && !value.isEmpty() && attachments.size()<8) attachments.append(value);
+                else if (key=="--container" && !sawContainer && QDir::isAbsolutePath(value)) { expected=value; sawContainer=true; }
+                else return fail("Invalid attachment or container option.");
+            }
+            parameters.insert("attachments",attachments);
         } else return fail("Invalid agent command.");
     } else if (args.size()>=3 && args.at(0)=="file-job") {
         const auto command=args.at(1);

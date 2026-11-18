@@ -1,4 +1,4 @@
-#include <iiFileProviderDevice.h>
+#include <iiFileProvider>
 #include "DaemonService.h"
 #include "BackendRuntime.h"
 #ifdef SOCIETY_DAEMON_MCP
@@ -12,6 +12,7 @@
 #include <QCommandLineParser>
 #include <QCoreApplication>
 #include <QDir>
+#include <QFileSystemWatcher>
 #include <QTextStream>
 #include <QJsonDocument>
 #include <QSqlDatabase>
@@ -94,21 +95,39 @@ int main(int argc, char **argv)
     }
     // Local licensing remains responsive even when the selected storage is
     // disconnected: backend I/O runs in a separate event-loop thread.
+    QPointer<GroupSessionStore> brokerStore;
     std::unique_ptr<AccountController> licenseBroker;
+    QFileSystemWatcher brokerStateWatch;
     QTimer licenseBrokerRetry;
     std::function<void()> startBackend;
+    std::function<void()> watchState;
+    bool brokerPrimed=false;
 #if defined(Q_OS_UNIX)
     bool localBrokerReady = false;
     const bool isolatedTest = qEnvironmentVariableIsSet("SOCIETY_TEST_OUTPUT_DIR");
     if (!isolatedTest || qEnvironmentVariableIsSet("SOCIETY_LOCAL_BROKER_DIR")) {
         const QUrl origin(qEnvironmentVariable("SOCIETY_ACCOUNT_URL", "https://iisacc.com"));
         licenseBroker = std::make_unique<AccountController>(origin);
-        licenseBroker->setBrokerAccountFactory([origin](QObject *scope) {
-            return new AccountController(origin, GroupSessionStore::create(scope), scope);
+        licenseBroker->setBrokerAccountFactory([origin,&brokerStore](QObject *scope) {
+            auto *store=GroupSessionStore::create();
+            auto *account=new AccountController(origin,store,scope);
+            store->setParent(account);brokerStore=store;return account;
+        });
+        licenseBroker->setBrokerAccountRevision([&brokerStore](AccountController *account) {
+            return brokerStore && account ? brokerStore->recordRevision(account->manager()->sessionStorageKey()) : QByteArray{};
+        });
+        watchState=[&] {
+            const auto path=GroupSessionStore::defaultDirectory();
+            if (!path.isEmpty() && QDir(path).exists() && !brokerStateWatch.directories().contains(path))
+                brokerStateWatch.addPath(path);
+        };
+        QObject::connect(&brokerStateWatch,&QFileSystemWatcher::directoryChanged,&app,[&](const QString &) {
+            watchState();if (licenseBroker) licenseBroker->prewarmLocalLicenses();
         });
         const auto startBrokers = [&] {
             localBrokerReady = licenseBroker->startLocalLicenseBroker({}, false);
             const bool legacy = isolatedTest || parser.isSet("license-broker") || licenseBroker->startLicenseBroker();
+            if (localBrokerReady && !brokerPrimed) {brokerPrimed=true;watchState();licenseBroker->prewarmLocalLicenses();}
             if (localBrokerReady && startBackend) startBackend();
             if (localBrokerReady && legacy) licenseBrokerRetry.stop();
         };

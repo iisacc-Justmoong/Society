@@ -10,8 +10,8 @@
   },
   "source": {
     "path": "docs/Environment.md",
-    "sha256": "6c9fefe6b8aedf5aa6687f16785af98c18028703fbe675c9772f52c1bcc8f48e",
-    "bytes": 5315,
+    "sha256": "b47da42c0a9b8ac6f8baf1501e901849a9bb26fed058ae50ab4fedda5831a0e8",
+    "bytes": 5320,
     "line_count": 44,
     "encoding": "utf-8",
     "language": "ko"
@@ -268,7 +268,7 @@
       "kind": "paragraph",
       "start_line": 38,
       "end_line": 38,
-      "raw": "EnvironmentAppsModel 는  Society 자체와 설치된  Dreamscapes / Vincent 번들을  macOS 에서 식별합니다. 일반 제품 이름 (노트, 모션, 스튜디오 등) 은 동일한 이름의 관련 없는 애플리케이션과 매칭되지 않습니다. 9   Figma 카탈로그 항목들은 설명과 시각적 정체성을 유지합니다. 인증된 릴리스 제공자가 없는 경우 설치가 비활성화되며 라이선스는 명시적으로 미검증입니다. 다른 플랫폼은 현재 Society 만 식별합니다. 원격 앱 재고는 별도의 계정 범용 입력이며 연결된 장치 만으로는 특정 앱이 설치되어 있다는 것을 함의하지 않습니다. 계정 웹 앱은 구성된 계정 서비스를 사용합니다. 추가 웹 앱은 발명된 서비스 엔드포인트가 아닌 사용자 제공 URL 입니다.\n"
+      "raw": "EnvironmentAppsModel 는  Society 자체와 설치된  Dreamscapes / Congregation 번들을  macOS 에서 식별합니다. 일반 제품 이름 (노트, 모션, 스튜디오 등) 은 동일한 이름의 관련 없는 애플리케이션과 매칭되지 않습니다. 9   Figma 카탈로그 항목들은 설명과 시각적 정체성을 유지합니다. 인증된 릴리스 제공자가 없는 경우 설치가 비활성화되며 라이선스는 명시적으로 미검증입니다. 다른 플랫폼은 현재 Society 만 식별합니다. 원격 앱 재고는 별도의 계정 범용 입력이며 연결된 장치 만으로는 특정 앱이 설치되어 있다는 것을 함의하지 않습니다. 계정 웹 앱은 구성된 계정 서비스를 사용합니다. 추가 웹 앱은 발명된 서비스 엔드포인트가 아닌 사용자 제공 URL 입니다.\n"
     },
     {
       "id": "b000026",

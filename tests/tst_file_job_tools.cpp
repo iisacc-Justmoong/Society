@@ -1,7 +1,5 @@
 #include "Society/Mcp/FileJobTools.h"
-#include <iiMultimodalAgent/agent/McpServer.h>
-#include <iiMultimodalAgent/mcp/HttpClient.h>
-#include <iiMultimodalAgent/mcp/HttpServer.h>
+#include <iiMultimodalAgent>
 #include <QDir>
 #include <QTest>
 #include <atomic>

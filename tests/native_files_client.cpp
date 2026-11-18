@@ -1,5 +1,5 @@
 #include "Society/Native/NativeFilesClient.h"
-#include <iiNetwork/Local.h>
+#include <iiNetwork>
 #include <chrono>
 #include <filesystem>
 #include <iostream>

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "NativeBackendWire.h"
-#include <iiNetwork/Local.h>
+#include <iiNetwork>
 #include <expected>
 #include <functional>
 #include <memory>

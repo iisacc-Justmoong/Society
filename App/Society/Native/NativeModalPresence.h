@@ -1,5 +1,5 @@
 #pragma once
-#include <iiSDKCore/Core/Property/Observable.h>
+#include <iiSDKCore>
 #include <QObject>
 #include <QPointer>
 #include <cstddef>

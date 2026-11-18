@@ -1,12 +1,13 @@
-#include <DeliveryStore.h>
-#include <SocietyDrive.h>
-#include <SharedStorage.h>
-#include <iiSocietyHelper.h>
+#include <iiSocietyHelper>
+#include <iiSocietyContainer>
 #include "Society/Files/ModelImporter.h"
 #include "Shared/LocalBackendAddress.h"
 #include "Shared/LocalBackendPeer.h"
 #include "Shared/BackendCommand.h"
 #include "Daemon/ModelBackendServer.h"
+#ifdef SOCIETY_AGENT_BACKEND
+#include "Daemon/ResidentGateway.h"
+#endif
 #include "Daemon/NativeDirectorySession.h"
 #include <QDir>
 #include <QDateTime>
@@ -61,6 +62,38 @@ class BackendDaemonTests final : public QObject {
         return {};
     }
 private slots:
+#ifdef SOCIETY_AGENT_BACKEND
+    void residentRequestsStayOnTheirOwnConnection()
+    {
+        QTemporaryDir fixture(QDir::cleanPath(QStringLiteral(SOCIETY_TEST_DIRECTORY)+"/../../.resident-ipc-XXXXXX"));
+        QVERIFY(fixture.isValid());
+        QHash<QString,ResidentGateway::Callback> callbacks; QStringList cancelled;
+        ModelBackendServer server; QVERIFY(server.listen(fixture.path()));
+        server.residentGateway()->setReady("model://fixture",[&](const QJsonArray &messages,const QJsonObject &,ResidentGateway::Callback callback) {
+            const auto content=messages.first().toObject().value("content").toString(); callbacks.insert(content,std::move(callback));
+            return [&,content] { cancelled.append(content); };
+        });
+        QLocalSocket first, second; first.connectToServer(societyBackendAddress(fixture.path())); second.connectToServer(societyBackendAddress(fixture.path()));
+        QVERIFY(first.waitForConnected(5000)); QVERIFY(second.waitForConnected(5000));
+        auto generate=[](const QString &id,const QString &text) {
+            return QJsonObject{{"id",id},{"op","iisaccsonGenerate"},
+                {"messages",QJsonArray{QJsonObject{{"role","user"},{"content",text}}}}};
+        };
+        QVERIFY(request(first,generate("first-id","first")).value("accepted").toBool());
+        QVERIFY(request(second,generate("second-id","second")).value("accepted").toBool());
+        QVERIFY(!request(second,{{"id","wrong-cancel"},{"op","iisaccsonCancel"},{"requestId","first-id"}}).value("accepted").toBool());
+        callbacks["first"]({{"kind","delta"},{"text","private first"}});
+        QTRY_VERIFY(first.bytesAvailable()>4);
+        const auto bytes=first.readAll(); const auto size=qFromBigEndian<quint32>(bytes.constData());
+        QVERIFY(bytes.size()>=qsizetype(size+4));
+        const auto value=QJsonDocument::fromJson(bytes.mid(4,size)).object();
+        QCOMPARE(value.value("id").toString(),QString("first-id"));
+        QCOMPARE(value.value("event").toObject().value("text").toString(),QString("private first"));
+        QCOMPARE(second.bytesAvailable(),qint64(0));
+        QVERIFY(request(first,{{"id","cancel"},{"op","iisaccsonCancel"},{"requestId","first-id"}}).value("accepted").toBool());
+        QCOMPARE(cancelled,QStringList{"first"});
+    }
+#endif
     void localPeerIdentityIsObtainedFromTheSocket()
     {
         QTemporaryDir fixture(QDir::cleanPath(QStringLiteral(SOCIETY_TEST_DIRECTORY) + "/../../.peer-identity-XXXXXX"));
@@ -238,6 +271,19 @@ private slots:
         })(),30000);
         QCOMPARE(status.value("job").toObject().value("path").toString(),QStringLiteral("Files/renamed.txt"));
         QVERIFY(QFileInfo::exists(root+"/Files/renamed.txt")); QVERIFY(!QFileInfo::exists(file.fileName()));
+        QVERIFY(QDir().mkdir(root+"/Files/target"));
+        const auto copied=request(observer,{{"id","copy-managed-file"},{"op","fileOperation"},{"container",root},
+                                            {"action","copy"},{"path",root+"/Files/renamed.txt"},{"argument","Files/target"}});
+        QVERIFY2(copied.value("accepted").toBool(),qPrintable(copied.value("error").toString()));
+        const auto copyJobId=copied.value("jobId").toString(); QVERIFY(!copyJobId.isEmpty());
+        QTRY_VERIFY_WITH_TIMEOUT(([&]{
+            const auto reply=request(observer,{{"id",QUuid::createUuid().toString(QUuid::WithoutBraces)},
+                                               {"op","fileJobStatus"},{"container",root},{"jobId",copyJobId}});
+            return reply.value("job").toObject().value("state").toString()=="succeeded";
+        })(),30000);
+        QFile copiedFile(root+"/Files/target/renamed.txt"); QVERIFY(copiedFile.open(QIODevice::ReadOnly));
+        QCOMPARE(copiedFile.readAll(),QByteArray("fixture")); copiedFile.close();
+        QVERIFY(QFileInfo::exists(root+"/Files/renamed.txt"));
         auto invalid=operation; invalid.insert("id","invalid-file-operation"); invalid.insert("path","Files/../outside");
         QVERIFY(!request(observer,invalid).value("accepted").toBool());
     }
@@ -652,9 +698,17 @@ private slots:
             return false;
         };
         QSignalSpy state(&client,&ModelBackendClient::agentStateReceived), result(&client,&ModelBackendClient::agentResultReceived), errors(&client,&ModelBackendClient::requestError);
+        QSignalSpy resources(&client,&ModelBackendClient::resourceResultReceived);
+        QSignalSpy directories(&client,&ModelBackendClient::directoryResultReceived);
         QVERIFY(client.request("agentSend",{{"prompt","old"}},true));
         QString oldId; bool foundOldRequest = false;
         QTRY_VERIFY_WITH_TIMEOUT(foundOldRequest || (foundOldRequest = findRequest("agentSend",oldId)),5000);
+        QVERIFY(client.request("resourceInspect",{{"path","Files/old.txt"}}));
+        QString oldResourceId; bool foundOldResource=false;
+        QTRY_VERIFY_WITH_TIMEOUT(foundOldResource || (foundOldResource=findRequest("resourceInspect",oldResourceId)),5000);
+        QVERIFY(client.request("directoryOpen",{{"path","Files"}}));
+        QString oldDirectoryId; bool foundOldDirectory=false;
+        QTRY_VERIFY_WITH_TIMEOUT(foundOldDirectory || (foundOldDirectory=findRequest("directoryOpen",oldDirectoryId)),5000);
         client.setContainerPath(second);
         client.setContainerPath(first); // A -> B -> A still invalidates A's old requests.
         const auto send=[&](const QJsonObject &message) {
@@ -664,8 +718,22 @@ private slots:
         const QJsonObject oldState{{"messages",QJsonArray{QJsonObject{{"text","old private message"}}}}};
         send({{"type","agentState"},{"container",first},{"agent",oldState}});
         send({{"type","result"},{"id",oldId},{"accepted",false},{"error","old failure"},{"agent",oldState}});
+        send({{"type","result"},{"id",oldResourceId},{"accepted",true},{"resource",QJsonObject{{"old",true}}}});
+        send({{"type","result"},{"id",oldDirectoryId},{"accepted",true},{"directory",QJsonObject{{"generation","old"}}}});
         QTRY_VERIFY_WITH_TIMEOUT(!client.pendingMutation(),5000);
-        QCOMPARE(state.size(),0); QCOMPARE(result.size(),0); QCOMPARE(errors.size(),0);
+        QCOMPARE(state.size(),0); QCOMPARE(result.size(),0); QCOMPARE(errors.size(),0); QCOMPARE(resources.size(),0); QCOMPARE(directories.size(),0);
+        QVERIFY(client.request("directoryOpen",{{"path","Files"}}));
+        QString newDirectoryId; bool foundNewDirectory=false;
+        QTRY_VERIFY_WITH_TIMEOUT(foundNewDirectory || (foundNewDirectory=findRequest("directoryOpen",newDirectoryId)),5000);
+        send({{"type","result"},{"id",newDirectoryId},{"accepted",true},{"directory",QJsonObject{{"generation","current"}}}});
+        QTRY_COMPARE_WITH_TIMEOUT(directories.size(),1,5000);
+        QCOMPARE(directories.first().at(1).toString(),newDirectoryId);
+        QVERIFY(client.request("resourceInspect",{{"path","Files/new.txt"}}));
+        QString newResourceId; bool foundNewResource=false;
+        QTRY_VERIFY_WITH_TIMEOUT(foundNewResource || (foundNewResource=findRequest("resourceInspect",newResourceId)),5000);
+        send({{"type","result"},{"id",newResourceId},{"accepted",true},{"resource",QJsonObject{{"current",true}}}});
+        QTRY_COMPARE_WITH_TIMEOUT(resources.size(),1,5000);
+        QCOMPARE(resources.first().at(0).toString(),newResourceId);
         QVERIFY(client.request("agentSubscribe"));
         QString newId; bool foundNewRequest = false;
         QTRY_VERIFY_WITH_TIMEOUT(foundNewRequest || (foundNewRequest = findRequest("agentSubscribe",newId)),5000);

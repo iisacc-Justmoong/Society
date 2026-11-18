@@ -3,9 +3,8 @@
 #include "Society/Native/ExternalOverlaySurface.h"
 #include "Society/Native/OverlayShutdown.h"
 #include "UserQuestionsSheet.generated.h"
-#include <iiMultimodalAgent/agent/NativeQuestionBridge.h>
-#include <iiMultimodalAgent/agent/NativeQuestionViewModel.h>
-#include <iiGUI/Host.h>
+#include <iiMultimodalAgent>
+#include <iiGUI>
 #include <QCoreApplication>
 #include <QEvent>
 #include <QMetaMethod>

@@ -1,10 +1,8 @@
 #include "Daemon/DaemonService.h"
 #include "Society/Services/SocietyInbox.h"
-#include <iiSocietyHelper.h>
-#include <DeliveryStore.h>
-#include <SocietyDrive.h>
+#include <iiSocietyHelper>
+#include <iiSocietyContainer>
 #include <QDir>
-#include <SharedStorage.h>
 #include <QJsonDocument>
 #include <QJsonArray>
 #include <QUuid>

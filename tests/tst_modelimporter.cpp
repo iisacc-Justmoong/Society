@@ -2,12 +2,8 @@
 #include "Society/Files/ModelImporter.h"
 #include "Society/Jobs/JobStorage.h"
 #include <Job.h>
-#include <SocietyDrive.h>
-#include <ModelStore.h>
-#include <SharedStorage.h>
-#include <FileRepository.h>
-#include <TemporaryLease.h>
-#include <iiFileProviderPresentation.h>
+#include <iiSocietyContainer>
+#include <iiFileProvider>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>

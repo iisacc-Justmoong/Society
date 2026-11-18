@@ -3,9 +3,13 @@
 #include "MemorySessionStore.h"
 #include <QLocalSocket>
 #include <QJsonDocument>
+#include <QNetworkAccessManager>
+#include <QNetworkReply>
+#include <QNetworkRequest>
 #include <QTemporaryDir>
 #include <QProcess>
 #include <QElapsedTimer>
+#include <QCryptographicHash>
 #include <QSettings>
 #include <QScopeGuard>
 #include <QUuid>
@@ -34,6 +38,177 @@ class LocalLicenseTests final : public QObject {
         return size && bytes.size()>=int(size+4)?QJsonDocument::fromJson(bytes.mid(4,size)).object():QJsonObject{};
     }
 private slots:
+    void retiredVincentIsRejectedByBothBrokers() {
+        QTemporaryDir dir(brokerTemplate()); QVERIFY(dir.isValid());
+        AccountController account;
+        QVERIFY(account.startLocalLicenseBroker(dir.path(), false));
+        const QJsonObject input{{"productId", "vincent"}, {"appId", "com.iisacc.vincent"},
+            {"requestId", "fa37a985-5c4d-48e7-8343-82cc7254536f"}};
+        QCOMPARE(request(account.localLicenseBrokerPath(), input).value("code").toString(), QString("invalid_app_request"));
+        QVERIFY(account.startLicenseBroker(0));
+        QNetworkAccessManager client;
+        QNetworkRequest http(account.licenseBrokerUrl());
+        http.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+        auto *reply = client.post(http, QJsonDocument(input).toJson(QJsonDocument::Compact));
+        QTRY_VERIFY(reply->isFinished());
+        QCOMPARE(reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt(), 400);
+        reply->deleteLater();
+    }
+    void localTokenFastPathReusesSessionAndDetectsLogout() {
+        AccountServer server; QVERIFY(server.server.listen(QHostAddress::LocalHost));
+        MemorySessionStore savedSession, tokenStore;
+        {
+            AccountController gui(server.url(),&savedSession,nullptr);
+            QVERIFY(gui.login("builder@example.com","FixtureOnly1!"));
+            QTRY_VERIFY(gui.signedIn()); QTRY_VERIFY(!savedSession.values.isEmpty());
+        }
+        QTemporaryDir dir(brokerTemplate());QVERIFY(dir.isValid());
+        AccountController daemon(server.url());int constructions=0;
+        daemon.setBrokerAccountFactory([&](QObject* parent) {
+            ++constructions;auto *account=new AccountController(server.url(),&savedSession,parent);
+            account->manager()->licenseManager()->setTrustedKeys({{"fixture-owned-license",QByteArray::fromStdString(license_fixture::public_key())}});
+            account->manager()->licenseManager()->setTokenStore(&tokenStore);return account;
+        });
+        daemon.setBrokerAccountRevision([&](AccountController* account) {
+            const auto key=account->manager()->sessionStorageKey();
+            if(!savedSession.values.contains(key))return QByteArray{};
+            return QCryptographicHash::hash(savedSession.values.value(key),QCryptographicHash::Sha256);
+        });
+        QVERIFY(daemon.startLocalLicenseBroker(dir.path(),false));
+        QJsonObject input{{"operation","local-license-v2"},{"productId","dreamscapes"},{"appId","com.iisacc.dreamscapes"},
+            {"deviceId",daemon.manager()->deviceInfo().value("id").toString()},
+            {"requestId","fa37a985-5c4d-48e7-8343-82cc7254536f"}};
+        auto initial=request(daemon.localLicenseBrokerPath(),input);
+        QVERIFY2(!initial.value("localToken").toString().isEmpty(),qPrintable(QString::fromUtf8(QJsonDocument(initial).toJson())));
+        QCOMPARE(constructions,1);const auto requests=server.licenseRequests;
+        savedSession.holdRead=true;server.licenseHang=true;
+        qint64 slowest=0;
+        for(int i=0;i<10;++i) {
+            QElapsedTimer elapsed;elapsed.start();auto granted=request(daemon.localLicenseBrokerPath(),input);
+            slowest=std::max(slowest,elapsed.elapsed());
+            QVERIFY(!granted.value("localToken").toString().isEmpty());
+            QVERIFY(!granted.contains("allowed"));
+        }
+        qInfo()<<"LOCAL_BROKER_MAX_MS"<<slowest;
+        QVERIFY2(slowest<1000,"the cached local token exceeded one second");
+        QCOMPARE(constructions,1);QCOMPARE(server.licenseRequests,requests);QVERIFY(!savedSession.releaseRead);
+        savedSession.holdRead=false;savedSession.values.clear();
+        auto revoked=request(daemon.localLicenseBrokerPath(),input);
+        QVERIFY(revoked.value("localToken").toString().isEmpty());
+        QVERIFY(!revoked.value("allowed").toBool());
+    }
+    void logoutDuringTokenReadDoesNotGrantStaleLicense() {
+        AccountServer server; QVERIFY(server.server.listen(QHostAddress::LocalHost));
+        MemorySessionStore savedSession, tokenStore;
+        {
+            AccountController gui(server.url(), &savedSession, nullptr);
+            QVERIFY(gui.login("builder@example.com", "FixtureOnly1!"));
+            QTRY_VERIFY(gui.signedIn()); QTRY_VERIFY(!savedSession.values.isEmpty());
+        }
+        QTemporaryDir dir(brokerTemplate()); QVERIFY(dir.isValid());
+        AccountController daemon(server.url()); QPointer<AccountController> cached;
+        daemon.setBrokerAccountFactory([&](QObject *parent) {
+            auto *account = new AccountController(server.url(), &savedSession, parent);
+            cached = account;
+            account->manager()->licenseManager()->setTrustedKeys({{"fixture-owned-license", QByteArray::fromStdString(license_fixture::public_key())}});
+            account->manager()->licenseManager()->setTokenStore(&tokenStore);
+            return account;
+        });
+        daemon.setBrokerAccountRevision([&](AccountController *account) {
+            const auto key = account->manager()->sessionStorageKey();
+            return savedSession.values.contains(key) ? QCryptographicHash::hash(savedSession.values.value(key), QCryptographicHash::Sha256) : QByteArray{};
+        });
+        QVERIFY(daemon.startLocalLicenseBroker(dir.path(), false));
+        const QJsonObject input{{"operation", "local-license-v2"}, {"productId", "dreamscapes"},
+            {"appId", "com.iisacc.dreamscapes"}, {"deviceId", daemon.manager()->deviceInfo().value("id").toString()},
+            {"requestId", "fa37a985-5c4d-48e7-8343-82cc7254536f"}};
+        QVERIFY(!request(daemon.localLicenseBrokerPath(), input).value("localToken").toString().isEmpty());
+        QVERIFY(cached); cached->manager()->licenseManager()->clear(); tokenStore.holdRead = true;
+        QLocalSocket socket; socket.connectToServer(daemon.localLicenseBrokerPath());
+        QVERIFY(socket.waitForConnected(1000)); socket.write(frame(input)); socket.flush();
+        QTRY_VERIFY_WITH_TIMEOUT(bool(tokenStore.releaseRead), 500);
+        savedSession.values.clear(); tokenStore.releaseRead();
+        QTRY_VERIFY_WITH_TIMEOUT(socket.bytesAvailable() >= 4, 1000);
+        const auto header = socket.peek(4);
+        const auto *b = reinterpret_cast<const unsigned char *>(header.constData());
+        const auto size = (quint32(b[0]) << 24) | (quint32(b[1]) << 16) | (quint32(b[2]) << 8) | quint32(b[3]);
+        QVERIFY(size > 0 && size < 65536); QTRY_VERIFY_WITH_TIMEOUT(socket.bytesAvailable() >= size + 4, 1000);
+        const auto result = QJsonDocument::fromJson(socket.readAll().mid(4)).object();
+        QCOMPARE(result.value("requestId").toString(), input.value("requestId").toString());
+        QVERIFY2(result.value("localToken").toString().isEmpty(), "logout during token loading issued a stale grant");
+    }
+    void timedOutRestoreCanBeDestroyedAndRetried() {
+        AccountServer server;QVERIFY(server.server.listen(QHostAddress::LocalHost));
+        MemorySessionStore savedSession,tokenStore;
+        {
+            AccountController gui(server.url(),&savedSession,nullptr);
+            QVERIFY(gui.login("builder@example.com","FixtureOnly1!"));
+            QTRY_VERIFY(gui.signedIn());QTRY_VERIFY(!savedSession.values.isEmpty());
+        }
+        savedSession.holdRead=true;
+        QTemporaryDir dir(brokerTemplate());QVERIFY(dir.isValid());
+        AccountController daemon(server.url());QPointer<AccountController> pending;
+        daemon.setBrokerAccountFactory([&](QObject *parent) {
+            auto *account=new AccountController(server.url(),&savedSession,parent);pending=account;
+            account->manager()->licenseManager()->setTrustedKeys({{"fixture-owned-license",QByteArray::fromStdString(license_fixture::public_key())}});
+            account->manager()->licenseManager()->setTokenStore(&tokenStore);return account;
+        });
+        daemon.setBrokerAccountRevision([&](AccountController *account) {
+            const auto key=account->manager()->sessionStorageKey();
+            return savedSession.values.contains(key)?QCryptographicHash::hash(savedSession.values.value(key),QCryptographicHash::Sha256):QByteArray{};
+        });
+        QVERIFY(daemon.startLocalLicenseBroker(dir.path(),false));
+        const QJsonObject input{{"operation","local-license-v2"},{"productId","dreamscapes"},{"appId","com.iisacc.dreamscapes"},
+            {"deviceId",daemon.manager()->deviceInfo().value("id").toString()},
+            {"requestId","fa37a985-5c4d-48e7-8343-82cc7254536f"}};
+        QElapsedTimer elapsed;elapsed.start();const auto timeout=request(daemon.localLicenseBrokerPath(),input);
+        QVERIFY(elapsed.elapsed()<1000);QCOMPARE(timeout.value("code").toString(),QString("verification_unavailable"));
+        QVERIFY(timeout.value("localToken").toString().isEmpty());QVERIFY(pending);
+        pending->deleteLater();QTRY_VERIFY(pending.isNull());
+        const auto retry=request(daemon.localLicenseBrokerPath(),input);
+        QVERIFY2(!retry.value("localToken").toString().isEmpty(),"destroyed restore left the broker unable to recover");
+    }
+    void legacyBrokerRechecksLogoutDuringTokenRead() {
+        AccountServer server;QVERIFY(server.server.listen(QHostAddress::LocalHost));
+        MemorySessionStore savedSession,tokenStore;
+        {
+            AccountController gui(server.url(),&savedSession,nullptr);
+            QVERIFY(gui.login("builder@example.com","FixtureOnly1!"));
+            QTRY_VERIFY(gui.signedIn());QTRY_VERIFY(!savedSession.values.isEmpty());
+        }
+        QTemporaryDir dir(brokerTemplate());QVERIFY(dir.isValid());
+        AccountController daemon(server.url());QPointer<AccountController> cached;
+        daemon.setBrokerAccountFactory([&](QObject *parent) {
+            auto *account=new AccountController(server.url(),&savedSession,parent);cached=account;
+            account->manager()->licenseManager()->setTrustedKeys({{"fixture-owned-license",QByteArray::fromStdString(license_fixture::public_key())}});
+            account->manager()->licenseManager()->setTokenStore(&tokenStore);return account;
+        });
+        daemon.setBrokerAccountRevision([&](AccountController *account) {
+            const auto key=account->manager()->sessionStorageKey();
+            return savedSession.values.contains(key)?QCryptographicHash::hash(savedSession.values.value(key),QCryptographicHash::Sha256):QByteArray{};
+        });
+        QVERIFY(daemon.startLocalLicenseBroker(dir.path(),false));QVERIFY(daemon.startLicenseBroker(0));
+        QJsonObject input{{"operation","local-license-v2"},{"productId","dreamscapes"},{"appId","com.iisacc.dreamscapes"},
+            {"deviceId",daemon.manager()->deviceInfo().value("id").toString()},
+            {"requestId","fa37a985-5c4d-48e7-8343-82cc7254536f"}};
+        QVERIFY(!request(daemon.localLicenseBrokerPath(),input).value("localToken").toString().isEmpty());
+        QVERIFY(cached);cached->manager()->licenseManager()->clear();tokenStore.holdRead=true;
+        input.remove("operation");input.insert("subject",server.profile.value("sub"));
+        const auto body=QJsonDocument(input).toJson(QJsonDocument::Compact);
+        QTcpSocket socket;socket.connectToHost(QHostAddress::LocalHost,daemon.licenseBrokerUrl().port());
+        QVERIFY(socket.waitForConnected(1000));
+        const auto headers=QByteArray("POST /v1/authorize HTTP/1.1\r\nHost: 127.0.0.1:")+
+            QByteArray::number(daemon.licenseBrokerUrl().port())+"\r\nContent-Type: application/json\r\nContent-Length: "+
+            QByteArray::number(body.size())+"\r\n\r\n";
+        socket.write(headers+body);socket.flush();QTRY_VERIFY_WITH_TIMEOUT(bool(tokenStore.releaseRead),500);
+        savedSession.values.clear();tokenStore.releaseRead();
+        QByteArray response;QTRY_VERIFY_WITH_TIMEOUT(([&] {response+=socket.readAll();const auto split=response.indexOf("\r\n\r\n");
+            return split>=0 && QJsonDocument::fromJson(response.mid(split+4)).isObject();})(),1000);
+        const auto result=QJsonDocument::fromJson(response.mid(response.indexOf("\r\n\r\n")+4)).object();
+        QCOMPARE(result.value("requestId").toString(),input.value("requestId").toString());
+        QVERIFY2(!result.value("allowed").toBool() && result.value("licenseToken").toString().isEmpty(),
+                 "legacy broker issued a stale grant after logout");
+    }
     void headlessBrokerCachesAndReusesVerifiedLicenseOffline() {
         QVERIFY(!QCoreApplication::instance()->inherits("QGuiApplication"));
         QTemporaryDir dir(brokerTemplate()); QVERIFY(dir.isValid());
@@ -135,6 +310,8 @@ private slots:
         auto dreamscapes=input;dreamscapes.insert("productId","dreamscapes");dreamscapes.insert("appId","com.iisacc.dreamscapes");
         const auto dreamscapesResult=request(account.localLicenseBrokerPath(),dreamscapes);
         QVERIFY(dreamscapesResult.value("allowed").toBool());QVERIFY(!dreamscapesResult.value("licenseToken").toString().isEmpty());
+        auto vincent=input;vincent.insert("productId","vincent");vincent.insert("appId","com.iisacc.vincent");
+        QCOMPARE(request(account.localLicenseBrokerPath(),vincent).value("code").toString(),QString("invalid_app_request"));
         QLocalSocket helper;helper.connectToServer(account.localHelperBrokerPath());QTRY_COMPARE(helper.state(),QLocalSocket::ConnectedState);
         QVERIFY(helper.write(frame({{"op","hello"},{"productId","dreamscapes"},{"appId","com.iisacc.dreamscapes"},
             {"deviceId",input.value("deviceId")}}))>0);helper.flush();
@@ -146,9 +323,12 @@ private slots:
         auto mismatched=dreamscapes;mismatched.insert("appId","com.iisacc.congregation.painter");
         QCOMPARE(request(account.localLicenseBrokerPath(),mismatched).value("code").toString(),QString("invalid_app_request"));
 #ifdef SOCIETY_LOCAL_CLIENT_PROBE
-        QProcess product;product.start(QStringLiteral(SOCIETY_LOCAL_CLIENT_PROBE),{account.localLicenseBrokerPath(),input.value("deviceId").toString()});
+        const auto probe=qEnvironmentVariable("SOCIETY_TEST_CLIENT_PROBE",QStringLiteral(SOCIETY_LOCAL_CLIENT_PROBE));
+        QProcess product;product.start(probe,{account.localLicenseBrokerPath(),input.value("deviceId").toString()});
         QVERIFY(product.waitForStarted(3000));QTRY_COMPARE_WITH_TIMEOUT(product.state(),QProcess::NotRunning,15000);
-        QCOMPARE(product.exitStatus(),QProcess::NormalExit);QCOMPARE(product.exitCode(),0);QVERIFY(product.readAllStandardOutput().contains("licensed"));
+        const auto output=product.readAllStandardOutput();qInfo().noquote()<<output.trimmed();
+        QCOMPARE(product.exitStatus(),QProcess::NormalExit);QCOMPARE(product.exitCode(),0);
+        QVERIFY(output.contains("licensed"));QVERIFY(output.contains("LOCAL_LICENSE_CLIENT_US="));
 #endif
         auto wrong=input;wrong.insert("deviceId",QString(64,'b'));result=request(account.localLicenseBrokerPath(),wrong);
         QVERIFY(!result.value("allowed").toBool());QVERIFY(result.value("licenseToken").isUndefined());

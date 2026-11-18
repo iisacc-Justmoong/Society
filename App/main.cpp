@@ -6,10 +6,8 @@
 #include "Society/Semantics/SemanticRepository.h"
 #include "Society/Files/CanvasFilePreview.h"
 #include "backend/runtime/appentry.h"
-#include <iiSocietyHelper.h>
-#include <iiSocietyContainer/SocietyApplication.h>
-#include <iiSocietyContainer/PreviewCache.h>
-#include <FileOperations.h>
+#include <iiSocietyHelper>
+#include <iiSocietyContainer>
 #include <QQuickWindow>
 #include <QGuiApplication>
 #include <QIcon>
@@ -26,7 +24,7 @@
 #endif
 #ifdef SOCIETY_NATIVE_ACCOUNT_PRESENTER
 #include "Society/Native/NativeAccountPresenter.h"
-#include <iiAccountManager/Quick/AccountViews.h>
+#include <iiAccountManager>
 #endif
 #include "Society/Services/SocietyRuntime.h"
 #include "Society/Services/SyncOwnership.h"

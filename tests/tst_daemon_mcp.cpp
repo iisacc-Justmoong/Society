@@ -1,9 +1,7 @@
 #include "Daemon/DaemonMcp.h"
 #include "Daemon/ModelBackendServer.h"
-#include <SocietyDrive.h>
-#include <SharedStorage.h>
-#include <iiMultimodalAgent/mcp/HttpClient.h>
-#include <iiMultimodalAgent/mcp/LocalApplications.h>
+#include <iiSocietyContainer>
+#include <iiMultimodalAgent>
 #include <QDir>
 #include <QDirIterator>
 #include <QFile>
@@ -69,6 +67,10 @@ private slots:
                 throw std::runtime_error("resource inspection accepted traversal");
             if (!call("workspace_agent_send",{{"prompt","fixture"}}).value("isError").toBool())
                 throw std::runtime_error("an agent with no model must reject a prompt");
+            const auto attachment=call("workspace_agent_send",{{"prompt","fixture"},{"attachments",QJsonArray{"Files/example.txt"}}});
+            if (!attachment.value("isError").toBool() ||
+                !QString::fromUtf8(QJsonDocument(attachment).toJson()).contains("Select a model first"))
+                throw std::runtime_error("attachment did not reach the agent admission boundary");
             if (!call("workspace_agent_select",{{"model","model://missing"}}).value("isError").toBool())
                 throw std::runtime_error("an unavailable agent model must be rejected");
             client.close(); return true;

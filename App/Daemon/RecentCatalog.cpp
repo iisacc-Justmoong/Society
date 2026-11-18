@@ -1,7 +1,7 @@
 #include "RecentCatalog.h"
 #include "Society/Semantics/PhysicalIdentity.h"
-#include <SharedStorage.h>
-#include <iiFileProviderPresentation.h>
+#include <iiSocietyContainer>
+#include <iiFileProvider>
 #include <QDateTime>
 #include <QDir>
 #include <QDirIterator>
@@ -164,7 +164,7 @@ Snapshot RecentCatalog::update(const QString &container,const QVector<Activity> 
             auto modified=file.lastModified().toMSecsSinceEpoch();
             if (isPackage) modified=qMax(modified,QFileInfo(QDir(path).filePath("manifest.json")).lastModified().toMSecsSinceEpoch());
             const auto at=qMax(modified,id?history.value(*id).atMs:qint64(0));
-            Item item{path,file.fileName(),at,isPackage?-1:file.size()}; if (activityPaths.contains(path)) seenActivities.insert(path);
+            Item item{path,file.fileName(),at,isPackage?-1:file.size(),modified}; if (activityPaths.contains(path)) seenActivities.insert(path);
             if (int(newest.size())<limit) newest.push(std::move(item));
             else if (newer(item,newest.top())) { newest.pop(); newest.push(std::move(item)); }
         };

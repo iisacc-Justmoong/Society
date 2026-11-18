@@ -10,9 +10,9 @@
   },
   "source": {
     "path": "docs/LVUIMigrationReadiness.md",
-    "sha256": "f0c900f656a9d1f56ae1c24f8e38f8d6db627fe889c5275725d6e60fb2c650b7",
-    "bytes": 11958,
-    "line_count": 150,
+    "sha256": "312aa1b02a9a8c37a7778f1c42723029d46858f61f79b8f26c27987e81ad090e",
+    "bytes": 13272,
+    "line_count": 167,
     "encoding": "utf-8",
     "language": "ko"
   },
@@ -158,17 +158,31 @@
       "title": "현재 사용할 수 있는 기반"
     },
     {
-      "id": "b000016",
       "kind": "blank",
+      "id": "b000016",
       "start_line": 41,
       "end_line": 41,
       "raw": "\n"
     },
     {
+      "kind": "paragraph",
       "id": "b000017",
-      "kind": "list",
       "start_line": 42,
-      "end_line": 51,
+      "end_line": 45,
+      "raw": "모델 선택기는 활성화할 때 목록을 구성한다. 선택 표시를 바꾸는 입력은 키로 찾은 한\n행의 설명과 선택 개수만 바꾸며, 기존 목록 컨트롤러에 편집 리비전을 한 번 게시한다.\n다른 행은 불변 값을 공유한다. `Society.NativeChooserViewModel`은 선택 유지,\n리비전 통지 횟수와 관련 없는 행의 재사용을 검사한다.\n"
+    },
+    {
+      "id": "b000018",
+      "kind": "blank",
+      "start_line": 46,
+      "end_line": 46,
+      "raw": "\n"
+    },
+    {
+      "id": "b000019",
+      "kind": "list",
+      "start_line": 47,
+      "end_line": 56,
       "raw": "- LVUI `QueryConnection`은 Core `QueryStream`의 선택·다중 수신을 뷰 세션과 Scene에\n  연결한다. 페이로드를 받는 메서드, 인자 없는 메서드, 선언형 이벤트 블록과 조건부\n  구독을 지원한다. 상세 수명·유한 큐·재시도 계약은\n  [쿼리 연결](../../../SDK/LVUI/docs/QueryConnections.md)에 있다.\n- `query(...)`는 기존 `QueryPort`의 동기 요청·응답을 사용한다. 범용 비동기 `post`\n  구문이나 임의 C++ 필드의 자동 관찰은 제공하지 않는다. Python 진입점은 현재 LVUI\n  컴파일 경로이며 Core 스트림의 Python 런타임 구독 바인딩을 뜻하지 않는다.\n- [표](../../../SDK/LVUI/docs/NativeOwnedTable.md)는 사용자 정의 머리글과 셀 View,\n  [카드](../../../SDK/LVUI/docs/NativeOwnedCard.md)는 콘텐츠 View 슬롯을 제공한다.\n  Society의 실제 열별 편집·정렬·접근성·카드 행동과 같은지 별도로 검증해야 한다.\n",
       "items": [
         {
@@ -189,33 +203,33 @@
       ]
     },
     {
-      "id": "b000018",
+      "id": "b000020",
       "kind": "blank",
-      "start_line": 52,
-      "end_line": 52,
+      "start_line": 57,
+      "end_line": 57,
       "raw": "\n"
     },
     {
-      "id": "b000019",
+      "id": "b000021",
       "kind": "heading",
-      "start_line": 53,
-      "end_line": 53,
+      "start_line": 58,
+      "end_line": 58,
       "raw": "## 출시 전 필요한 작업\n",
       "level": 2,
       "title": "출시 전 필요한 작업"
     },
     {
-      "id": "b000020",
+      "id": "b000022",
       "kind": "blank",
-      "start_line": 54,
-      "end_line": 54,
+      "start_line": 59,
+      "end_line": 59,
       "raw": "\n"
     },
     {
-      "id": "b000021",
+      "id": "b000023",
       "kind": "list",
-      "start_line": 55,
-      "end_line": 69,
+      "start_line": 60,
+      "end_line": 74,
       "raw": "1. 화면별 QML·LVRS 요소, 신호 인자, 조건, 순서와 Qt 타입을 실제 ViewModel 계약에\n   대응시킨다. 교체되는 QObject 대신 안정적인 생산자와 식별자 기반 선택 쿼리를 쓰고,\n   초기 상태·실패·종료 및 큐 포화 정책을 정한다. Qt 직접 연결의 동기 재진입과\n   LVUI의 UI EventLoop 전달은 같은 동작이라고 가정하지 않는다.\n2. Qt Quick 전용 계정·컨테이너 어댑터와 Qt 기반 Repository·비동기 작업이 필요한\n   화면마다 교체 가능한 비 Qt 인터페이스를 제공하고, 각 `.lvui`에 대응하는 ViewModel과\n   Scene의 생성·퇴역을 연결한다. 앱별 데이터나 스타일을 LVUI 하위 계층에 넣지 않는다.\n3. 파일 탐색·CRUD, 다중 선택과 사용자 정의 열, 카드 동작, 계정·장치·네트워크,\n   검색, 팝업·모달, 창 닫기와 장기 작업의 기존 동작을 화면별로 비교한다. 공유\n   컨테이너의 실제 변경 검증은 격리된 테스트 데이터와 명시적인 소유권 경계에서 한다.\n4. 배포 대상별 실제 OS 창, 입력기·키보드, 포커스, 드래그 앤 드롭, 접근성 도구,\n   디스플레이 배율과 GPU 렌더링을 검증한다. iiGUI의 플랫폼 코드나 모의 테스트만으로\n   해당 운영체제·기기의 실행 성공을 추정하지 않는다.\n5. 제품 기능·접근성·안정성 및 패키지 의존성에 대한 수용 기준을 충족한 후 화면별로\n   전환한다. 현재 빌드와 설치본, 그리고 실제 Society 실행 결과는 각각 구분해 기록한다.\n",
       "items": [
         {
@@ -246,34 +260,20 @@
       ]
     },
     {
-      "id": "b000022",
-      "kind": "blank",
-      "start_line": 70,
-      "end_line": 70,
-      "raw": "\n"
-    },
-    {
-      "id": "b000023",
-      "kind": "heading",
-      "start_line": 71,
-      "end_line": 71,
-      "raw": "## 플랫폼별 전환 기준과 이번 공통 입력 변경\n",
-      "level": 2,
-      "title": "플랫폼별 전환 기준과 이번 공통 입력 변경"
-    },
-    {
       "id": "b000024",
       "kind": "blank",
-      "start_line": 72,
-      "end_line": 72,
+      "start_line": 75,
+      "end_line": 75,
       "raw": "\n"
     },
     {
       "id": "b000025",
-      "kind": "paragraph",
-      "start_line": 73,
+      "kind": "heading",
+      "start_line": 76,
       "end_line": 76,
-      "raw": "전환 단위는 화면과 운영체제의 조합이다. 해당 조합에서 아래 항목의 근거가 모두\n확인되기 전에는 기존 Society 화면을 교체하거나 그 플랫폼의 출하 가능 상태로\n표시하지 않는다. 플랫폼 소스가 존재하거나 헤드리스 검사가 통과한 것만으로는\n실제 기기·OS 검사를 대체하지 않는다.\n"
+      "raw": "## 플랫폼별 전환 기준과 이번 공통 입력 변경\n",
+      "level": 2,
+      "title": "플랫폼별 전환 기준과 이번 공통 입력 변경"
     },
     {
       "id": "b000026",
@@ -284,9 +284,23 @@
     },
     {
       "id": "b000027",
-      "kind": "list",
+      "kind": "paragraph",
       "start_line": 78,
-      "end_line": 93,
+      "end_line": 81,
+      "raw": "전환 단위는 화면과 운영체제의 조합이다. 해당 조합에서 아래 항목의 근거가 모두\n확인되기 전에는 기존 Society 화면을 교체하거나 그 플랫폼의 출하 가능 상태로\n표시하지 않는다. 플랫폼 소스가 존재하거나 헤드리스 검사가 통과한 것만으로는\n실제 기기·OS 검사를 대체하지 않는다.\n"
+    },
+    {
+      "id": "b000028",
+      "kind": "blank",
+      "start_line": 82,
+      "end_line": 82,
+      "raw": "\n"
+    },
+    {
+      "id": "b000029",
+      "kind": "list",
+      "start_line": 83,
+      "end_line": 98,
       "raw": "1. **기능:** 해당 화면의 현재 선택·검색·정렬·편집·컨텍스트 메뉴·비동기 결과·\n   화면 왕복 및 오류 처리를 같은 ViewModel 데이터로 비교한다. 모바일 하단 탭,\n   사진·모델 파일 선택과 드롭, 갤러리 확대 축소도 해당 화면에서 확인한다.\n2. **대용량:** 해당 기기의 대표적인 대량 데이터에서 최초 표시와 스크롤 중 프레임,\n   메모리, 데이터 요청 수를 기존 앱과 같은 조건으로 측정한다. 유지할 기준과 허용\n   회귀를 출하 전에 정하고 측정 결과를 남긴다. 항목 10000개의 가시 범위 모형\n   검사는 전체 항목을 생성하지 않는다는 근거이지 기기 성능 측정이 아니다.\n3. **입력과 접근성:** 각 플랫폼의 입력기 조합·취소, 하드웨어 키보드·포커스,\n   화면 읽기 도구의 이름·역할·선택·동작, 화면 배율과 터치·드롭을 실제 OS에서\n   확인한다. 모바일은 회전·안전 영역과 실제 기기의 멀티터치도 포함한다.\n4. **데이터 보존:** 격리된 테스트 계정과 복사본에서 로그인 복원·권한 철회·파일\n   선택·CRUD·취소·중단 복구를 확인한다. 기존 계정 정보나 사용자 컨테이너를\n   검증 데이터로 쓰지 않고 기존 앱과 새 앱이 같은 컨테이너에 동시에 쓰지 않는다.\n5. **배포:** 빌드·링크, 번들 의존성·서명, 설치 및 운영체제 파일 연결·선택기·\n   접근성 통합을 각각 검증한다. 최종 앱의 실제 실행 결과와 자동 검사 결과를\n   별도로 기록한다.\n",
       "items": [
         {
@@ -317,165 +331,195 @@
       ]
     },
     {
-      "id": "b000028",
-      "kind": "blank",
-      "start_line": 94,
-      "end_line": 94,
-      "raw": "\n"
-    },
-    {
-      "id": "b000029",
-      "kind": "paragraph",
-      "start_line": 95,
-      "end_line": 99,
-      "raw": "현재 macOS, Windows, Linux, iOS/iPadOS, Android 모두 Society 본 앱의 새 LVUI\n화면과 해당 플랫폼 출하 근거가 없어 **전환 대기**이다. 이번 확인에서 iPhone·iPad는\n오프라인이고 Android 실기기는 연결되지 않았다. Windows·Linux의 실제 OS 실행도\n이번에 확인하지 않았다. 이 상태는 기존 앱의 정상 동작이나 설치 상태에 대한 판단이\n아니다.\n"
-    },
-    {
       "id": "b000030",
       "kind": "blank",
-      "start_line": 100,
-      "end_line": 100,
+      "start_line": 99,
+      "end_line": 99,
       "raw": "\n"
     },
     {
       "id": "b000031",
       "kind": "paragraph",
-      "start_line": 101,
-      "end_line": 106,
-      "raw": "공통 입력의 첫 증분으로 iiGUI의 포인터 취소를 포커스 손실과 분리하고 Android\n두 손가락 이동·핀치를 연결했다. LVUI 목록·표·계층·시트는 취소된 포인터 조작을\n중단한다. 자동 검사는 한글 조합 보존과 목록 이동·표 크기 변경의 취소를 다룬다.\niOS 라이브러리는 교차 빌드했으나 실제 기기에서 검사하지 않았다. Android 소스는\nNDK 26 시스템 헤더와 별도 LLVM C++ 헤더 조합으로 문법을 검사했으며, 이는 정식\nNDK 단독 빌드·링크나 실기기 실행이 아니다.\n"
+      "start_line": 100,
+      "end_line": 104,
+      "raw": "현재 macOS, Windows, Linux, iOS/iPadOS, Android 모두 Society 본 앱의 새 LVUI\n화면과 해당 플랫폼 출하 근거가 없어 **전환 대기**이다. 이번 확인에서 iPhone·iPad는\n오프라인이고 Android 실기기는 연결되지 않았다. Windows·Linux의 실제 OS 실행도\n이번에 확인하지 않았다. 이 상태는 기존 앱의 정상 동작이나 설치 상태에 대한 판단이\n아니다.\n"
     },
     {
       "id": "b000032",
       "kind": "blank",
-      "start_line": 107,
-      "end_line": 107,
+      "start_line": 105,
+      "end_line": 105,
       "raw": "\n"
     },
     {
       "id": "b000033",
       "kind": "paragraph",
-      "start_line": 108,
-      "end_line": 113,
-      "raw": "macOS에서는 iiGUI의 실제 Cocoa 창을 열어 창 수명, 파일 선택 창의 취소,\n파일 열기 콜백, 텍스트 입력 클라이언트와 가상 접근성 요소의 동작을 자동으로\n검사했다. 파일 열기는 테스트 경로를 전달한 콜백 검사이며 실제 사용자 파일을\n읽거나 변경하지 않았다. 입력과 접근성 동작은 Cocoa 인터페이스에 이벤트와 명령을\n주입한 검사로, 실제 한글 입력기 조작이나 VoiceOver 사용 검증을 대체하지 않는다.\n이 결과는 iiGUI 호스트에 관한 것이며 Society 화면이나 배포 패키지의 통과 근거는 아니다.\n"
+      "start_line": 106,
+      "end_line": 111,
+      "raw": "공통 입력의 첫 증분으로 iiGUI의 포인터 취소를 포커스 손실과 분리하고 Android\n두 손가락 이동·핀치를 연결했다. LVUI 목록·표·계층·시트는 취소된 포인터 조작을\n중단한다. 자동 검사는 한글 조합 보존과 목록 이동·표 크기 변경의 취소를 다룬다.\niOS 라이브러리는 교차 빌드했으나 실제 기기에서 검사하지 않았다. Android 소스는\nNDK 26 시스템 헤더와 별도 LLVM C++ 헤더 조합으로 문법을 검사했으며, 이는 정식\nNDK 단독 빌드·링크나 실기기 실행이 아니다.\n"
     },
     {
       "id": "b000034",
       "kind": "blank",
-      "start_line": 114,
-      "end_line": 114,
+      "start_line": 112,
+      "end_line": 112,
       "raw": "\n"
     },
     {
       "id": "b000035",
       "kind": "paragraph",
-      "start_line": 115,
-      "end_line": 119,
-      "raw": "남은 공백에는 LVUI 네이티브 `MobileTabBar`와 `TextEditor`, Android 문서 선택기와 접근 권한을\n보유한 문서 URI의 비 Qt 파일 접근, Wayland 터치·드롭, 각 플랫폼 접근성의 실사용\n검증이 포함된다. `Host::choose_file`의 기존 경로 문자열에 Android 문서 URI를 로컬\n파일 경로인 것처럼 넣어 완료로 취급하지 않는다. 기존 [Figma Tabs 원본](https://www.figma.com/design/0GkItQYSNIR0lZ3iJhfJzc/LVUI?node-id=1035-6)의\niOS·Android 변형을 확인했으며 이번 입력 변경에서 디자인은 수정하지 않았다.\n"
+      "start_line": 113,
+      "end_line": 118,
+      "raw": "macOS에서는 iiGUI의 실제 Cocoa 창을 열어 창 수명, 파일 선택 창의 취소,\n파일 열기 콜백, 텍스트 입력 클라이언트와 가상 접근성 요소의 동작을 자동으로\n검사했다. 파일 열기는 테스트 경로를 전달한 콜백 검사이며 실제 사용자 파일을\n읽거나 변경하지 않았다. 입력과 접근성 동작은 Cocoa 인터페이스에 이벤트와 명령을\n주입한 검사로, 실제 한글 입력기 조작이나 VoiceOver 사용 검증을 대체하지 않는다.\n이 결과는 iiGUI 호스트에 관한 것이며 Society 화면이나 배포 패키지의 통과 근거는 아니다.\n"
     },
     {
       "id": "b000036",
       "kind": "blank",
-      "start_line": 120,
-      "end_line": 120,
+      "start_line": 119,
+      "end_line": 119,
       "raw": "\n"
     },
     {
       "id": "b000037",
+      "kind": "paragraph",
+      "start_line": 120,
+      "end_line": 124,
+      "raw": "남은 공백에는 LVUI 네이티브 `MobileTabBar`와 `TextEditor`, Android 문서 선택기와 접근 권한을\n보유한 문서 URI의 비 Qt 파일 접근, Wayland 터치·드롭, 각 플랫폼 접근성의 실사용\n검증이 포함된다. `Host::choose_file`의 기존 경로 문자열에 Android 문서 URI를 로컬\n파일 경로인 것처럼 넣어 완료로 취급하지 않는다. 기존 [Figma Tabs 원본](https://www.figma.com/design/0GkItQYSNIR0lZ3iJhfJzc/LVUI?node-id=1035-6)의\niOS·Android 변형을 확인했으며 이번 입력 변경에서 디자인은 수정하지 않았다.\n"
+    },
+    {
+      "id": "b000038",
+      "kind": "blank",
+      "start_line": 125,
+      "end_line": 125,
+      "raw": "\n"
+    },
+    {
+      "id": "b000039",
       "kind": "heading",
-      "start_line": 121,
-      "end_line": 121,
+      "start_line": 126,
+      "end_line": 126,
       "raw": "## 이번 검사 경계\n",
       "level": 2,
       "title": "이번 검사 경계"
     },
     {
-      "id": "b000038",
-      "kind": "blank",
-      "start_line": 122,
-      "end_line": 122,
-      "raw": "\n"
-    },
-    {
-      "id": "b000039",
-      "kind": "paragraph",
-      "start_line": 123,
-      "end_line": 128,
-      "raw": "2026-11-06 macOS arm64에서 iiSDKCore 전체 자동 검사 83/83, LVUI 전체 자동 검사\n693/693이 통과했다. LVUI 빌드와 검사는 작업공간 `build/`에 스테이징한 현재 Core를\n사용했다. LVUI의 쿼리 연결 검사는 생성 C++ 빌드, 헤드리스 이벤트 전달·선택 변경·\n뷰 퇴역과 Scene 결합을 다루며, 재배치된 설치 패키지의 별도 소비자도 검사했다.\nSociety 화면 이관, Society 자체의 실제 운영체제 GUI 실행 및 사용자 데이터에 대한\n종단 간 검사는 이번 근거에 포함하지 않는다.\n"
-    },
-    {
       "id": "b000040",
       "kind": "blank",
-      "start_line": 129,
-      "end_line": 129,
+      "start_line": 127,
+      "end_line": 127,
       "raw": "\n"
     },
     {
       "id": "b000041",
+      "kind": "paragraph",
+      "start_line": 128,
+      "end_line": 133,
+      "raw": "2026-11-06 macOS arm64에서 iiSDKCore 전체 자동 검사 83/83, LVUI 전체 자동 검사\n693/693이 통과했다. LVUI 빌드와 검사는 작업공간 `build/`에 스테이징한 현재 Core를\n사용했다. LVUI의 쿼리 연결 검사는 생성 C++ 빌드, 헤드리스 이벤트 전달·선택 변경·\n뷰 퇴역과 Scene 결합을 다루며, 재배치된 설치 패키지의 별도 소비자도 검사했다.\nSociety 화면 이관, Society 자체의 실제 운영체제 GUI 실행 및 사용자 데이터에 대한\n종단 간 검사는 이번 근거에 포함하지 않는다.\n"
+    },
+    {
+      "id": "b000042",
+      "kind": "blank",
+      "start_line": 134,
+      "end_line": 134,
+      "raw": "\n"
+    },
+    {
+      "id": "b000043",
       "kind": "heading",
-      "start_line": 130,
-      "end_line": 130,
+      "start_line": 135,
+      "end_line": 135,
       "raw": "## 네이티브 LVUI 소스 문법 검사 — 2026-11-09\n",
       "level": 2,
       "title": "네이티브 LVUI 소스 문법 검사 — 2026-11-09"
     },
     {
-      "id": "b000042",
-      "kind": "blank",
-      "start_line": 131,
-      "end_line": 131,
-      "raw": "\n"
-    },
-    {
-      "id": "b000043",
-      "kind": "paragraph",
-      "start_line": 132,
-      "end_line": 137,
-      "raw": "파일 화면과 모델 선택·보정기의 LVUI 소스는 View 선언과 C++ 뷰모델 import를\n사용한다. 현재 LVUI 컴파일러로 세 파일의 네이티브 코드 생성을 검사한다. 선택적으로\n보관된 LVUI SDK 사본의 카운터 예제도 검사하며, 이 사본에서 오래된 `Column` 표기를\n`VStack`으로, 창·버튼 입력을 `accent`·`tone`으로 바로잡았다. SDK 사본은 생성된\n의존성이므로 다시 준비하면 그 사본의 원본 내용으로 교체될 수 있다. SDK 본 저장소의\n카운터 예제에도 같은 현재 입력 이름을 반영했다.\n"
-    },
-    {
       "id": "b000044",
       "kind": "blank",
-      "start_line": 138,
-      "end_line": 138,
+      "start_line": 136,
+      "end_line": 136,
       "raw": "\n"
     },
     {
       "id": "b000045",
       "kind": "paragraph",
-      "start_line": 139,
-      "end_line": 140,
-      "raw": "macOS의 기존 테스트 구성에서는 `Society.NativeLVUISyntax`가 선택된 호스트 컴파일러로\n검사한다. 다른 컴파일러를 명시하려면 다음과 같이 실행한다.\n"
+      "start_line": 137,
+      "end_line": 142,
+      "raw": "파일 화면과 모델 선택·보정기의 LVUI 소스는 View 선언과 C++ 뷰모델 import를\n사용한다. 현재 LVUI 컴파일러로 세 파일의 네이티브 코드 생성을 검사한다. 선택적으로\n보관된 LVUI SDK 사본의 카운터 예제도 검사하며, 이 사본에서 오래된 `Column` 표기를\n`VStack`으로, 창·버튼 입력을 `accent`·`tone`으로 바로잡았다. SDK 사본은 생성된\n의존성이므로 다시 준비하면 그 사본의 원본 내용으로 교체될 수 있다. SDK 본 저장소의\n카운터 예제에도 같은 현재 입력 이름을 반영했다.\n"
     },
     {
       "id": "b000046",
       "kind": "blank",
-      "start_line": 141,
-      "end_line": 141,
+      "start_line": 143,
+      "end_line": 143,
       "raw": "\n"
     },
     {
       "id": "b000047",
+      "kind": "paragraph",
+      "start_line": 144,
+      "end_line": 145,
+      "raw": "macOS의 기존 테스트 구성에서는 `Society.NativeLVUISyntax`가 선택된 호스트 컴파일러로\n검사한다. 다른 컴파일러를 명시하려면 다음과 같이 실행한다.\n"
+    },
+    {
+      "id": "b000048",
+      "kind": "blank",
+      "start_line": 146,
+      "end_line": 146,
+      "raw": "\n"
+    },
+    {
+      "id": "b000049",
       "kind": "fenced_code",
-      "start_line": 142,
-      "end_line": 144,
+      "start_line": 147,
+      "end_line": 149,
       "raw": "```sh\npython3 -B tests/test_lvui_native_syntax.py --compiler /path/to/lvui-compile\n```\n",
       "language": "sh",
       "code": "python3 -B tests/test_lvui_native_syntax.py --compiler /path/to/lvui-compile\n",
       "closed": true
     },
     {
-      "id": "b000048",
+      "id": "b000050",
       "kind": "blank",
-      "start_line": 145,
-      "end_line": 145,
+      "start_line": 150,
+      "end_line": 150,
       "raw": "\n"
     },
     {
-      "id": "b000049",
+      "id": "b000051",
       "kind": "paragraph",
-      "start_line": 146,
-      "end_line": 150,
+      "start_line": 151,
+      "end_line": 155,
       "raw": "이 검사는 소스의 파싱과 네이티브 코드 생성까지 다루며, 앱 실행이나 GUI 렌더링을\n검증하지 않는다. 예전 SDK 사본을 선택한 빌드와 현재 SDK로 생성한 코드의 바이너리\n호환성도 별도로 빌드해야 한다. 예약어 전체를 보여 주는 `ReservedComponents.lvui`는\n구문만 검사한다. 이 예제의 `CardInformationContent`는 현재 네이티브 AOT 구현이 없어\n코드 생성 성공을 주장하지 않는다.\n"
+    },
+    {
+      "id": "b000052",
+      "kind": "blank",
+      "start_line": 156,
+      "end_line": 156,
+      "raw": "\n"
+    },
+    {
+      "id": "b000053",
+      "kind": "heading",
+      "start_line": 157,
+      "end_line": 157,
+      "raw": "## 알림 상태 이관 — 2026-11-17\n",
+      "level": 2,
+      "title": "알림 상태 이관 — 2026-11-17"
+    },
+    {
+      "id": "b000054",
+      "kind": "blank",
+      "start_line": 158,
+      "end_line": 158,
+      "raw": "\n"
+    },
+    {
+      "id": "b000055",
+      "kind": "paragraph",
+      "start_line": 159,
+      "end_line": 167,
+      "raw": "알림의 원인별 중복 억제, 개별 삭제와 전체 삭제 상태를 Qt에 의존하지 않는\n`NotificationStore`로 분리한다. 삭제한 알림은 해당 원인이 해소된 뒤 다시 발생하기\n전에는 되살리지 않는다. 기존 화면에는 일시적인 Qt 모델 어댑터를 제공하며,\n이 어댑터는 목록의 삽입·삭제와 개수 변경을 기존 화면에 전달한다. 이 작업은\n알림 팝오버나 Society의 애플리케이션 창을 LVUI로 이전했다는 뜻은 아니다.\n같은 시점에 Society 앱 소스에는 QML 52개, 테스트에는 QML 6개가 남아 있다.\n앱 시작점과 Storage·Tasks·Projects·Calendar 등은 아직 QML을 사용하며, 이 파일들은\n각 기능의 LVUI 대체와 검사가 완료되기 전까지 유지한다. SDK에서 제공하는 외부 QML은\n이 숫자에 포함하지 않는다.\n"
     }
   ],
   "outline": [
@@ -512,36 +556,44 @@
       "start_line": 40
     },
     {
-      "block_id": "b000019",
+      "block_id": "b000021",
       "parent_id": "b000001",
       "level": 2,
       "title": "출시 전 필요한 작업",
       "anchor": "출시-전-필요한-작업",
-      "start_line": 53
+      "start_line": 58
     },
     {
-      "block_id": "b000023",
+      "block_id": "b000025",
       "parent_id": "b000001",
       "level": 2,
       "title": "플랫폼별 전환 기준과 이번 공통 입력 변경",
       "anchor": "플랫폼별-전환-기준과-이번-공통-입력-변경",
-      "start_line": 71
+      "start_line": 76
     },
     {
-      "block_id": "b000037",
+      "block_id": "b000039",
       "parent_id": "b000001",
       "level": 2,
       "title": "이번 검사 경계",
       "anchor": "이번-검사-경계",
-      "start_line": 121
+      "start_line": 126
     },
     {
-      "block_id": "b000041",
+      "block_id": "b000043",
       "parent_id": "b000001",
       "level": 2,
       "title": "네이티브 LVUI 소스 문법 검사 — 2026-11-09",
       "anchor": "네이티브-lvui-소스-문법-검사--2026-11-09",
-      "start_line": 130
+      "start_line": 135
+    },
+    {
+      "block_id": "b000053",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "알림 상태 이관 — 2026-11-17",
+      "anchor": "알림-상태-이관--2026-11-17",
+      "start_line": 157
     }
   ],
   "indexes": {
@@ -561,99 +613,99 @@
         "context": "list"
       },
       {
-        "block_id": "b000017",
-        "line": 47,
+        "block_id": "b000019",
+        "line": 52,
         "text": "구문이나 임의 C++ 필드의 자동 관찰은 제공하지 않는다. Python 진입점은 현재 LVUI",
         "basis": "lexical_match",
         "context": "list"
       },
       {
-        "block_id": "b000017",
-        "line": 48,
+        "block_id": "b000019",
+        "line": 53,
         "text": "컴파일 경로이며 Core 스트림의 Python 런타임 구독 바인딩을 뜻하지 않는다.",
         "basis": "lexical_match",
         "context": "list"
       },
       {
-        "block_id": "b000017",
-        "line": 51,
+        "block_id": "b000019",
+        "line": 56,
         "text": "Society의 실제 열별 편집·정렬·접근성·카드 행동과 같은지 별도로 검증해야 한다.",
         "basis": "lexical_match",
         "context": "list"
       },
       {
-        "block_id": "b000021",
-        "line": 58,
+        "block_id": "b000023",
+        "line": 63,
         "text": "LVUI의 UI EventLoop 전달은 같은 동작이라고 가정하지 않는다.",
         "basis": "lexical_match",
         "context": "list"
       },
       {
-        "block_id": "b000021",
-        "line": 67,
+        "block_id": "b000023",
+        "line": 72,
         "text": "해당 운영체제·기기의 실행 성공을 추정하지 않는다.",
         "basis": "lexical_match",
         "context": "list"
       },
       {
-        "block_id": "b000025",
-        "line": 75,
+        "block_id": "b000027",
+        "line": 80,
         "text": "표시하지 않는다. 플랫폼 소스가 존재하거나 헤드리스 검사가 통과한 것만으로는",
         "basis": "lexical_match",
         "context": "paragraph"
       },
       {
-        "block_id": "b000025",
-        "line": 76,
+        "block_id": "b000027",
+        "line": 81,
         "text": "실제 기기·OS 검사를 대체하지 않는다.",
         "basis": "lexical_match",
         "context": "paragraph"
       },
       {
-        "block_id": "b000027",
-        "line": 84,
+        "block_id": "b000029",
+        "line": 89,
         "text": "검사는 전체 항목을 생성하지 않는다는 근거이지 기기 성능 측정이 아니다.",
         "basis": "lexical_match",
         "context": "list"
       },
       {
-        "block_id": "b000033",
-        "line": 112,
+        "block_id": "b000035",
+        "line": 117,
         "text": "주입한 검사로, 실제 한글 입력기 조작이나 VoiceOver 사용 검증을 대체하지 않는다.",
         "basis": "lexical_match",
         "context": "paragraph"
       },
       {
-        "block_id": "b000035",
-        "line": 118,
+        "block_id": "b000037",
+        "line": 123,
         "text": "파일 경로인 것처럼 넣어 완료로 취급하지 않는다. 기존 [Figma Tabs 원본](https://www.figma.com/design/0GkItQYSNIR0lZ3iJhfJzc/LVUI?node-id=1035-6)의",
         "basis": "lexical_match",
         "context": "paragraph"
       },
       {
-        "block_id": "b000039",
-        "line": 128,
+        "block_id": "b000041",
+        "line": 133,
         "text": "종단 간 검사는 이번 근거에 포함하지 않는다.",
         "basis": "lexical_match",
         "context": "paragraph"
       },
       {
-        "block_id": "b000049",
-        "line": 147,
+        "block_id": "b000051",
+        "line": 152,
         "text": "검증하지 않는다. 예전 SDK 사본을 선택한 빌드와 현재 SDK로 생성한 코드의 바이너리",
         "basis": "lexical_match",
         "context": "paragraph"
       },
       {
-        "block_id": "b000049",
-        "line": 148,
+        "block_id": "b000051",
+        "line": 153,
         "text": "호환성도 별도로 빌드해야 한다. 예약어 전체를 보여 주는 `ReservedComponents.lvui`는",
         "basis": "lexical_match",
         "context": "paragraph"
       },
       {
-        "block_id": "b000049",
-        "line": 150,
+        "block_id": "b000051",
+        "line": 155,
         "text": "코드 생성 성공을 주장하지 않는다.",
         "basis": "lexical_match",
         "context": "paragraph"
@@ -661,7 +713,7 @@
     ],
     "commands": [
       {
-        "block_id": "b000047",
+        "block_id": "b000049",
         "language": "sh",
         "code": "python3 -B tests/test_lvui_native_syntax.py --compiler /path/to/lvui-compile\n"
       }
@@ -710,32 +762,32 @@
         "line": 37
       },
       {
-        "block_id": "b000017",
+        "block_id": "b000019",
         "label": "쿼리 연결",
         "target": "../../../SDK/LVUI/docs/QueryConnections.md",
-        "kind": "relative",
-        "line": 45
-      },
-      {
-        "block_id": "b000017",
-        "label": "표",
-        "target": "../../../SDK/LVUI/docs/NativeOwnedTable.md",
-        "kind": "relative",
-        "line": 49
-      },
-      {
-        "block_id": "b000017",
-        "label": "카드",
-        "target": "../../../SDK/LVUI/docs/NativeOwnedCard.md",
         "kind": "relative",
         "line": 50
       },
       {
-        "block_id": "b000035",
+        "block_id": "b000019",
+        "label": "표",
+        "target": "../../../SDK/LVUI/docs/NativeOwnedTable.md",
+        "kind": "relative",
+        "line": 54
+      },
+      {
+        "block_id": "b000019",
+        "label": "카드",
+        "target": "../../../SDK/LVUI/docs/NativeOwnedCard.md",
+        "kind": "relative",
+        "line": 55
+      },
+      {
+        "block_id": "b000037",
         "label": "Figma Tabs 원본",
         "target": "https://www.figma.com/design/0GkItQYSNIR0lZ3iJhfJzc/LVUI?node-id=1035-6",
         "kind": "external",
-        "line": 118
+        "line": 123
       }
     ],
     "tables": []

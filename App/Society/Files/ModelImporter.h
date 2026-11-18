@@ -2,7 +2,7 @@
 
 #include "ModelImportSource.h"
 #include "ModelBackendClient.h"
-#include <ModelImportService.h>
+#include <iiSocietyContainer>
 #include <QPointer>
 #include <QWindow>
 #include <QtQml/qqmlregistration.h>

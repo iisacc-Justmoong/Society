@@ -11,6 +11,7 @@
 #include "Society/Drive/StorageNavigation.h"
 #include "Society/Native/NativeNavigationSurface.h"
 #include "Society/Native/LegacyNavigationBridge.h"
+#include "Society/Notifications/NotificationCenter.h"
 #include "Society/Dashboard/DashboardFiles.h"
 #include "Society/Dashboard/DashboardCalendar.h"
 #include "Society/Dashboard/CalendarWorkspace.h"
@@ -22,12 +23,8 @@
 #include "Society/Models/StorageModels.h"
 #include "Society/Files/DirectoryLocation.h"
 #include "Society/Files/ModelImporter.h"
-#include <StorageMap.h>
-#include <iiSocietyContainer/PreviewCache.h>
-#include <ModelType.h>
-#include <ModelStore.h>
-#include <FileRepository.h>
-#include <TemporaryLease.h>
+#include <iiSocietyContainer>
+#include <iiFileProvider>
 #include "backend/runtime/appbootstrap.h"
 
 #include <QDir>
@@ -71,11 +68,9 @@
 #include "Society/Network/DevicePairing.h"
 #include "Society/Network/PairingQr.h"
 #include "Society/Network/QrScanner.h"
-#include <SharedStorage.h>
-#include <ApplicationStorage.h>
 #include <QStorageInfo>
-#include <FilesView.h>
 #include <filesystem>
+#include <memory>
 #include <optional>
 
 #ifdef Q_OS_MACOS
@@ -446,6 +441,7 @@ private slots:
     }
     void initTestCase()
     {
+        qmlRegisterType<NotificationCenter>("Society", 1, 0, "NotificationCenter");
         qmlRegisterType<EnvironmentAppsModel>("Society", 1, 0, "EnvironmentAppsModel");
         qmlRegisterType<DirectoryLocation>("Society", 1, 0, "DirectoryLocation");
         qmlRegisterType<FileActions>("Society", 1, 0, "FileActions");
@@ -468,6 +464,51 @@ private slots:
         qmlRegisterType<DevicePairing>("Society", 1, 0, "DevicePairing");
         qmlRegisterType<PairingQr>("Society", 1, 0, "PairingQr");
         qmlRegisterType<QrScanner>("Society", 1, 0, "QrScanner");
+    }
+
+    void notificationCenterIntegratesWithExistingPopover()
+    {
+        QQmlEngine engine;
+        engine.addImportPath(QString::fromUtf8(SOCIETY_LVRS_QML_IMPORT_PATH));
+        QQmlComponent component(&engine);
+        const auto base = QUrl::fromLocalFile(QFileInfo(QStringLiteral(SOCIETY_QML_FILE)).dir().filePath("NotificationFixture.qml"));
+        component.setData(R"QML(
+import QtQuick
+import Society 1.0
+import "." as App
+Window {
+    width: 640; height: 600; visible: true
+    NotificationCenter { id: center }
+    Item { id: anchor; objectName: "notificationAnchor"; x: 590; y: 12; width: 22; height: 22 }
+    App.NotificationPopover { notifications: center }
+}
+)QML", base);
+        std::unique_ptr<QObject> root(component.create());
+        QVERIFY2(root, qPrintable(component.errorString()));
+        auto *window = qobject_cast<QQuickWindow *>(root.get()); QVERIFY(window);
+        auto *center = window->findChild<NotificationCenter *>("notificationCenter"); QVERIFY(center);
+        auto *popup = window->findChild<QObject *>("notificationPopover"); QVERIFY(popup);
+        auto *anchor = visualItem(window->contentItem(), "notificationAnchor"); QVERIFY(anchor);
+        center->record(QStringLiteral("Models"), QStringLiteral("First warning\nSecond warning"));
+        const QVariant item = QVariant::fromValue(anchor);
+        QVERIFY(QMetaObject::invokeMethod(popup, "openFor", Q_ARG(QVariant, item)));
+        QTRY_VERIFY(popup->property("visible").toBool());
+        auto *list = visualItem(window->contentItem(), "notificationList"); QVERIFY(list);
+        QTRY_COMPARE(list->property("count").toInt(), 2);
+        QQuickItem *message = nullptr;
+        QTRY_VERIFY((message = visualItem(window->contentItem(), "notificationMessage0")));
+        QCOMPARE(message->property("text").toString(), QStringLiteral("First warning"));
+        QQuickItem *dismiss = nullptr;
+        QTRY_VERIFY((dismiss = visualItem(window->contentItem(), "notificationDismiss0")));
+        QTest::mouseClick(window, Qt::LeftButton, Qt::NoModifier,
+                          dismiss->mapToScene(dismiss->boundingRect().center()).toPoint());
+        QTRY_COMPARE(center->count(), 1);
+        center->record(QStringLiteral("Models"), QStringLiteral("First warning\nSecond warning"));
+        QCOMPARE(center->count(), 1);
+        center->record(QStringLiteral("Models"), QString());
+        center->record(QStringLiteral("Models"), QStringLiteral("First warning\nSecond warning"));
+        QTRY_COMPARE(list->property("count").toInt(), 2);
+        window->close();
     }
 
     void cloudFilesControllerReachesStorage()
@@ -1635,7 +1676,8 @@ private slots:
         auto *browser = models->findChild<QQuickItem *>("modelFilesBrowser"); QVERIFY(browser);
         auto *catalog = window->findChild<StorageModels *>("modelCatalog"); QVERIFY(catalog);
         QTRY_COMPARE_WITH_TIMEOUT(catalog->count(), 8, 30000);
-        QTRY_COMPARE_WITH_TIMEOUT(browser->property("count").toInt(), 4, 30000);
+        QTRY_COMPARE_WITH_TIMEOUT(browser->property("count").toInt(),
+                                  static_cast<int>(iiSocietyContainer::allModelTypes().size()), 30000);
         QVERIFY(browser->property("listMode").toBool());
         auto entries = [&] { return browser->property("entries").value<QJSValue>().toVariant().toList(); };
         for (const auto &entry : entries()) QVERIFY(entry.toMap().value("directory").toBool());
@@ -1689,7 +1731,8 @@ private slots:
         auto *back = visualItem(browser, "modelsBack"); QVERIFY(back); QVERIFY(back->isVisible());
         QVERIFY(QMetaObject::invokeMethod(back, "clicked"));
         QTRY_COMPARE(drive->currentPath(), fixture.filePath("Models"));
-        QTRY_COMPARE_WITH_TIMEOUT(browser->property("count").toInt(), 4, 30000);
+        QTRY_COMPARE_WITH_TIMEOUT(browser->property("count").toInt(),
+                                  static_cast<int>(iiSocietyContainer::allModelTypes().size()), 30000);
         QVERIFY2(warnings.isEmpty(), qPrintable(warnings.join('\n')));
         window->close();
     }
@@ -2170,8 +2213,8 @@ private slots:
         auto *modelBrowser = models->findChild<QQuickItem *>("modelFilesBrowser"); QVERIFY(modelBrowser);
         QVERIFY(modelBrowser->isVisible()); QVERIFY(!files->isVisible());
         QTRY_COMPARE(modelBrowser->property("path").toString(), fixture.filePath("Models"));
-        // The fixture populates only Wildcards; unused categories are not created.
-        QTRY_COMPARE(modelBrowser->property("count").toInt(), 1);
+        // All model type folders remain visible even when only Wildcards has content.
+        QTRY_COMPARE(modelBrowser->property("count").toInt(), iiSocietyContainer::allModelTypes().size());
         const auto modelsScreenshot = qEnvironmentVariable("SOCIETY_MODEL_TYPES_SCREENSHOT_PATH");
         if (!modelsScreenshot.isEmpty()) { QTest::qWait(200); QVERIFY(window->grabWindow().save(modelsScreenshot)); }
         controller->goHome();
@@ -4461,7 +4504,7 @@ private slots:
     void environmentCatalogueDoesNotInventInstallationsOrLicenses()
     {
         EnvironmentAppsModel catalogue;
-        QCOMPARE(catalogue.apps().size(), 10);
+        QCOMPARE(catalogue.apps().size(), 9);
         const auto society = catalogue.apps().first().toMap();
         QVERIFY(society.value("installed").toBool());
         QSignalSpy requested(&catalogue, &EnvironmentAppsModel::societyRequested);
@@ -4470,6 +4513,7 @@ private slots:
         QVERIFY(!catalogue.open("unknown-app"));
         for (const auto &value : catalogue.apps()) {
             const auto app = value.toMap();
+            QVERIFY(app.value("id").toString() != "vincent");
             if (app.value("id").toString() == "society") continue;
             QCOMPARE(app.value("license").toString(), QString("License not verified"));
             if (!app.value("installed").toBool()) QVERIFY(!app.value("actionEnabled").toBool());

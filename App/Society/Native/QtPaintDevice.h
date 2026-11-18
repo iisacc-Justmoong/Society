@@ -1,6 +1,6 @@
 #pragma once
 
-#include <iiGUI/Painter.h>
+#include <iiGUI>
 #include <QImage>
 #include <memory>
 
@@ -27,4 +27,6 @@ public:
 private:
     QImage m_pending, m_presented;
     std::unique_ptr<QPainter> m_painter;
+    struct TextRasters;
+    std::unique_ptr<TextRasters> m_textRasters;
 };

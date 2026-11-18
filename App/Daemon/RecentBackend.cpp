@@ -83,7 +83,8 @@ void RecentBackend::launch() {
 void RecentBackend::publish(const r::Snapshot &result) {
     QJsonArray rows;
     for (const auto &item:result.items) rows.append(QJsonObject{{"path",item.path},{"name",item.name},
-        {"activityMs",QString::number(item.activityMs)},{"size",QString::number(item.size)}});
+        {"activityMs",QString::number(item.activityMs)},{"size",QString::number(item.size)},
+        {"modifiedMs",QString::number(item.modifiedMs)}});
     auto status=!result.error.isEmpty()?result.error:rows.isEmpty()?QStringLiteral("No recent files")
         :QStringLiteral("%1 recent files").arg(rows.size());
     if (result.partial) status+=QStringLiteral(" · some activity could not be verified");

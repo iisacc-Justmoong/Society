@@ -1,9 +1,9 @@
 #pragma once
 
-#include <SocietyDrive.h>
+#include <iiSocietyContainer>
 #include <QObject>
 #include <QPointer>
-#include <iiAccountManager/AccountManager.h>
+#include <iiAccountManager>
 #include <QTimer>
 #if defined(Q_OS_MACOS) || defined(Q_OS_WIN) || (defined(Q_OS_LINUX) && !defined(Q_OS_ANDROID))
 #define SOCIETY_DESKTOP_BACKEND

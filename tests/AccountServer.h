@@ -90,6 +90,8 @@ public:
                                 {"device",QJsonObject{{"name","Society Mac"},{"appId","com.iisacc.society"}}},{"expiresAt","2100-01-01T00:00:00Z"}}};
                             if(revokedSession.isEmpty())sessions.append(QJsonObject{{"id",QString(32,'b')},{"current",false},{"client","app"},
                                 {"device",QJsonObject{{"name","Fixture iPad"},{"appId","com.iisacc.congregation.painter"}}},{"expiresAt","2100-01-01T00:00:00Z"}});
+                            sessions.append(QJsonObject{{"id",QString(32,'c')},{"current",false},{"client","app"},
+                                {"device",QJsonObject{{"name","Old Vincent"},{"appId","com.iisacc.vincent"}}},{"expiresAt","2100-01-01T00:00:00Z"}});
                             payload={{"subject",profile.value("sub")},{"sessions",sessions}};
                         }
                         const auto body=QJsonDocument(QJsonObject{{"data",QJsonObject{{"accountConnections",payload}}}}).toJson(QJsonDocument::Compact);

@@ -1,7 +1,7 @@
 #pragma once
 
-#include <iiSDKCore/Core/Property/Observable.h>
-#include <LVUI/IconCatalog.h>
+#include <iiSDKCore>
+#include <LVUI>
 #include <functional>
 #include <memory>
 #include <string_view>

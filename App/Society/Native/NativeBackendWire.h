@@ -1,5 +1,5 @@
 #pragma once
-#include <iiJson/Json.h>
+#include <iiJson>
 #include <cstddef>
 #include <optional>
 #include <string>

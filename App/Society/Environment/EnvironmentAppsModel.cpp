@@ -14,7 +14,6 @@ void EnvironmentAppsModel::refresh()
         App{"society", "Society", "So", "Keep your files and devices together."},
         App{"dreamscapes", "Dreamscapes", "Dr", "Create images and explore visual ideas."},
         App{"congregation", "Congregation", "Co", "Paint and animate on your native canvas."},
-        App{"vincent", "Vincent", "Vi", "Draw, paint and build your next artwork."},
         App{"canvas", "Canvas", "Ca", "Arrange layouts, boards and design assets."},
         App{"motion", "Motion", "Mo", "Edit short videos and motion studies."},
         App{"notes", "Notes", "No", "Capture notes and keep project references."},
@@ -29,7 +28,7 @@ void EnvironmentAppsModel::refresh()
 #if defined(Q_OS_MACOS)
         // Only shipped, unambiguous iisacc products are detected. A generic
         // Notes/Motion/Studio bundle may belong to a different publisher.
-        if (QString(app.id)=="dreamscapes" || QString(app.id)=="congregation" || QString(app.id)=="vincent") {
+        if (QString(app.id)=="dreamscapes" || QString(app.id)=="congregation") {
             for (const auto &base : {QStringLiteral("/Applications"), QDir::homePath() + "/Applications"}) {
                 const auto candidate = base + '/' + app.name + ".app";
                 std::error_code ec;

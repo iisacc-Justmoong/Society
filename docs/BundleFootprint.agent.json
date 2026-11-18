@@ -10,9 +10,9 @@
   },
   "source": {
     "path": "docs/BundleFootprint.md",
-    "sha256": "d441131dcb6eb27d7190ab23fa69c1d9fc43eb9ed7b3000d546469562603cfc4",
-    "bytes": 7849,
-    "line_count": 141,
+    "sha256": "d40c270dbbc50646784837a852bab85734643fe2125cdd266ca9724249b890c9",
+    "bytes": 8672,
+    "line_count": 154,
     "encoding": "utf-8",
     "language": "en"
   },
@@ -456,6 +456,34 @@
       "start_line": 137,
       "end_line": 141,
       "raw": "The broader QuickGenerate group still reports the simulated iOS/Android search\ntoggle visibility assertion in `mobileViewsShareDesktopContentAndKeepState`.\nThe same assertion was reproduced with the full development inference SDK.\nIt is tracked separately from the package footprint checks; no mobile-device\nvalidation or new large-model generation run is claimed here.\n"
+    },
+    {
+      "id": "b000050",
+      "kind": "blank",
+      "start_line": 142,
+      "end_line": 142,
+      "raw": "\n"
+    },
+    {
+      "id": "b000051",
+      "kind": "paragraph",
+      "start_line": 143,
+      "end_line": 148,
+      "raw": "The photo library and Society's selected iiFileProvider package use the same\npublic file-device header. The photo package records its build fingerprint and\npackage discovery rejects a mismatch or an older package without a fingerprint.\nThe product-local macOS photo package is staged under\n`resources/dependencies/macos-runtime/iiPhotoLibrary-fileprovider`; rebuild it\nagainst the selected iiFileProvider before changing that dependency.\n"
+    },
+    {
+      "id": "b000051",
+      "kind": "blank",
+      "start_line": 149,
+      "end_line": 149,
+      "raw": "\n"
+    },
+    {
+      "id": "b000052",
+      "kind": "paragraph",
+      "start_line": 150,
+      "end_line": 154,
+      "raw": "On macOS, the product-local `iiWebServer-core-compatible` package must be built\nwith the iiNetwork and iiSDKCore versions used by Society. A stale shared web\nserver can load successfully yet crash while establishing a TLS connection.\nThe photo-library TLS exchange test exercises this boundary; changing the\nnetwork or core packages requires rebuilding and retesting the web server.\n"
     }
   ],
   "outline": [

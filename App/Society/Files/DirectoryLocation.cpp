@@ -6,10 +6,8 @@
 #include <QImageReader>
 #include <QFutureWatcher>
 #include <QtConcurrent/QtConcurrentRun>
-#include <iiFileProviderPresentation.h>
-#include <FileCatalog.h>
-#include <SharedStorage.h>
-#include <FileOperations.h>
+#include <iiFileProvider>
+#include <iiSocietyContainer>
 #include <QJsonDocument>
 #include <QJsonArray>
 

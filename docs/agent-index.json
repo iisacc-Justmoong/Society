@@ -49,7 +49,7 @@
       "document_id": "urn:iisacc:document:6eadc992fac8621adf69b5e608323604252fed1ed60bc8a273be927074465195",
       "source": "docs/AccountLicenses.md",
       "agent_json": "docs/AccountLicenses.agent.json",
-      "source_sha256": "ed0ecd98f5ccee19e0c0a0f5c55f5acb48c426d37ecee31266612a8d4bd9a210",
+      "source_sha256": "d2d5f4ec8358a16c786d18ecaf963f754e3346214ea494329e52502241bd042f",
       "role": "guide"
     },
     {
@@ -84,7 +84,7 @@
       "document_id": "urn:iisacc:document:abb5525a08707b47fe2b6ca09d8e84580efb19bb72cb6ea327bf9d46eec6e6ff",
       "source": "docs/BundleFootprint.md",
       "agent_json": "docs/BundleFootprint.agent.json",
-      "source_sha256": "d441131dcb6eb27d7190ab23fa69c1d9fc43eb9ed7b3000d546469562603cfc4",
+      "source_sha256": "d40c270dbbc50646784837a852bab85734643fe2125cdd266ca9724249b890c9",
       "role": "guide"
     },
     {
@@ -119,14 +119,14 @@
       "document_id": "urn:iisacc:document:e8821a5715f4ec76776afd0faebbcfd5e9372d0bf41ff2df58113cf826961acc",
       "source": "docs/Environment.md",
       "agent_json": "docs/Environment.agent.json",
-      "source_sha256": "6c9fefe6b8aedf5aa6687f16785af98c18028703fbe675c9772f52c1bcc8f48e",
+      "source_sha256": "b47da42c0a9b8ac6f8baf1501e901849a9bb26fed058ae50ab4fedda5831a0e8",
       "role": "guide"
     },
     {
       "document_id": "urn:iisacc:document:ebea2464164ee0bbe428e5859445dbaf7db85904817be4b45f1ae83436d29c5e",
       "source": "docs/EnvironmentDesktopConcept.md",
       "agent_json": "docs/EnvironmentDesktopConcept.agent.json",
-      "source_sha256": "b8364023e913d0bf945653b103d7abfe3a8e1d6109181b6fba4e83f08ce2b728",
+      "source_sha256": "bda3503c73d5d59d56a7c144c069b3dd6c95d2830fc3158e30452c260f81ab50",
       "role": "guide"
     },
     {
@@ -210,14 +210,14 @@
       "document_id": "urn:iisacc:document:dce9cc1918eca6d2e1697d129d013cef91ea3fdd9eab77a7f5ffda24994900ea",
       "source": "docs/LVUIMigrationReadiness.md",
       "agent_json": "docs/LVUIMigrationReadiness.agent.json",
-      "source_sha256": "f0c900f656a9d1f56ae1c24f8e38f8d6db627fe889c5275725d6e60fb2c650b7",
+      "source_sha256": "312aa1b02a9a8c37a7778f1c42723029d46858f61f79b8f26c27987e81ad090e",
       "role": "guide"
     },
     {
       "document_id": "urn:iisacc:document:6a5910571cc1dab8d60d288acda95a845b98efc71792dcf511d8cdbb259b2dcf",
       "source": "docs/ManagedStorage.md",
       "agent_json": "docs/ManagedStorage.agent.json",
-      "source_sha256": "a7935e5b9ad9927d5bfdfb15c97613bf6cd6d8b760036ec44f33aa26ec2334fc",
+      "source_sha256": "e986785efdac442bfe3ed184f70a69350ab855fccba8610d300d8bb129f3193f",
       "role": "guide"
     },
     {
@@ -294,7 +294,7 @@
       "document_id": "urn:iisacc:document:7269dbe9d8e68329426c3e442d88d6504f75abbfd84be26ecb7f5032561ebcf5",
       "source": "docs/NativeNavigation.md",
       "agent_json": "docs/NativeNavigation.agent.json",
-      "source_sha256": "07d3a54b7e63e4842d850318bb8a395d7916fbc3b88c2136a999ca62a209d41a",
+      "source_sha256": "6288d54d03f9608bfb1fc41be97c96c2adb114a97621e840d933262fd1900fa4",
       "role": "guide"
     },
     {
@@ -322,7 +322,7 @@
       "document_id": "urn:iisacc:document:cb2a4ced6b0abd39760c1d2493388f35db0ccbd5f245bf990905c2bcad63fe6e",
       "source": "docs/NativeWorkspace.md",
       "agent_json": "docs/NativeWorkspace.agent.json",
-      "source_sha256": "d6f6d101f8e5f5d6fa77924d3d0a402352e9994f205b5ef6464ada405fe53250",
+      "source_sha256": "7765eab4e860e141ef108364dc71004f26dab66d34043838eba43aefde692177",
       "role": "guide"
     },
     {
@@ -378,7 +378,7 @@
       "document_id": "urn:iisacc:document:6f76d7e0231a6363ccffa073153b03cd2df3022e2183232fef772a043c3b79cf",
       "source": "docs/PhotoLibraryMigration.md",
       "agent_json": "docs/PhotoLibraryMigration.agent.json",
-      "source_sha256": "03d90fff0f5e1b4e7d2403ba57cd5e8e5602d467213d923455c2604b3304e9be",
+      "source_sha256": "f6ef75c811e60a458dbf319c13224f3e646a2691292aa7cf7b6c55f90bef7f1e",
       "role": "guide"
     },
     {
@@ -434,7 +434,7 @@
       "document_id": "urn:iisacc:document:039f84436bde30fd87d3e8ab48bc29c1a3353aa69946f701aa21f86aaec0d663",
       "source": "docs/ResourceOptimization.md",
       "agent_json": "docs/ResourceOptimization.agent.json",
-      "source_sha256": "328c5697486776d8c5b99ecd609bd631d40cda17856a7b83cb96603e7418ada1",
+      "source_sha256": "796c34ca4a52aec2d2ad15a7bd6ffacb97c3c52171c5c4c4c82e2367abc8bbce",
       "role": "guide"
     },
     {
@@ -462,7 +462,7 @@
       "document_id": "urn:iisacc:document:8dcf5f6a92ba2d13248cc98643ad97e2517f79663b76290be65d7ece5419391d",
       "source": "docs/SemanticRelations.md",
       "agent_json": "docs/SemanticRelations.agent.json",
-      "source_sha256": "d693b62b0cd59a342d7feb1079d2a35c2fd98fb2e6ad590b143206491a98bcee",
+      "source_sha256": "4b63668e74ebbc14a77c91d9f60c833d53be2ee62de7b33484d4e3e0b6222f59",
       "role": "guide"
     },
     {
@@ -476,14 +476,14 @@
       "document_id": "urn:iisacc:document:48be6bd59c27acf8c2e52bab2cf6d9e63a035000153da0d2557dcb66876fb402",
       "source": "docs/SingleAppBuild.md",
       "agent_json": "docs/SingleAppBuild.agent.json",
-      "source_sha256": "a181fe1bcf08d8cfdac0031c0d719c6f21388d0289c6a2cc89a427b36767f753",
+      "source_sha256": "789b7719948bab2a564912137a51223a7baee76c6fda2fb453a96fe7c97ed821",
       "role": "guide"
     },
     {
       "document_id": "urn:iisacc:document:17230426e2147581a667a8431ca5aea760188b0b247cb8b4b06c1f096cd8286d",
       "source": "docs/SocietyDaemon.md",
       "agent_json": "docs/SocietyDaemon.agent.json",
-      "source_sha256": "2125f63a2a68322a8228bf6155ca6c1a582a2ffd7105df5d469550ec1f421fc1",
+      "source_sha256": "4804f16d04a5eb177e3419538f2146040ac3c9a1d6d73f891de3bcb19da1ccc3",
       "role": "guide"
     },
     {
@@ -546,7 +546,7 @@
       "document_id": "urn:iisacc:document:360c04a945ba822748383c4fb047e1635cd59a61e4e90fff1ef25e1aca955e8d",
       "source": "docs/WorkspaceAgent.md",
       "agent_json": "docs/WorkspaceAgent.agent.json",
-      "source_sha256": "ba6c9bcaa605c1f69ef4aa64197334dfe47616903ac468a391fb8e28e1e19d69",
+      "source_sha256": "b28e4c0f97cfc2ede57c61b1755870b756648159095a41a92013e53e6afc73c2",
       "role": "guide"
     },
     {

@@ -10,8 +10,8 @@
   },
   "source": {
     "path": "docs/EnvironmentDesktopConcept.md",
-    "sha256": "b8364023e913d0bf945653b103d7abfe3a8e1d6109181b6fba4e83f08ce2b728",
-    "bytes": 4568,
+    "sha256": "bda3503c73d5d59d56a7c144c069b3dd6c95d2830fc3158e30452c260f81ab50",
+    "bytes": 4573,
     "line_count": 46,
     "encoding": "utf-8",
     "language": "ko"
@@ -158,7 +158,7 @@
       "kind": "list",
       "start_line": 20,
       "end_line": 29,
-      "raw": "- 공통 탐색은 Overview, Devices, Hosting, Apps이다. 기존 상단 Dashboard → Tools → Storage → Browse → Environment 순서를 유지한다.\n- 같은 iisacc 계정의 기기를 관리한다. 데스크톱은 호스트·클라이언트 역할을 가질 수 있으며 모바일은 클라이언트이다.\n- 예시의 현재 기기는 MacBook Pro 클라이언트, 기본 호스트는 Studio Mac이다. iPad는 온라인 클라이언트, iPhone은 오프라인 클라이언트로 표시한다.\n- 기기 카드의 용량은 사용량/전체 용량과 남은 용량을 수치로 표시한다. 오프라인 기기는 마지막 확인 시각을 표시한다.\n- 호스팅 정보는 Society 컨테이너를 제공하는 호스트를 대상으로 한다. 로컬 네트워크 연결과 자체 호스팅 서버 경로를 함께 표시한다.\n- 예시 서버 주소는 `wss://studio.example.com/society`이다. 실제 운영 주소가 아니다.\n- 앱 목록은 선택한 기기를 기준으로 한다. Society와 Dreamscapes는 설치됨, Dreamscapes는 업데이트 가능, Vincent는 설치 가능 상태의 예시이다.\n- 앱 검색, 기기 선택, 설치, 실행, 업데이트 확인, 자동 업데이트, 제거와 진행 목록을 관리 기능으로 정의하였다. 이 설치 관리 기능들은 이번 시안의 제안이며 구현 완료를 뜻하지 않는다.\n- 프로토타입은 네 화면 사이의 이동을 제공한다. 검색·설치·업데이트·연결 설정 변경을 실행하지 않는다.\n- 모든 기기명, 용량, 연결 상태, 동기화 시각과 앱 상태는 설명용 데이터이다.\n",
+      "raw": "- 공통 탐색은 Overview, Devices, Hosting, Apps이다. 기존 상단 Dashboard → Tools → Storage → Browse → Environment 순서를 유지한다.\n- 같은 iisacc 계정의 기기를 관리한다. 데스크톱은 호스트·클라이언트 역할을 가질 수 있으며 모바일은 클라이언트이다.\n- 예시의 현재 기기는 MacBook Pro 클라이언트, 기본 호스트는 Studio Mac이다. iPad는 온라인 클라이언트, iPhone은 오프라인 클라이언트로 표시한다.\n- 기기 카드의 용량은 사용량/전체 용량과 남은 용량을 수치로 표시한다. 오프라인 기기는 마지막 확인 시각을 표시한다.\n- 호스팅 정보는 Society 컨테이너를 제공하는 호스트를 대상으로 한다. 로컬 네트워크 연결과 자체 호스팅 서버 경로를 함께 표시한다.\n- 예시 서버 주소는 `wss://studio.example.com/society`이다. 실제 운영 주소가 아니다.\n- 앱 목록은 선택한 기기를 기준으로 한다. Society와 Dreamscapes는 설치됨, Dreamscapes는 업데이트 가능, Congregation은 설치 가능 상태의 예시이다.\n- 앱 검색, 기기 선택, 설치, 실행, 업데이트 확인, 자동 업데이트, 제거와 진행 목록을 관리 기능으로 정의하였다. 이 설치 관리 기능들은 이번 시안의 제안이며 구현 완료를 뜻하지 않는다.\n- 프로토타입은 네 화면 사이의 이동을 제공한다. 검색·설치·업데이트·연결 설정 변경을 실행하지 않는다.\n- 모든 기기명, 용량, 연결 상태, 동기화 시각과 앱 상태는 설명용 데이터이다.\n",
       "items": [
         {
           "marker": "-",
@@ -192,7 +192,7 @@
         },
         {
           "marker": "-",
-          "text": "앱 목록은 선택한 기기를 기준으로 한다. Society와 Dreamscapes는 설치됨, Dreamscapes는 업데이트 가능, Vincent는 설치 가능 상태의 예시이다.",
+          "text": "앱 목록은 선택한 기기를 기준으로 한다. Society와 Dreamscapes는 설치됨, Dreamscapes는 업데이트 가능, Congregation은 설치 가능 상태의 예시이다.",
           "checked": null
         },
         {

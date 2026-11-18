@@ -1,6 +1,6 @@
 #include "Daemon/SuggestedCatalog.h"
-#include <SharedStorage.h>
-#include <FileCatalog.h>
+#include <iiSocietyContainer>
+#include <iiFileProvider>
 #include <QDir>
 #include <QFile>
 #include <QTemporaryDir>

@@ -1,5 +1,5 @@
 #include "CoreDeadlineScheduler.h"
-#include <iiSDKCore/Runtime/EventLoop.h>
+#include <iiSDKCore>
 #include <QPointer>
 #include <QThread>
 #include <QTimer>

@@ -1,17 +1,17 @@
-#include <iiFileProviderDevice.h>
+#include <iiFileProvider>
 #pragma once
-#include <iiWebServer.h>
-#include <iiSocietyHelper/Sync/Sync.h>
+#include <iiWebServer>
+#include <iiSocietyHelper>
 #include "Society/Account/AccountController.h"
 #include "NearbyDevices.h"
 #include "AutomaticPairing.h"
 #include "MobileSyncActivity.h"
-#include <iiPhotoLibrary/PhotoController.h>
-#include <SharedStorage.h>
+#include <iiPhotoLibrary>
+#include <iiSocietyContainer>
 #include <QPointer>
 #include <QSet>
 #if !defined(Q_OS_IOS) && !defined(Q_OS_ANDROID) && !defined(Q_OS_WASM) && !defined(SOCIETY_CLIENT_ONLY)
-#include <iiSocietyHelper/Generation/Host.h>
+#include <iiSocietyHelper>
 #endif
 #include <QtQmlIntegration/qqmlintegration.h>
 

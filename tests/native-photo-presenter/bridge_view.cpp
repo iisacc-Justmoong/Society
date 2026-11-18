@@ -1,7 +1,6 @@
 #include "PhotosView.generated.h"
-#include <iiGUI/PaintView.h>
-#include <iiPhotoLibrary/PhotoController.h>
-#include <iiPhotoLibrary/PhotoPresentationBridge.h>
+#include <iiGUI>
+#include <iiPhotoLibrary>
 #include <QGuiApplication>
 #include <QUrl>
 #include <algorithm>

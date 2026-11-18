@@ -1,5 +1,5 @@
 #pragma once
-#include <iiMultimodalAgent/agent/Tools.h>
+#include <iiMultimodalAgent>
 #include <QJsonObject>
 #include <QString>
 

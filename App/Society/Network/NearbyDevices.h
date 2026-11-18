@@ -1,2 +1,2 @@
 #pragma once
-#include <iiSocietyHelper/NearbyDevices.h>
+#include <iiSocietyHelper>

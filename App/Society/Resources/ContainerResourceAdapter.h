@@ -1,6 +1,6 @@
 #pragma once
 
-#include <iiResource/Resource.h>
+#include <iiResource>
 #include <expected>
 #include <filesystem>
 #include <optional>

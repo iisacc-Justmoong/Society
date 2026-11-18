@@ -1,8 +1,7 @@
 #include "Daemon/SuggestedBackend.h"
 #include "Daemon/WorkspaceAgentBackend.h"
-#include <SocietyDrive.h>
-#include <iiMultimodalAgent/agent/DecisionGate.h>
-#include <iiMultimodalAgent/agent/Types.h>
+#include <iiSocietyContainer>
+#include <iiMultimodalAgent>
 #include <QDir>
 #include <QJsonArray>
 #include <QSignalSpy>

@@ -1,6 +1,6 @@
 #pragma once
 #include "Shared/BackendCommand.h"
-#include <iiMultimodalAgent/agent/Tools.h>
+#include <iiMultimodalAgent>
 #include <functional>
 
 using SocietyFileJobInvoker = std::function<SocietyBackendCommandReply(

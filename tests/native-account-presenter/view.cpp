@@ -1,8 +1,7 @@
 #include "Society/Native/CoreDeadlineScheduler.h"
 #include "AccountDialog.generated.h"
-#include <iiAccountManager/AccountManager.h>
-#include <iiAccountManager/AccountPresentationBridge.h>
-#include <iiGUI/PaintView.h>
+#include <iiAccountManager>
+#include <iiGUI>
 #include <QGuiApplication>
 #include <QNetworkAccessManager>
 #include <algorithm>

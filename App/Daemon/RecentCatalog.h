@@ -6,7 +6,7 @@
 
 namespace society::recent {
 struct Activity { QString path; qint64 atMs = 0; };
-struct Item { QString path, name; qint64 activityMs = 0, size = 0; };
+struct Item { QString path, name; qint64 activityMs = 0, size = 0, modifiedMs = 0; };
 struct Snapshot {
     QVector<Item> items;
     QString error;

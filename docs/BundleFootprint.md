@@ -139,3 +139,16 @@ toggle visibility assertion in `mobileViewsShareDesktopContentAndKeepState`.
 The same assertion was reproduced with the full development inference SDK.
 It is tracked separately from the package footprint checks; no mobile-device
 validation or new large-model generation run is claimed here.
+
+The photo library and Society's selected iiFileProvider package use the same
+public file-device header. The photo package records its build fingerprint and
+package discovery rejects a mismatch or an older package without a fingerprint.
+The product-local macOS photo package is staged under
+`resources/dependencies/macos-runtime/iiPhotoLibrary-fileprovider`; rebuild it
+against the selected iiFileProvider before changing that dependency.
+
+On macOS, the product-local `iiWebServer-core-compatible` package must be built
+with the iiNetwork and iiSDKCore versions used by Society. A stale shared web
+server can load successfully yet crash while establishing a TLS connection.
+The photo-library TLS exchange test exercises this boundary; changing the
+network or core packages requires rebuilding and retesting the web server.

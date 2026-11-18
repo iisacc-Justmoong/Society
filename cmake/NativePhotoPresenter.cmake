@@ -19,8 +19,6 @@ target_sources(Society PRIVATE
     App/Society/Native/ExternalPhotoSurface.h App/Society/Native/ExternalPhotoSurface.cpp
     App/Society/Native/PhotoNativeRegion.h
     App/Society/Native/PhotoAreaTracker.h App/Society/Native/PhotoAreaTracker.cpp
-    App/Society/Native/PhotoPreviewLoader.h App/Society/Native/PhotoPreviewLoader.cpp
-    App/Society/Native/PhotoPreviewResolver.h App/Society/Native/PhotoPreviewResolver.cpp
     App/Society/Native/PhotoPicker.h App/Society/Native/PhotoPicker.cpp
     "${_society_native_photo_view}")
 society_native_photo_platform_components(_society_photo_platform_sources _society_photo_platform_libraries)

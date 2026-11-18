@@ -1,8 +1,7 @@
-#include <iiFileProviderDevice.h>
+#include <iiFileProvider>
 #pragma once
 
-#include <iiSocietyHelper.h>
-#include <DeliveryStore.h>
+#include <iiSocietyHelper>
 #include <QElapsedTimer>
 #include <QObject>
 #include <QTimer>

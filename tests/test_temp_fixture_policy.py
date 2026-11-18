@@ -128,7 +128,10 @@ class TempFixturePolicy(unittest.TestCase):
             root = fixture / 'runtime'
             packages = {'iiLocalDiffusion': 'iiLocalDiffusion-apple', 'iiDecision': 'iiDecision-onnx-free',
                         'iiLocalLLM': 'iiLocalLLM-onnx-free', 'iiMultimodalAgent': 'iiMultimodalAgent-onnx-free',
-                        'iiVoiceOver': 'iiVoiceOver-onnx-free'}
+                        'iiVoiceOver': 'iiVoiceOver-onnx-free',
+                        'iiWebServer': 'iiWebServer-core-compatible',
+                        'iiSocietyContainer': 'iiSocietyContainer-model-cache',
+                        'iiPhotoLibrary': 'iiPhotoLibrary-fileprovider'}
             for name, directory in packages.items():
                 config = root / directory / 'lib/cmake' / name / (name + 'Config.cmake')
                 resource_workspace.provider.mkdir(config.parent, parents=True, exist_ok=True)
@@ -158,6 +161,15 @@ if(NOT iiDecision_DIR STREQUAL "{(root / "iiDecision-onnx-free/lib/cmake/iiDecis
 endif()
 if(NOT iiVoiceOver_DIR STREQUAL "/caller/preferred")
   message(FATAL_ERROR "explicit package was changed")
+endif()
+if(NOT iiWebServer_DIR STREQUAL "{(root / "iiWebServer-core-compatible/lib/cmake/iiWebServer").as_posix()}")
+  message(FATAL_ERROR "compatible web server package was not selected")
+endif()
+if(NOT iiSocietyContainer_DIR STREQUAL "{(root / "iiSocietyContainer-model-cache/lib/cmake/iiSocietyContainer").as_posix()}")
+  message(FATAL_ERROR "model cache container package was not selected")
+endif()
+if(NOT iiPhotoLibrary_DIR STREQUAL "{(root / "iiPhotoLibrary-fileprovider/lib/cmake/iiPhotoLibrary").as_posix()}")
+  message(FATAL_ERROR "compatible photo library package was not selected")
 endif()
 if(NOT MLX_DIR STREQUAL "{(mlx / "share/cmake/MLX").as_posix()}" OR
    NOT MLX_LIBRARY STREQUAL "{(mlx / "lib/libmlx.dylib").as_posix()}")

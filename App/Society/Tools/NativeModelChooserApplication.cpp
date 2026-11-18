@@ -1,7 +1,7 @@
 #include "NativeModelChooser.generated.h"
 #include "NativeModelChooserProtocol.h"
 
-#include <iiGUI/Application.h>
+#include <iiGUI>
 #include <array>
 #include <iostream>
 #include <memory>

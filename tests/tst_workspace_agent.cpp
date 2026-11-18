@@ -2,9 +2,12 @@
 #include "Daemon/WorkspaceAgentRouter.h"
 #include "Daemon/WorkspaceAgentModels.h"
 #include "Daemon/WorkspaceAgentTools.h"
+#include "Daemon/WorkspaceAgentRuntimePolicy.h"
+#include "Daemon/ResidentGateway.h"
 #include "Shared/LocalBackendAddress.h"
-#include <SocietyDrive.h>
-#include <iiMultimodalAgent/agent/Engine.h>
+#include <iiSocietyContainer>
+#include <ModelPackaging/ModelPackaging.hpp>
+#include <iiMultimodalAgent>
 #include <QDir>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -20,14 +23,33 @@
 #include <chrono>
 #include <mutex>
 #include <future>
+#include <stdexcept>
 
 namespace a=iiMultimodalAgent::agent;
+static QByteArray cacheFixtureInteger(quint64 value,int bytes) {
+    QByteArray output(bytes,0);
+    for (int i=0;i<bytes;++i) output[i]=char((value>>(8*i))&255);
+    return output;
+}
+static QByteArray cacheFixtureString(const QByteArray &value) { return cacheFixtureInteger(value.size(),8)+value; }
+static QByteArray cacheFixtureGguf() {
+    auto result=QByteArray("GGUF")+cacheFixtureInteger(3,4)+cacheFixtureInteger(1,8)+cacheFixtureInteger(3,8);
+    for (const auto &item : {qMakePair(QByteArray("general.architecture"),QByteArray("llama")),
+                             qMakePair(QByteArray("general.type"),QByteArray("model")),
+                             qMakePair(QByteArray("tokenizer.chat_template"),QByteArray("{{ messages }}"))})
+        result+=cacheFixtureString(item.first)+cacheFixtureInteger(8,4)+cacheFixtureString(item.second);
+    result+=cacheFixtureString("token_embd.weight")+cacheFixtureInteger(1,4)+cacheFixtureInteger(1,8)+
+        cacheFixtureInteger(0,4)+cacheFixtureInteger(0,8);
+    result+=QByteArray((32-result.size()%32)%32,0)+QByteArray(4,'\x11');
+    return result;
+}
 class FakeModel final : public a::Model {
 public:
     std::mutex mutex;
     QList<int> historyLengths;
     QStringList selectedModels;
     QStringList systemPrompts;
+    QList<QJsonArray> submittedContent;
     a::ModelReply generate(const a::ModelRequest &request, const iiMultimodalAgent::CancellationToken &token,
                            const std::function<bool(const QString &)> &delta) override {
         {
@@ -35,9 +57,11 @@ public:
             historyLengths.append(request.messages.size());
             selectedModels.append(request.model);
             systemPrompts.append(request.systemPrompt);
+            submittedContent.append(request.messages.back().content);
         }
         const auto text=request.messages.back().text;
         if (text=="fail") throw std::runtime_error("fixture failure");
+        if (text=="empty") return {};
         if (text=="wait") {
             while (!token.isCancelled()) QThread::msleep(5);
             token.throwIfCancelled();
@@ -122,6 +146,465 @@ public:
 class WorkspaceAgentTest final : public QObject {
     Q_OBJECT
 private slots:
+    void localRuntimePolicyUsesAutomaticUnlessExplicitlyConfigured() {
+        QTemporaryDir fixture(QDir(QStringLiteral(SOCIETY_TEST_DIRECTORY)).filePath("agent-runtime-policy-XXXXXX"));
+        QVERIFY(fixture.isValid());
+        const auto path=fixture.filePath("agent-runtime.json");
+        QCOMPARE(workspaceAgentMaxGpuLayers(path),-1);
+        const auto write=[&](const QByteArray &json) {
+            QFile file(path);
+            if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) return false;
+            return file.write(json)==json.size();
+        };
+        QVERIFY(write("{}"));
+        QCOMPARE(workspaceAgentMaxGpuLayers(path),-1);
+        QVERIFY(write(R"({"llama":{"maxGpuLayers":0}})"));
+        QCOMPARE(workspaceAgentMaxGpuLayers(path),0);
+        QVERIFY(write(R"({"llama":{"maxGpuLayers":12}})"));
+        QCOMPARE(workspaceAgentMaxGpuLayers(path),12);
+        QVERIFY(write(R"({"llama":{"maxGpuLayers":-1}})"));
+        QCOMPARE(workspaceAgentMaxGpuLayers(path),-1);
+        QVERIFY_THROWS_EXCEPTION(std::runtime_error,workspaceAgentMaxGpuLayers(fixture.path()));
+        for (const QByteArray invalid : {QByteArray("{"), QByteArray(R"({"llama":[]})"),
+                 QByteArray(R"({"llama":{"maxGpuLayers":-2}})"),
+                 QByteArray(R"({"llama":{"maxGpuLayers":1.5}})"),
+                 QByteArray(R"({"llama":{"maxGpuLayers":2147483648}})"),
+                 QByteArray(R"({"llama":{"maxGpuLayers":"0"}})")}) {
+            QVERIFY(write(invalid));
+            QVERIFY_THROWS_EXCEPTION(std::runtime_error,workspaceAgentMaxGpuLayers(path));
+        }
+    }
+    void cpuFallbackAvoidsWeightRepacking() {
+        const auto cpu=workspaceAgentModelLoadOptions(0);
+        QVERIFY(cpu.contains(QStringLiteral("cpu_repack")));
+        QCOMPARE(cpu.value(QStringLiteral("cpu_repack")).toBool(true),false);
+        QVERIFY(workspaceAgentModelLoadOptions(-1).isEmpty());
+        QVERIFY(workspaceAgentModelLoadOptions(12).isEmpty());
+    }
+    void relevantModelImportRefreshesUnavailableResident() {
+        QTemporaryDir fixture(QDir(QStringLiteral(SOCIETY_TEST_DIRECTORY)).filePath("agent-resident-refresh-XXXXXX"));
+        QVERIFY(fixture.isValid());
+        const auto root=fixture.filePath("test.societycontainer");
+        QVERIFY(QDir().mkdir(root)); QVERIFY(iiSocietyContainer::SocietyDrive::create(root));
+        int cancelled=0;
+        WorkspaceAgentBackend backend;
+        backend.selectContainer(root);
+        QTRY_COMPARE_WITH_TIMEOUT(backend.residentGateway()->status().value("state").toString(),QStringLiteral("error"),30000);
+
+        const auto input=fixture.filePath("package-input"); QVERIFY(QDir().mkdir(input));
+        QFile source(input+"/language.gguf"); QVERIFY(source.open(QIODevice::WriteOnly));
+        const auto gguf=cacheFixtureGguf(); QCOMPARE(source.write(gguf),qint64(gguf.size())); source.close();
+        QVERIFY(QDir().mkpath(root+"/Models/LLM"));
+        const auto package=root+"/Models/LLM/iisaccson.safetensors";
+        const std::vector<iild::ModelPackagingAssignment> assignments{{"language.gguf","model","main"}};
+        (void)iild::createModelPackageWithAssignments(std::filesystem::path(input.toStdU16String()),
+            std::filesystem::path(package.toStdU16String()),assignments);
+
+        backend.modelFilesChanged(fixture.filePath("another.societycontainer"),{package});
+        backend.modelFilesChanged(root,{root+"/Models/LLM/other.safetensors"});
+        QCOMPARE(backend.residentGateway()->status().value("state").toString(),QStringLiteral("error"));
+        QVERIFY(backend.snapshot().value("model").toString().isEmpty());
+        backend.modelFilesChanged(root,{package});
+        QTRY_VERIFY_WITH_TIMEOUT(backend.snapshot().value("model").toString().startsWith("model://iisaccson-"),30000);
+        // The fixture has no runnable weights: discovery must not be reported as residency.
+        QTRY_COMPARE_WITH_TIMEOUT(backend.residentGateway()->status().value("state").toString(),QStringLiteral("error"),30000);
+
+        const auto previous=backend.snapshot().value("model").toString();
+        backend.residentGateway()->setReady(previous,[&](const QJsonArray &,const QJsonObject &,ResidentGateway::Callback callback) {
+            return [&,callback=std::move(callback)] { ++cancelled; callback({{"kind","finished"}}); };
+        });
+        const auto request=backend.residentGateway()->start({QJsonObject{{"role","user"},{"content","fixture"}}},{});
+        QVERIFY(!request.isEmpty());
+        // A queued cache request follows the metadata observation on the same
+        // worker, so its completion is a barrier for the duplicate event.
+        backend.modelFilesChanged(root,{package});
+        QString error; QVERIFY2(backend.selectModel(previous,&error),qPrintable(error));
+        QTRY_COMPARE_WITH_TIMEOUT(backend.snapshot().value("cache").toObject().value("state").toString(),QStringLiteral("ready"),30000);
+        QCOMPARE(backend.residentGateway()->status().value("state").toString(),QStringLiteral("ready"));
+        QCOMPARE(cancelled,0);
+
+        QVERIFY(QFile::remove(package));
+        QVERIFY(source.open(QIODevice::WriteOnly|QIODevice::Truncate));
+        auto replacement=gguf; replacement[replacement.size()-1]=char(0x22);
+        QCOMPARE(source.write(replacement),qint64(replacement.size())); source.close();
+        (void)iild::createModelPackageWithAssignments(std::filesystem::path(input.toStdU16String()),
+            std::filesystem::path(package.toStdU16String()),assignments);
+        backend.modelFilesChanged(root,{package});
+        QTRY_VERIFY_WITH_TIMEOUT(backend.snapshot().value("model").toString().startsWith("model://iisaccson-")
+            && backend.snapshot().value("model").toString()!=previous,30000);
+        QCOMPARE(cancelled,1);
+    }
+    void modelRefreshRetainsWorkspaceConversation() {
+        QTemporaryDir fixture(QDir(QStringLiteral(SOCIETY_TEST_DIRECTORY)).filePath("agent-resident-session-XXXXXX"));
+        QVERIFY(fixture.isValid());
+        const auto root=fixture.filePath("test.societycontainer");
+        QVERIFY(QDir().mkdir(root)); QVERIFY(iiSocietyContainer::SocietyDrive::create(root));
+        auto model=std::make_shared<FakeModel>();
+        WorkspaceAgentBackend backend(nullptr,model,QStringLiteral("model://test"));
+        backend.selectContainer(root);
+        QTRY_COMPARE_WITH_TIMEOUT(backend.snapshot().value("model").toString(),QStringLiteral("model://test"),30000);
+        QString error; QVERIFY2(backend.submit("first",&error),qPrintable(error));
+        QTRY_VERIFY_WITH_TIMEOUT(!backend.snapshot().value("busy").toBool(),30000);
+        const auto before=backend.snapshot().value("messages").toArray();
+        QCOMPARE(before.size(),2);
+        QSignalSpy changes(&backend,&WorkspaceAgentBackend::changed);
+        backend.modelFilesChanged(root,{root+"/Models/LLM/iisaccson.safetensors"});
+        const auto restarted=[&] {
+            for (const auto &args:changes) if (args.first().toJsonObject().value("status").toString()=="Connecting agent…") return true;
+            return false;
+        };
+        QTRY_VERIFY_WITH_TIMEOUT(restarted(),30000);
+        QTRY_COMPARE_WITH_TIMEOUT(backend.snapshot().value("model").toString(),QStringLiteral("model://test"),30000);
+        QCOMPARE(backend.snapshot().value("messages").toArray(),before);
+        QVERIFY2(backend.submit("second",&error),qPrintable(error));
+        QTRY_VERIFY_WITH_TIMEOUT(!backend.snapshot().value("busy").toBool(),30000);
+        {
+            std::lock_guard lock(model->mutex);
+            QCOMPARE(model->historyLengths.size(),2);
+            QVERIFY(model->historyLengths.last()>model->historyLengths.first());
+        }
+
+        QVERIFY2(backend.submit("wait",&error),qPrintable(error));
+        const auto waiting=[&] { std::lock_guard lock(model->mutex); return model->historyLengths.size()>=3; };
+        QTRY_VERIFY_WITH_TIMEOUT(waiting(),30000);
+        const auto pending=backend.snapshot().value("messages").toArray();
+        changes.clear();
+        backend.modelFilesChanged(root,{root+"/Models/LLM/iisaccson.safetensors"});
+        QTRY_VERIFY_WITH_TIMEOUT(restarted(),30000);
+        QTRY_COMPARE_WITH_TIMEOUT(backend.snapshot().value("model").toString(),QStringLiteral("model://test"),30000);
+        QCOMPARE(backend.snapshot().value("messages").toArray(),pending);
+        QVERIFY(backend.snapshot().value("retryable").toBool());
+        QVERIFY(backend.snapshot().value("status").toString().contains("cancelled"));
+        QVERIFY2(backend.submit("after cancellation",&error),qPrintable(error));
+        QTRY_VERIFY_WITH_TIMEOUT(!backend.snapshot().value("busy").toBool(),30000);
+        QVERIFY(!backend.snapshot().value("retryable").toBool());
+    }
+    void primaryPackageIsPreparedReusedAndInvalidModelFailsSafely() {
+        QTemporaryDir fixture(QDir(QStringLiteral(SOCIETY_TEST_DIRECTORY)).filePath("agent-cache-package-XXXXXX"));
+        QVERIFY(fixture.isValid());
+        const auto root=fixture.filePath("test.societycontainer");
+        QVERIFY(QDir().mkdir(root)); QVERIFY(iiSocietyContainer::SocietyDrive::create(root));
+        const auto input=fixture.filePath("package-input"); QVERIFY(QDir().mkdir(input));
+        const auto gguf=cacheFixtureGguf(); QFile source(input+"/language.gguf");
+        QVERIFY(source.open(QIODevice::WriteOnly)); QCOMPARE(source.write(gguf),qint64(gguf.size())); source.close();
+        QVERIFY(QDir().mkpath(root+"/Models/LLM"));
+        const auto package=root+"/Models/LLM/iisaccson.safetensors";
+        const std::vector<iild::ModelPackagingAssignment> assignments{{"language.gguf","model","main"}};
+        (void)iild::createModelPackageWithAssignments(std::filesystem::path(input.toStdU16String()),
+            std::filesystem::path(package.toStdU16String()),assignments);
+        QFile original(package); QVERIFY(original.open(QIODevice::ReadOnly)); const auto originalBytes=original.readAll(); original.close();
+        QString selected;
+        {
+            WorkspaceAgentBackend backend;
+            backend.selectContainer(root);
+            QTRY_VERIFY_WITH_TIMEOUT(backend.snapshot().value("model").toString().startsWith("model://iisaccson-"),30000);
+            selected=backend.snapshot().value("model").toString();
+            QTRY_VERIFY2_WITH_TIMEOUT(backend.snapshot().value("cache").toObject().value("state").toString()=="ready",
+                qPrintable(QJsonDocument(backend.snapshot()).toJson(QJsonDocument::Compact)),30000);
+            QVERIFY(!backend.snapshot().value("cache").toObject().value("reused").toBool());
+            // This synthetic GGUF has no usable weights. A request must reach an
+            // initialized service and fail cleanly, never dereference a null delegate.
+            QString error;
+            QVERIFY2(backend.submit("fixture request",&error),qPrintable(error));
+            QTRY_VERIFY_WITH_TIMEOUT(!backend.snapshot().value("busy").toBool(),30000);
+            QVERIFY(backend.snapshot().value("retryable").toBool());
+        }
+        const auto cached=root+"/.society-runtime/agent/models/"+selected.mid(8)+"/model.gguf";
+        QFile prepared(cached); QVERIFY(prepared.open(QIODevice::ReadOnly)); QCOMPARE(prepared.readAll(),gguf);
+        QVERIFY(original.open(QIODevice::ReadOnly)); QCOMPARE(original.readAll(),originalBytes); original.close();
+        {
+            WorkspaceAgentBackend backend;
+            backend.selectContainer(root);
+            QTRY_COMPARE_WITH_TIMEOUT(backend.snapshot().value("model").toString(),selected,30000);
+            QTRY_COMPARE_WITH_TIMEOUT(backend.snapshot().value("cache").toObject().value("state").toString(),QStringLiteral("ready"),30000);
+            QVERIFY(backend.snapshot().value("cache").toObject().value("reused").toBool());
+        }
+    }
+    void changingPrimaryCancelsBackgroundPreparation() {
+        QTemporaryDir fixture(QDir(QStringLiteral(SOCIETY_TEST_DIRECTORY)).filePath("agent-warmup-XXXXXX"));
+        QVERIFY(fixture.isValid());
+        const auto root=fixture.filePath("test.societycontainer");
+        QVERIFY(QDir().mkdir(root)); QVERIFY(iiSocietyContainer::SocietyDrive::create(root));
+        auto model=std::make_shared<FakeModel>();
+        auto policy=std::make_shared<a::DecisionOptions>();
+        policy->modelRoutes={{"iisaccson","model://small",iiMultimodalAgent::modality(iiMultimodalAgent::Modality::Text)},
+                             {"asimov","model://large",iiMultimodalAgent::modality(iiMultimodalAgent::Modality::Text)}};
+        std::atomic_bool started=false, stopped=false, preparedLarge=false;
+        const auto prepare=[&](const QString &id,std::stop_token token) {
+            if (id=="model://small") {
+                started=true;
+                while (!token.stop_requested()) QThread::msleep(2);
+                stopped=true;
+            } else if (id=="model://large") preparedLarge=true;
+        };
+        WorkspaceAgentBackend backend(nullptr,model,"model://small",policy,{},prepare);
+        backend.selectContainer(root);
+        QTRY_VERIFY_WITH_TIMEOUT(started.load(),30000);
+        QString error;
+        QVERIFY2(backend.selectModel("model://large",&error),qPrintable(error));
+        QTRY_VERIFY_WITH_TIMEOUT(stopped.load() && preparedLarge.load(),30000);
+        QTRY_COMPARE_WITH_TIMEOUT(backend.snapshot().value("cache").toObject().value("state").toString(),QStringLiteral("ready"),30000);
+        std::lock_guard lock(model->mutex);
+        QVERIFY(model->selectedModels.isEmpty());
+    }
+    void submittedMessageWaitsForCachePreparation() {
+        QTemporaryDir fixture(QDir(QStringLiteral(SOCIETY_TEST_DIRECTORY)).filePath("agent-queued-XXXXXX"));
+        QVERIFY(fixture.isValid());
+        const auto root=fixture.filePath("test.societycontainer");
+        QVERIFY(QDir().mkdir(root)); QVERIFY(iiSocietyContainer::SocietyDrive::create(root));
+        auto model=std::make_shared<FakeModel>();
+        std::atomic_bool preparing=false, release=false;
+        const auto prepare=[&](const QString &,std::stop_token token) {
+            preparing=true;
+            while (!release.load() && !token.stop_requested()) QThread::msleep(2);
+        };
+        WorkspaceAgentBackend backend(nullptr,model,"model://test",{},{},prepare);
+        backend.selectContainer(root);
+        QTRY_VERIFY_WITH_TIMEOUT(preparing.load(),30000);
+        QString error;
+        QVERIFY2(backend.submit("queued",&error),qPrintable(error));
+        const auto waiting=backend.snapshot();
+        QVERIFY(waiting.value("busy").toBool());
+        QVERIFY2(waiting.value("status").toString().contains("waiting",Qt::CaseInsensitive),
+                 qPrintable(waiting.value("status").toString()));
+        release=true;
+        QTRY_VERIFY_WITH_TIMEOUT(!backend.snapshot().value("busy").toBool(),30000);
+        const auto state=backend.snapshot();
+        QVERIFY(!state.value("retryable").toBool());
+        QCOMPARE(state.value("messages").toArray().last().toObject().value("text").toString(),QStringLiteral("fixture answer"));
+    }
+    void cancellingQueuedMessageDoesNotRunItLater() {
+        QTemporaryDir fixture(QDir(QStringLiteral(SOCIETY_TEST_DIRECTORY)).filePath("agent-queue-cancel-XXXXXX"));
+        QVERIFY(fixture.isValid());
+        const auto root=fixture.filePath("test.societycontainer");
+        QVERIFY(QDir().mkdir(root)); QVERIFY(iiSocietyContainer::SocietyDrive::create(root));
+        auto model=std::make_shared<FakeModel>();
+        std::atomic_bool preparing=false, release=false;
+        const auto prepare=[&](const QString &,std::stop_token token) {
+            preparing=true; while (!release.load() && !token.stop_requested()) QThread::msleep(2);
+        };
+        WorkspaceAgentBackend backend(nullptr,model,"model://test",{},{},prepare);
+        backend.selectContainer(root); QTRY_VERIFY_WITH_TIMEOUT(preparing.load(),30000);
+        QString error; QVERIFY(backend.submit("cancel before execution",&error));
+        QVERIFY(backend.cancel(&error));
+        QVERIFY(!backend.snapshot().value("busy").toBool());
+        QVERIFY(backend.snapshot().value("retryable").toBool());
+        release=true;
+        QTRY_COMPARE_WITH_TIMEOUT(backend.snapshot().value("cache").toObject().value("state").toString(),QStringLiteral("ready"),30000);
+        std::lock_guard lock(model->mutex); QVERIFY(model->selectedModels.isEmpty());
+    }
+    void staleCacheCancellationCannotFailAReselectedModel() {
+        QTemporaryDir fixture(QDir(QStringLiteral(SOCIETY_TEST_DIRECTORY)).filePath("agent-cache-reselect-XXXXXX"));
+        QVERIFY(fixture.isValid());
+        const auto root=fixture.filePath("test.societycontainer");
+        QVERIFY(QDir().mkdir(root)); QVERIFY(iiSocietyContainer::SocietyDrive::create(root));
+        auto model=std::make_shared<FakeModel>();
+        auto policy=std::make_shared<a::DecisionOptions>();
+        policy->modelRoutes={{"iisaccson","model://small",iiMultimodalAgent::modality(iiMultimodalAgent::Modality::Text)},
+                             {"asimov","model://large",iiMultimodalAgent::modality(iiMultimodalAgent::Modality::Text)}};
+        policy->enabled=false;
+        std::atomic_bool firstStarted=false;
+        std::atomic_int smallAttempts=0;
+        const auto prepare=[&](const QString &id,std::stop_token token) {
+            if (id=="model://small" && ++smallAttempts==1) {
+                firstStarted=true; while (!token.stop_requested()) QThread::msleep(2);
+            }
+        };
+        WorkspaceAgentBackend backend(nullptr,model,"model://small",policy,{},prepare);
+        backend.selectContainer(root); QTRY_VERIFY_WITH_TIMEOUT(firstStarted.load(),30000);
+        QString error;
+        QVERIFY(backend.selectModel("model://large",&error));
+        QVERIFY(backend.selectModel("model://small",&error));
+        QVERIFY(backend.submit("keep waiting",&error));
+        QTRY_VERIFY_WITH_TIMEOUT(!backend.snapshot().value("busy").toBool(),30000);
+        QVERIFY2(!backend.snapshot().value("retryable").toBool(),qPrintable(backend.snapshot().value("status").toString()));
+        QCOMPARE(backend.snapshot().value("messages").toArray().last().toObject().value("text").toString(),QStringLiteral("fixture answer"));
+    }
+    void emptyCompletionIsReportedAsRetryableFailure() {
+        QTemporaryDir fixture(QDir(QStringLiteral(SOCIETY_TEST_DIRECTORY)).filePath("agent-empty-XXXXXX"));
+        QVERIFY(fixture.isValid());
+        const auto root=fixture.filePath("test.societycontainer");
+        QVERIFY(QDir().mkdir(root)); QVERIFY(iiSocietyContainer::SocietyDrive::create(root));
+        auto model=std::make_shared<FakeModel>();
+        WorkspaceAgentBackend backend(nullptr,model,QStringLiteral("model://test"));
+        backend.selectContainer(root);
+        QTRY_COMPARE_WITH_TIMEOUT(backend.snapshot().value("model").toString(),QStringLiteral("model://test"),30000);
+        QString error; QVERIFY2(backend.submit("empty",&error),qPrintable(error));
+        QTRY_VERIFY_WITH_TIMEOUT(!backend.snapshot().value("busy").toBool(),30000);
+        const auto state=backend.snapshot();
+        QVERIFY(state.value("retryable").toBool());
+        QVERIFY2(state.value("status").toString().contains("empty",Qt::CaseInsensitive),qPrintable(state.value("status").toString()));
+        QCOMPARE(state.value("messages").toArray().size(),2);
+        QCOMPARE(state.value("messages").toArray().last().toObject().value("role").toString(),QStringLiteral("Status"));
+    }
+    void memoryAdmissionWaitsAndRetriesTheAcceptedMessage() {
+        QTemporaryDir fixture(QDir(QStringLiteral(SOCIETY_TEST_DIRECTORY)).filePath("agent-memory-XXXXXX"));
+        QVERIFY(fixture.isValid());
+        const auto root=fixture.filePath("test.societycontainer");
+        QVERIFY(QDir().mkdir(root)); QVERIFY(iiSocietyContainer::SocietyDrive::create(root));
+        auto model=std::make_shared<FakeModel>();
+        std::atomic_int attempts=0;
+        const auto resident=[&](const QString &,std::stop_token) {
+            if (++attempts==1) throw iiLocalLLM::Error(iiLocalLLM::ErrorCode::ResourceLimit,
+                QStringLiteral("Insufficient available RAM or no idle model can be evicted"));
+        };
+        WorkspaceAgentBackend backend(nullptr,model,"model://test",{},{},{},resident,500);
+        backend.selectContainer(root);
+        QTRY_COMPARE_WITH_TIMEOUT(backend.snapshot().value("resident").toObject().value("state").toString(),QStringLiteral("waiting_memory"),30000);
+        QString error; QVERIFY2(backend.submit("queued until memory is available",&error),qPrintable(error));
+        QVERIFY(backend.snapshot().value("busy").toBool());
+        QVERIFY(backend.snapshot().value("status").toString().contains("memory",Qt::CaseInsensitive));
+        QTRY_VERIFY_WITH_TIMEOUT(!backend.snapshot().value("busy").toBool(),30000);
+        QCOMPARE(attempts.load(),2);
+        QCOMPARE(backend.snapshot().value("messages").toArray().last().toObject().value("text").toString(),QStringLiteral("fixture answer"));
+    }
+    void cancelledMemoryWaitNeverExecutesAfterRecovery() {
+        QTemporaryDir fixture(QDir(QStringLiteral(SOCIETY_TEST_DIRECTORY)).filePath("agent-memory-cancel-XXXXXX"));
+        QVERIFY(fixture.isValid());
+        const auto root=fixture.filePath("test.societycontainer");
+        QVERIFY(QDir().mkdir(root)); QVERIFY(iiSocietyContainer::SocietyDrive::create(root));
+        auto model=std::make_shared<FakeModel>(); std::atomic_bool allow=false;
+        const auto resident=[&](const QString &,std::stop_token) {
+            if (!allow.load()) throw iiLocalLLM::Error(iiLocalLLM::ErrorCode::ResourceLimit,
+                QStringLiteral("Insufficient available RAM or no idle model can be evicted"));
+        };
+        WorkspaceAgentBackend backend(nullptr,model,"model://test",{},{},{},resident,500);
+        backend.selectContainer(root);
+        QTRY_COMPARE_WITH_TIMEOUT(backend.snapshot().value("resident").toObject().value("state").toString(),QStringLiteral("waiting_memory"),30000);
+        QString error; QVERIFY(backend.submit("cancelled while waiting",&error));
+        QVERIFY(backend.cancel(&error));
+        QVERIFY(!backend.snapshot().value("busy").toBool());
+        QVERIFY(backend.snapshot().value("retryable").toBool());
+        allow=true;
+        QTRY_COMPARE_WITH_TIMEOUT(backend.snapshot().value("resident").toObject().value("state").toString(),QStringLiteral("ready"),30000);
+        QCOMPARE(backend.snapshot().value("messages").toArray().size(),1);
+        std::lock_guard lock(model->mutex); QVERIFY(model->selectedModels.isEmpty());
+    }
+    void permanentModelBudgetFailureIsNotRetriedAsMemoryPressure() {
+        QTemporaryDir fixture(QDir(QStringLiteral(SOCIETY_TEST_DIRECTORY)).filePath("agent-budget-XXXXXX"));
+        QVERIFY(fixture.isValid());
+        const auto root=fixture.filePath("test.societycontainer");
+        QVERIFY(QDir().mkdir(root)); QVERIFY(iiSocietyContainer::SocietyDrive::create(root));
+        auto model=std::make_shared<FakeModel>(); std::atomic_int attempts=0;
+        const auto resident=[&](const QString &,std::stop_token) {
+            ++attempts; throw iiLocalLLM::Error(iiLocalLLM::ErrorCode::ResourceLimit,
+                QStringLiteral("Model weights, KV and runtime reservation exceed the service memory budget"));
+        };
+        WorkspaceAgentBackend backend(nullptr,model,"model://test",{},{},{},resident,20);
+        backend.selectContainer(root);
+        QTRY_COMPARE_WITH_TIMEOUT(backend.snapshot().value("resident").toObject().value("state").toString(),QStringLiteral("error"),30000);
+        QString error; QVERIFY(backend.submit("cannot load",&error));
+        QTRY_VERIFY_WITH_TIMEOUT(!backend.snapshot().value("busy").toBool(),30000);
+        QVERIFY(backend.snapshot().value("retryable").toBool());
+        QVERIFY(backend.snapshot().value("status").toString().contains("budget"));
+        QTest::qWait(100); QCOMPARE(attempts.load(),1);
+        QCOMPARE(backend.snapshot().value("messages").toArray().last().toObject().value("role").toString(),QStringLiteral("Status"));
+    }
+    void explicitRetryCanReloadAfterAReportedFailure() {
+        QTemporaryDir fixture(QDir(QStringLiteral(SOCIETY_TEST_DIRECTORY)).filePath("agent-retry-load-XXXXXX"));
+        QVERIFY(fixture.isValid());
+        const auto root=fixture.filePath("test.societycontainer");
+        QVERIFY(QDir().mkdir(root)); QVERIFY(iiSocietyContainer::SocietyDrive::create(root));
+        auto model=std::make_shared<FakeModel>(); std::atomic_int attempts=0;
+        const auto resident=[&](const QString &,std::stop_token) {
+            if (++attempts==1) throw std::runtime_error("fixture load failed");
+        };
+        WorkspaceAgentBackend backend(nullptr,model,"model://test",{},{},{},resident,20);
+        backend.selectContainer(root);
+        QTRY_COMPARE_WITH_TIMEOUT(backend.snapshot().value("resident").toObject().value("state").toString(),QStringLiteral("error"),30000);
+        QString error; QVERIFY(backend.submit("first attempt",&error));
+        QTRY_VERIFY_WITH_TIMEOUT(!backend.snapshot().value("busy").toBool(),30000);
+        QVERIFY(backend.snapshot().value("retryable").toBool());
+        QVERIFY(backend.submit("retry",&error));
+        QTRY_VERIFY_WITH_TIMEOUT(!backend.snapshot().value("busy").toBool(),30000);
+        QCOMPARE(attempts.load(),2);
+        QCOMPARE(backend.snapshot().value("messages").toArray().last().toObject().value("text").toString(),QStringLiteral("fixture answer"));
+    }
+    void selectedPrimaryModelSurvivesBackendRestartWithoutInference() {
+        QTemporaryDir fixture(QDir(QStringLiteral(SOCIETY_TEST_DIRECTORY)).filePath("agent-primary-XXXXXX"));
+        QVERIFY(fixture.isValid());
+        const auto root=fixture.filePath("test.societycontainer");
+        QVERIFY(QDir().mkdir(root)); QVERIFY(iiSocietyContainer::SocietyDrive::create(root));
+        auto model=std::make_shared<FakeModel>();
+        auto policy=std::make_shared<a::DecisionOptions>();
+        policy->modelRoutes={{"iisaccson","model://small",iiMultimodalAgent::modality(iiMultimodalAgent::Modality::Text)},
+                             {"asimov","model://large",iiMultimodalAgent::modality(iiMultimodalAgent::Modality::Text)}};
+        {
+            WorkspaceAgentBackend backend(nullptr,model,"model://small",policy);
+            backend.selectContainer(root);
+            QTRY_COMPARE_WITH_TIMEOUT(backend.snapshot().value("model").toString(),QStringLiteral("model://small"),30000);
+            QString error; QVERIFY2(backend.selectModel("model://large",&error),qPrintable(error));
+            QTRY_COMPARE_WITH_TIMEOUT(backend.snapshot().value("cache").toObject().value("model").toString(),QStringLiteral("model://large"),30000);
+            QTRY_COMPARE_WITH_TIMEOUT(backend.snapshot().value("cache").toObject().value("state").toString(),QStringLiteral("ready"),30000);
+        }
+        {
+            WorkspaceAgentBackend backend(nullptr,model,"model://small",policy);
+            backend.selectContainer(root);
+            QTRY_COMPARE_WITH_TIMEOUT(backend.snapshot().value("model").toString(),QStringLiteral("model://large"),30000);
+        }
+        std::lock_guard lock(model->mutex);
+        QVERIFY(model->selectedModels.isEmpty());
+    }
+    void attachmentsReachTheModelAndStayInsideTheSelectedDrive() {
+        QTemporaryDir fixture(QDir(QStringLiteral(SOCIETY_TEST_DIRECTORY)).filePath("agent-attachment-XXXXXX"));
+        QVERIFY(fixture.isValid());
+        const auto root=fixture.filePath("test.societycontainer");
+        QVERIFY(QDir().mkdir(root)); QVERIFY(iiSocietyContainer::SocietyDrive::create(root));
+        const auto path=root+"/Files/note.txt";
+        QFile file(path); QVERIFY(file.open(QIODevice::WriteOnly)); QCOMPARE(file.write("draft from user"),qint64(15)); file.close();
+        auto model=std::make_shared<FakeModel>();
+        WorkspaceAgentBackend backend(nullptr,model,QStringLiteral("model://test"));
+        backend.selectContainer(root);
+        QTRY_COMPARE_WITH_TIMEOUT(backend.snapshot().value("model").toString(),QStringLiteral("model://test"),30000);
+        QString error;
+        QVERIFY2(backend.submit("Review",QJsonArray{path},&error),qPrintable(error));
+        QTRY_VERIFY_WITH_TIMEOUT(!backend.snapshot().value("busy").toBool(),30000);
+        {
+            std::lock_guard lock(model->mutex);
+            QVERIFY2(!model->submittedContent.isEmpty(),qPrintable(QJsonDocument(backend.snapshot()).toJson(QJsonDocument::Compact)));
+            QCOMPARE(model->submittedContent.size(),1);
+            const auto blocks=model->submittedContent.front();
+            QVERIFY(!blocks.isEmpty());
+            QVERIFY(QString::fromUtf8(QJsonDocument(blocks).toJson()).contains("draft from user"));
+        }
+        const auto outside=fixture.filePath("outside.txt");
+        QFile other(outside); QVERIFY(other.open(QIODevice::WriteOnly)); other.write("outside"); other.close();
+        QVERIFY2(backend.submit("Review",QJsonArray{outside},&error),qPrintable(error));
+        QTRY_VERIFY_WITH_TIMEOUT(!backend.snapshot().value("busy").toBool(),30000);
+        QVERIFY(backend.snapshot().value("status").toString().contains("Files",Qt::CaseInsensitive));
+        { std::lock_guard lock(model->mutex); QCOMPARE(model->submittedContent.size(),1); }
+        const auto redirected=root+"/Files/redirected.txt";
+        QVERIFY(QFile::link(outside,redirected));
+        QVERIFY2(backend.submit("Review",QJsonArray{redirected},&error),qPrintable(error));
+        QTRY_VERIFY_WITH_TIMEOUT(!backend.snapshot().value("busy").toBool(),30000);
+        QVERIFY(!backend.snapshot().value("status").toString().startsWith("Ready"));
+        { std::lock_guard lock(model->mutex); QCOMPARE(model->submittedContent.size(),1); }
+    }
+    void imageAttachmentUsesNativeMediaContent() {
+        QTemporaryDir fixture(QDir(QStringLiteral(SOCIETY_TEST_DIRECTORY)).filePath("agent-image-XXXXXX"));
+        QVERIFY(fixture.isValid());
+        const auto root=fixture.filePath("test.societycontainer");
+        QVERIFY(QDir().mkdir(root)); QVERIFY(iiSocietyContainer::SocietyDrive::create(root));
+        const auto path=root+"/Files/pixel.png";
+        const auto png=QByteArray::fromBase64("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=");
+        QFile file(path); QVERIFY(file.open(QIODevice::WriteOnly)); QCOMPARE(file.write(png),qint64(png.size())); file.close();
+        auto model=std::make_shared<FakeModel>(); WorkspaceAgentBackend backend(nullptr,model,QStringLiteral("model://test"));
+        backend.selectContainer(root);
+        QTRY_COMPARE_WITH_TIMEOUT(backend.snapshot().value("model").toString(),QStringLiteral("model://test"),30000);
+        QString error; QVERIFY2(backend.submit("Describe",QJsonArray{path},&error),qPrintable(error));
+        QTRY_VERIFY_WITH_TIMEOUT(!backend.snapshot().value("busy").toBool(),30000);
+        std::lock_guard lock(model->mutex);
+        QCOMPARE(model->submittedContent.size(),1);
+        bool found=false;
+        for (const auto &value:model->submittedContent.front()) {
+            const auto block=value.toObject();
+            if (block.value("type").toString()=="image") {
+                found=true; QCOMPARE(block.value("mimeType").toString(),QStringLiteral("image/png"));
+                QCOMPARE(QByteArray::fromBase64(block.value("data").toString().toLatin1()),png);
+            }
+        }
+        QVERIFY(found);
+    }
     void directoryTransportRejectsAChangedContainerBeforeSendingARequest() {
         QTemporaryDir fixture(QDir::cleanPath(QStringLiteral(SOCIETY_TEST_DIRECTORY)+"/../../.af-XXXXXX"));
         QVERIFY(fixture.isValid());

@@ -1,5 +1,5 @@
 #include "MergeModelCatalog.h"
-#include <ModelStore.h>
+#include <iiSocietyContainer>
 
 #include <QDir>
 #include <QDirIterator>

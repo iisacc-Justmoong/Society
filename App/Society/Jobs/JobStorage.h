@@ -1,3 +1,3 @@
 #pragma once
-#include <ContainerJobStorage.h>
+#include <iiSocietyContainer>
 using SocietyJobStorage = iiSocietyContainer::ContainerJobStorage;

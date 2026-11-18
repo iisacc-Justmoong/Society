@@ -1,7 +1,7 @@
 #include "SuggestedCatalog.h"
 #include "Society/Resources/ContainerResourceAdapter.h"
-#include <SharedStorage.h>
-#include <FileCatalog.h>
+#include <iiSocietyContainer>
+#include <iiFileProvider>
 #include <QDir>
 #include <QFileInfo>
 #include <QStringDecoder>

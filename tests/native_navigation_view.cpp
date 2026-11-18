@@ -1,5 +1,5 @@
 #include "NativeNavigation.generated.h"
-#include <iiGUI/PaintView.h>
+#include <iiGUI>
 #include <algorithm>
 #include <array>
 #include <memory>

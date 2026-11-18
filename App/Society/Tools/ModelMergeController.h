@@ -5,7 +5,7 @@
 #include <QTimer>
 #include <QUrl>
 #include <QVariantMap>
-#include <TemporaryLease.h>
+#include <iiFileProvider>
 #include <memory>
 #include <QtQml/qqmlregistration.h>
 #if !defined(Q_OS_IOS) && !defined(Q_OS_ANDROID)

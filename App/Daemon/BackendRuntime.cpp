@@ -4,8 +4,8 @@
 #include "Society/Account/AccountController.h"
 #include "Society/Network/NetworkDriveController.h"
 #include "Society/Services/SyncOwnership.h"
-#include <iiFileProviderDevice.h>
-#include <SharedStorage.h>
+#include <iiFileProvider>
+#include <iiSocietyContainer>
 #include <QCoreApplication>
 #include <QDateTime>
 #include <QJsonDocument>

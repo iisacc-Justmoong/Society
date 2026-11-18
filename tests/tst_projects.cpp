@@ -1,20 +1,17 @@
 #include "Society/Dashboard/ProjectRepository.h"
 #include "Society/Dashboard/ProjectWorkspace.h"
 #include "Society/Dashboard/ProjectResourceBinding.h"
-#include <FileOperations.h>
-#include <SocietyDrive.h>
+#include <iiSocietyContainer>
 #include <QDir>
 #include <QFile>
 #include <QTemporaryDir>
 #include <QTest>
-#include <SharedStorage.h>
 #include <QQmlApplicationEngine>
 #include <QQuickItem>
 #include <QQuickWindow>
 #include <QImage>
 #include <QSignalSpy>
-#include <FileCatalog.h>
-#include <iiFileProviderPresentation.h>
+#include <iiFileProvider>
 #include <algorithm>
 #include <chrono>
 

@@ -1,5 +1,5 @@
 #pragma once
-#include <SharedStorage.h>
+#include <iiSocietyContainer>
 #include <QDir>
 
 // Society's runtime writers share the selected package's private namespace.

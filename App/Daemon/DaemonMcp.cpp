@@ -3,9 +3,7 @@
 #include "Shared/BackendCommand.h"
 #include "Society/Mcp/FileJobTools.h"
 #include "Society/Mcp/SemanticTools.h"
-#include <iiMultimodalAgent/agent/McpServer.h>
-#include <iiMultimodalAgent/agent/UserQuestions.h>
-#include <iiMultimodalAgent/mcp/LocalApplications.h>
+#include <iiMultimodalAgent>
 #include <QDir>
 #include <QJsonArray>
 #include <utility>
@@ -45,14 +43,21 @@ bool DaemonMcp::start()
         const auto agentTool=[&](const QString &name,const QString &operation,const QString &description,bool takesPrompt,bool readOnly) {
             a::Tool tool;
             QJsonObject properties;
-            if (takesPrompt) properties.insert("prompt",QJsonObject{{"type","string"},{"minLength",1},{"maxLength",16384}});
+            if (takesPrompt) {
+                properties.insert("prompt",QJsonObject{{"type","string"},{"minLength",1},{"maxLength",16384}});
+                properties.insert("attachments",QJsonObject{{"type","array"},{"maxItems",8},
+                    {"items",QJsonObject{{"type","string"},{"minLength",1},{"maxLength",4096}}}});
+            }
             QJsonObject schema{{"type","object"},{"properties",properties},{"additionalProperties",false}};
             if (takesPrompt) schema.insert("required",QJsonArray{"prompt"});
             tool.definition={name,description,schema,{},readOnly,readOnly};
             tool.execute=[broker,operation,takesPrompt](const QJsonObject &arguments,const a::ToolContext &context) {
                 context.cancellation.throwIfCancelled();
                 QJsonObject payload;
-                if (takesPrompt) payload.insert("prompt",arguments.value("prompt"));
+                if (takesPrompt) {
+                    payload.insert("prompt",arguments.value("prompt"));
+                    if (arguments.contains("attachments")) payload.insert("attachments",arguments.value("attachments"));
+                }
                 const auto reply=societyBackendCommand(broker,operation,payload);
                 if (!reply.ok()) return a::ToolResult{reply.error,{{"uncertain",reply.uncertain}},true};
                 return a::ToolResult{QStringLiteral("Society agent state"),reply.response.value("agent").toObject()};
@@ -60,7 +65,7 @@ bool DaemonMcp::start()
             return tool;
         };
         registry->add(agentTool("workspace_agent_status","agentSubscribe","Inspect the current Society workspace conversation.",false,true));
-        registry->add(agentTool("workspace_agent_send","agentSend","Submit a text message to the Society workspace agent.",true,false));
+        registry->add(agentTool("workspace_agent_send","agentSend","Submit a message and optional Society Files attachments to the workspace agent.",true,false));
         registry->add(agentTool("workspace_agent_new","agentNew","Start a new Society workspace conversation.",false,false));
         registry->add(agentTool("workspace_agent_cancel","agentCancel","Cancel the current Society workspace response.",false,false));
         a::Tool selectAgentModel;

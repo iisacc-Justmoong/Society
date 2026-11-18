@@ -2,7 +2,7 @@
 #include "ModelPackaging/ModelInspection.hpp"
 #include "ModelPackaging/ModelPackaging.hpp"
 
-#include <iiGUI/Application.h>
+#include <iiGUI>
 #include <json-c/json.h>
 #include <chrono>
 #include <filesystem>

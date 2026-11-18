@@ -67,8 +67,11 @@ class Client:
     def agent_status(self) -> dict[str, Any]:
         return self._request(["agent", "status"])
 
-    def agent_send(self, prompt: str) -> dict[str, Any]:
-        return self._request(["agent", "send", "--stdin"], mutation=True, input_text=prompt)
+    def agent_send(self, prompt: str, attachments: list[str] | None = None) -> dict[str, Any]:
+        arguments = ["agent", "send", "--stdin"]
+        for path in attachments or []:
+            arguments.extend(["--attach", path])
+        return self._request(arguments, mutation=True, input_text=prompt)
 
     def agent_cancel(self) -> dict[str, Any]:
         return self._request(["agent", "cancel"], mutation=True)
