@@ -1,5 +1,11 @@
 # Society 에이전트 지침
 
+## 라이선스
+
+iisacc 제품은 `AGPL-3.0-or-later`이다. iiSDK(SDK)는 Apache-2.0이며, 제품이
+SDK를 링크할 수 있다. 한국어 정책은 [LICENSING.md](LICENSING.md), 전문은
+[LICENSE](LICENSE)이다. 제3자 라이선스는 바꾸지 않는다.
+
 <!-- workspace-docs:agent:start -->
 ## 문서 구조와 에이전트 탐색
 
