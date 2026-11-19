@@ -2,7 +2,7 @@
 
 Society는 일반 디렉터리 `.societycontainer` 안에서 공개 파일을 그대로 제공하고, iiSocietyContainer/iiSocietyHelper의 관리 저장 경로를 사용한다.
 
-빌드는 Container와 Helper의 `HAS_MANAGED_FILES` 기능 변수를 확인한다. Society와 Helper Core는 `iiSharedCanvas 0.35.39 EXACT`를 공유하여 한 프로세스에서 동일한 캔버스 객체 ABI를 사용한다.
+빌드는 Container와 Helper의 `HAS_MANAGED_FILES` 기능 변수를 확인한다. Society는 `iiSharedCanvas Core 0.35.39` 이상인 0.35 패치를 선택하고, Helper Core가 같은 패키지에서 자신의 최저 버전 요구를 충족하는지 확인한다.
 
 Apple 파일 선택기의 분해형 한글 파일명도 네이티브 파일 철자를 보존하여 등록한다. 모델 가져오기 완료에는 원본 보관까지 포함되며, 파일이 먼저 나타나더라도 다음 파일 작업은 기존 `busy` 상태가 끝난 뒤 활성화된다. 설치형 앱은 라이브러리를 번들 안에서 확인하고, 단독 테스트 실행 파일에는 선택한 OpenSSL Crypto 디렉터리만 연결하여 Qt/SDK 경로가 섞이지 않게 한다.
 

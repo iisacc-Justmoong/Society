@@ -12,13 +12,13 @@ iiDecision·iiAudioGen·iiVoiceOver·iiLocalDiffusion 및 Native 0.8.2 이상의
 iiFileProvider도 해당 패키지의 의존성으로 필요하다. 실제 선택은 각 패키지의
 `*_DIR` 또는 CMake prefix로 결정하며, SDK 소스를 앱 빌드에 포함하지 않는다.
 
-현재 Society는 Canvas 0.31.4를 사용하므로, iiWebServer 인터페이스를 제공하는
-Helper 0.11도 같은 Canvas 버전으로 빌드하여
+이전 Canvas 0.31.4 구성에서는 iiWebServer 인터페이스를 제공하는
+Helper 0.11을 같은 Canvas 버전으로 빌드하여
 `~/.local/SDK/iiSocietyHelper/profiles/webserver-canvas31`에 설치한다. 이 프로필은
 `IISOCIETYHELPER_CANVAS_VERSION=0.31.4`로 구성하고, 설치 패키지가 그 버전을
 정확히 요구하도록 기록한다. 기존 전역 Helper 설치본은 보존한다.
 
-기존 macOS 빌드 설정을 유지하면서 설치된 모듈을 선택하는 명령은 다음과 같다.
+이전 macOS 프로필에서 설치된 모듈을 선택하는 명령은 다음과 같다.
 
 ```sh
 cmake -S . -B build \

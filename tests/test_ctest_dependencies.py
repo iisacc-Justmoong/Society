@@ -11,19 +11,19 @@ CASES = (
 
 
 class DependencyCTestContract(unittest.TestCase):
-    def test_canvas_core_uses_the_exact_sdk_version(self):
+    def test_canvas_core_accepts_patches_without_switching_packages(self):
         cmake = (ROOT / "CMakeLists.txt").read_text()
         declaration = re.search(
-            r"find_package\(iiSharedCanvas\s+0\.35\.39\s+EXACT\s+CONFIG\s+REQUIRED\s+COMPONENTS\s+Core\b", cmake
+            r"find_package\(iiSharedCanvas\s+0\.35\.39\s+CONFIG\s+REQUIRED\s+COMPONENTS\s+Core\b", cmake
         )
-        self.assertIsNotNone(declaration, "Society must request iiSharedCanvas 0.35.39 EXACT Core")
+        self.assertIsNotNone(declaration, "Society must request iiSharedCanvas Core from 0.35.39")
         self.assertIsNotNone(
-            re.search(r'set\(society_canvas_version "\$\{iiSharedCanvas_VERSION\}"\)', cmake),
-            "Record the Canvas version before finding Helper",
+            re.search(r'set\(society_canvas_config "\$\{iiSharedCanvas_CONFIG\}"\)', cmake),
+            "Record the selected Canvas config before finding Helper",
         )
         self.assertIsNotNone(
-            re.search(r'if\(NOT iiSocietyHelper_CANVAS_VERSION STREQUAL society_canvas_version\)', cmake),
-            "Helper must export the same Canvas version as Society",
+            re.search(r'if\(NOT iiSharedCanvas_CONFIG STREQUAL society_canvas_config\)', cmake),
+            "Loading Helper must preserve Society's selected Canvas package",
         )
 
     def test_cases_and_wait_remain(self):

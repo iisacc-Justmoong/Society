@@ -10,8 +10,8 @@
   },
   "source": {
     "path": "docs/ResourceOptimization.md",
-    "sha256": "796c34ca4a52aec2d2ad15a7bd6ffacb97c3c52171c5c4c4c82e2367abc8bbce",
-    "bytes": 10420,
+    "sha256": "53e9a8ee41fedb3af2950751480f56dabce6086349be1239f487d6b0d5c2c9b3",
+    "bytes": 10465,
     "line_count": 143,
     "encoding": "utf-8",
     "language": "ko"
@@ -73,7 +73,7 @@
       "kind": "paragraph",
       "start_line": 20,
       "end_line": 24,
-      "raw": "Society와 Helper Core는 `iiSharedCanvas 0.35.39 EXACT`를 사용한다.\n`iiSharedCanvas_DIR`에는 해당 Canvas 패키지를 지정하고, `iiSocietyHelper_DIR`에는\n같은 Canvas 버전으로 빌드한 Helper 패키지를 지정한다. 앱 버전과 SDK의 패키지·ABI 버전은 별개이다.\n배포기는 선택한 Core 바이너리의 디렉터리를 명시적인 탐색 입력으로 받아\n해당 패키지에서 앱 번들에 포함할 라이브러리를 선택한다.\n"
+      "raw": "Society는 `iiSharedCanvas Core 0.35.39` 이상인 0.35 패치를 사용한다.\n`iiSharedCanvas_DIR`에는 Society와 Helper Core의 최저 버전 요구를 모두 충족하는 패키지를 지정한다.\nHelper를 읽은 뒤 선택한 Canvas 경로가 바뀌면 구성을 중단한다. 앱 버전과 SDK의 패키지·ABI 버전은 별개이다.\n배포기는 선택한 Core 바이너리의 디렉터리를 명시적인 탐색 입력으로 받아\n해당 패키지에서 앱 번들에 포함할 라이브러리를 선택한다.\n"
     },
     {
       "id": "b000008",
@@ -481,7 +481,14 @@
       {
         "block_id": "b000007",
         "line": 21,
-        "text": "`iiSharedCanvas_DIR`에는 해당 Canvas 패키지를 지정하고, `iiSocietyHelper_DIR`에는",
+        "text": "`iiSharedCanvas_DIR`에는 Society와 Helper Core의 최저 버전 요구를 모두 충족하는 패키지를 지정한다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000007",
+        "line": 22,
+        "text": "Helper를 읽은 뒤 선택한 Canvas 경로가 바뀌면 구성을 중단한다. 앱 버전과 SDK의 패키지·ABI 버전은 별개이다.",
         "basis": "lexical_match",
         "context": "paragraph"
       },

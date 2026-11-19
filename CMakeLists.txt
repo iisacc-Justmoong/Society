@@ -89,10 +89,10 @@ unset(_society_iigui_include)
 find_package(LVUI 0.1 CONFIG REQUIRED COMPONENTS Native HINTS "${SOCIETY_NAV_LVUI_DIR}")
 set(CMAKE_PREFIX_PATH "${_society_prefix_before_native}")
 unset(_society_prefix_before_native)
-find_package(iiSharedCanvas 0.35.39 EXACT CONFIG REQUIRED COMPONENTS Core HINTS
+find_package(iiSharedCanvas 0.35.39 CONFIG REQUIRED COMPONENTS Core HINTS
     "$ENV{HOME}/.local/SDK/iiSharedCanvas")
-# Helper's package lookup can change iiSharedCanvas_VERSION after Core is imported.
-set(society_canvas_version "${iiSharedCanvas_VERSION}")
+# Older Helper packages may resolve Canvas again after its Core target is imported.
+set(society_canvas_config "${iiSharedCanvas_CONFIG}")
 if(APPLE AND NOT IOS)
     # An SDK directory in LIBRARY_PATH is an implicit linker directory, so
     # CMake can omit its automatic dyld rpath. Core consumers must not need
@@ -141,8 +141,8 @@ foreach(society_sdk IN LISTS society_sdk_packages)
         find_package(iiSocietyHelper 0.11.0 CONFIG REQUIRED HINTS
             "${CMAKE_CURRENT_SOURCE_DIR}/resources/dependencies/iiSocietyHelper"
             "$ENV{HOME}/.local/SDK/iiSocietyHelper")
-        if(NOT iiSocietyHelper_CANVAS_VERSION STREQUAL society_canvas_version)
-            message(FATAL_ERROR "Society requires iiSocietyHelper Core built with iiSharedCanvas ${society_canvas_version}. Set iiSocietyHelper_DIR to the matching package.")
+        if(NOT iiSharedCanvas_CONFIG STREQUAL society_canvas_config)
+            message(FATAL_ERROR "Society and iiSocietyHelper selected different iiSharedCanvas packages. Set iiSharedCanvas_DIR to a package compatible with both.")
         endif()
     else()
         find_package(${society_sdk} CONFIG REQUIRED HINTS "$ENV{HOME}/.local/SDK/${society_sdk}")

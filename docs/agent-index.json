@@ -56,7 +56,7 @@
       "document_id": "urn:iisacc:document:edddfd24ab315e12dc0778619b31665f6d3f4c55aefc5152391281c5c9cd256a",
       "source": "docs/AgentIntegration.md",
       "agent_json": "docs/AgentIntegration.agent.json",
-      "source_sha256": "f29f5a969284b1b355853a5a4f76b220e8e9fd8550d4ef78d545144b7607574a",
+      "source_sha256": "5e42a117428088c672bb648e64daf0e609a3eedfd073d9924fb36d5f21811bc8",
       "role": "guide"
     },
     {
@@ -217,7 +217,7 @@
       "document_id": "urn:iisacc:document:6a5910571cc1dab8d60d288acda95a845b98efc71792dcf511d8cdbb259b2dcf",
       "source": "docs/ManagedStorage.md",
       "agent_json": "docs/ManagedStorage.agent.json",
-      "source_sha256": "e986785efdac442bfe3ed184f70a69350ab855fccba8610d300d8bb129f3193f",
+      "source_sha256": "c0db2a5e4247c9deed9269c1a34f58469bab676685e8acbed0ac0569df996d93",
       "role": "guide"
     },
     {
@@ -434,7 +434,7 @@
       "document_id": "urn:iisacc:document:039f84436bde30fd87d3e8ab48bc29c1a3353aa69946f701aa21f86aaec0d663",
       "source": "docs/ResourceOptimization.md",
       "agent_json": "docs/ResourceOptimization.agent.json",
-      "source_sha256": "796c34ca4a52aec2d2ad15a7bd6ffacb97c3c52171c5c4c4c82e2367abc8bbce",
+      "source_sha256": "53e9a8ee41fedb3af2950751480f56dabce6086349be1239f487d6b0d5c2c9b3",
       "role": "guide"
     },
     {

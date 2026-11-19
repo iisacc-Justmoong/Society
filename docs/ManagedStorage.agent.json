@@ -10,8 +10,8 @@
   },
   "source": {
     "path": "docs/ManagedStorage.md",
-    "sha256": "e986785efdac442bfe3ed184f70a69350ab855fccba8610d300d8bb129f3193f",
-    "bytes": 5542,
+    "sha256": "c0db2a5e4247c9deed9269c1a34f58469bab676685e8acbed0ac0569df996d93",
+    "bytes": 5580,
     "line_count": 38,
     "encoding": "utf-8",
     "language": "ko"
@@ -57,7 +57,7 @@
       "kind": "paragraph",
       "start_line": 5,
       "end_line": 5,
-      "raw": "빌드는 Container와 Helper의 `HAS_MANAGED_FILES` 기능 변수를 확인한다. Society와 Helper Core는 `iiSharedCanvas 0.35.39 EXACT`를 공유하여 한 프로세스에서 동일한 캔버스 객체 ABI를 사용한다.\n"
+      "raw": "빌드는 Container와 Helper의 `HAS_MANAGED_FILES` 기능 변수를 확인한다. Society는 `iiSharedCanvas Core 0.35.39` 이상인 0.35 패치를 선택하고, Helper Core가 같은 패키지에서 자신의 최저 버전 요구를 충족하는지 확인한다.\n"
     },
     {
       "id": "b000006",

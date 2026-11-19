@@ -10,8 +10,8 @@
   },
   "source": {
     "path": "docs/AgentIntegration.md",
-    "sha256": "f29f5a969284b1b355853a5a4f76b220e8e9fd8550d4ef78d545144b7607574a",
-    "bytes": 5992,
+    "sha256": "5e42a117428088c672bb648e64daf0e609a3eedfd073d9924fb36d5f21811bc8",
+    "bytes": 5960,
     "line_count": 77,
     "encoding": "utf-8",
     "language": "ko"
@@ -71,7 +71,7 @@
       "kind": "paragraph",
       "start_line": 15,
       "end_line": 19,
-      "raw": "현재 Society는 Canvas 0.31.4를 사용하므로, iiWebServer 인터페이스를 제공하는\nHelper 0.11도 같은 Canvas 버전으로 빌드하여\n`~/.local/SDK/iiSocietyHelper/profiles/webserver-canvas31`에 설치한다. 이 프로필은\n`IISOCIETYHELPER_CANVAS_VERSION=0.31.4`로 구성하고, 설치 패키지가 그 버전을\n정확히 요구하도록 기록한다. 기존 전역 Helper 설치본은 보존한다.\n"
+      "raw": "이전 Canvas 0.31.4 구성에서는 iiWebServer 인터페이스를 제공하는\nHelper 0.11을 같은 Canvas 버전으로 빌드하여\n`~/.local/SDK/iiSocietyHelper/profiles/webserver-canvas31`에 설치한다. 이 프로필은\n`IISOCIETYHELPER_CANVAS_VERSION=0.31.4`로 구성하고, 설치 패키지가 그 버전을\n정확히 요구하도록 기록한다. 기존 전역 Helper 설치본은 보존한다.\n"
     },
     {
       "id": "b000008",
@@ -85,7 +85,7 @@
       "kind": "paragraph",
       "start_line": 21,
       "end_line": 21,
-      "raw": "기존 macOS 빌드 설정을 유지하면서 설치된 모듈을 선택하는 명령은 다음과 같다.\n"
+      "raw": "이전 macOS 프로필에서 설치된 모듈을 선택하는 명령은 다음과 같다.\n"
     },
     {
       "id": "b000010",

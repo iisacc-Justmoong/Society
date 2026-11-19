@@ -17,9 +17,9 @@ iiLocalDiffusion이 들어오던 경로와 클라이언트의 불필요한 호�
 SDK 목록과 앱 링크 양쪽에 있던 iiPhotoLibrary의 중복 직접 참조는 하나로
 통합한다. 최종 생성 링크 목록에서 정확히 한 번 선언되는지 검사한다.
 
-Society와 Helper Core는 `iiSharedCanvas 0.35.39 EXACT`를 사용한다.
-`iiSharedCanvas_DIR`에는 해당 Canvas 패키지를 지정하고, `iiSocietyHelper_DIR`에는
-같은 Canvas 버전으로 빌드한 Helper 패키지를 지정한다. 앱 버전과 SDK의 패키지·ABI 버전은 별개이다.
+Society는 `iiSharedCanvas Core 0.35.39` 이상인 0.35 패치를 사용한다.
+`iiSharedCanvas_DIR`에는 Society와 Helper Core의 최저 버전 요구를 모두 충족하는 패키지를 지정한다.
+Helper를 읽은 뒤 선택한 Canvas 경로가 바뀌면 구성을 중단한다. 앱 버전과 SDK의 패키지·ABI 버전은 별개이다.
 배포기는 선택한 Core 바이너리의 디렉터리를 명시적인 탐색 입력으로 받아
 해당 패키지에서 앱 번들에 포함할 라이브러리를 선택한다.
 
