@@ -62,6 +62,49 @@ the corresponding `agent_*` methods. The daemon MCP server offers
 without disabling automatic routing. A lost acknowledgement is uncertain and is not
 automatically retried. CLI prompts travel through stdin instead of arguments.
 
+## Space agent sessions
+
+Space uses the same daemon, model scheduler, decision policy and Society tool
+permissions as Workspace, but each Space session has its own persistent
+iiMultimodalAgent transcript. Space transcripts are stored separately from
+Workspace transcripts under the container's private runtime state. The
+`SpaceStore` graph retains the binding, and a bounded excerpt of its saved ideas
+is sent as untrusted context. Only one Workspace or Space run occupies the
+shared runtime at a time. Session and container generations and subscription
+tokens prevent late events from being displayed in another session.
+
+The user may select up to eight local text documents or photos for a Space turn,
+including files outside Society Files. The daemon snapshots the selected files;
+it does not modify their originals. Supported text is UTF-8 and limited to 32 KiB
+per document. Supported photos are PNG, JPEG, BMP or GIF; WAV, MP3 and FLAC
+attachments also require a model that supports audio input. The combined prepared
+attachments are limited to 512 KiB and each selected source is limited to 32 MiB.
+When needed to share that budget, photos are decoded, reduced to at most 1280
+pixels per side, and compressed as JPEG. Unsupported, changed or
+oversize files produce a visible error. Encoded attachment contents become part
+of the private agent transcript, so earlier media can also consume the model's
+input limit on later turns. This explicit Space selection does not expand the
+Workspace attachment scope.
+
+Image analysis requires a chat model package with a verified projector and an
+`image` or `vision` capability in its catalog manifest. The runtime still checks
+that the projector supports vision. The reconstructed iisaccson and Asimov
+routes currently provide text only; if no eligible image route is available,
+the request fails or is deferred rather than silently omitting the photo.
+Reasoning profiles bound generation and agent turns: `low` is 128 tokens / 4
+turns, `standard` 256 / 8, and `high` 512 / 16. These limits do not guarantee
+answer quality. Voice input and its platform availability are documented in
+[Space discovery view](GraphNodes.md#space-discovery-view).
+
+The same session API is available to local automation through
+`society-cli space status|cancel --session ID`, and
+`society-cli space send --stdin --session ID [--attach FILE]... [--effort low|standard|high] [--container DIR]`.
+Status and cancel also accept `--container DIR`. Python exposes `space_status`,
+`space_send` and `space_cancel`; daemon MCP exposes `space_agent_status`,
+`space_agent_send` and `space_agent_cancel`. An accepted send acknowledges
+submission, not completion. If acknowledgement is lost, inspect the session
+before deciding whether to retry.
+
 The adapter supports text conversation and selected Society tools. The daemon
 provides bounded directory and resource inspection, file jobs, model imports,
 their status and connected-window navigation; it captures the selected container for the session. Mutating

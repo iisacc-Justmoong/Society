@@ -10,9 +10,9 @@
   },
   "source": {
     "path": "docs/Preferences.md",
-    "sha256": "fedff0fe4ca0cc83358fbde89cbd72a68f987e69e5a946726c06f587ef4acbc3",
-    "bytes": 5026,
-    "line_count": 43,
+    "sha256": "2b8126eb655cf296f31c47c5513b64a742d70eecf74633eb88ac55f1a5dad543",
+    "bytes": 5025,
+    "line_count": 41,
     "encoding": "utf-8",
     "language": "ko"
   },
@@ -168,93 +168,91 @@
     },
     {
       "id": "b000021",
-      "kind": "table",
       "start_line": 24,
-      "end_line": 27,
-      "raw": "| 플랫폼 | 역할 |\n| --- | --- |\n| macOS, Windows, Linux 데스크톱 및 NAS의 SocietyDaemon |호스트|\n| iOS, Android |클라이언트|\n",
-      "columns": [
-        "플랫폼",
-        "역할"
-      ],
-      "rows": [
-        [
-          "macOS, Windows, Linux 데스크톱 및 NAS의 SocietyDaemon",
-          "호스트"
-        ],
-        [
-          "iOS, Android",
-          "클라이언트"
-        ]
+      "end_line": 25,
+      "raw": "- 플랫폼: macOS, Windows, Linux 데스크톱 및 NAS의 SocietyDaemon; 역할: 호스트\n- 플랫폼: iOS, Android; 역할: 클라이언트\n",
+      "kind": "list",
+      "items": [
+        {
+          "marker": "-",
+          "text": "플랫폼: macOS, Windows, Linux 데스크톱 및 NAS의 SocietyDaemon; 역할: 호스트",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "플랫폼: iOS, Android; 역할: 클라이언트",
+          "checked": null
+        }
       ]
     },
     {
       "id": "b000022",
+      "kind": "blank",
+      "start_line": 26,
+      "end_line": 26,
+      "raw": "\n"
+    },
+    {
+      "id": "b000023",
+      "kind": "paragraph",
+      "start_line": 27,
+      "end_line": 27,
+      "raw": "`NetworkDriveController.mode`는 읽기 전용 상수이며 런타임 변경 API가 없다. 서버 연결·연결 해제·로그아웃·컨테이너 변경도 이 값을 바꾸지 않는다. Devices는 현재 기기의 역할을 설명하고 서버 연결 버튼 하나만 제공한다. 데스크톱은 유효한 컨테이너와 인증된 연결이 준비되면 호스팅하며, 모바일에서는 호스팅 옵션을 전달해도 파일 서버를 열지 않는다.\n"
+    },
+    {
+      "id": "b000024",
       "kind": "blank",
       "start_line": 28,
       "end_line": 28,
       "raw": "\n"
     },
     {
-      "id": "b000023",
+      "id": "b000025",
       "kind": "paragraph",
       "start_line": 29,
       "end_line": 29,
-      "raw": "`NetworkDriveController.mode`는 읽기 전용 상수이며 런타임 변경 API가 없다. 서버 연결·연결 해제·로그아웃·컨테이너 변경도 이 값을 바꾸지 않는다. Devices는 현재 기기의 역할을 설명하고 서버 연결 버튼 하나만 제공한다. 데스크톱은 유효한 컨테이너와 인증된 연결이 준비되면 호스팅하며, 모바일에서는 호스팅 옵션을 전달해도 파일 서버를 열지 않는다.\n"
+      "raw": "서버 설정에는 주소만 저장한다. 이전 버전이 저장한 `host` 값은 복원 시 제거하고 주소와 로그인 세션은 유지한다. 기기 역할과 컨테이너의 기본 호스트는 서로 다른 개념이다. 기존 미러의 기본 호스트 연결·자동 선출·데이터 보존 정책은 유지하며, 다른 기본 호스트에 연결된 데스크톱도 기기 역할은 Host이다.\n"
     },
     {
-      "id": "b000024",
+      "id": "b000026",
       "kind": "blank",
       "start_line": 30,
       "end_line": 30,
       "raw": "\n"
     },
     {
-      "id": "b000025",
+      "id": "b000027",
       "kind": "paragraph",
       "start_line": 31,
       "end_line": 31,
-      "raw": "서버 설정에는 주소만 저장한다. 이전 버전이 저장한 `host` 값은 복원 시 제거하고 주소와 로그인 세션은 유지한다. 기기 역할과 컨테이너의 기본 호스트는 서로 다른 개념이다. 기존 미러의 기본 호스트 연결·자동 선출·데이터 보존 정책은 유지하며, 다른 기본 호스트에 연결된 데스크톱도 기기 역할은 Host이다.\n"
+      "raw": "`Society.NetworkDrive`는 데스크톱 기본 호스팅, 읽기 전용 역할, 연결 해제 시 다운로드 보존을 검사한다. `Society.ClientOnlyNetwork`는 모바일로 별도 컴파일하여 역할 고정, 레거시 호스트 설정 무시, 호스팅 옵션 차단과 LVRS 화면의 선택 항목 제거를 검사한다. `Society.Account`는 데스크톱의 레거시 클라이언트 설정 복원을, `Society.Pairing`은 여러 기기의 페어링을 검사한다. 한 프로세스 안의 여러 기기 통합 검사는 생성 시 역할이 고정된 `MobileNetworkDevice` fixture를 사용한다. 제품의 기본 생성자는 항상 빌드 플랫폼을 따른다.\n"
     },
     {
-      "id": "b000026",
+      "id": "b000028",
       "kind": "blank",
       "start_line": 32,
       "end_line": 32,
       "raw": "\n"
     },
     {
-      "id": "b000027",
+      "id": "b000029",
       "kind": "paragraph",
       "start_line": 33,
       "end_line": 33,
-      "raw": "`Society.NetworkDrive`는 데스크톱 기본 호스팅, 읽기 전용 역할, 연결 해제 시 다운로드 보존을 검사한다. `Society.ClientOnlyNetwork`는 모바일로 별도 컴파일하여 역할 고정, 레거시 호스트 설정 무시, 호스팅 옵션 차단과 LVRS 화면의 선택 항목 제거를 검사한다. `Society.Account`는 데스크톱의 레거시 클라이언트 설정 복원을, `Society.Pairing`은 여러 기기의 페어링을 검사한다. 한 프로세스 안의 여러 기기 통합 검사는 생성 시 역할이 고정된 `MobileNetworkDevice` fixture를 사용한다. 제품의 기본 생성자는 항상 빌드 플랫폼을 따른다.\n"
+      "raw": "`Society.Drive`의 `preferencesDriveLocationAndWindowLifecycle`는 카테고리/상세 영역, 위치 적용·공유 저장, 잘못된 경로에서 기존 연결 보존, 창 재사용, 크기 변경, 키보드 닫기·재열기, Devices 왕복을 검사한다. 이 창은 로그인이나 네트워크 연결 없이 열 수 있다.\n"
     },
     {
-      "id": "b000028",
+      "id": "b000030",
       "kind": "blank",
       "start_line": 34,
       "end_line": 34,
       "raw": "\n"
     },
     {
-      "id": "b000029",
-      "kind": "paragraph",
-      "start_line": 35,
-      "end_line": 35,
-      "raw": "`Society.Drive`의 `preferencesDriveLocationAndWindowLifecycle`는 카테고리/상세 영역, 위치 적용·공유 저장, 잘못된 경로에서 기존 연결 보존, 창 재사용, 크기 변경, 키보드 닫기·재열기, Devices 왕복을 검사한다. 이 창은 로그인이나 네트워크 연결 없이 열 수 있다.\n"
-    },
-    {
-      "id": "b000030",
-      "kind": "blank",
-      "start_line": 36,
-      "end_line": 36,
-      "raw": "\n"
-    },
-    {
       "id": "b000031",
       "kind": "fenced_code",
-      "start_line": 37,
-      "end_line": 41,
+      "start_line": 35,
+      "end_line": 39,
       "raw": "```sh\ncmake --build build --parallel 4\nctest --test-dir build --output-on-failure -R 'Society\\.(NetworkDrive|ClientOnlyNetwork|Account|Pairing|Drive|Daemon)$'\ncmake --build build --target Society_qmllint\n```\n",
       "language": "sh",
       "code": "cmake --build build --parallel 4\nctest --test-dir build --output-on-failure -R 'Society\\.(NetworkDrive|ClientOnlyNetwork|Account|Pairing|Drive|Daemon)$'\ncmake --build build --target Society_qmllint\n",
@@ -263,15 +261,15 @@
     {
       "id": "b000032",
       "kind": "blank",
-      "start_line": 42,
-      "end_line": 42,
+      "start_line": 40,
+      "end_line": 40,
       "raw": "\n"
     },
     {
       "id": "b000033",
       "kind": "paragraph",
-      "start_line": 43,
-      "end_line": 43,
+      "start_line": 41,
+      "end_line": 41,
       "raw": "실제 모바일 기기 실행과 외부 서버 배포 검증은 데스크톱의 정책·통합 검사와 별도이다. 연결 및 공개 범위의 상세 계약은 [NetworkDrive.md](NetworkDrive.md)를 따른다.\n"
     }
   ],
@@ -330,28 +328,10 @@
         "label": "NetworkDrive.md",
         "target": "NetworkDrive.md",
         "kind": "relative",
-        "line": 43
+        "line": 41
       }
     ],
-    "tables": [
-      {
-        "block_id": "b000021",
-        "columns": [
-          "플랫폼",
-          "역할"
-        ],
-        "rows": [
-          [
-            "macOS, Windows, Linux 데스크톱 및 NAS의 SocietyDaemon",
-            "호스트"
-          ],
-          [
-            "iOS, Android",
-            "클라이언트"
-          ]
-        ]
-      }
-    ]
+    "tables": []
   },
   "provenance": {
     "generator": "workspace-docs",

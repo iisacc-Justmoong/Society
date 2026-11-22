@@ -2,12 +2,10 @@
 
 Society의 로그인 복원 쿠키와 페어링 상태는 `GroupSessionStore`가 관리하는 **AES-256-GCM 암호문**으로 선택한 `.societycontainer/.society-runtime/state/`에 저장한다. GUI와 데몬은 같은 패키지의 상태를 사용하며 선택이 바뀌면 상태 경로도 함께 바뀐다. `Files/`, Finder, Files 앱, Android DocumentsProvider 및 LAN 전송에는 이 비공개 운영 경로를 포함하지 않는다.
 
-| 플랫폼 | 상태 저장 위치 | 암호화 키 |
-| --- | --- | --- |
-| macOS | 선택한 `.societycontainer/.society-runtime/state/` | 기존 Society 그룹 서비스 이름의 macOS Keychain 항목 |
-| iOS·iPadOS | App Group의 `Society.societycontainer/.society-runtime/state/` | 같은 App Group의 Keychain access group, `AfterFirstUnlockThisDeviceOnly` |
-| Android | 앱 관리 `Society.societycontainer/.society-runtime/state/` | 기존 QtKeychain·Android Keystore |
-| Windows·Linux | 선택한 `.societycontainer/.society-runtime/state/` | 기존 QtKeychain 플랫폼 보안 저장소 |
+- 플랫폼: macOS; 상태 저장 위치: 선택한 `.societycontainer/.society-runtime/state/`; 암호화 키: 기존 Society 그룹 서비스 이름의 macOS Keychain 항목
+- 플랫폼: iOS·iPadOS; 상태 저장 위치: App Group의 `Society.societycontainer/.society-runtime/state/`; 암호화 키: 같은 App Group의 Keychain access group, `AfterFirstUnlockThisDeviceOnly`
+- 플랫폼: Android; 상태 저장 위치: 앱 관리 `Society.societycontainer/.society-runtime/state/`; 암호화 키: 기존 QtKeychain·Android Keystore
+- 플랫폼: Windows·Linux; 상태 저장 위치: 선택한 `.societycontainer/.society-runtime/state/`; 암호화 키: 기존 QtKeychain 플랫폼 보안 저장소
 
 `SharedStorage::open()`으로 유효한 선택 패키지와 UUID를 확인한 뒤 `ensureRuntimeDirectory("state")`를 통해 필요한 경로만 생성한다. 선택한 패키지가 없거나 접근할 수 없으면 저장·복원을 실패로 보고하며 외부 Application Support, GenericDataLocation, 앱별 임시 경로로 대체하지 않는다. 상태 디렉터리와 파일의 링크·junction·리디렉션은 거부한다. Apple 상태 파일은 백업에서 제외하고 iOS Data Protection을 적용하며, 디렉터리는 0700, 파일은 0600 권한으로 생성한다.
 

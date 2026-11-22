@@ -1,5 +1,6 @@
 #include "LegacyNavigationBridge.h"
 #include "NativeNavigationSurface.h"
+#include "Society/Space/NativeSpaceSurface.h"
 
 #include <QCoreApplication>
 #include <QQmlProperty>
@@ -48,6 +49,12 @@ LegacyNavigationBridge::LegacyNavigationBridge(QQuickWindow *window, QQuickItem 
     connect(viewport, &QQuickItem::heightChanged, this, &LegacyNavigationBridge::positionSurface);
     connect(surface, &NativeNavigationSurface::requested, this, &LegacyNavigationBridge::navigate);
     connect(view, SIGNAL(selectedTabChanged()), this, SLOT(synchronize()));
+    connect(view, SIGNAL(tabRequested(QString)), this, SLOT(tabRequested(QString)));
+    m_drive = view->property("drive").value<QObject *>();
+    if (m_drive) {
+        connect(m_drive, SIGNAL(locationChanged()), this, SLOT(synchronizeSpace()));
+        connect(m_drive, SIGNAL(contentsChanged()), this, SLOT(synchronizeSpace()));
+    }
     if (auto *loader = view->findChild<QObject *>(QStringLiteral("environmentLoader")))
         connect(loader, SIGNAL(loaded()), this, SLOT(environmentLoaded()));
     positionSurface();
@@ -65,6 +72,10 @@ void LegacyNavigationBridge::synchronize()
 {
     if (!m_view || !m_surface) return;
     const auto page = m_view->property("selectedTab").toString();
+    if (m_spaceActive) {
+        m_spaceActive = false;
+        if (m_spaceSurface) m_spaceSurface->setVisible(false);
+    }
     if (page != QLatin1String("Environment")) m_hosting = m_pendingHosting = false;
     m_surface->setCurrentPage(m_hosting ? QStringLiteral("Hosting") : page);
 }
@@ -117,13 +128,71 @@ void LegacyNavigationBridge::showOverview(bool scrollToHosting)
     });
 }
 
+void LegacyNavigationBridge::tabRequested(const QString &page)
+{
+    if (!m_spaceActive) return;
+    m_spaceActive = false;
+    if (m_spaceSurface) m_spaceSurface->setVisible(false);
+    if (m_surface) m_surface->setCurrentPage(page);
+}
+
+bool LegacyNavigationBridge::showSpace()
+{
+    if (!m_view) return false;
+    if (!m_spaceSurface) {
+        m_spaceAnchor = m_view->findChild<QQuickItem *>(QStringLiteral("dashboardView"));
+        if (!m_spaceAnchor || !m_spaceAnchor->parentItem()) return false;
+        auto *surface = new NativeSpaceSurface(m_spaceAnchor->parentItem());
+        if (!surface->ready()) {
+            qWarning("Unable to initialize Society LVUI Space: %s", qPrintable(surface->errorString()));
+            delete surface; return false;
+        }
+        m_spaceSurface = surface;
+        surface->setObjectName(QStringLiteral("nativeSpaceSurface"));
+        surface->setZ(200);
+        connect(m_spaceAnchor, &QQuickItem::xChanged, this, &LegacyNavigationBridge::positionSpace);
+        connect(m_spaceAnchor, &QQuickItem::yChanged, this, &LegacyNavigationBridge::positionSpace);
+        connect(m_spaceAnchor, &QQuickItem::widthChanged, this, &LegacyNavigationBridge::positionSpace);
+        connect(m_spaceAnchor, &QQuickItem::heightChanged, this, &LegacyNavigationBridge::positionSpace);
+    }
+    m_spaceActive = true;
+    m_hosting = m_pendingHosting = false;
+    positionSpace(); synchronizeSpace();
+    m_spaceSurface->setVisible(true);
+    m_surface->setCurrentPage(QStringLiteral("Space"));
+    return true;
+}
+
+void LegacyNavigationBridge::positionSpace()
+{
+    if (!m_spaceSurface || !m_spaceAnchor) return;
+    m_spaceSurface->setPosition(m_spaceAnchor->position());
+    m_spaceSurface->setSize(m_spaceAnchor->size());
+}
+
+void LegacyNavigationBridge::synchronizeSpace()
+{
+    if (!m_spaceSurface) return;
+    const auto root = m_drive ? m_drive->property("rootPath").toString() : QString();
+    const bool available = m_drive && m_drive->property("contentsAvailable").toBool();
+    if (available && !root.isEmpty()) (void)m_spaceSurface->openContainer(root);
+    else m_spaceSurface->clearContainer();
+}
+
 void LegacyNavigationBridge::navigate(const QString &destination)
 {
     if (!m_view) return;
-    if (destination == QLatin1String("Space") || destination == QLatin1String("People")) {
+    if (destination == QLatin1String("Space")) {
+        if (!showSpace()) QMetaObject::invokeMethod(m_view, "featureRequested", Q_ARG(QString, destination));
+        return;
+    }
+    if (destination == QLatin1String("People")) {
         QMetaObject::invokeMethod(m_view, "featureRequested", Q_ARG(QString, destination));
         return;
     }
+    const bool leavingSpace = m_spaceActive;
+    m_spaceActive = false;
+    if (m_spaceSurface) m_spaceSurface->setVisible(false);
     const bool hosting = destination == QLatin1String("Hosting");
     m_hosting = m_pendingHosting = false;
     // The first segment is the Workspace entry point; the separate Hosting
@@ -136,5 +205,9 @@ void LegacyNavigationBridge::navigate(const QString &destination)
         m_hosting = m_pendingHosting = hosting;
         synchronize();
         if (m_environment) showOverview(hosting);
+    } else if (leavingSpace) {
+        // Selecting the page beneath Space may not change selectedTab, so no
+        // selectedTabChanged signal is guaranteed to update the segment.
+        synchronize();
     }
 }

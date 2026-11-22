@@ -5,18 +5,16 @@
 서버는 로컬 `127.0.0.1`에 바인딩하며 등록 파일에 있는 사용자 전용 토큰으로
 인증한다. `IILOCALLLM_DISABLE_APP_MCP=1`이면 공개 서버를 열지 않는다.
 
-| 도구 | 동작 |
-|---|---|
-| `status` | 데몬 상태와 연결된 화면의 기존 탐색 상태 |
-| `ui_status` | 연결된 화면의 현재 경로·섹션과 가용 상태 |
-| `open_section(key)`, `navigate(path)`, `refresh` | 연결된 Society 화면의 탐색과 새로 고침 |
-| `list_entries(path, offset, limit)` | 현재 폴더 또는 지정 폴더의 최대 200개 항목 |
-| `file_job_submit`, `file_job_status` | 파일 작업 제출과 지속 작업 상태 조회 |
-| `model_import_submit` | 로컬 safetensors를 데몬 모델 작업에 제출 |
-| `semantic_read`, `semantic_relations` | 주소의 의미 정보와 관계 조회 |
-| `semantic_set_metadata`, `semantic_set_relation`, `semantic_remove_relation`, `semantic_rebind` | 명시적 의미 정보·관계 변경 |
-| `AskUserQuestion` | 연결된 화면에 사용자 질문 전달 |
-| `iiLocalLLM.agent.permissions.get` | SDK 호스트 권한 정책 조회 |
+- 도구: `status`; 동작: 데몬 상태와 연결된 화면의 기존 탐색 상태
+- 도구: `ui_status`; 동작: 연결된 화면의 현재 경로·섹션과 가용 상태
+- 도구: `open_section(key)`, `navigate(path)`, `refresh`; 동작: 연결된 Society 화면의 탐색과 새로 고침
+- 도구: `list_entries(path, offset, limit)`; 동작: 현재 폴더 또는 지정 폴더의 최대 200개 항목
+- 도구: `file_job_submit`, `file_job_status`; 동작: 파일 작업 제출과 지속 작업 상태 조회
+- 도구: `model_import_submit`; 동작: 로컬 safetensors를 데몬 모델 작업에 제출
+- 도구: `semantic_read`, `semantic_relations`; 동작: 주소의 의미 정보와 관계 조회
+- 도구: `semantic_set_metadata`, `semantic_set_relation`, `semantic_remove_relation`, `semantic_rebind`; 동작: 명시적 의미 정보·관계 변경
+- 도구: `AskUserQuestion`; 동작: 연결된 화면에 사용자 질문 전달
+- 도구: `iiLocalLLM.agent.permissions.get`; 동작: SDK 호스트 권한 정책 조회
 
 목록에서 `path`를 명시하지 않으면 연결된 화면의 현재 폴더를 사용하고, 화면이 없으면
 `Files`를 사용한다. `offset` 기본값은 0, `limit` 기본값은 100, 최대값은 200이다.

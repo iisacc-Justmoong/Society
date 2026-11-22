@@ -10,9 +10,9 @@
   },
   "source": {
     "path": "docs/CommonFoundationAudit.md",
-    "sha256": "4f0361bdf1017c22fd6d7904facf881b2320c6fa76fff9a3d922e58cf6068174",
-    "bytes": 6226,
-    "line_count": 40,
+    "sha256": "408df928de97002bc926c23bd94c24862c17008ddf6c2738d78e83b8bdca7149",
+    "bytes": 6725,
+    "line_count": 38,
     "encoding": "utf-8",
     "language": "ko"
   },
@@ -54,95 +54,90 @@
     },
     {
       "id": "b000005",
-      "kind": "table",
       "start_line": 8,
-      "end_line": 22,
-      "raw": "| 항목 | 판정 | 구현 근거와 남은 조건 |\n| --- | --- | --- |\n| 자원 식별과 참조 | 부분 | Projects는 새 `Files` 참조에 Catalog 키를 연결하고 Society가 처리한 같은 섹션의 이름 변경·이동 뒤 이를 해석한다. 기존 참조의 자동 이행, 다른 섹션·기기·게시물과 원격 복제본의 동일 ID 및 모든 외부 이동·교체는 보장하지 않는다. [Projects](Projects.md), [Catalog 계약](../../../SDK/iiFileProvider/docs/FILE_CATALOG.md) |\n| 목표와 구성 관계 | 로컬 구현 | iiProjectManager가 목표·리소스·관계·사용자 스키마를 `.iiproject`에 게시하고 다시 연다. 이것이 공유·동기화까지 완료되었다는 뜻은 아니다. [Projects](Projects.md), [SDK 설계](../../../SDK/iiProjectManager/docs/Design.md) |\n| 기본 가져오기 | 부분 | 프로젝트 참조와 파일 복사는 구분되며 동일 입력의 반복 추가를 방지한다. `Files` 밖 참조, 기존 데이터, 서로 다른 위치의 원본과 크로스 디바이스 중복 판별은 완결되지 않았다. [Projects](Projects.md) |\n| 전문 앱 연결 | 부분 | 접근 가능한 로컬 자원은 시스템 연결 앱으로 열 수 있다. 적합한 앱의 선택·연결과 그 앱의 저장 결과를 자원 판본으로 추적하는 종단 간 연결은 확인되지 않았다. [Projects](Projects.md) |\n| 작업 사본과 판본 | 부분 | ObjectStore와 Helper는 각각 일부 판본 및 작업·호스트 상태를 갖지만 앱 저장, 내용 확정, 대상 원격 검증을 자원마다 세 가지 완료로 통합해 보장하지 않는다. [자원과 보호 상태](ResourceIdentityAndProtection.md), [ObjectStore](../../../SDK/iiFileProvider/docs/OBJECT_STORE.md) |\n| 복제와 충돌 | 부분 | Helper는 기준 판본과 호스트 확정 상태를 비교하고 오래된 파일 편집을 충돌 사본으로 보존한다. 자원 ID 기반의 모든 오프라인 변경·삭제 충돌 보존, 해결 UI와 기기 재시작 후 전체 흐름은 별도 검증이 필요하다. [Namespace](../../../SDK/iiSocietyHelper/docs/Sync/Namespace.md) |\n| 공통 권한과 공유 | 미완료 | 게시물 공개 범위와 일부 접근 정책은 있으나 지정 상대가 지정된 내부 자원 판본을 실제로 열 수 있는 공통 자원 Grant와 종단 간 강제는 확인되지 않았다. 앱 상품 라이선스 권한을 자원 공유 권한으로 간주하지 않는다. |\n| 지속 작업 | 부분 | `StorageMap`은 버전 고정 다운로드 요청을 기기에 지속 기록한다. 모든 가져오기·복제·색인·패키징을 포괄하는 공통 작업 저장소, 재시작 복구·재개·조회는 아직 없다. [작업 명세](JobsAndOperations.md) |\n| 오류와 활동 | 부분 | 프로젝트 변경 이력과 일부 작업 오류는 보인다. 자원별 실패 이유·행위자·대상·다음 조치와 재시도를 공통 작업에서 지속적으로 제공하지 않는다. 프로젝트 검증의 리소스 가용성 경고는 인스펙터에 노출한다. |\n| 복원과 용량 | 부분 | 로컬 Deleted 원위치 복원과 Society Files 업로드 예약량 계산이 각각 있다. 모든 저장 공급자에 걸친 복원·복구 지점·예약 용량의 단일 종단 간 계약은 확인되지 않았다. [복구와 보존](VersionTrashReplicaBackup.md), [클라우드 용량](../../../Service/iisacc.com/docs/SOCIETY_FILES.md) |\n| 목록과 인스펙터 | 부분 | 파일과 프로젝트 화면에 선택·열기·일부 다중 선택과 빈 상태·오류가 있다. 모든 목록과 인스펙터의 동작 일관성과 자원 상태 차원의 전체 표시는 검증되지 않았다. |\n| 자원 검색과 뷰 | 부분 | Dashboard의 파일 검색과 Provider의 필터, 비동기 inventory는 각각 존재한다. 모든 자원·기기·권한을 잇는 안정적인 ID 기반 뷰, 색인 최신성·불완전 범위 및 통합 검색은 아직 보장되지 않는다. [자원 검색과 뷰](ResourceSearchAndViews.md) |\n| 완결 패키징과 게시 경계 | 부분 | 게시물의 닫힌 번들 검사와 프로젝트 패키지 저장이 각각 존재한다. 모든 필요 파일의 지정 내용 판본과 바이트 무결성, 원본 권리와 배포 권한을 함께 검증하는 릴리스·게시 흐름은 아직 확인되지 않았다. [서버 번들 검사](../../../Service/Society.iisacc.com/backend/app/services/canvas/bundle_validator.rb) |\n",
-      "columns": [
-        "항목",
-        "판정",
-        "구현 근거와 남은 조건"
-      ],
-      "rows": [
-        [
-          "자원 식별과 참조",
-          "부분",
-          "Projects는 새 `Files` 참조에 Catalog 키를 연결하고 Society가 처리한 같은 섹션의 이름 변경·이동 뒤 이를 해석한다. 기존 참조의 자동 이행, 다른 섹션·기기·게시물과 원격 복제본의 동일 ID 및 모든 외부 이동·교체는 보장하지 않는다. [Projects](Projects.md), [Catalog 계약](../../../SDK/iiFileProvider/docs/FILE_CATALOG.md)"
-        ],
-        [
-          "목표와 구성 관계",
-          "로컬 구현",
-          "iiProjectManager가 목표·리소스·관계·사용자 스키마를 `.iiproject`에 게시하고 다시 연다. 이것이 공유·동기화까지 완료되었다는 뜻은 아니다. [Projects](Projects.md), [SDK 설계](../../../SDK/iiProjectManager/docs/Design.md)"
-        ],
-        [
-          "기본 가져오기",
-          "부분",
-          "프로젝트 참조와 파일 복사는 구분되며 동일 입력의 반복 추가를 방지한다. `Files` 밖 참조, 기존 데이터, 서로 다른 위치의 원본과 크로스 디바이스 중복 판별은 완결되지 않았다. [Projects](Projects.md)"
-        ],
-        [
-          "전문 앱 연결",
-          "부분",
-          "접근 가능한 로컬 자원은 시스템 연결 앱으로 열 수 있다. 적합한 앱의 선택·연결과 그 앱의 저장 결과를 자원 판본으로 추적하는 종단 간 연결은 확인되지 않았다. [Projects](Projects.md)"
-        ],
-        [
-          "작업 사본과 판본",
-          "부분",
-          "ObjectStore와 Helper는 각각 일부 판본 및 작업·호스트 상태를 갖지만 앱 저장, 내용 확정, 대상 원격 검증을 자원마다 세 가지 완료로 통합해 보장하지 않는다. [자원과 보호 상태](ResourceIdentityAndProtection.md), [ObjectStore](../../../SDK/iiFileProvider/docs/OBJECT_STORE.md)"
-        ],
-        [
-          "복제와 충돌",
-          "부분",
-          "Helper는 기준 판본과 호스트 확정 상태를 비교하고 오래된 파일 편집을 충돌 사본으로 보존한다. 자원 ID 기반의 모든 오프라인 변경·삭제 충돌 보존, 해결 UI와 기기 재시작 후 전체 흐름은 별도 검증이 필요하다. [Namespace](../../../SDK/iiSocietyHelper/docs/Sync/Namespace.md)"
-        ],
-        [
-          "공통 권한과 공유",
-          "미완료",
-          "게시물 공개 범위와 일부 접근 정책은 있으나 지정 상대가 지정된 내부 자원 판본을 실제로 열 수 있는 공통 자원 Grant와 종단 간 강제는 확인되지 않았다. 앱 상품 라이선스 권한을 자원 공유 권한으로 간주하지 않는다."
-        ],
-        [
-          "지속 작업",
-          "부분",
-          "`StorageMap`은 버전 고정 다운로드 요청을 기기에 지속 기록한다. 모든 가져오기·복제·색인·패키징을 포괄하는 공통 작업 저장소, 재시작 복구·재개·조회는 아직 없다. [작업 명세](JobsAndOperations.md)"
-        ],
-        [
-          "오류와 활동",
-          "부분",
-          "프로젝트 변경 이력과 일부 작업 오류는 보인다. 자원별 실패 이유·행위자·대상·다음 조치와 재시도를 공통 작업에서 지속적으로 제공하지 않는다. 프로젝트 검증의 리소스 가용성 경고는 인스펙터에 노출한다."
-        ],
-        [
-          "복원과 용량",
-          "부분",
-          "로컬 Deleted 원위치 복원과 Society Files 업로드 예약량 계산이 각각 있다. 모든 저장 공급자에 걸친 복원·복구 지점·예약 용량의 단일 종단 간 계약은 확인되지 않았다. [복구와 보존](VersionTrashReplicaBackup.md), [클라우드 용량](../../../Service/iisacc.com/docs/SOCIETY_FILES.md)"
-        ],
-        [
-          "목록과 인스펙터",
-          "부분",
-          "파일과 프로젝트 화면에 선택·열기·일부 다중 선택과 빈 상태·오류가 있다. 모든 목록과 인스펙터의 동작 일관성과 자원 상태 차원의 전체 표시는 검증되지 않았다."
-        ],
-        [
-          "자원 검색과 뷰",
-          "부분",
-          "Dashboard의 파일 검색과 Provider의 필터, 비동기 inventory는 각각 존재한다. 모든 자원·기기·권한을 잇는 안정적인 ID 기반 뷰, 색인 최신성·불완전 범위 및 통합 검색은 아직 보장되지 않는다. [자원 검색과 뷰](ResourceSearchAndViews.md)"
-        ],
-        [
-          "완결 패키징과 게시 경계",
-          "부분",
-          "게시물의 닫힌 번들 검사와 프로젝트 패키지 저장이 각각 존재한다. 모든 필요 파일의 지정 내용 판본과 바이트 무결성, 원본 권리와 배포 권한을 함께 검증하는 릴리스·게시 흐름은 아직 확인되지 않았다. [서버 번들 검사](../../../Service/Society.iisacc.com/backend/app/services/canvas/bundle_validator.rb)"
-        ]
+      "end_line": 20,
+      "raw": "- 항목: 자원 식별과 참조; 판정: 부분; 구현 근거와 남은 조건: Projects는 새 `Files` 참조에 Catalog 키를 연결하고 Society가 처리한 같은 섹션의 이름 변경·이동 뒤 이를 해석한다. 기존 참조의 자동 이행, 다른 섹션·기기·게시물과 원격 복제본의 동일 ID 및 모든 외부 이동·교체는 보장하지 않는다. [Projects](Projects.md), [Catalog 계약](../../../SDK/iiFileProvider/docs/FILE_CATALOG.md)\n- 항목: 목표와 구성 관계; 판정: 로컬 구현; 구현 근거와 남은 조건: iiProjectManager가 목표·리소스·관계·사용자 스키마를 `.iiproject`에 게시하고 다시 연다. 이것이 공유·동기화까지 완료되었다는 뜻은 아니다. [Projects](Projects.md), [SDK 설계](../../../SDK/iiProjectManager/docs/Design.md)\n- 항목: 기본 가져오기; 판정: 부분; 구현 근거와 남은 조건: 프로젝트 참조와 파일 복사는 구분되며 동일 입력의 반복 추가를 방지한다. `Files` 밖 참조, 기존 데이터, 서로 다른 위치의 원본과 크로스 디바이스 중복 판별은 완결되지 않았다. [Projects](Projects.md)\n- 항목: 전문 앱 연결; 판정: 부분; 구현 근거와 남은 조건: 접근 가능한 로컬 자원은 시스템 연결 앱으로 열 수 있다. 적합한 앱의 선택·연결과 그 앱의 저장 결과를 자원 판본으로 추적하는 종단 간 연결은 확인되지 않았다. [Projects](Projects.md)\n- 항목: 작업 사본과 판본; 판정: 부분; 구현 근거와 남은 조건: ObjectStore와 Helper는 각각 일부 판본 및 작업·호스트 상태를 갖지만 앱 저장, 내용 확정, 대상 원격 검증을 자원마다 세 가지 완료로 통합해 보장하지 않는다. [자원과 보호 상태](ResourceIdentityAndProtection.md), [ObjectStore](../../../SDK/iiFileProvider/docs/OBJECT_STORE.md)\n- 항목: 복제와 충돌; 판정: 부분; 구현 근거와 남은 조건: Helper는 기준 판본과 호스트 확정 상태를 비교하고 오래된 파일 편집을 충돌 사본으로 보존한다. 자원 ID 기반의 모든 오프라인 변경·삭제 충돌 보존, 해결 UI와 기기 재시작 후 전체 흐름은 별도 검증이 필요하다. [Namespace](../../../SDK/iiSocietyHelper/docs/Sync/Namespace.md)\n- 항목: 공통 권한과 공유; 판정: 미완료; 구현 근거와 남은 조건: 게시물 공개 범위와 일부 접근 정책은 있으나 지정 상대가 지정된 내부 자원 판본을 실제로 열 수 있는 공통 자원 Grant와 종단 간 강제는 확인되지 않았다. 앱 상품 라이선스 권한을 자원 공유 권한으로 간주하지 않는다.\n- 항목: 지속 작업; 판정: 부분; 구현 근거와 남은 조건: `StorageMap`은 버전 고정 다운로드 요청을 기기에 지속 기록한다. 모든 가져오기·복제·색인·패키징을 포괄하는 공통 작업 저장소, 재시작 복구·재개·조회는 아직 없다. [작업 명세](JobsAndOperations.md)\n- 항목: 오류와 활동; 판정: 부분; 구현 근거와 남은 조건: 프로젝트 변경 이력과 일부 작업 오류는 보인다. 자원별 실패 이유·행위자·대상·다음 조치와 재시도를 공통 작업에서 지속적으로 제공하지 않는다. 프로젝트 검증의 리소스 가용성 경고는 인스펙터에 노출한다.\n- 항목: 복원과 용량; 판정: 부분; 구현 근거와 남은 조건: 로컬 Deleted 원위치 복원과 Society Files 업로드 예약량 계산이 각각 있다. 모든 저장 공급자에 걸친 복원·복구 지점·예약 용량의 단일 종단 간 계약은 확인되지 않았다. [복구와 보존](VersionTrashReplicaBackup.md), [클라우드 용량](../../../Service/iisacc.com/docs/SOCIETY_FILES.md)\n- 항목: 목록과 인스펙터; 판정: 부분; 구현 근거와 남은 조건: 파일과 프로젝트 화면에 선택·열기·일부 다중 선택과 빈 상태·오류가 있다. 모든 목록과 인스펙터의 동작 일관성과 자원 상태 차원의 전체 표시는 검증되지 않았다.\n- 항목: 자원 검색과 뷰; 판정: 부분; 구현 근거와 남은 조건: Dashboard의 파일 검색과 Provider의 필터, 비동기 inventory는 각각 존재한다. 모든 자원·기기·권한을 잇는 안정적인 ID 기반 뷰, 색인 최신성·불완전 범위 및 통합 검색은 아직 보장되지 않는다. [자원 검색과 뷰](ResourceSearchAndViews.md)\n- 항목: 완결 패키징과 게시 경계; 판정: 부분; 구현 근거와 남은 조건: 게시물의 닫힌 번들 검사와 프로젝트 패키지 저장이 각각 존재한다. 모든 필요 파일의 지정 내용 판본과 바이트 무결성, 원본 권리와 배포 권한을 함께 검증하는 릴리스·게시 흐름은 아직 확인되지 않았다. [서버 번들 검사](../../../Service/Society.iisacc.com/backend/app/services/canvas/bundle_validator.rb)\n",
+      "kind": "list",
+      "items": [
+        {
+          "marker": "-",
+          "text": "항목: 자원 식별과 참조; 판정: 부분; 구현 근거와 남은 조건: Projects는 새 `Files` 참조에 Catalog 키를 연결하고 Society가 처리한 같은 섹션의 이름 변경·이동 뒤 이를 해석한다. 기존 참조의 자동 이행, 다른 섹션·기기·게시물과 원격 복제본의 동일 ID 및 모든 외부 이동·교체는 보장하지 않는다. [Projects](Projects.md), [Catalog 계약](../../../SDK/iiFileProvider/docs/FILE_CATALOG.md)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "항목: 목표와 구성 관계; 판정: 로컬 구현; 구현 근거와 남은 조건: iiProjectManager가 목표·리소스·관계·사용자 스키마를 `.iiproject`에 게시하고 다시 연다. 이것이 공유·동기화까지 완료되었다는 뜻은 아니다. [Projects](Projects.md), [SDK 설계](../../../SDK/iiProjectManager/docs/Design.md)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "항목: 기본 가져오기; 판정: 부분; 구현 근거와 남은 조건: 프로젝트 참조와 파일 복사는 구분되며 동일 입력의 반복 추가를 방지한다. `Files` 밖 참조, 기존 데이터, 서로 다른 위치의 원본과 크로스 디바이스 중복 판별은 완결되지 않았다. [Projects](Projects.md)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "항목: 전문 앱 연결; 판정: 부분; 구현 근거와 남은 조건: 접근 가능한 로컬 자원은 시스템 연결 앱으로 열 수 있다. 적합한 앱의 선택·연결과 그 앱의 저장 결과를 자원 판본으로 추적하는 종단 간 연결은 확인되지 않았다. [Projects](Projects.md)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "항목: 작업 사본과 판본; 판정: 부분; 구현 근거와 남은 조건: ObjectStore와 Helper는 각각 일부 판본 및 작업·호스트 상태를 갖지만 앱 저장, 내용 확정, 대상 원격 검증을 자원마다 세 가지 완료로 통합해 보장하지 않는다. [자원과 보호 상태](ResourceIdentityAndProtection.md), [ObjectStore](../../../SDK/iiFileProvider/docs/OBJECT_STORE.md)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "항목: 복제와 충돌; 판정: 부분; 구현 근거와 남은 조건: Helper는 기준 판본과 호스트 확정 상태를 비교하고 오래된 파일 편집을 충돌 사본으로 보존한다. 자원 ID 기반의 모든 오프라인 변경·삭제 충돌 보존, 해결 UI와 기기 재시작 후 전체 흐름은 별도 검증이 필요하다. [Namespace](../../../SDK/iiSocietyHelper/docs/Sync/Namespace.md)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "항목: 공통 권한과 공유; 판정: 미완료; 구현 근거와 남은 조건: 게시물 공개 범위와 일부 접근 정책은 있으나 지정 상대가 지정된 내부 자원 판본을 실제로 열 수 있는 공통 자원 Grant와 종단 간 강제는 확인되지 않았다. 앱 상품 라이선스 권한을 자원 공유 권한으로 간주하지 않는다.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "항목: 지속 작업; 판정: 부분; 구현 근거와 남은 조건: `StorageMap`은 버전 고정 다운로드 요청을 기기에 지속 기록한다. 모든 가져오기·복제·색인·패키징을 포괄하는 공통 작업 저장소, 재시작 복구·재개·조회는 아직 없다. [작업 명세](JobsAndOperations.md)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "항목: 오류와 활동; 판정: 부분; 구현 근거와 남은 조건: 프로젝트 변경 이력과 일부 작업 오류는 보인다. 자원별 실패 이유·행위자·대상·다음 조치와 재시도를 공통 작업에서 지속적으로 제공하지 않는다. 프로젝트 검증의 리소스 가용성 경고는 인스펙터에 노출한다.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "항목: 복원과 용량; 판정: 부분; 구현 근거와 남은 조건: 로컬 Deleted 원위치 복원과 Society Files 업로드 예약량 계산이 각각 있다. 모든 저장 공급자에 걸친 복원·복구 지점·예약 용량의 단일 종단 간 계약은 확인되지 않았다. [복구와 보존](VersionTrashReplicaBackup.md), [클라우드 용량](../../../Service/iisacc.com/docs/SOCIETY_FILES.md)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "항목: 목록과 인스펙터; 판정: 부분; 구현 근거와 남은 조건: 파일과 프로젝트 화면에 선택·열기·일부 다중 선택과 빈 상태·오류가 있다. 모든 목록과 인스펙터의 동작 일관성과 자원 상태 차원의 전체 표시는 검증되지 않았다.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "항목: 자원 검색과 뷰; 판정: 부분; 구현 근거와 남은 조건: Dashboard의 파일 검색과 Provider의 필터, 비동기 inventory는 각각 존재한다. 모든 자원·기기·권한을 잇는 안정적인 ID 기반 뷰, 색인 최신성·불완전 범위 및 통합 검색은 아직 보장되지 않는다. [자원 검색과 뷰](ResourceSearchAndViews.md)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "항목: 완결 패키징과 게시 경계; 판정: 부분; 구현 근거와 남은 조건: 게시물의 닫힌 번들 검사와 프로젝트 패키지 저장이 각각 존재한다. 모든 필요 파일의 지정 내용 판본과 바이트 무결성, 원본 권리와 배포 권한을 함께 검증하는 릴리스·게시 흐름은 아직 확인되지 않았다. [서버 번들 검사](../../../Service/Society.iisacc.com/backend/app/services/canvas/bundle_validator.rb)",
+          "checked": null
+        }
       ]
     },
     {
       "id": "b000006",
       "kind": "blank",
-      "start_line": 23,
-      "end_line": 23,
+      "start_line": 21,
+      "end_line": 21,
       "raw": "\n"
     },
     {
       "id": "b000007",
       "kind": "heading",
-      "start_line": 24,
-      "end_line": 24,
+      "start_line": 22,
+      "end_line": 22,
       "raw": "## 프로젝트 참조의 검사 범위\n",
       "level": 2,
       "title": "프로젝트 참조의 검사 범위"
@@ -150,29 +145,29 @@
     {
       "id": "b000008",
       "kind": "blank",
-      "start_line": 25,
-      "end_line": 25,
+      "start_line": 23,
+      "end_line": 23,
       "raw": "\n"
     },
     {
       "id": "b000009",
       "kind": "paragraph",
-      "start_line": 26,
-      "end_line": 32,
+      "start_line": 24,
+      "end_line": 30,
       "raw": "`Society.ProjectResourceIdentity`는 격리된 테스트 컨테이너에서 같은 파일을 두\n프로젝트에 참조하고 이름을 바꾸고 같은 섹션에서 이동하는 흐름, 같은 입력의 중복\n참조·복사, 원본 내용이 바뀐 경우 기존 포함 사본 보존, 다른 목적의 중복 입력 거절, 아직 Catalog에 등록되지 않은 대체 파일의\n열기와 키 재배정 거절, 외부 이동 후 Catalog 재조정 및 명시적 기존 참조 편집을 검사한다. 이는 Catalog 갱신이 일어난 로컬\n경로에 대한 검사다. 다른 기기, 클라우드, 권한, 복구 또는 내용 무결성 검사의\n증거로 확대하지 않는다. 전체 Projects 회귀 범위와 결과는 실행된 빌드의 CTest\n결과를 따른다.\n"
     },
     {
       "id": "b000010",
       "kind": "blank",
-      "start_line": 33,
-      "end_line": 33,
+      "start_line": 31,
+      "end_line": 31,
       "raw": "\n"
     },
     {
       "id": "b000011",
       "kind": "heading",
-      "start_line": 34,
-      "end_line": 34,
+      "start_line": 32,
+      "end_line": 32,
       "raw": "## 완료를 위해 남은 연결\n",
       "level": 2,
       "title": "완료를 위해 남은 연결"
@@ -180,15 +175,15 @@
     {
       "id": "b000012",
       "kind": "blank",
-      "start_line": 35,
-      "end_line": 35,
+      "start_line": 33,
+      "end_line": 33,
       "raw": "\n"
     },
     {
       "id": "b000013",
       "kind": "paragraph",
-      "start_line": 36,
-      "end_line": 40,
+      "start_line": 34,
+      "end_line": 38,
       "raw": "우선 서로 다른 장치·위치의 복제본이 공유하는 논리 자원 ID와 지정 내용 판본을\n정본 저장소에 연결해야 한다. 그 위에서 기준 판본을 검증하는 저장·충돌 처리,\n대상별 실제 읽기 권한, 재시작 가능한 작업과 활동, 검증된 릴리스를 연결한다.\n개별 SDK API의 존재나 로컬 화면의 성공만으로 원격 권한·백업·배포를 완료로\n표시하지 않는다.\n"
     }
   ],
@@ -207,7 +202,7 @@
       "level": 2,
       "title": "프로젝트 참조의 검사 범위",
       "anchor": "프로젝트-참조의-검사-범위",
-      "start_line": 24
+      "start_line": 22
     },
     {
       "block_id": "b000011",
@@ -215,7 +210,7 @@
       "level": 2,
       "title": "완료를 위해 남은 연결",
       "anchor": "완료를-위해-남은-연결",
-      "start_line": 34
+      "start_line": 32
     }
   ],
   "indexes": {
@@ -236,49 +231,49 @@
       },
       {
         "block_id": "b000005",
-        "line": 10,
-        "text": "| 자원 식별과 참조 | 부분 | Projects는 새 `Files` 참조에 Catalog 키를 연결하고 Society가 처리한 같은 섹션의 이름 변경·이동 뒤 이를 해석한다. 기존 참조의 자동 이행, 다른 섹션·기기·게시물과 원격 복제본의 동일 ID 및 모든 외부 이동·교체는 보장하지 않는다. [Projects](Projects.md), [Catalog 계약](../../../SDK/iiFileProvider/docs/FILE_CATALOG.md) |",
+        "line": 8,
+        "text": "- 항목: 자원 식별과 참조; 판정: 부분; 구현 근거와 남은 조건: Projects는 새 `Files` 참조에 Catalog 키를 연결하고 Society가 처리한 같은 섹션의 이름 변경·이동 뒤 이를 해석한다. 기존 참조의 자동 이행, 다른 섹션·기기·게시물과 원격 복제본의 동일 ID 및 모든 외부 이동·교체는 보장하지 않는다. [Projects](Projects.md), [Catalog 계약](../../../SDK/iiFileProvider/docs/FILE_CATALOG.md)",
         "basis": "lexical_match",
-        "context": "table"
+        "context": "list"
+      },
+      {
+        "block_id": "b000005",
+        "line": 12,
+        "text": "- 항목: 작업 사본과 판본; 판정: 부분; 구현 근거와 남은 조건: ObjectStore와 Helper는 각각 일부 판본 및 작업·호스트 상태를 갖지만 앱 저장, 내용 확정, 대상 원격 검증을 자원마다 세 가지 완료로 통합해 보장하지 않는다. [자원과 보호 상태](ResourceIdentityAndProtection.md), [ObjectStore](../../../SDK/iiFileProvider/docs/OBJECT_STORE.md)",
+        "basis": "lexical_match",
+        "context": "list"
       },
       {
         "block_id": "b000005",
         "line": 14,
-        "text": "| 작업 사본과 판본 | 부분 | ObjectStore와 Helper는 각각 일부 판본 및 작업·호스트 상태를 갖지만 앱 저장, 내용 확정, 대상 원격 검증을 자원마다 세 가지 완료로 통합해 보장하지 않는다. [자원과 보호 상태](ResourceIdentityAndProtection.md), [ObjectStore](../../../SDK/iiFileProvider/docs/OBJECT_STORE.md) |",
+        "text": "- 항목: 공통 권한과 공유; 판정: 미완료; 구현 근거와 남은 조건: 게시물 공개 범위와 일부 접근 정책은 있으나 지정 상대가 지정된 내부 자원 판본을 실제로 열 수 있는 공통 자원 Grant와 종단 간 강제는 확인되지 않았다. 앱 상품 라이선스 권한을 자원 공유 권한으로 간주하지 않는다.",
         "basis": "lexical_match",
-        "context": "table"
+        "context": "list"
       },
       {
         "block_id": "b000005",
         "line": 16,
-        "text": "| 공통 권한과 공유 | 미완료 | 게시물 공개 범위와 일부 접근 정책은 있으나 지정 상대가 지정된 내부 자원 판본을 실제로 열 수 있는 공통 자원 Grant와 종단 간 강제는 확인되지 않았다. 앱 상품 라이선스 권한을 자원 공유 권한으로 간주하지 않는다. |",
+        "text": "- 항목: 오류와 활동; 판정: 부분; 구현 근거와 남은 조건: 프로젝트 변경 이력과 일부 작업 오류는 보인다. 자원별 실패 이유·행위자·대상·다음 조치와 재시도를 공통 작업에서 지속적으로 제공하지 않는다. 프로젝트 검증의 리소스 가용성 경고는 인스펙터에 노출한다.",
         "basis": "lexical_match",
-        "context": "table"
-      },
-      {
-        "block_id": "b000005",
-        "line": 18,
-        "text": "| 오류와 활동 | 부분 | 프로젝트 변경 이력과 일부 작업 오류는 보인다. 자원별 실패 이유·행위자·대상·다음 조치와 재시도를 공통 작업에서 지속적으로 제공하지 않는다. 프로젝트 검증의 리소스 가용성 경고는 인스펙터에 노출한다. |",
-        "basis": "lexical_match",
-        "context": "table"
+        "context": "list"
       },
       {
         "block_id": "b000009",
-        "line": 31,
+        "line": 29,
         "text": "증거로 확대하지 않는다. 전체 Projects 회귀 범위와 결과는 실행된 빌드의 CTest",
         "basis": "lexical_match",
         "context": "paragraph"
       },
       {
         "block_id": "b000013",
-        "line": 37,
+        "line": 35,
         "text": "정본 저장소에 연결해야 한다. 그 위에서 기준 판본을 검증하는 저장·충돌 처리,",
         "basis": "lexical_match",
         "context": "paragraph"
       },
       {
         "block_id": "b000013",
-        "line": 40,
+        "line": 38,
         "text": "표시하지 않는다.",
         "basis": "lexical_match",
         "context": "paragraph"
@@ -291,13 +286,34 @@
         "label": "Projects",
         "target": "Projects.md",
         "kind": "relative",
-        "line": 10
+        "line": 8
       },
       {
         "block_id": "b000005",
         "label": "Catalog 계약",
         "target": "../../../SDK/iiFileProvider/docs/FILE_CATALOG.md",
         "kind": "relative",
+        "line": 8
+      },
+      {
+        "block_id": "b000005",
+        "label": "Projects",
+        "target": "Projects.md",
+        "kind": "relative",
+        "line": 9
+      },
+      {
+        "block_id": "b000005",
+        "label": "SDK 설계",
+        "target": "../../../SDK/iiProjectManager/docs/Design.md",
+        "kind": "relative",
+        "line": 9
+      },
+      {
+        "block_id": "b000005",
+        "label": "Projects",
+        "target": "Projects.md",
+        "kind": "relative",
         "line": 10
       },
       {
@@ -309,159 +325,62 @@
       },
       {
         "block_id": "b000005",
-        "label": "SDK 설계",
-        "target": "../../../SDK/iiProjectManager/docs/Design.md",
-        "kind": "relative",
-        "line": 11
-      },
-      {
-        "block_id": "b000005",
-        "label": "Projects",
-        "target": "Projects.md",
-        "kind": "relative",
-        "line": 12
-      },
-      {
-        "block_id": "b000005",
-        "label": "Projects",
-        "target": "Projects.md",
-        "kind": "relative",
-        "line": 13
-      },
-      {
-        "block_id": "b000005",
         "label": "자원과 보호 상태",
         "target": "ResourceIdentityAndProtection.md",
         "kind": "relative",
-        "line": 14
+        "line": 12
       },
       {
         "block_id": "b000005",
         "label": "ObjectStore",
         "target": "../../../SDK/iiFileProvider/docs/OBJECT_STORE.md",
         "kind": "relative",
-        "line": 14
+        "line": 12
       },
       {
         "block_id": "b000005",
         "label": "Namespace",
         "target": "../../../SDK/iiSocietyHelper/docs/Sync/Namespace.md",
         "kind": "relative",
-        "line": 15
+        "line": 13
       },
       {
         "block_id": "b000005",
         "label": "작업 명세",
         "target": "JobsAndOperations.md",
         "kind": "relative",
-        "line": 17
+        "line": 15
       },
       {
         "block_id": "b000005",
         "label": "복구와 보존",
         "target": "VersionTrashReplicaBackup.md",
         "kind": "relative",
-        "line": 19
+        "line": 17
       },
       {
         "block_id": "b000005",
         "label": "클라우드 용량",
         "target": "../../../Service/iisacc.com/docs/SOCIETY_FILES.md",
         "kind": "relative",
-        "line": 19
+        "line": 17
       },
       {
         "block_id": "b000005",
         "label": "자원 검색과 뷰",
         "target": "ResourceSearchAndViews.md",
         "kind": "relative",
-        "line": 21
+        "line": 19
       },
       {
         "block_id": "b000005",
         "label": "서버 번들 검사",
         "target": "../../../Service/Society.iisacc.com/backend/app/services/canvas/bundle_validator.rb",
         "kind": "relative",
-        "line": 22
+        "line": 20
       }
     ],
-    "tables": [
-      {
-        "block_id": "b000005",
-        "columns": [
-          "항목",
-          "판정",
-          "구현 근거와 남은 조건"
-        ],
-        "rows": [
-          [
-            "자원 식별과 참조",
-            "부분",
-            "Projects는 새 `Files` 참조에 Catalog 키를 연결하고 Society가 처리한 같은 섹션의 이름 변경·이동 뒤 이를 해석한다. 기존 참조의 자동 이행, 다른 섹션·기기·게시물과 원격 복제본의 동일 ID 및 모든 외부 이동·교체는 보장하지 않는다. [Projects](Projects.md), [Catalog 계약](../../../SDK/iiFileProvider/docs/FILE_CATALOG.md)"
-          ],
-          [
-            "목표와 구성 관계",
-            "로컬 구현",
-            "iiProjectManager가 목표·리소스·관계·사용자 스키마를 `.iiproject`에 게시하고 다시 연다. 이것이 공유·동기화까지 완료되었다는 뜻은 아니다. [Projects](Projects.md), [SDK 설계](../../../SDK/iiProjectManager/docs/Design.md)"
-          ],
-          [
-            "기본 가져오기",
-            "부분",
-            "프로젝트 참조와 파일 복사는 구분되며 동일 입력의 반복 추가를 방지한다. `Files` 밖 참조, 기존 데이터, 서로 다른 위치의 원본과 크로스 디바이스 중복 판별은 완결되지 않았다. [Projects](Projects.md)"
-          ],
-          [
-            "전문 앱 연결",
-            "부분",
-            "접근 가능한 로컬 자원은 시스템 연결 앱으로 열 수 있다. 적합한 앱의 선택·연결과 그 앱의 저장 결과를 자원 판본으로 추적하는 종단 간 연결은 확인되지 않았다. [Projects](Projects.md)"
-          ],
-          [
-            "작업 사본과 판본",
-            "부분",
-            "ObjectStore와 Helper는 각각 일부 판본 및 작업·호스트 상태를 갖지만 앱 저장, 내용 확정, 대상 원격 검증을 자원마다 세 가지 완료로 통합해 보장하지 않는다. [자원과 보호 상태](ResourceIdentityAndProtection.md), [ObjectStore](../../../SDK/iiFileProvider/docs/OBJECT_STORE.md)"
-          ],
-          [
-            "복제와 충돌",
-            "부분",
-            "Helper는 기준 판본과 호스트 확정 상태를 비교하고 오래된 파일 편집을 충돌 사본으로 보존한다. 자원 ID 기반의 모든 오프라인 변경·삭제 충돌 보존, 해결 UI와 기기 재시작 후 전체 흐름은 별도 검증이 필요하다. [Namespace](../../../SDK/iiSocietyHelper/docs/Sync/Namespace.md)"
-          ],
-          [
-            "공통 권한과 공유",
-            "미완료",
-            "게시물 공개 범위와 일부 접근 정책은 있으나 지정 상대가 지정된 내부 자원 판본을 실제로 열 수 있는 공통 자원 Grant와 종단 간 강제는 확인되지 않았다. 앱 상품 라이선스 권한을 자원 공유 권한으로 간주하지 않는다."
-          ],
-          [
-            "지속 작업",
-            "부분",
-            "`StorageMap`은 버전 고정 다운로드 요청을 기기에 지속 기록한다. 모든 가져오기·복제·색인·패키징을 포괄하는 공통 작업 저장소, 재시작 복구·재개·조회는 아직 없다. [작업 명세](JobsAndOperations.md)"
-          ],
-          [
-            "오류와 활동",
-            "부분",
-            "프로젝트 변경 이력과 일부 작업 오류는 보인다. 자원별 실패 이유·행위자·대상·다음 조치와 재시도를 공통 작업에서 지속적으로 제공하지 않는다. 프로젝트 검증의 리소스 가용성 경고는 인스펙터에 노출한다."
-          ],
-          [
-            "복원과 용량",
-            "부분",
-            "로컬 Deleted 원위치 복원과 Society Files 업로드 예약량 계산이 각각 있다. 모든 저장 공급자에 걸친 복원·복구 지점·예약 용량의 단일 종단 간 계약은 확인되지 않았다. [복구와 보존](VersionTrashReplicaBackup.md), [클라우드 용량](../../../Service/iisacc.com/docs/SOCIETY_FILES.md)"
-          ],
-          [
-            "목록과 인스펙터",
-            "부분",
-            "파일과 프로젝트 화면에 선택·열기·일부 다중 선택과 빈 상태·오류가 있다. 모든 목록과 인스펙터의 동작 일관성과 자원 상태 차원의 전체 표시는 검증되지 않았다."
-          ],
-          [
-            "자원 검색과 뷰",
-            "부분",
-            "Dashboard의 파일 검색과 Provider의 필터, 비동기 inventory는 각각 존재한다. 모든 자원·기기·권한을 잇는 안정적인 ID 기반 뷰, 색인 최신성·불완전 범위 및 통합 검색은 아직 보장되지 않는다. [자원 검색과 뷰](ResourceSearchAndViews.md)"
-          ],
-          [
-            "완결 패키징과 게시 경계",
-            "부분",
-            "게시물의 닫힌 번들 검사와 프로젝트 패키지 저장이 각각 존재한다. 모든 필요 파일의 지정 내용 판본과 바이트 무결성, 원본 권리와 배포 권한을 함께 검증하는 릴리스·게시 흐름은 아직 확인되지 않았다. [서버 번들 검사](../../../Service/Society.iisacc.com/backend/app/services/canvas/bundle_validator.rb)"
-          ]
-        ]
-      }
-    ]
+    "tables": []
   },
   "provenance": {
     "generator": "workspace-docs",

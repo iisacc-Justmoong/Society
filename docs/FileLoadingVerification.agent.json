@@ -10,9 +10,9 @@
   },
   "source": {
     "path": "docs/FileLoadingVerification.md",
-    "sha256": "87ad6b88e577540c6be18d732da850e380d0c2d5df78f2f2454cee698353ff54",
-    "bytes": 8800,
-    "line_count": 63,
+    "sha256": "3014ae20c0f6f789e1268f9fd827bbf937a8cdd3ede44d96d70efaf1b31221bd",
+    "bytes": 8889,
+    "line_count": 61,
     "encoding": "utf-8",
     "language": "ko"
   },
@@ -259,99 +259,91 @@
     },
     {
       "id": "b000025",
-      "kind": "table",
       "start_line": 34,
-      "end_line": 37,
-      "raw": "|데이터 세트|이전 첫 번째 행 / 준비됨|캐시된 첫 번째 행|실시간 조정 준비됨|\n| --- | --- | --- | --- |\n|실제 생성 기록, 94 항목, 2–3|216 / 212 ms|2 / 2 ms|11 / 11 ms|\n|합성 텍스트 디렉터리, 2,000 항목, 실행 2–3|23 / 22 ms|25 / 24 ms|87 / 87 ms|\n",
-      "columns": [
-        "데이터 세트",
-        "이전 첫 번째 행 / 준비됨",
-        "캐시된 첫 번째 행",
-        "실시간 조정 준비됨"
-      ],
-      "rows": [
-        [
-          "실제 생성 기록, 94 항목, 2–3",
-          "216 / 212 ms",
-          "2 / 2 ms",
-          "11 / 11 ms"
-        ],
-        [
-          "합성 텍스트 디렉터리, 2,000 항목, 실행 2–3",
-          "23 / 22 ms",
-          "25 / 24 ms",
-          "87 / 87 ms"
-        ]
+      "end_line": 35,
+      "raw": "- 데이터 세트: 실제 생성 기록, 94 항목, 2–3; 이전 첫 번째 행 / 준비됨: 216 / 212 ms; 캐시된 첫 번째 행: 2 / 2 ms; 실시간 조정 준비됨: 11 / 11 ms\n- 데이터 세트: 합성 텍스트 디렉터리, 2,000 항목, 실행 2–3; 이전 첫 번째 행 / 준비됨: 23 / 22 ms; 캐시된 첫 번째 행: 25 / 24 ms; 실시간 조정 준비됨: 87 / 87 ms\n",
+      "kind": "list",
+      "items": [
+        {
+          "marker": "-",
+          "text": "데이터 세트: 실제 생성 기록, 94 항목, 2–3; 이전 첫 번째 행 / 준비됨: 216 / 212 ms; 캐시된 첫 번째 행: 2 / 2 ms; 실시간 조정 준비됨: 11 / 11 ms",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "데이터 세트: 합성 텍스트 디렉터리, 2,000 항목, 실행 2–3; 이전 첫 번째 행 / 준비됨: 23 / 22 ms; 캐시된 첫 번째 행: 25 / 24 ms; 실시간 조정 준비됨: 87 / 87 ms",
+          "checked": null
+        }
       ]
     },
     {
       "id": "b000026",
+      "kind": "blank",
+      "start_line": 36,
+      "end_line": 36,
+      "raw": "\n"
+    },
+    {
+      "id": "b000027",
+      "kind": "paragraph",
+      "start_line": 37,
+      "end_line": 37,
+      "raw": "실제 라이브러리 온 경로가 현저히 개선되었습니다. 간단한 텍스트 픽스처 는 첫 행 지연을 개선하지 않았으며, 스냅숏 조정은 준비 경로에 작업을 추가합니다. 보편적 속도 향상을 주장하지 마십시오. 첫 실행은 제어된 콜드 캐시 비교가 아니며, 속도 향상 계산에 의도적으로 사용되지 않습니다.\n"
+    },
+    {
+      "id": "b000028",
       "kind": "blank",
       "start_line": 38,
       "end_line": 38,
       "raw": "\n"
     },
     {
-      "id": "b000027",
+      "id": "b000029",
       "kind": "paragraph",
       "start_line": 39,
       "end_line": 39,
-      "raw": "실제 라이브러리 온 경로가 현저히 개선되었습니다. 간단한 텍스트 픽스처 는 첫 행 지연을 개선하지 않았으며, 스냅숏 조정은 준비 경로에 작업을 추가합니다. 보편적 속도 향상을 주장하지 마십시오. 첫 실행은 제어된 콜드 캐시 비교가 아니며, 속도 향상 계산에 의도적으로 사용되지 않습니다.\n"
+      "raw": "원시 보고서는 `SDK/iiSocietyContainer/build/`: `loading-real-baseline.json`, `loading-watch-real.json`, `loading-baseline-warm.json`, `loading-watch-fixture.json` 아래에 있습니다.\n"
     },
     {
-      "id": "b000028",
+      "id": "b000030",
       "kind": "blank",
       "start_line": 40,
       "end_line": 40,
       "raw": "\n"
     },
     {
-      "id": "b000029",
+      "id": "b000031",
       "kind": "paragraph",
       "start_line": 41,
       "end_line": 41,
-      "raw": "원시 보고서는 `SDK/iiSocietyContainer/build/`: `loading-real-baseline.json`, `loading-watch-real.json`, `loading-baseline-warm.json`, `loading-watch-fixture.json` 아래에 있습니다.\n"
+      "raw": "미리보기 회귀 는 21.9 – 156.1 ms 에 2400×1600 테스트 PNG 를 디코딩/해시/저장하고, 신선한 캐시 객체에서 지속된 512픽셀 미리보기를 로드하는 데 약 0.7 – 0.8 ms 를 측정합니다. 이는 하나의 테스트 이미지 결과이며, 전체 라이브러리 처리량이 아닙니다.\n"
     },
     {
-      "id": "b000030",
+      "id": "b000032",
       "kind": "blank",
       "start_line": 42,
       "end_line": 42,
       "raw": "\n"
     },
     {
-      "id": "b000031",
-      "kind": "paragraph",
+      "id": "b000033",
+      "kind": "html",
       "start_line": 43,
       "end_line": 43,
-      "raw": "미리보기 회귀 는 21.9 – 156.1 ms 에 2400×1600 테스트 PNG 를 디코딩/해시/저장하고, 신선한 캐시 객체에서 지속된 512픽셀 미리보기를 로드하는 데 약 0.7 – 0.8 ms 를 측정합니다. 이는 하나의 테스트 이미지 결과이며, 전체 라이브러리 처리량이 아닙니다.\n"
+      "raw": "<a id=\"checks\"></a>\n"
     },
     {
-      "id": "b000032",
+      "id": "b000034",
       "kind": "blank",
       "start_line": 44,
       "end_line": 44,
       "raw": "\n"
     },
     {
-      "id": "b000033",
-      "kind": "html",
-      "start_line": 45,
-      "end_line": 45,
-      "raw": "<a id=\"checks\"></a>\n"
-    },
-    {
-      "id": "b000034",
-      "kind": "blank",
-      "start_line": 46,
-      "end_line": 46,
-      "raw": "\n"
-    },
-    {
       "id": "b000035",
       "kind": "heading",
-      "start_line": 47,
-      "end_line": 47,
+      "start_line": 45,
+      "end_line": 45,
       "raw": "## 수표\n",
       "level": 2,
       "title": "수표"
@@ -359,15 +351,15 @@
     {
       "id": "b000036",
       "kind": "blank",
-      "start_line": 48,
-      "end_line": 48,
+      "start_line": 46,
+      "end_line": 46,
       "raw": "\n"
     },
     {
       "id": "b000037",
       "kind": "list",
-      "start_line": 49,
-      "end_line": 52,
+      "start_line": 47,
+      "end_line": 50,
       "raw": "- SDK의 프리뷰·대시보드·공유 저장소 CTest 대상이 통과했다(3/3).\n- 소스 덮어쓰기/삭제, 임시 스냅샷 조정, 감시자 새로 고침, 콘텐츠 SHA-256, 동시 캐시 요청, 손상된 미리보기, 취소 및 이전 대시보드 `previewSource` 호환성이 포함됩니다.\n- 제품 QML는 검증된 렌더링된 `Image.Ready`, 이미지 교체/캐시 업데이트, 선택/스크롤 보존, 대시보드 추가/편집/제거 업데이트 및 새로운 썸네일 필드를 사용한 인터랙티브 대시보드 카드를 테스트합니다 (8 통과; 최종 호환성 빌드).\n- macOS와 iOS의 SDK 빌드/설치가 통과했다.\n",
       "items": [
         {
@@ -395,29 +387,29 @@
     {
       "id": "b000038",
       "kind": "blank",
-      "start_line": 53,
-      "end_line": 53,
+      "start_line": 51,
+      "end_line": 51,
       "raw": "\n"
     },
     {
       "id": "b000039",
       "kind": "html",
-      "start_line": 54,
-      "end_line": 54,
+      "start_line": 52,
+      "end_line": 52,
       "raw": "<a id=\"application-delivery\"></a>\n"
     },
     {
       "id": "b000040",
       "kind": "blank",
-      "start_line": 55,
-      "end_line": 55,
+      "start_line": 53,
+      "end_line": 53,
       "raw": "\n"
     },
     {
       "id": "b000041",
       "kind": "heading",
-      "start_line": 56,
-      "end_line": 56,
+      "start_line": 54,
+      "end_line": 54,
       "raw": "## 신청서 전달\n",
       "level": 2,
       "title": "신청서 전달"
@@ -425,15 +417,15 @@
     {
       "id": "b000042",
       "kind": "blank",
-      "start_line": 57,
-      "end_line": 57,
+      "start_line": 55,
+      "end_line": 55,
       "raw": "\n"
     },
     {
       "id": "b000043",
       "kind": "list",
-      "start_line": 58,
-      "end_line": 63,
+      "start_line": 56,
+      "end_line": 61,
       "raw": "- macOS 애플리케이션 컴파일/링크가 완료되었습니다. 배포가 중단되어 `QtNetwork.framework`가 완성되지 않았으며, 누락된 리소스와 버전 심볼릭 링크가 동일한 Qt 6.8.3 설치에서 복원된 후 서명이 재개되었습니다.\n- 외부 저장 후보의 표준 런타임 프로브가 변경되지 않은 30초 제한을 초과했습니다. 이것은 실패한 시작 프로브이며, 통과하는 build/runtime 검사가 아닙니다. 로그: `build/file-loading-macos-source-runtime.log`.\n- 수리된 macOS 후보가 `codesign --verify --deep --strict`를 통과했으며, `/Applications/Society.app`에 설치되었고, 설치된 번들은 동일한 서명 검사와 표준 런타임 프로브를 통과했습니다 (776 GUI -loader / 771 데몬-loader 라이브러리; 번들/시스템 위치 외에는 없음). 로그: `build/file-loading-sign-recovery.log` , `build/file-loading-macos-installed-runtime.json` .\n- 설치된 GUI 가 `bootstrap.entry.root-loaded` 에 도달함; 그 생성 이력은 94 행과 실제 이미지 미리보기, 이동 후/뒤로 돌아온 후 포함됨. `~/Library/Caches/Society/society` 에서 관찰된 애플리케이션 캐시는 하나의 디렉토리 스냅샷과 45 개의 PNG /manifest 쌍 (그 샘플의 13,834,190 바이트) 을 포함함. 한 미리보기는 512x512 로 모드 0600 와 64자리의 SHA-256 필드를 가짐. 그 manifest 의 원래 파일을 독립적으로 해싱하면 저장된 다이제스트와 일치함. 이 관찰은 렌더링된 프레임 지연 시간이나 차가운 앱 시작을 측정하지 않음.\n- iOS 릴리스 빌드가 성공했습니다. 앱, File Provider 및 Live Activity는 연결된 iPhone 15 Pro Max에 대한 서명된 번들/프로비저닝 검사를 통과했으며, 이후 `devicectl`가 데이터를 제거하거나 재설정하지 않고 `com.iisacc.society`를 성공적으로 설치했습니다. 로그: `build/file-loading-ios-build.log` , `build/file-loading-ios-bundle.json` , `build/file-loading-ios-install.json` .\n- 새로운 iPhone 설치가 `FBSOpenApplicationErrorDomain / Locked`와 함께 거부되었습니다. 새 설치가 확인되었지만, 물리적 장치 실행, 미리보기 캐시 생성 및 재연결 타이밍은 사용자가 장치를 잠금 해제할 때까지 확인되지 않습니다. 로그: `build/file-loading-ios-launch.json`.\n",
       "items": [
         {
@@ -508,7 +500,7 @@
       "level": 2,
       "title": "수표",
       "anchor": "수표",
-      "start_line": 47
+      "start_line": 45
     },
     {
       "block_id": "b000041",
@@ -516,38 +508,14 @@
       "level": 2,
       "title": "신청서 전달",
       "anchor": "신청서-전달",
-      "start_line": 56
+      "start_line": 54
     }
   ],
   "indexes": {
     "directive_candidates": [],
     "commands": [],
     "links": [],
-    "tables": [
-      {
-        "block_id": "b000025",
-        "columns": [
-          "데이터 세트",
-          "이전 첫 번째 행 / 준비됨",
-          "캐시된 첫 번째 행",
-          "실시간 조정 준비됨"
-        ],
-        "rows": [
-          [
-            "실제 생성 기록, 94 항목, 2–3",
-            "216 / 212 ms",
-            "2 / 2 ms",
-            "11 / 11 ms"
-          ],
-          [
-            "합성 텍스트 디렉터리, 2,000 항목, 실행 2–3",
-            "23 / 22 ms",
-            "25 / 24 ms",
-            "87 / 87 ms"
-          ]
-        ]
-      }
-    ]
+    "tables": []
   },
   "provenance": {
     "generator": "workspace-docs",

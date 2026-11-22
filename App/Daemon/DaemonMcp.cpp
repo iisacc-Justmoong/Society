@@ -79,6 +79,36 @@ bool DaemonMcp::start()
             return a::ToolResult{QStringLiteral("Society agent state"),reply.response.value("agent").toObject()};
         };
         registry->add(std::move(selectAgentModel));
+        const auto spaceTool=[&](const QString &name,const QString &operation,const QString &description,bool send,bool readOnly) {
+            a::Tool tool;
+            QJsonObject properties{{"session",QJsonObject{{"type","string"},{"minLength",1},{"maxLength",128}}},
+                                   {"container",QJsonObject{{"type","string"},{"minLength",1},{"maxLength",4096}}}};
+            QJsonArray required{"session"};
+            if (send) {
+                properties.insert("prompt",QJsonObject{{"type","string"},{"minLength",1},{"maxLength",16384}});
+                properties.insert("attachments",QJsonObject{{"type","array"},{"maxItems",8},
+                    {"items",QJsonObject{{"type","string"},{"minLength",1},{"maxLength",4096}}}});
+                properties.insert("effort",QJsonObject{{"type","string"},{"enum",QJsonArray{"low","standard","high"}}});
+                required.append("prompt");
+            }
+            tool.definition={name,description,{{"type","object"},{"properties",properties},{"required",required},{"additionalProperties",false}}, {},readOnly,readOnly};
+            tool.execute=[broker,operation,send](const QJsonObject &arguments,const a::ToolContext &context) {
+                context.cancellation.throwIfCancelled();
+                QJsonObject payload{{"spaceId",arguments.value("session")}};
+                if (send) {
+                    payload.insert("prompt",arguments.value("prompt"));
+                    payload.insert("attachments",arguments.value("attachments").toArray());
+                    payload.insert("effort",arguments.value("effort").toString("standard"));
+                }
+                const auto reply=societySpaceCommand(broker,operation,std::move(payload),arguments.value("container").toString());
+                if (!reply.ok()) return a::ToolResult{reply.error,{{"uncertain",reply.uncertain}},true};
+                return a::ToolResult{QStringLiteral("Society Space agent state"),reply.response.value("space").toObject()};
+            };
+            return tool;
+        };
+        registry->add(spaceTool("space_agent_status","spaceSubscribe","Inspect one Space session's agent conversation.",false,true));
+        registry->add(spaceTool("space_agent_send","spaceSend","Submit one Space message with selected files and a reasoning budget.",true,false));
+        registry->add(spaceTool("space_agent_cancel","spaceCancel","Cancel a response owned by this Space session.",false,false));
         const auto suggestedTool=[&](const QString &name,const QString &operation,const QString &description,bool readOnly) {
             a::Tool tool;
             tool.definition={name,description,{{"type","object"},{"properties",QJsonObject{}},{"additionalProperties",false}}, {},readOnly,readOnly};
@@ -223,6 +253,7 @@ bool DaemonMcp::start()
                 {"semantic_remove_relation",a::PermissionBehavior::Allow}, {"semantic_rebind",a::PermissionBehavior::Allow},
                 {"workspace_agent_send",a::PermissionBehavior::Allow}, {"workspace_agent_new",a::PermissionBehavior::Allow},
                 {"workspace_agent_cancel",a::PermissionBehavior::Allow}, {"workspace_agent_select",a::PermissionBehavior::Allow},
+                {"space_agent_send",a::PermissionBehavior::Allow}, {"space_agent_cancel",a::PermissionBehavior::Allow},
                 {"suggested_status",a::PermissionBehavior::Allow}, {"suggested_refresh",a::PermissionBehavior::Allow},
                 {"recent_status",a::PermissionBehavior::Allow}, {"recent_refresh",a::PermissionBehavior::Allow},
                 {"resource_inspect",a::PermissionBehavior::Allow}});

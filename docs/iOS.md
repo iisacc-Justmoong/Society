@@ -25,17 +25,15 @@ Xcode의 `-MMD`에서 누락되던 자체 SDK 헤더를 `cmake/SdkHeaders.cmake`
 
 공통 화면은 LVRS가 제공하는 기기의 상하좌우 안전 영역을 적용하여 iPhone의 상태 표시줄·노치·홈 표시 영역에 제목이나 하단 버튼이 겹치지 않게 한다. 별도 모바일 QML 화면은 두지 않는다. Dashboard가 기본 화면이며 공통 Tools·Storage와 검색을 제공한다. 760 px 미만에서는 5개 탭을 하단으로 옮기고 사이드바와 Environment는 시트로 연다. [반응형 화면 기준](MobileViews.md)을 따른다.
 
-| 기능 | iOS 동작 |
-| --- | --- |
-| iisacc 계정 | 공통 LVRS 패널에서 이메일·비밀번호만 입력한다. 계정 SDK가 전체 프로필을 받아 Helper·기기 연결과 공유한다. iPhone은 phone, iPad는 tablet으로 보고하며 각각 2대 제한이다. |
-| QR 페어링 | Devices → Pair desktop → Scan QR code에서 데스크톱 코드를 촬영한다. 로컬 호스트의 Files 접근 후 완료를 표시한다. 카메라 권한 거부 시 설정 열기를 제공하고 영상은 저장·전송하지 않는다. [Pairing.md](Pairing.md) 참조. |
-| 원본 저장소 | 동일 App Group의 `Society.societycontainer` 패키지 하나에 UUID와 9개 영역을 유지한다. 로그인 암호문·Helper 상태·캐시는 `.society-runtime/` 아래에 보관하며, 동기화 상태와 잠금도 SDK가 관리하는 패키지 내부 경로에 둔다. |
-| 앱 탐색 | 9개 영역을 모두 탐색한다. 파일·폴더를 한 번 탭하여 열며 이미지·문서는 QuickLook으로 표시한다. 미리보기를 지원하지 않는 파일에는 오류를 표시한다. |
-| OS 드라이브 | 앱에 File Provider 확장을 포함한다. 파일 앱의 Society 루트는 `Society.societycontainer/Files/`의 내용만 제공한다. 나머지 8개 영역과 `.society-runtime/`의 운영 상태는 공개하지 않는다. |
-| 모델 입력 | `Import models…`와 파일 앱의 드래그를 지원한다. 두 확장자 `.safetensor`·`.safetensors`를 [자동 분류](Models.md)하여 `Models/<유형>/`으로 복사한다. |
-| 파일 제공자 접근 | 선택기에서 받은 원본 NSURL을 유지하고 보안 범위·파일 조정 안에서 복사한다. 취소·중복 이름·다중 입력·원자적 완료 처리는 기존 importer와 공유한다. |
-| 앱 간 공유 | 같은 App Group entitlement와 `SocietyAppGroup`을 가진 iisacc 앱이 `SharedStorage::open()`으로 동일 원본 모델·생성 기록을 이용한다. 다른 소비 앱에는 File Provider를 중복 설치하지 않는다. |
-| Helper 수신 | 실행 중 내장 수신기가 영속 outbox를 inbox로 옮긴다. Society가 중단되어도 다른 실행 중 앱은 outbox에 데이터를 저장할 수 있다. |
+- 기능: iisacc 계정; iOS 동작: 공통 LVRS 패널에서 이메일·비밀번호만 입력한다. 계정 SDK가 전체 프로필을 받아 Helper·기기 연결과 공유한다. iPhone은 phone, iPad는 tablet으로 보고하며 각각 2대 제한이다.
+- 기능: QR 페어링; iOS 동작: Devices → Pair desktop → Scan QR code에서 데스크톱 코드를 촬영한다. 로컬 호스트의 Files 접근 후 완료를 표시한다. 카메라 권한 거부 시 설정 열기를 제공하고 영상은 저장·전송하지 않는다. [Pairing.md](Pairing.md) 참조.
+- 기능: 원본 저장소; iOS 동작: 동일 App Group의 `Society.societycontainer` 패키지 하나에 UUID와 9개 영역을 유지한다. 로그인 암호문·Helper 상태·캐시는 `.society-runtime/` 아래에 보관하며, 동기화 상태와 잠금도 SDK가 관리하는 패키지 내부 경로에 둔다.
+- 기능: 앱 탐색; iOS 동작: 9개 영역을 모두 탐색한다. 파일·폴더를 한 번 탭하여 열며 이미지·문서는 QuickLook으로 표시한다. 미리보기를 지원하지 않는 파일에는 오류를 표시한다.
+- 기능: OS 드라이브; iOS 동작: 앱에 File Provider 확장을 포함한다. 파일 앱의 Society 루트는 `Society.societycontainer/Files/`의 내용만 제공한다. 나머지 8개 영역과 `.society-runtime/`의 운영 상태는 공개하지 않는다.
+- 기능: 모델 입력; iOS 동작: `Import models…`와 파일 앱의 드래그를 지원한다. 두 확장자 `.safetensor`·`.safetensors`를 [자동 분류](Models.md)하여 `Models/<유형>/`으로 복사한다.
+- 기능: 파일 제공자 접근; iOS 동작: 선택기에서 받은 원본 NSURL을 유지하고 보안 범위·파일 조정 안에서 복사한다. 취소·중복 이름·다중 입력·원자적 완료 처리는 기존 importer와 공유한다.
+- 기능: 앱 간 공유; iOS 동작: 같은 App Group entitlement와 `SocietyAppGroup`을 가진 iisacc 앱이 `SharedStorage::open()`으로 동일 원본 모델·생성 기록을 이용한다. 다른 소비 앱에는 File Provider를 중복 설치하지 않는다.
+- 기능: Helper 수신; iOS 동작: 실행 중 내장 수신기가 영속 outbox를 inbox로 옮긴다. Society가 중단되어도 다른 실행 중 앱은 outbox에 데이터를 저장할 수 있다.
 
 ## 실행 수명과 보존
 

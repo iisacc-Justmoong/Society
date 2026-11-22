@@ -1,0 +1,190 @@
+import vm NativeSpaceViewModel
+
+Window(accent: .green) {
+    HStack(id: "space-root", width: vm.viewportWidth, height: vm.viewportHeight, backgroundColor: Color.window,
+           spacing: Metric.space24, alignment: .top, leftPadding: Metric.space24, rightPadding: Metric.space24, topPadding: Metric.space16) {
+        VStack(width: vm.mainWidth, spacing: Metric.space12, alignment: .leading) {
+            HStack(width: vm.mainWidth, spacing: Metric.space8) {
+                Label(id: "space-title", text: "Space", style: .title)
+                Spacer()
+                LabelButton(id: "space-sessions-toggle", text: "Sessions", onClick: vm.toggleSessionManager)
+                Label(text: vm.sessionState, style: .caption)
+            }
+            Label(text: "Idea Discovery · Exploration session", style: .caption)
+            Label(text: vm.agentStatus, style: .caption, visible: !vm.panelVisible)
+            ScrollView(id: "space-compact-conversation", visible: !vm.panelVisible && vm.hasMessages,
+                       width: vm.mainWidth, height: Metric.size140) {
+                VStack(spacing: Metric.space8, alignment: .leading) {
+                    for (entry in vm.messages, key: entry.id, id: "space-compact-messages", spacing: Metric.space8) {
+                        VStack(spacing: Metric.space4, alignment: .leading) {
+                            Label(text: entry.title, style: .body)
+                            Label(text: entry.detail, style: .caption)
+                        }
+                    }
+                }
+            }
+            VStack(id: "space-session", visible: vm.sessionManagerVisible, width: vm.mainWidth, padding: Metric.space16, spacing: Metric.space8,
+                   alignment: .leading, backgroundColor: Color.surfaceSolid, cornerRadius: Metric.radius8) {
+                HStack(width: vm.mainWidth - Metric.space32, spacing: Metric.space8) {
+                    Label(text: "Exploration session", style: .body)
+                    Spacer()
+                    LabelButton(id: "space-new-session", text: "New session", enabled: vm.storeAvailable, onClick: vm.beginSession)
+                }
+                Label(text: vm.sessionSummary, style: .caption)
+                HStack(id: "space-create-form", visible: vm.creatingSession, spacing: Metric.space8) {
+                    InputField(id: "space-session-title", text: vm.sessionDraft, placeholder: "Session title", surface: .flat,
+                               width: vm.fieldWidth, onEdited: vm.sessionEdited)
+                    LabelButton(id: "space-create-session", text: "Create", enabled: vm.canCreateSession, onClick: vm.createSession)
+                    LabelButton(text: "Cancel", onClick: vm.cancelSession)
+                }
+                ScrollView(id: "space-session-scroll", width: vm.mainWidth - Metric.space32, height: Metric.size22, horizontal: true) {
+                    HStack(spacing: Metric.space4) {
+                        for (session in vm.sessions, key: session.id, id: "space-sessions", horizontal: true, spacing: Metric.space4) {
+                            LabelButton(text: session.title, onClick: callback(vm.sessionAction(session.id)))
+                        }
+                    }
+                }
+                HStack(visible: vm.hasSession, spacing: Metric.space8) {
+                    InputField(id: "space-idea-title", text: vm.ideaDraft, placeholder: "Name a new idea...", surface: .flat,
+                               width: vm.fieldWidth, onEdited: vm.ideaEdited)
+                    LabelButton(id: "space-add-idea", text: "Add idea", enabled: vm.canAddIdea, onClick: vm.addIdea)
+                }
+                Label(text: "Create a session to start collecting ideas.", style: .caption, visible: !vm.hasSession)
+                Label(id: "space-status", text: vm.status, style: .caption)
+            }
+            ZStack(id: "space-graph", width: vm.mainWidth, height: vm.graphHeight, alignment: .center,
+                   backgroundColor: Color.canvas, cornerRadius: Metric.radius8) {
+                Image(id: "space-links", source: vm.connectionsImage, width: vm.mainWidth, height: vm.graphHeight,
+                      fit: .Stretch, allowEmpty: true, accessibilityName: "Idea connections")
+                HStack(width: vm.mainWidth, height: vm.graphHeight, spacing: Metric.space8, alignment: .center) {
+                    ScrollView(id: "space-left-ideas", width: vm.columnWidth, height: vm.columnHeight) {
+                        VStack(width: vm.columnWidth, spacing: Metric.space16, alignment: .leading) {
+                            for (idea in vm.leftIdeas, key: idea.id, id: "space-left-nodes", spacing: Metric.space16) {
+                                VStack(width: vm.columnWidth, padding: Metric.space8, spacing: Metric.space4,
+                                       alignment: .leading, backgroundColor: Color.surfaceSolid, cornerRadius: Metric.radius8) {
+                                    ListItem(id: "space-idea-button", type: .Navigation, label: idea.title,
+                                             width: vm.columnWidth - Metric.space16, height: Metric.size32,
+                                             selected: idea.selected, showChevron: false,
+                                             onClick: callback(vm.ideaAction(idea.id)))
+                                    Label(text: idea.content, style: .caption)
+                                }
+                            }
+                        }
+                    }
+                    Spacer()
+                    Image(id: "space-orb", source: vm.orbImage, width: Metric.size140 + Metric.space24 + Metric.space4,
+                          height: Metric.size140 + Metric.space24 + Metric.space4, fit: .Contain,
+                          allowEmpty: true, accessibilityName: "Space AI")
+                    Spacer()
+                    ScrollView(id: "space-right-ideas", width: vm.columnWidth, height: vm.columnHeight) {
+                        VStack(width: vm.columnWidth, spacing: Metric.space16, alignment: .leading) {
+                            for (idea in vm.rightIdeas, key: idea.id, id: "space-right-nodes", spacing: Metric.space16) {
+                                VStack(width: vm.columnWidth, padding: Metric.space8, spacing: Metric.space4,
+                                       alignment: .leading, backgroundColor: Color.surfaceSolid, cornerRadius: Metric.radius8) {
+                                    ListItem(id: "space-idea-button", type: .Navigation, label: idea.title,
+                                             width: vm.columnWidth - Metric.space16, height: Metric.size32,
+                                             selected: idea.selected, showChevron: false,
+                                             onClick: callback(vm.ideaAction(idea.id)))
+                                    Label(text: idea.content, style: .caption)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            VStack(id: "space-conversation", width: vm.mainWidth, padding: Metric.space16, spacing: Metric.space8,
+                   alignment: .leading, backgroundColor: Color.surfaceSolid, cornerRadius: Metric.radius8) {
+                InputField(id: "space-agent-prompt", text: vm.promptDraft, placeholder: "Message Space...",
+                           surface: .flat, size: .compact, width: vm.mainWidth - Metric.space32, onEdited: vm.promptEdited, onSubmit: vm.send)
+                Label(text: vm.microphoneStatus, style: .caption, visible: vm.recording)
+                HStack(visible: vm.reasoningOpen, spacing: Metric.space8) {
+                    LabelButton(id: "space-reasoning-low", text: "Light", onClick: vm.reasoningLow)
+                    LabelButton(id: "space-reasoning-standard", text: "Standard", onClick: vm.reasoningStandard)
+                    LabelButton(id: "space-reasoning-high", text: "Deep", onClick: vm.reasoningHigh)
+                }
+                ScrollView(id: "space-attachments", visible: vm.hasAttachments, width: vm.mainWidth - Metric.space32,
+                           height: Metric.size22, horizontal: true) {
+                    HStack(spacing: Metric.space4) {
+                        for (file in vm.attachments, key: file.id, id: "space-attachment-items", horizontal: true, spacing: Metric.space4) {
+                            LabelButton(text: file.title, onClick: callback(vm.removeAttachmentAction(file.id)))
+                        }
+                    }
+                }
+                HStack(width: vm.mainWidth - Metric.space32, spacing: Metric.space8) {
+                    IconButton(id: "space-add-attachment", iconName: "generaladd", enabled: vm.hasSession,
+                               accessibilityName: "Add files and photos", onClick: vm.attach)
+                    DropdownButton(id: "space-reasoning", text: vm.reasoningLabel, enabled: vm.hasSession, onClick: vm.toggleReasoning)
+                    Spacer()
+                    IconButton(id: "space-microphone", iconName: "cwmMicOn", enabled: vm.hasSession,
+                               accessibilityName: "Microphone mode", onClick: vm.microphone)
+                }
+            }
+            if (!vm.panelVisible && vm.hasSelection) {
+                VStack(width: vm.mainWidth, padding: Metric.space16, spacing: Metric.space8, alignment: .leading,
+                       backgroundColor: Color.surfaceSolid, cornerRadius: Metric.radius8) {
+                    Label(text: vm.selectedTitle, style: .body)
+                    Label(text: vm.selectedContent, style: .caption)
+                    Label(text: vm.selectedProvenance, style: .caption)
+                    Label(text: vm.selectedEvaluation, style: .caption)
+                    LabelButton(text: "Back to activity", onClick: vm.clearSelection)
+                }
+            }
+        }
+        VStack(id: "space-agent-panel", visible: vm.panelVisible, width: vm.panelWidth, height: vm.panelHeight,
+               padding: Metric.space16, spacing: Metric.space12, alignment: .leading,
+               backgroundColor: Color.surfaceSolid, cornerRadius: Metric.radius8) {
+            ScrollView(id: "space-idea-detail", visible: vm.hasSelection, width: vm.panelWidth - Metric.space32,
+                       height: vm.panelHeight - Metric.space32) {
+                VStack(spacing: Metric.space12, alignment: .leading) {
+                    HStack(width: vm.panelWidth - Metric.space32) {
+                        Label(text: "Idea", style: .title)
+                        Spacer()
+                        LabelButton(text: "Activity", onClick: vm.clearSelection)
+                    }
+                    Label(text: "SELECTED · SAVED", style: .caption)
+                    Label(id: "space-selected-title", text: vm.selectedTitle, style: .title)
+                    Label(text: vm.selectedContent, style: .body)
+                    Label(text: "PROVENANCE", style: .caption)
+                    Label(text: vm.selectedProvenance, style: .body)
+                    Label(text: "EVALUATION · UNVERIFIED", style: .caption)
+                    Label(text: vm.selectedEvaluation, style: .body)
+                    Label(text: "CONNECTIONS", style: .caption)
+                    for (edge in vm.relationships, key: edge.id, id: "space-relationships", spacing: Metric.space8) {
+                        VStack(spacing: Metric.space4, alignment: .leading) {
+                            Label(text: edge.title, style: .body)
+                            Label(text: edge.detail, style: .caption)
+                        }
+                    }
+                    HStack(spacing: Metric.space8) {
+                        LabelButton(text: "Explore deeper", enabled: false)
+                        LabelButton(id: "space-idea-merge", text: "Select for merge", enabled: false)
+                    }
+                    LabelButton(text: "Promote to project", enabled: false)
+                }
+            }
+            VStack(visible: !vm.hasSelection, spacing: Metric.space12, alignment: .leading) {
+                Label(text: "Agent activity", style: .title)
+                Label(text: vm.sessionTitle, style: .body)
+                Label(text: vm.sessionGoal, style: .caption)
+                Label(text: vm.agentStatus, style: .caption)
+                ScrollView(id: "space-activity-scroll", width: vm.panelWidth - Metric.space32,
+                           height: vm.activityHeight) {
+                    VStack(spacing: Metric.space12, alignment: .leading) {
+                        for (entry in vm.messages, key: entry.id, id: "space-messages", spacing: Metric.space12) {
+                            VStack(spacing: Metric.space4, alignment: .leading) {
+                                Label(text: entry.title, style: .body)
+                                Label(text: entry.detail, style: .caption)
+                            }
+                        }
+                        for (entry in vm.activities, key: entry.id, id: "space-activity", spacing: Metric.space12) {
+                            VStack(spacing: Metric.space4, alignment: .leading) {
+                                Label(text: entry.title, style: .body)
+                                Label(text: entry.detail, style: .caption)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

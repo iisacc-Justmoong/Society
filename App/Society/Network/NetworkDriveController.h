@@ -162,6 +162,9 @@ private:
     void updateSynchronization();
     void invalidateHostConnection();
     QString accountSyncScope() const;
+    // Compare the selected desktop package with the signed-in account's drive.
+    // A mismatch denies synchronization authority without denying local access.
+    bool localAccountDriveMismatch() const;
     QString m_registeredHost, m_registeredContainer, m_registeredScope;
     QString accountHost() const;
     QString accountContainer() const;

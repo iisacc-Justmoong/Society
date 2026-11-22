@@ -10,9 +10,9 @@
   },
   "source": {
     "path": "docs/OfflineStartupVerification.md",
-    "sha256": "48f76d7742d1ca7252a0da4de1802d9111cb8288e28b42b82a1fcca8b710587d",
-    "bytes": 4175,
-    "line_count": 62,
+    "sha256": "a1719ce6a350b5afdc4613ff0e2f4845d8ec81d41d15007570931472b95b0a1d",
+    "bytes": 4331,
+    "line_count": 60,
     "encoding": "utf-8",
     "language": "ko"
   },
@@ -142,83 +142,73 @@
     },
     {
       "id": "b000017",
-      "kind": "table",
       "start_line": 26,
-      "end_line": 31,
-      "raw": "| 실행 | 로컬 작업공간 준비 | 통신 연결 | 화면 상태 |\n| --- | ---: | ---: | --- |\n| 미연결 1, PID 1042 |871 ms| 연결 비활성 | Dashboard·Storage·Tools 전환, 16.16초 동안 화면 유지 |\n| 미연결 2, PID 1044 |810 ms| 연결 비활성 | Dashboard·Storage·Tools 전환, 16.01초 동안 화면 유지 |\n| 자동 연결 1, PID 1048 |1,277 ms|2,551 ms| 연결 전후 화면 유지 |\n| 자동 연결 2, PID 1050 |1,313 ms|2,320 ms| 연결 전후 화면 유지 |\n",
-      "columns": [
-        "실행",
-        "로컬 작업공간 준비",
-        "통신 연결",
-        "화면 상태"
-      ],
-      "rows": [
-        [
-          "미연결 1, PID 1042",
-          "871 ms",
-          "연결 비활성",
-          "Dashboard·Storage·Tools 전환, 16.16초 동안 화면 유지"
-        ],
-        [
-          "미연결 2, PID 1044",
-          "810 ms",
-          "연결 비활성",
-          "Dashboard·Storage·Tools 전환, 16.01초 동안 화면 유지"
-        ],
-        [
-          "자동 연결 1, PID 1048",
-          "1,277 ms",
-          "2,551 ms",
-          "연결 전후 화면 유지"
-        ],
-        [
-          "자동 연결 2, PID 1050",
-          "1,313 ms",
-          "2,320 ms",
-          "연결 전후 화면 유지"
-        ]
+      "end_line": 29,
+      "raw": "- 실행: 미연결 1, PID 1042; 로컬 작업공간 준비: 871 ms; 통신 연결: 연결 비활성; 화면 상태: Dashboard·Storage·Tools 전환, 16.16초 동안 화면 유지\n- 실행: 미연결 2, PID 1044; 로컬 작업공간 준비: 810 ms; 통신 연결: 연결 비활성; 화면 상태: Dashboard·Storage·Tools 전환, 16.01초 동안 화면 유지\n- 실행: 자동 연결 1, PID 1048; 로컬 작업공간 준비: 1,277 ms; 통신 연결: 2,551 ms; 화면 상태: 연결 전후 화면 유지\n- 실행: 자동 연결 2, PID 1050; 로컬 작업공간 준비: 1,313 ms; 통신 연결: 2,320 ms; 화면 상태: 연결 전후 화면 유지\n",
+      "kind": "list",
+      "items": [
+        {
+          "marker": "-",
+          "text": "실행: 미연결 1, PID 1042; 로컬 작업공간 준비: 871 ms; 통신 연결: 연결 비활성; 화면 상태: Dashboard·Storage·Tools 전환, 16.16초 동안 화면 유지",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "실행: 미연결 2, PID 1044; 로컬 작업공간 준비: 810 ms; 통신 연결: 연결 비활성; 화면 상태: Dashboard·Storage·Tools 전환, 16.01초 동안 화면 유지",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "실행: 자동 연결 1, PID 1048; 로컬 작업공간 준비: 1,277 ms; 통신 연결: 2,551 ms; 화면 상태: 연결 전후 화면 유지",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "실행: 자동 연결 2, PID 1050; 로컬 작업공간 준비: 1,313 ms; 통신 연결: 2,320 ms; 화면 상태: 연결 전후 화면 유지",
+          "checked": null
+        }
       ]
     },
     {
       "id": "b000018",
       "kind": "blank",
-      "start_line": 32,
-      "end_line": 32,
+      "start_line": 30,
+      "end_line": 30,
       "raw": "\n"
     },
     {
       "id": "b000019",
       "kind": "paragraph",
-      "start_line": 33,
-      "end_line": 37,
+      "start_line": 31,
+      "end_line": 35,
       "raw": "미연결 probe는 해당 프로세스의 네트워크 런타임만 비활성화했다. 기기의 비행기 모드를\n조작한 테스트가 아니다. 모든 실행에서 `onboardingRequired=false`, `shellVisible=true`를\n확인했다. 자동 연결 측정 종료 시점에는 `hostConnectionReady=false`였으므로 이 기록을\n전체 동기화 완료의 증거로 해석하지 않는다. 연결 없이 화면과 로컬 작업공간이 먼저\n준비되고 이후 통신 연결이 이루어졌다는 증거이다.\n"
     },
     {
       "id": "b000020",
       "kind": "blank",
-      "start_line": 38,
-      "end_line": 38,
+      "start_line": 36,
+      "end_line": 36,
       "raw": "\n"
     },
     {
       "id": "b000021",
       "kind": "paragraph",
-      "start_line": 39,
-      "end_line": 41,
+      "start_line": 37,
+      "end_line": 39,
       "raw": "최초 반복 시 devicectl이 한 번 오류 10004를 반환했다. 새 크래시 기록은 없었으며,\n동일 명령 재실행으로 미연결 2회 및 자동 연결 2회의 검증을 완료했다.\n최종 크래시 목록에는 수정 이전 09:56, 14:34, 16:18의 네 기록만 존재했다.\n"
     },
     {
       "id": "b000022",
       "kind": "blank",
-      "start_line": 42,
-      "end_line": 42,
+      "start_line": 40,
+      "end_line": 40,
       "raw": "\n"
     },
     {
       "id": "b000023",
       "kind": "heading",
-      "start_line": 43,
-      "end_line": 43,
+      "start_line": 41,
+      "end_line": 41,
       "raw": "## 빌드와 회귀 검증\n",
       "level": 2,
       "title": "빌드와 회귀 검증"
@@ -226,15 +216,15 @@
     {
       "id": "b000024",
       "kind": "blank",
-      "start_line": 44,
-      "end_line": 44,
+      "start_line": 42,
+      "end_line": 42,
       "raw": "\n"
     },
     {
       "id": "b000025",
       "kind": "list",
-      "start_line": 45,
-      "end_line": 51,
+      "start_line": 43,
+      "end_line": 49,
       "raw": "- iOS 출시: `BUILD SUCCEEDED`.\n- 앱, File Provider, Live Activity 서명·프로비저닝·필수 런타임 검사 통과.\n- 단일 앱 감사: `build/bin/Society.app` 하나, 중첩 앱 없음.\n- 설치 SDK 헤더 변경 후 증분 재컴파일 테스트 1개 및 iOS 빌드 계약 테스트 3개 통과.\n- 최종 관련 QtTest 결과: 페어링 9/9, 모바일 클라이언트 7/7, 미연결 화면 3/3 통과.\n  이 수치는 각 실행의 init/cleanup 항목을 포함한다.\n- 모바일 서비스 생명주기 CTest 통과, `git diff --check` 통과.\n",
       "items": [
         {
@@ -272,29 +262,29 @@
     {
       "id": "b000026",
       "kind": "blank",
-      "start_line": 52,
-      "end_line": 52,
+      "start_line": 50,
+      "end_line": 50,
       "raw": "\n"
     },
     {
       "id": "b000027",
       "kind": "paragraph",
-      "start_line": 53,
-      "end_line": 56,
+      "start_line": 51,
+      "end_line": 54,
       "raw": "전체 Pairing/ClientOnlyNetwork suite는 통과로 보고하지 않는다. 실행 중 기존 인증\nfixture 관련 6개 실패 및 60초 제한시간 초과가 관측되었다. 최종 검증은 실제 계정\nfixture의 최초 연결·캐시 복원·QR 파일 읽기와 이번 변경에 관련된 테스트로 범위를\n명시했으며, 전체 suite의 정비는 별도 잔여 사항이다.\n"
     },
     {
       "id": "b000028",
       "kind": "blank",
-      "start_line": 57,
-      "end_line": 57,
+      "start_line": 55,
+      "end_line": 55,
       "raw": "\n"
     },
     {
       "id": "b000029",
       "kind": "paragraph",
-      "start_line": 58,
-      "end_line": 62,
+      "start_line": 56,
+      "end_line": 60,
       "raw": "원시 증거는 `build/offline-startup-20260929/`에 보존했다. 핵심 파일은\n`latest.ips`, `ios-build.log`, `bundle-verification.json`, `install.json`,\n`offline-device-retry/summary.json`, `reconnect-device/summary.json`,\n`normal-processes-final.json`, `crashes-final.json`, `app-audit.json` 및\n`pairing-final.log`, `client-final.log`, `shell-final.log`이다.\n"
     }
   ],
@@ -329,28 +319,28 @@
       "level": 2,
       "title": "빌드와 회귀 검증",
       "anchor": "빌드와-회귀-검증",
-      "start_line": 43
+      "start_line": 41
     }
   ],
   "indexes": {
     "directive_candidates": [
       {
         "block_id": "b000019",
-        "line": 36,
+        "line": 34,
         "text": "전체 동기화 완료의 증거로 해석하지 않는다. 연결 없이 화면과 로컬 작업공간이 먼저",
         "basis": "lexical_match",
         "context": "paragraph"
       },
       {
         "block_id": "b000025",
-        "line": 46,
+        "line": 44,
         "text": "- 앱, File Provider, Live Activity 서명·프로비저닝·필수 런타임 검사 통과.",
         "basis": "lexical_match",
         "context": "list"
       },
       {
         "block_id": "b000027",
-        "line": 53,
+        "line": 51,
         "text": "전체 Pairing/ClientOnlyNetwork suite는 통과로 보고하지 않는다. 실행 중 기존 인증",
         "basis": "lexical_match",
         "context": "paragraph"
@@ -358,43 +348,7 @@
     ],
     "commands": [],
     "links": [],
-    "tables": [
-      {
-        "block_id": "b000017",
-        "columns": [
-          "실행",
-          "로컬 작업공간 준비",
-          "통신 연결",
-          "화면 상태"
-        ],
-        "rows": [
-          [
-            "미연결 1, PID 1042",
-            "871 ms",
-            "연결 비활성",
-            "Dashboard·Storage·Tools 전환, 16.16초 동안 화면 유지"
-          ],
-          [
-            "미연결 2, PID 1044",
-            "810 ms",
-            "연결 비활성",
-            "Dashboard·Storage·Tools 전환, 16.01초 동안 화면 유지"
-          ],
-          [
-            "자동 연결 1, PID 1048",
-            "1,277 ms",
-            "2,551 ms",
-            "연결 전후 화면 유지"
-          ],
-          [
-            "자동 연결 2, PID 1050",
-            "1,313 ms",
-            "2,320 ms",
-            "연결 전후 화면 유지"
-          ]
-        ]
-      }
-    ]
+    "tables": []
   },
   "provenance": {
     "generator": "workspace-docs",

@@ -43,15 +43,13 @@ SHA-256은 모두 `fec37ef2452ec4120b02221a3979a75b564ebac67559c227e688ead75483d
 SDK가 출력 전체를 다시 읽어 각 텐서와 원본 파일의 SHA-256을 검증하고
 `verified: true`를 반환한 뒤 최종 경로로 저장하였다.
 
-| 항목 | 결과 |
-| --- | --- |
-| 출력 크기 | 37,463,275,686바이트 |
-| 구성요소 | 6개 |
-| 포함 파일 | 메인 체크포인트, Gemma GGUF, 선택 업스케일러 3개 |
-| 중복 제외 | video VAE, audio VAE, projection 3개 |
-| 중복 데이터 절감 | 4,129,196,430바이트 |
-| 잘못된 파일 | 32바이트 인증 실패 파일 1개 |
-| SHA-256 | `f9c0e70c6519efafd084cb32dc8c5e1f86b059dcea048c85ef75863a88b1fe41` |
+- 항목: 출력 크기; 결과: 37,463,275,686바이트
+- 항목: 구성요소; 결과: 6개
+- 항목: 포함 파일; 결과: 메인 체크포인트, Gemma GGUF, 선택 업스케일러 3개
+- 항목: 중복 제외; 결과: video VAE, audio VAE, projection 3개
+- 항목: 중복 데이터 절감; 결과: 4,129,196,430바이트
+- 항목: 잘못된 파일; 결과: 32바이트 인증 실패 파일 1개
+- 항목: SHA-256; 결과: `f9c0e70c6519efafd084cb32dc8c5e1f86b059dcea048c85ef75863a88b1fe41`
 
 SDK 보고서는 `ltx-create-report.json`, 단계별 실제 진행은 `ltx-create.ndjson`이다.
 추가 독립 검사에서는 Python의 별도 헤더 리더와 Rust `safetensors.safe_open`으로

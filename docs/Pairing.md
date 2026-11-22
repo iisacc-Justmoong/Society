@@ -66,17 +66,15 @@ QR 수명은 60초이고 한 번만 소비한다. 재발급·창 닫기·취소�
 
 ## 코드 책임
 
-| 구성 | 역할 |
-| --- | --- |
-| `NetworkDevices.qml` | 데스크탑 QR 표시 / 모바일 스캔 진입과 로컬 Files 탐색 |
-| `PairingPanel.qml` | 플랫폼 역할에 따른 QR·스캔 버튼·진행·만료·완료 표시 |
-| `DevicePairing` | UI 상태와 `NetworkDriveController.localPeer()` 연결 |
-| `NetworkDriveController` | 플랫폼 역할·컨테이너 수명·Files 공개·다운로드 관리 |
-| `iiWebServer::LanPeer` | 직접 TLS 리스너/클라이언트, 일회용 키, Files 확인, 연결 수명, 요청·응답 |
-| `iiWebServer::LanLink` | 버전 2 QR의 사설 IPv4 주소·포트·인증서 지문·코드·만료 정보 검증 |
-| `PairingQr` | 고정된 Nayuki C++ 라이브러리로 QR 행렬 생성·정수 배율 렌더링 |
-| `IosQrScanner.mm` / `AppleQrDecoder` | AVFoundation 메타데이터·실제 프레임의 Vision QR 해독, 초점·안내·권한·중단·취소 |
-| `AndroidQrScanner.cpp` / `SocietyActivity.java` | JNI 콜백과 앱 내부 QR 카메라, 권한·중단·취소 |
+- 구성: `NetworkDevices.qml`; 역할: 데스크탑 QR 표시 / 모바일 스캔 진입과 로컬 Files 탐색
+- 구성: `PairingPanel.qml`; 역할: 플랫폼 역할에 따른 QR·스캔 버튼·진행·만료·완료 표시
+- 구성: `DevicePairing`; 역할: UI 상태와 `NetworkDriveController.localPeer()` 연결
+- 구성: `NetworkDriveController`; 역할: 플랫폼 역할·컨테이너 수명·Files 공개·다운로드 관리
+- 구성: `iiWebServer::LanPeer`; 역할: 직접 TLS 리스너/클라이언트, 일회용 키, Files 확인, 연결 수명, 요청·응답
+- 구성: `iiWebServer::LanLink`; 역할: 버전 2 QR의 사설 IPv4 주소·포트·인증서 지문·코드·만료 정보 검증
+- 구성: `PairingQr`; 역할: 고정된 Nayuki C++ 라이브러리로 QR 행렬 생성·정수 배율 렌더링
+- 구성: `IosQrScanner.mm` / `AppleQrDecoder`; 역할: AVFoundation 메타데이터·실제 프레임의 Vision QR 해독, 초점·안내·권한·중단·취소
+- 구성: `AndroidQrScanner.cpp` / `SocietyActivity.java`; 역할: JNI 콜백과 앱 내부 QR 카메라, 권한·중단·취소
 
 주소는 활성 Wi-Fi/Ethernet을 우선하여 최대 8개 사설 IPv4 주소를 포함한다. 모바일은 이 주소만 순서대로 시도한다. DNS 이름, 공인 인터넷 주소와 링크 로컬 metadata 주소를 QR 연결 대상으로 허용하지 않는다. 자동 감지에는 loopback을 넣지 않으며 SDK 테스트는 명시한 loopback TLS 주소를 사용할 수 있다. IPv6 전용 LAN은 현재 지원하지 않는다. 공유기의 client isolation, VPN 분리, 방화벽 또는 로컬 네트워크 권한 거부로 접속이 막힐 수 있다.
 

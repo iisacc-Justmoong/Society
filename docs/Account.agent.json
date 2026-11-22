@@ -10,9 +10,9 @@
   },
   "source": {
     "path": "docs/Account.md",
-    "sha256": "3bf662e3b7fee3b90946cec600d595e8b8728451b96e701ef37ce28bea1d3a39",
-    "bytes": 16131,
-    "line_count": 169,
+    "sha256": "7dd0ee3d9062ba9d6eb867a1d66fea437c71c68adc62b9711a6370746bd2ac9a",
+    "bytes": 16168,
+    "line_count": 167,
     "encoding": "utf-8",
     "language": "ko"
   },
@@ -250,55 +250,54 @@
     },
     {
       "id": "b000029",
-      "kind": "table",
       "start_line": 57,
-      "end_line": 61,
-      "raw": "| 플랫폼 | 식별자와 유형 |\n| --- | --- |\n| 데스크톱 | Qt의 machineUniqueId를 iisacc 접두사와 함께 SHA-256으로 해시, `pc` |\n| iOS/iPadOS | identifierForVendor 해시, 실제 userInterfaceIdiom으로 `phone`/`tablet` 구분 |\n| Android | 서명·사용자·기기 범위의 ANDROID_ID 해시, smallestScreenWidthDp 600 이상은 `tablet`, 그 외 `phone` |\n",
-      "columns": [
-        "플랫폼",
-        "식별자와 유형"
-      ],
-      "rows": [
-        [
-          "데스크톱",
-          "Qt의 machineUniqueId를 iisacc 접두사와 함께 SHA-256으로 해시, `pc`"
-        ],
-        [
-          "iOS/iPadOS",
-          "identifierForVendor 해시, 실제 userInterfaceIdiom으로 `phone`/`tablet` 구분"
-        ],
-        [
-          "Android",
-          "서명·사용자·기기 범위의 ANDROID_ID 해시, smallestScreenWidthDp 600 이상은 `tablet`, 그 외 `phone`"
-        ]
+      "end_line": 59,
+      "raw": "- 플랫폼: 데스크톱; 식별자와 유형: Qt의 machineUniqueId를 iisacc 접두사와 함께 SHA-256으로 해시, `pc`\n- 플랫폼: iOS/iPadOS; 식별자와 유형: identifierForVendor 해시, 실제 userInterfaceIdiom으로 `phone`/`tablet` 구분\n- 플랫폼: Android; 식별자와 유형: 서명·사용자·기기 범위의 ANDROID_ID 해시, smallestScreenWidthDp 600 이상은 `tablet`, 그 외 `phone`\n",
+      "kind": "list",
+      "items": [
+        {
+          "marker": "-",
+          "text": "플랫폼: 데스크톱; 식별자와 유형: Qt의 machineUniqueId를 iisacc 접두사와 함께 SHA-256으로 해시, `pc`",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "플랫폼: iOS/iPadOS; 식별자와 유형: identifierForVendor 해시, 실제 userInterfaceIdiom으로 `phone`/`tablet` 구분",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "플랫폼: Android; 식별자와 유형: 서명·사용자·기기 범위의 ANDROID_ID 해시, smallestScreenWidthDp 600 이상은 `tablet`, 그 외 `phone`",
+          "checked": null
+        }
       ]
     },
     {
       "id": "b000030",
       "kind": "blank",
-      "start_line": 62,
-      "end_line": 62,
+      "start_line": 60,
+      "end_line": 60,
       "raw": "\n"
     },
     {
       "id": "b000031",
       "kind": "paragraph",
-      "start_line": 63,
-      "end_line": 66,
+      "start_line": 61,
+      "end_line": 64,
       "raw": "OS가 식별자를 제공하지 않을 때만 QSettings의 비밀값이 아닌 설치 ID를 생성해 재사용한다.\n앱 ID는 모든 플랫폼에서 `com.iisacc.society`, 버전은 CMake 프로젝트 버전이다.\n이 값은 앱이 보고하는 기기 정보이며 하드웨어 증명이 아니다. OS 초기화·공급자 앱 전체 삭제·앱 서명 변경 등은\n식별자를 바꿀 수 있으므로 기존 기기는 iisacc.com의 로그인 기기 관리에서 해제할 수 있다.\n"
     },
     {
       "id": "b000032",
       "kind": "blank",
-      "start_line": 67,
-      "end_line": 67,
+      "start_line": 65,
+      "end_line": 65,
       "raw": "\n"
     },
     {
       "id": "b000033",
       "kind": "heading",
-      "start_line": 68,
-      "end_line": 68,
+      "start_line": 66,
+      "end_line": 66,
       "raw": "## 빌드와 검증\n",
       "level": 2,
       "title": "빌드와 검증"
@@ -306,127 +305,127 @@
     {
       "id": "b000034",
       "kind": "blank",
-      "start_line": 69,
-      "end_line": 69,
+      "start_line": 67,
+      "end_line": 67,
       "raw": "\n"
     },
     {
       "id": "b000035",
       "kind": "paragraph",
-      "start_line": 70,
-      "end_line": 75,
+      "start_line": 68,
+      "end_line": 73,
       "raw": "iiAccountManager **0.2.3**의 **Quick** 컴포넌트과 iiSocietyHelper **0.7.0** 이상이 필요하다. 기존 Qt Network·LVRS와\nOS API를 재사용하고 새로운 인증 라이브러리나 유료 서비스를 추가하지 않는다. iOS의 계정 SDK는 정적 라이브러리이다.\n`tools/build_ios.py`와 `tools/build_android.py`는 대상 ABI의 계정 SDK를 먼저 설치한 뒤 Helper·Society를 빌드한다.\nAndroid SDK별 빌드 디렉터리는 각 SDK의 `build/society-android`, 앱 전용 의존성 설치 위치는 Society의 `resources/dependencies/android/<ABI>/`이다.\n패키징용 JDK는 `--java-home`으로 지정한다. Qt의 Gradle과 호환되는 JDK 17 또는 21을 사용하며,\n이 작업에서는 설치된 CLion의 JBR 21을 사용했다. 시스템 기본 Java 설정은 변경하지 않는다.\n"
     },
     {
       "id": "b000036",
       "kind": "blank",
-      "start_line": 76,
-      "end_line": 76,
+      "start_line": 74,
+      "end_line": 74,
       "raw": "\n"
     },
     {
       "id": "b000037",
       "kind": "paragraph",
-      "start_line": 77,
-      "end_line": 81,
+      "start_line": 75,
+      "end_line": 79,
       "raw": "Android의 Qt Network는 OpenSSL 백엔드 플러그인과 TLS 공유 라이브러리를 함께 패키징해야 한다.\n`tools/build_android_openssl.py`가 Apache-2.0 라이선스의 **OpenSSL 3.5.8 LTS** 공식 소스를\nSHA-256 `a8f84a39918ec6415ce765d9b429d313ba97b8143169c172e734b9514464f5b2`로 검증하고\nNDK로 빌드한다. 기존 Qt 백엔드의 HTTPS 기능을 사용하기 위한 런타임 의존성으로, 자체 암호 코드는 추가하지 않는다.\n유지보수 지원은 2030-04-08까지이다. [공식 배포·라이선스·지원 기간](https://openssl-library.org/source/)\n"
     },
     {
       "id": "b000038",
       "kind": "blank",
-      "start_line": 82,
-      "end_line": 82,
+      "start_line": 80,
+      "end_line": 80,
       "raw": "\n"
     },
     {
       "id": "b000039",
       "kind": "paragraph",
-      "start_line": 83,
-      "end_line": 87,
+      "start_line": 81,
+      "end_line": 85,
       "raw": "빌드 산출물은 `build/android/openssl-3.5.8/<ABI>/lib`에 있으며 빌드 설정이 같으면 재사용한다.\nQt가 요구하는 `libcrypto_3.so`와 `libssl_3.so` 이름으로 빌드하고 upstream 심볼 버전은 유지한다.\n16 KiB 페이지 정렬을 적용한다. CMake의 `SOCIETY_ANDROID_OPENSSL_DIR`가 두 라이브러리를\n`QT_ANDROID_EXTRA_LIBS`에 등록하며 누락되면 구성을 실패시킨다. 라이선스 원문도 앱 리소스\n`:/licenses/openssl/LICENSE.txt`에 포함한다. [Qt Android OpenSSL 패키징 계약](https://doc.qt.io/qt-6.8/android-openssl-support.html)\n"
     },
     {
       "id": "b000040",
       "kind": "blank",
-      "start_line": 88,
-      "end_line": 88,
+      "start_line": 86,
+      "end_line": 86,
       "raw": "\n"
     },
     {
       "id": "b000041",
       "kind": "paragraph",
-      "start_line": 89,
-      "end_line": 92,
+      "start_line": 87,
+      "end_line": 90,
       "raw": "`Society.Account`는 합성 계정과 로컬 HTTP 서버로 AccountManager의 비밀번호→계정→갱신→로그아웃,\n전체 모델 공유, 잘못된 비밀번호·시간 초과·재시도, 객체 소멸, 데스크톱·휴대폰·가로 화면의 LVRS 패널을 검사하도록 정의한다. 2026-09-09 즉시 로그인 변경에서는 사용자 지시에 따라 이 테스트를 실행하지 않고 컴파일만 한다.\nSDK의 계정 네트워크 테스트도 `pc`, `tablet`, `phone` 모두를 검사한다.\n서버의 휴대폰 제한은 별도 로컬 Redis에서 동시 로그인·앱 공유·슬롯 해제를 검증한다.\n"
     },
     {
       "id": "b000042",
       "kind": "blank",
-      "start_line": 93,
-      "end_line": 93,
+      "start_line": 91,
+      "end_line": 91,
       "raw": "\n"
     },
     {
       "id": "b000043",
       "kind": "paragraph",
-      "start_line": 94,
-      "end_line": 101,
+      "start_line": 92,
+      "end_line": 99,
       "raw": "`Society.AndroidTlsBuild`는 다운로드 체크섬 불일치 차단과 Qt 라이브러리 이름/심볼 버전 패치를 검사한다.\n`SOCIETY_ACCOUNT_RUNTIME_PROBE=ON` 검증 빌드는 계정 패널을 열고 앱 자체 화면을\nAppDataLocation의 `account-runtime.png`로 저장한다. 별도 cookie jar로 인증정보 없이 공개 API를\nGET 조회하며 TLS 지원, OpenSSL 버전, 서버 인증서, HTTP 상태, 기기 유형과 앱 ID만 로그에 남긴다.\n비밀번호·쿠키·기기 식별자는 기록하지 않는다. 이 옵션은 기본 OFF이며 일반 앱은 이 probe를 실행하지 않는다.\nAndroid 빌드 스크립트에서는 `--account-runtime-probe`로 켜며, 옵션이 없으면 이전 CMake 캐시와 관계없이 끈다.\n`--package`는 서명 전 Release APK를 만든다. 개발 실행용 APK는 Qt `androiddeployqt`의 기본 debug 패키징과\n검증 기기에 설치된 기존 테스트 서명을 사용한다. 배포용 서명과 스토어 제출은 별도이다.\n"
     },
     {
       "id": "b000044",
       "kind": "blank",
-      "start_line": 102,
-      "end_line": 102,
+      "start_line": 100,
+      "end_line": 100,
       "raw": "\n"
     },
     {
       "id": "b000045",
       "kind": "paragraph",
-      "start_line": 103,
-      "end_line": 106,
+      "start_line": 101,
+      "end_line": 104,
       "raw": "2026-09-09 macOS 앱 빌드와 **CTest 13/13**, 계정 SDK **CTest 4/4**, 로컬 Redis **13/13**을 통과했다.\nmacOS 실제 창에서 계정 패널을 열었고 iOS arm64 기기용 Society.app와 File Provider의 서명 빌드를 완료했다.\niOS 시뮬레이터는 설치된 Qt 6.8.3의 arm64 QSQLiteDriverPlugin 초기화 객체가 iOS 기기용이어서 링크에 실패했다.\n이 실행에서 iPhone/iPad 실기기 설치·로그인은 확인하지 않았다.\n"
     },
     {
       "id": "b000046",
       "kind": "blank",
-      "start_line": 107,
-      "end_line": 107,
+      "start_line": 105,
+      "end_line": 105,
       "raw": "\n"
     },
     {
       "id": "b000047",
       "kind": "paragraph",
-      "start_line": 108,
-      "end_line": 116,
+      "start_line": 106,
+      "end_line": 114,
       "raw": "Android arm64 APK를 Android 36 에뮬레이터에 기존 테스트 서명으로 갱신 설치하고 계정 패널을 확인했다.\n실제 앱 로그에서 `deviceType: phone`, `appId: com.iisacc.society`, `supportsSsl: true`,\n`OpenSSL 3.5.8 25 Aug 2026`, `certificatePresent: true`, `httpStatus: 404`를 확인했다.\nAPK에 계정·Helper SDK, Qt OpenSSL 플러그인과 두 TLS 라이브러리가 포함되며\n`libssl_3.so`의 SONAME·libcrypto 의존성과 16 KiB ELF 정렬도 검사했다.\n결과는 `build/account-android-runtime.log`, 앱 화면은 `build/account-android-panel.png`이다.\n진단 옵션을 끈 일반 Release APK도 다시 빌드했다. 배포용 서명·스토어 제출은 수행하지 않았다.\n설치된 Android LVRS에서는 기존 ApplicationWindow의 Qt 6.8에 없는 padding 속성에 관한 경고 4개가 남아 있다.\n계정 패널 표시와 위 TLS 요청은 완료됐으며, macOS QML lint는 경고 없이 통과했다.\n"
     },
     {
       "id": "b000048",
       "kind": "blank",
-      "start_line": 117,
-      "end_line": 117,
+      "start_line": 115,
+      "end_line": 115,
       "raw": "\n"
     },
     {
       "id": "b000049",
       "kind": "paragraph",
-      "start_line": 118,
-      "end_line": 120,
+      "start_line": 116,
+      "end_line": 118,
       "raw": "실제 Cognito 사용자 로그인·메일 수신과 로컬 fixture 검증은 별도이다. 2026-09-09 공개\n`https://iisacc.com/Account/Session/App`은 GET과 인증정보 없는 POST refresh 조회에서 404였다. 이 native API와 서버의 `phone` 지원을\n운영 배포하기 전에는 공개 서버에서 앱 로그인이 된다고 가정하지 않는다.\n"
     },
     {
       "id": "b000050",
       "kind": "blank",
-      "start_line": 121,
-      "end_line": 121,
+      "start_line": 119,
+      "end_line": 119,
       "raw": "\n"
     },
     {
       "id": "b000051",
       "kind": "heading",
-      "start_line": 122,
-      "end_line": 122,
+      "start_line": 120,
+      "end_line": 120,
       "raw": "## 2026-09-09 즉시 로그인 변경\n",
       "level": 2,
       "title": "2026-09-09 즉시 로그인 변경"
@@ -434,43 +433,43 @@
     {
       "id": "b000052",
       "kind": "blank",
-      "start_line": 123,
-      "end_line": 123,
+      "start_line": 121,
+      "end_line": 121,
       "raw": "\n"
     },
     {
       "id": "b000053",
       "kind": "paragraph",
-      "start_line": 124,
-      "end_line": 126,
+      "start_line": 122,
+      "end_line": 124,
       "raw": "모든 Society 플랫폼의 공통 화면에서 이메일 코드 입력·확인·재전송 단계를 제거했다.\n기본 서버는 `https://iisacc.com`이며 네이티브 API의 `login` 한 번으로 전체 모델과 기기 세션을 받는다.\n서버 연결 및 배포 검증은 인증 없는 상태 확인과 빌드·정적 검사로 제한한다. 실제 계정과 합성 계정 모두 로그인 테스트를 실행하지 않는다.\n"
     },
     {
       "id": "b000054",
       "kind": "blank",
-      "start_line": 127,
-      "end_line": 127,
+      "start_line": 125,
+      "end_line": 125,
       "raw": "\n"
     },
     {
       "id": "b000055",
       "kind": "paragraph",
-      "start_line": 128,
-      "end_line": 130,
+      "start_line": 126,
+      "end_line": 128,
       "raw": "검증 결과: SDK 0.2.2, Society macOS·iOS·Android 빌드와 QML lint가 통과했다.\niPhone 앱의 서명·번들 검사를 통과했고 연결된 iPhone 15 Pro Max에 설치했다.\n앱을 통한 로그인과 합성 로그인 테스트는 실행하지 않았다. 운영 배포는 AWS 관리 세션의 macOS 패스키 잠금 해제 대기이다.\n"
     },
     {
       "id": "b000056",
       "kind": "blank",
-      "start_line": 131,
-      "end_line": 131,
+      "start_line": 129,
+      "end_line": 129,
       "raw": "\n"
     },
     {
       "id": "b000057",
       "kind": "heading",
-      "start_line": 132,
-      "end_line": 132,
+      "start_line": 130,
+      "end_line": 130,
       "raw": "## 2026-09-09 SDK 소유 화면으로 전환\n",
       "level": 2,
       "title": "2026-09-09 SDK 소유 화면으로 전환"
@@ -478,71 +477,71 @@
     {
       "id": "b000058",
       "kind": "blank",
-      "start_line": 133,
-      "end_line": 133,
+      "start_line": 131,
+      "end_line": 131,
       "raw": "\n"
     },
     {
       "id": "b000059",
       "kind": "paragraph",
-      "start_line": 134,
-      "end_line": 138,
+      "start_line": 132,
+      "end_line": 136,
       "raw": "`App/Society/Main.qml`은 `import iiAccountManager as Accounts` 후 `Accounts.AccountViews`에\n`accountSession.manager`와 창 overlay만 연결한다. 계정 버튼은 `manager.showAccount()`를 호출한다.\n로그인에서 가입으로 이동하는 동작도 SDK의 `showSignUp()`이며 가입 폼을 외부 브라우저로 열지 않는다.\n표시 이름·유저 ID·메일·비밀번호/확인·약관·선택 이메일 동의를 입력하고 이메일 코드로 가입을 완료한다.\n가입 성공은 동일한 manager.account와 기기 세션을 갱신하므로 Helper·Devices 연결을 바꾸지 않는다.\n"
     },
     {
       "id": "b000060",
       "kind": "blank",
-      "start_line": 139,
-      "end_line": 139,
+      "start_line": 137,
+      "end_line": 137,
       "raw": "\n"
     },
     {
       "id": "b000061",
       "kind": "paragraph",
-      "start_line": 140,
-      "end_line": 144,
+      "start_line": 138,
+      "end_line": 142,
       "raw": "로그아웃은 SDK의 sessionEnding 신호를 통해 원격 파일 연결을 먼저 종료한다.\n미인증 폼 전환·닫기는 비밀번호와 코드 입력, 진행 중 요청 및 이전 코드 힌트를 제거한다.\nmacOS/iOS/Android 빌드가 같은 Quick 모듈을 패키징하도록 구성했다.\nSDK의 화면 구조 검사에는 네트워크 차단기를 사용한다. 실제·합성 로그인 테스트는 실행하지 않는다.\n운영 API 배포는 앞서 기록한 AWS 관리 세션 복구가 필요하며 소스 변경과 별도이다.\n"
     },
     {
       "id": "b000062",
       "kind": "blank",
-      "start_line": 145,
-      "end_line": 146,
+      "start_line": 143,
+      "end_line": 144,
       "raw": "\n\n"
     },
     {
       "id": "b000063",
       "kind": "paragraph",
-      "start_line": 147,
-      "end_line": 150,
+      "start_line": 145,
+      "end_line": 148,
       "raw": "이 전환의 검증 결과: SDK 0.2.3과 Society macOS·iOS device·Android Release APK 빌드,\nSDK/Society QML lint가 통과했다. SDK 화면 구조·이동한 설치 prefix 소비자 CTest 2/2와\nmacOS Metal 화면 구조 7/7(초기화·정리 포함)이 통과했다. Society 대시보드→계정 화면\n열기·닫기 검사도 통과했다. 실제·합성 인증 요청을 수행하지 않은 결과이다.\n"
     },
     {
       "id": "b000064",
       "kind": "blank",
-      "start_line": 151,
-      "end_line": 151,
+      "start_line": 149,
+      "end_line": 149,
       "raw": "\n"
     },
     {
       "id": "b000065",
       "kind": "paragraph",
-      "start_line": 152,
-      "end_line": 154,
+      "start_line": 150,
+      "end_line": 152,
       "raw": "같은 갱신본은 서명·App Group·File Provider 번들 검사 후 연결된 iPhone 15 Pro Max에 설치했다.\n설치 결과는 `build/ios-device/account-views-install.json`에 있으며 앱 로그인은 실행하지 않았다.\nAndroid는 서명되지 않은 Release APK를 생성했고 SDK 가입 API 및 AccountViews/SignUpView 포함을 확인했다.\n"
     },
     {
       "id": "b000066",
       "kind": "blank",
-      "start_line": 155,
-      "end_line": 155,
+      "start_line": 153,
+      "end_line": 153,
       "raw": "\n"
     },
     {
       "id": "b000067",
       "kind": "heading",
-      "start_line": 156,
-      "end_line": 156,
+      "start_line": 154,
+      "end_line": 154,
       "raw": "## 2026-09-19 계정 소유 컨테이너 위치\n",
       "level": 2,
       "title": "2026-09-19 계정 소유 컨테이너 위치"
@@ -550,29 +549,29 @@
     {
       "id": "b000068",
       "kind": "blank",
-      "start_line": 157,
-      "end_line": 157,
+      "start_line": 155,
+      "end_line": 155,
       "raw": "\n"
     },
     {
       "id": "b000069",
       "kind": "paragraph",
-      "start_line": 158,
-      "end_line": 161,
+      "start_line": 156,
+      "end_line": 159,
       "raw": "공유 계정 SDK의 `societyContainerDrive`가 `containerId`, `hostDeviceId`, `imagePath`, `revision`을\n관리한다. 경로는 호스트의 디스크 이미지 위치이며, 각 기기의 마운트 경로나 복제본 경로와 구분한다.\n위치 변경은 기존 드라이브 UUID 검증 후 계정 서버에 저장하며 다른 로그인 기기는 30초 간격으로\n수신한다. 오프라인 기기는 연결 복구 후 반영한다. 상세 사용자 흐름과 호환성은 `Onboarding.md`에 있다.\n"
     },
     {
       "id": "b000070",
       "kind": "blank",
-      "start_line": 162,
-      "end_line": 162,
+      "start_line": 160,
+      "end_line": 160,
       "raw": "\n"
     },
     {
       "id": "b000071",
       "kind": "heading",
-      "start_line": 163,
-      "end_line": 163,
+      "start_line": 161,
+      "end_line": 161,
       "raw": "## GraphQL 전환\n",
       "level": 2,
       "title": "GraphQL 전환"
@@ -580,15 +579,15 @@
     {
       "id": "b000072",
       "kind": "blank",
-      "start_line": 164,
-      "end_line": 164,
+      "start_line": 162,
+      "end_line": 162,
       "raw": "\n"
     },
     {
       "id": "b000073",
       "kind": "paragraph",
-      "start_line": 165,
-      "end_line": 169,
+      "start_line": 163,
+      "end_line": 167,
       "raw": "iiAccountManager 0.2.8과 갱신한 iiSocietyHelper/iiWebServer를 함께 빌드한다. 계정 모델,\n컨테이너 위치, 페어링 증명은 `data.appSession`에서 읽고 릴레이는\n`data.accountSession.account.sub`를 확인한다. HTTP 200의 `errors`를 성공으로 처리하지\n않으며 로그인 만료도 기존 UI/세션 정리 흐름으로 전달한다. 로컬 fixture는 GraphQL POST와\n변수 계약을 검사한다. 위의 과거 운영 상태 기록은 당시 관측이며 이번 소스 변경은 배포가 아니다.\n"
     }
   ],
@@ -631,7 +630,7 @@
       "level": 2,
       "title": "빌드와 검증",
       "anchor": "빌드와-검증",
-      "start_line": 68
+      "start_line": 66
     },
     {
       "block_id": "b000051",
@@ -639,7 +638,7 @@
       "level": 2,
       "title": "2026-09-09 즉시 로그인 변경",
       "anchor": "2026-09-09-즉시-로그인-변경",
-      "start_line": 122
+      "start_line": 120
     },
     {
       "block_id": "b000057",
@@ -647,7 +646,7 @@
       "level": 2,
       "title": "2026-09-09 SDK 소유 화면으로 전환",
       "anchor": "2026-09-09-sdk-소유-화면으로-전환",
-      "start_line": 132
+      "start_line": 130
     },
     {
       "block_id": "b000067",
@@ -655,7 +654,7 @@
       "level": 2,
       "title": "2026-09-19 계정 소유 컨테이너 위치",
       "anchor": "2026-09-19-계정-소유-컨테이너-위치",
-      "start_line": 156
+      "start_line": 154
     },
     {
       "block_id": "b000071",
@@ -663,7 +662,7 @@
       "level": 2,
       "title": "GraphQL 전환",
       "anchor": "graphql-전환",
-      "start_line": 163
+      "start_line": 161
     }
   ],
   "indexes": {
@@ -698,56 +697,56 @@
       },
       {
         "block_id": "b000035",
-        "line": 71,
+        "line": 69,
         "text": "OS API를 재사용하고 새로운 인증 라이브러리나 유료 서비스를 추가하지 않는다. iOS의 계정 SDK는 정적 라이브러리이다.",
         "basis": "lexical_match",
         "context": "paragraph"
       },
       {
         "block_id": "b000035",
-        "line": 75,
+        "line": 73,
         "text": "이 작업에서는 설치된 CLion의 JBR 21을 사용했다. 시스템 기본 Java 설정은 변경하지 않는다.",
         "basis": "lexical_match",
         "context": "paragraph"
       },
       {
         "block_id": "b000037",
-        "line": 77,
+        "line": 75,
         "text": "Android의 Qt Network는 OpenSSL 백엔드 플러그인과 TLS 공유 라이브러리를 함께 패키징해야 한다.",
         "basis": "lexical_match",
         "context": "paragraph"
       },
       {
         "block_id": "b000037",
-        "line": 80,
+        "line": 78,
         "text": "NDK로 빌드한다. 기존 Qt 백엔드의 HTTPS 기능을 사용하기 위한 런타임 의존성으로, 자체 암호 코드는 추가하지 않는다.",
         "basis": "lexical_match",
         "context": "paragraph"
       },
       {
         "block_id": "b000043",
-        "line": 98,
+        "line": 96,
         "text": "비밀번호·쿠키·기기 식별자는 기록하지 않는다. 이 옵션은 기본 OFF이며 일반 앱은 이 probe를 실행하지 않는다.",
         "basis": "lexical_match",
         "context": "paragraph"
       },
       {
         "block_id": "b000049",
-        "line": 120,
+        "line": 118,
         "text": "운영 배포하기 전에는 공개 서버에서 앱 로그인이 된다고 가정하지 않는다.",
         "basis": "lexical_match",
         "context": "paragraph"
       },
       {
         "block_id": "b000053",
-        "line": 126,
+        "line": 124,
         "text": "서버 연결 및 배포 검증은 인증 없는 상태 확인과 빌드·정적 검사로 제한한다. 실제 계정과 합성 계정 모두 로그인 테스트를 실행하지 않는다.",
         "basis": "lexical_match",
         "context": "paragraph"
       },
       {
         "block_id": "b000061",
-        "line": 143,
+        "line": 141,
         "text": "SDK의 화면 구조 검사에는 네트워크 차단기를 사용한다. 실제·합성 로그인 테스트는 실행하지 않는다.",
         "basis": "lexical_match",
         "context": "paragraph"
@@ -774,39 +773,17 @@
         "label": "공식 배포·라이선스·지원 기간",
         "target": "https://openssl-library.org/source/",
         "kind": "external",
-        "line": 81
+        "line": 79
       },
       {
         "block_id": "b000039",
         "label": "Qt Android OpenSSL 패키징 계약",
         "target": "https://doc.qt.io/qt-6.8/android-openssl-support.html",
         "kind": "external",
-        "line": 87
+        "line": 85
       }
     ],
-    "tables": [
-      {
-        "block_id": "b000029",
-        "columns": [
-          "플랫폼",
-          "식별자와 유형"
-        ],
-        "rows": [
-          [
-            "데스크톱",
-            "Qt의 machineUniqueId를 iisacc 접두사와 함께 SHA-256으로 해시, `pc`"
-          ],
-          [
-            "iOS/iPadOS",
-            "identifierForVendor 해시, 실제 userInterfaceIdiom으로 `phone`/`tablet` 구분"
-          ],
-          [
-            "Android",
-            "서명·사용자·기기 범위의 ANDROID_ID 해시, smallestScreenWidthDp 600 이상은 `tablet`, 그 외 `phone`"
-          ]
-        ]
-      }
-    ]
+    "tables": []
   },
   "provenance": {
     "generator": "workspace-docs",

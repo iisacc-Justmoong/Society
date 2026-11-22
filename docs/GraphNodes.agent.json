@@ -10,9 +10,9 @@
   },
   "source": {
     "path": "docs/GraphNodes.md",
-    "sha256": "3c6ede09591a4bc1f9e02d08b8ef30fec5bda9648bee309be219ac3590fa0093",
-    "bytes": 5715,
-    "line_count": 94,
+    "sha256": "7433a2cc649ce0b7b6363f16b25f47cfc2818fcc71ceaa47dac6384eb2441724",
+    "bytes": 10735,
+    "line_count": 163,
     "encoding": "utf-8",
     "language": "en"
   },
@@ -173,7 +173,10 @@
       "kind": "fenced_code",
       "start_line": 67,
       "end_line": 79,
-      "raw": "```cpp\nusing namespace society::space;\nGraphNode node({{\"prompt\", \"Prompt\", \"\", GraphValue{GraphTextInputValue{\"A misty city\"}}}},\n               GraphValue{GraphImageValue{\"\", \"\", \"Generated image\", {}}},\n               \"node-01\", \"Image\", \"Create an image\",\n               {.top=0, .bottom=0, .left=1, .right=1});\nauto source = node.viewSource([](const GraphPortEndpoint &port) {\n    // Forward port.nodeId, port.side, port.index and port.role() to the graph.\n});\nauto outputSubscription = node.observeOutput([](const GraphValue &value) {\n    // Route this typed value to a compatible input if the graph has a connection.\n});\n```\n"
+      "raw": "```cpp\nusing namespace society::space;\nGraphNode node({{\"prompt\", \"Prompt\", \"\", GraphValue{GraphTextInputValue{\"A misty city\"}}}},\n               GraphValue{GraphImageValue{\"\", \"\", \"Generated image\", {}}},\n               \"node-01\", \"Image\", \"Create an image\",\n               {.top=0, .bottom=0, .left=1, .right=1});\nauto source = node.viewSource([](const GraphPortEndpoint &port) {\n    // Forward port.nodeId, port.side, port.index and port.role() to the graph.\n});\nauto outputSubscription = node.observeOutput([](const GraphValue &value) {\n    // Route this typed value to a compatible input if the graph has a connection.\n});\n```\n",
+      "language": "cpp",
+      "code": "using namespace society::space;\nGraphNode node({{\"prompt\", \"Prompt\", \"\", GraphValue{GraphTextInputValue{\"A misty city\"}}}},\n               GraphValue{GraphImageValue{\"\", \"\", \"Generated image\", {}}},\n               \"node-01\", \"Image\", \"Create an image\",\n               {.top=0, .bottom=0, .left=1, .right=1});\nauto source = node.viewSource([](const GraphPortEndpoint &port) {\n    // Forward port.nodeId, port.side, port.index and port.role() to the graph.\n});\nauto outputSubscription = node.observeOutput([](const GraphValue &value) {\n    // Route this typed value to a compatible input if the graph has a connection.\n});\n",
+      "closed": true
     },
     {
       "id": "b000022",
@@ -200,8 +203,94 @@
       "id": "b000025",
       "kind": "paragraph",
       "start_line": 91,
-      "end_line": 94,
-      "raw": "The [Society Figma component examples](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=1178-612)\nshow the intended node and edge layout. The app component is linked into the\nSociety build for use by a future graph host; the existing Space navigation is\nnot replaced with a sample screen.\n"
+      "end_line": 93,
+      "raw": "The [Society Figma component examples](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=1178-612)\nshow the intended node and edge layout. The graph node component is available to graph hosts; the Space discovery\nview described below uses the separate persisted idea model.\n"
+    },
+    {
+      "id": "b000026",
+      "kind": "blank",
+      "start_line": 94,
+      "end_line": 95,
+      "raw": "\n\n"
+    },
+    {
+      "id": "b000027",
+      "kind": "heading",
+      "start_line": 96,
+      "end_line": 96,
+      "raw": "## Space discovery view\n",
+      "level": 2,
+      "title": "Space discovery view"
+    },
+    {
+      "id": "b000028",
+      "kind": "blank",
+      "start_line": 97,
+      "end_line": 97,
+      "raw": "\n"
+    },
+    {
+      "id": "b000029",
+      "kind": "paragraph",
+      "start_line": 98,
+      "end_line": 104,
+      "raw": "The desktop Space navigation opens an LVUI/iiGUI discovery surface in the\nexisting Society shell. Its proportions, discovery canvas, session controls and\nactivity/idea inspector follow the Society Figma Space [discovery](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=1149-13)\nand [node selection](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=1170-147) frames. The central image is the original\n`resources/space/minimal-cyan-orb.svg`, rasterized by iiGUI from the SVG at\nthree times the logical display size. It is a project resource, not a generated\nbuild artifact or a reference to a file outside the application.\n"
+    },
+    {
+      "id": "b000030",
+      "kind": "blank",
+      "start_line": 105,
+      "end_line": 105,
+      "raw": "\n"
+    },
+    {
+      "id": "b000031",
+      "kind": "paragraph",
+      "start_line": 106,
+      "end_line": 113,
+      "raw": "While Space is visible, both eyes of the AI orb follow the system mouse pointer\nrelative to the center of the orb, including positions outside the window when\nthe platform supplies them. The face and outline remain stationary and the eye\nshapes and colors come from the same SVG. The eyes move together by no more than\neight percent of the orb diameter; the centered pointer gives a neutral gaze.\nThe visible Space surface samples the pointer continuously and stops sampling\nwhen it is hidden or its window is hidden or minimized. Rendering reuses decoded SVG layers and only\nupdates the image when the eye displacement changes.\n"
+    },
+    {
+      "id": "b000032",
+      "kind": "blank",
+      "start_line": 114,
+      "end_line": 114,
+      "raw": "\n"
+    },
+    {
+      "id": "b000033",
+      "kind": "paragraph",
+      "start_line": 115,
+      "end_line": 138,
+      "raw": "The Space conversation composer is a compact LVUI surface containing a prompt\nfield and only three additional controls: add files or photos, reasoning strength,\nand microphone mode. Drafts are kept locally per session while the view is open\nand cleared when the container changes. Enter submits to the selected Space\nsession; its conversation and the Workspace agent's conversation have separate\ntranscripts. The UI reports preparation, response, errors and model capabilities;\nan unacknowledged submission does not silently discard the draft. Attachments\nare explicit user selections, bounded and validated before their contents reach\nthe model; selecting the filename marked × removes it from that session's draft.\nImage input requires a compatible model and errors rather than silently\ndiscarding image content. Reasoning profiles set explicit generation and agent\nturn budgets rather than promising an outcome: Light is 128 output tokens and up\nto 4 agent turns, Standard is 256 and 8, and Deep is 512 and 16. Microphone\nactivation requires a user action and platform permission, and inserts recognized\nspeech into the draft. On macOS, iiDeviceMultimedia captures microphone PCM and\nApple Speech is required to recognize it on the device. The current locale must\nsupport on-device recognition; unsupported recognition or denied permission is\nreported without sending microphone audio to a network service. Other platforms\ncurrently report that dictation is unavailable. Capture stops on session change,\nview dismissal or container loss; raw microphone audio is not stored by Society.\nSaved agent activity and connection status remain outside the composer. The separate Sessions control expands or hides the existing session\ncreation, switching, and manual idea-entry tools without clearing their drafts.\nThe application uses LVUI's flat input surface: the current native paint adapter\ndoes not render the Figma TextField's rounded backdrop material yet.\n"
+    },
+    {
+      "id": "b000034",
+      "kind": "blank",
+      "start_line": 139,
+      "end_line": 139,
+      "raw": "\n"
+    },
+    {
+      "id": "b000035",
+      "kind": "paragraph",
+      "start_line": 140,
+      "end_line": 150,
+      "raw": "The view reads the current container through the SDK `SpaceStore`. It presents\nreal sessions and saved idea nodes; clicking an idea shows its content,\nprovenance, unverified evaluation and saved relationships. Dashed connections are\ndrawn between visible related ideas, using an LVUI color token, and are updated\nwhen the graph layout or scrolling changes. The activity panel shows the session's\nconversation and persisted agent activity. In narrow windows the conversation\nmoves into a scrollable region above the graph. A user may create a session and\nadd named ideas explicitly; these are saved to the current container using application-generated UUIDs as\ndurable identities. Switching or losing the container\nclears the previous snapshot. The screen reloads stored data when opened again.\nNo sample sessions, ideas, connections or activity are inserted.\n"
+    },
+    {
+      "id": "b000036",
+      "kind": "blank",
+      "start_line": 151,
+      "end_line": 151,
+      "raw": "\n"
+    },
+    {
+      "id": "b000037",
+      "kind": "paragraph",
+      "start_line": 152,
+      "end_line": 163,
+      "raw": "The current Space storage and presentation do not autonomously merge ideas or\npromote them to a project. Merge and promotion controls remain disabled until\ntheir services exist. It does not yet display saved artifact\npreviews, support direct graph manipulation, or subscribe to external database\nchanges while the view stays open. The installed iiSocietyContainer FileTree\npackage must provide the public `SpaceStore.h` API and its matching library.\n`Society.NativeSpace` covers the compact composer, its draft and session manager,\nisolated store persistence, SVG image colors,\nbounded gaze direction and live hover updates, fixed face pixels, tracking\nlifecycle, visible connections, idea selection, navigation, and container switching.\n`Society.SpaceNavigation` additionally exercises the real shell and container\nthrough the offscreen test host. Neither test launches the installed application.\n"
     }
   ],
   "outline": [
@@ -228,10 +317,75 @@
       "title": "C++ integration",
       "anchor": "c-integration",
       "start_line": 62
+    },
+    {
+      "block_id": "b000027",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "Space discovery view",
+      "anchor": "space-discovery-view",
+      "start_line": 96
     }
   ],
   "indexes": {
-    "directive_candidates": [],
+    "directive_candidates": [
+      {
+        "block_id": "b000003",
+        "line": 7,
+        "text": "generated display name. Input identifiers must be unique within the node; input",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000003",
+        "line": 8,
+        "text": "labels and values are display data and do not automatically map to a port. Each input",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000013",
+        "line": 49,
+        "text": "Unchanged values do not generate another change; repeated button activations are",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000013",
+        "line": 52,
+        "text": "iiSDKCore's owner-thread contract; callers must dispatch changes to that thread.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000023",
+        "line": 85,
+        "text": "objects must outlive any mount that can invoke them. No file or daemon operation",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000033",
+        "line": 130,
+        "text": "Apple Speech is required to recognize it on the device. The current locale must",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000037",
+        "line": 152,
+        "text": "The current Space storage and presentation do not autonomously merge ideas or",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000037",
+        "line": 157,
+        "text": "package must provide the public `SpaceStore.h` API and its matching library.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      }
+    ],
     "commands": [],
     "links": [
       {
@@ -240,12 +394,26 @@
         "target": "https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=1178-612",
         "kind": "external",
         "line": 91
+      },
+      {
+        "block_id": "b000029",
+        "label": "discovery",
+        "target": "https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=1149-13",
+        "kind": "external",
+        "line": 100
+      },
+      {
+        "block_id": "b000029",
+        "label": "node selection",
+        "target": "https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=1170-147",
+        "kind": "external",
+        "line": 101
       }
     ],
     "tables": []
   },
   "provenance": {
-    "generator": "manual-lossless-update",
+    "generator": "workspace-docs",
     "version": "1.0.0",
     "profile": "lossless-blocks-v1",
     "derived": true

@@ -203,6 +203,14 @@ void DriveController::applyAccountDrive()
 {
     if (!m_account || !m_account->isAuthenticated() || busy()) return;
     const auto saved = m_account->account()->societyContainerDrive();
+    if (!managedContainer() && hasDrive() && !saved.isEmpty()
+        && identifier() != saved.value("containerId").toString()) {
+        // A local choice is usable without claiming or replacing the account's host.
+        m_publishToAccount = false;
+        m_pendingAccountSubject.clear();
+        setAccountDriveStatus(tr("This container is available locally but is different from the drive registered to your account. Device synchronization is unavailable for this container."));
+        return;
+    }
     if (m_publishToAccount) {
         if (saved.isEmpty()) saveContainerToAccount();
         return; // An explicit relocation remains selected until its server result arrives.
@@ -250,11 +258,16 @@ void DriveController::openDefaultContainer()
     if (m_account && m_account->isAuthenticated()) {
         const auto saved = m_account->account()->societyContainerDrive();
         if (!saved.isEmpty() && saved.value("hostDeviceId") == m_account->deviceInfo().value("id")) {
+            const auto selected = SharedStorage::open({}, nullptr, true);
+            if (selected && selected->drive().identifier() != saved.value("containerId")) {
+                // Preserve a previously chosen independent local package on restart.
+                prepareDisk(selected->drive().rootPath(), false, selected->drive().identifier());
+                return;
+            }
             if (legacyDiskImage(saved.value("imagePath").toString())) {
                 fail(tr("Legacy Society disk images are not restored. Choose a Society.societycontainer package."));
                 return;
             }
-            const auto selected = SharedStorage::open({}, nullptr, true);
             if (selected && selected->drive().identifier() == saved.value("containerId")
                 && !QFileInfo(saved.value("imagePath").toString()).exists()) {
                 prepareDisk(selected->drive().rootPath(), false, saved.value("containerId").toString());
@@ -350,9 +363,7 @@ bool DriveController::openContainerImage(const QUrl &url)
     if (busy()) return false;
     if (managedContainer() || !url.isLocalFile() || !QFileInfo::exists(url.toLocalFile()))
         return fail(tr("Select an existing local .societycontainer package."));
-    const auto saved = m_account && m_account->isAuthenticated() ? m_account->account()->societyContainerDrive() : QVariantMap{};
-    if (!saved.isEmpty() && saved.value("hostDeviceId") == m_account->deviceInfo().value("id"))
-        return useMovedContainer(url);
+    // Opening a local package and relocating the account's host are distinct actions.
     prepareDisk(url.toLocalFile(), false, {}, true);
     return true;
 }
@@ -417,7 +428,15 @@ void DriveController::prepareDisk(const QString &location, bool create, const QS
             m_pendingAccountSubject = accountBinding.value("subject").toString();
             if (!m_account || !m_account->isAuthenticated())
                 setAccountDriveStatus(tr("Sign in, then save this drive location to your account to share future changes."));
-            else saveContainerToAccount();
+            else {
+                const auto saved = m_account->account()->societyContainerDrive();
+                if (!saved.isEmpty() && (saved.value("hostDeviceId") != m_account->deviceInfo().value("id")
+                    || saved.value("containerId").toString() != identifier())) {
+                    m_publishToAccount = false;
+                    m_pendingAccountSubject.clear();
+                    applyAccountDrive();
+                } else saveContainerToAccount();
+            }
         } else applyAccountDrive();
     });
     watcher->setFuture(QtConcurrent::run([location, create, expectedId] {

@@ -8,12 +8,10 @@
 
 ## 네 화면
 
-| 화면 | 역할 | Figma |
-| --- | --- | --- |
-|장치 및 호스팅| 기기 4대의 상태, 기본 호스트, 이 기기의 설치 앱을 요약하고 상세 화면으로 이동한다. | [관리 개요](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=169-2308) |
-|Devices| 기기 카드와 선택 기기의 역할·호스트·앱·자동 동기화 정보를 함께 표시한다. | [디바이스](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=169-2349) |
-|Hosting| 기본 호스트, 컨테이너, 로컬 연결·자체 서버, 연결된 클라이언트와 동기화 상태를 표시한다. | [호스팅 정보](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=169-2390) |
-|Apps| 선택 기기의 설치 앱, 업데이트 가능 앱, 설치 가능한 앱, 설치 진행 영역과 앱 상세 정보를 표시한다. | [앱 목록](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=169-2431) |
+- 화면: 장치 및 호스팅; 역할: 기기 4대의 상태, 기본 호스트, 이 기기의 설치 앱을 요약하고 상세 화면으로 이동한다.; Figma: [관리 개요](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=169-2308)
+- 화면: Devices; 역할: 기기 카드와 선택 기기의 역할·호스트·앱·자동 동기화 정보를 함께 표시한다.; Figma: [디바이스](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=169-2349)
+- 화면: Hosting; 역할: 기본 호스트, 컨테이너, 로컬 연결·자체 서버, 연결된 클라이언트와 동기화 상태를 표시한다.; Figma: [호스팅 정보](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=169-2390)
+- 화면: Apps; 역할: 선택 기기의 설치 앱, 업데이트 가능 앱, 설치 가능한 앱, 설치 진행 영역과 앱 상세 정보를 표시한다.; Figma: [앱 목록](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=169-2431)
 
 ## 정보와 기능
 

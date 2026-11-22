@@ -5,6 +5,7 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QScopeGuard>
 #include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QTcpServer>
@@ -16,6 +17,51 @@ using namespace iiWebServer;
 class NetworkDriveTests : public QObject {
     Q_OBJECT
 private slots:
+    // A locally selected independent package must not become an account host or replica.
+    void differentLocalContainerDoesNotJoinAccountSynchronization() {
+        const auto previousDiscovery = qgetenv("SOCIETY_TEST_ACCOUNT_DISCOVERY");
+        const auto previousPhotos = qgetenv("SOCIETY_DISABLE_PHOTOS");
+        qputenv("SOCIETY_TEST_ACCOUNT_DISCOVERY", "1");
+        qunsetenv("SOCIETY_DISABLE_PHOTOS");
+        const auto restore = qScopeGuard([&] {
+            if (previousDiscovery.isNull()) qunsetenv("SOCIETY_TEST_ACCOUNT_DISCOVERY");
+            else qputenv("SOCIETY_TEST_ACCOUNT_DISCOVERY", previousDiscovery);
+            if (previousPhotos.isNull()) qunsetenv("SOCIETY_DISABLE_PHOTOS");
+            else qputenv("SOCIETY_DISABLE_PHOTOS", previousPhotos);
+        });
+        QTemporaryDir registered(SOCIETY_TEST_DIRECTORY "/network-registered-XXXXXX.societycontainer");
+        QTemporaryDir selected(SOCIETY_TEST_DIRECTORY "/network-independent-XXXXXX.societycontainer");
+        QVERIFY(iiSocietyContainer::SocietyDrive::create(registered.path()));
+        QVERIFY(iiSocietyContainer::SocietyDrive::create(selected.path()));
+        AuthenticatedNetworkFixture identity; QVERIFY(identity.start(registered.path(), true));
+        NetworkDriveController network(nullptr, QHostAddress::LocalHost);
+        network.setContainerPath(registered.path());
+        network.setAccountSession(identity.hostAccount.get());
+        QVERIFY(network.startLocalHost());
+        QTRY_VERIFY(network.hosting());
+
+        network.setContainerPath(selected.path());
+        QTRY_VERIFY(!network.hosting());
+        QVERIFY(!network.startLocalHost());
+        QTRY_VERIFY(network.synchronizationStatus().contains("different"));
+        QVERIFY(!network.synchronizationAvailable());
+        QVERIFY(!QFileInfo::exists(selected.filePath(".society-sync")));
+        auto *photos = qobject_cast<iiPhotoLibrary::PhotoController *>(network.photos());
+        QVERIFY(photos && photos->active());
+        QVERIFY(!photos->handle("untrusted-peer", {{"op", "society.photos"}}).value("ok").toBool());
+        QCOMPARE(identity.authority.profile.value("societyContainerDrive").toObject().value("imagePath").toString(), registered.path());
+
+        // A later authoritative registration of this package restores normal hosting.
+        QVERIFY(registerFixtureContainer(identity.authority, selected.path(), QString(64, 'a')));
+        bool refreshStarted = false;
+        QTRY_VERIFY(refreshStarted || (refreshStarted = identity.hostAccount->manager()->refreshContainerDrive()));
+        const auto selectedId = iiSocietyContainer::SocietyDrive::open(selected.path())->identifier();
+        QTRY_COMPARE(identity.hostAccount->manager()->account()->societyContainerDrive().value("containerId").toString(), selectedId);
+        QVERIFY(network.startLocalHost());
+        QTRY_VERIFY(network.hosting());
+        network.disconnectSession();
+    }
+
     void finalShutdownStopsAndCannotRestartTheNetworkRuntime() {
         NetworkDriveController network;
         QVERIFY(network.runtimeEnabled());

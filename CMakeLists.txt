@@ -315,8 +315,8 @@ if((UNIX OR WIN32) AND NOT IOS AND NOT ANDROID AND NOT EMSCRIPTEN AND TARGET Soc
         App/Daemon/SuggestedBackend.cpp App/Daemon/SuggestedBackend.h)
     set_target_properties(SocietyWorkspaceAgentBackend PROPERTIES AUTOMOC ON)
     target_include_directories(SocietyWorkspaceAgentBackend PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/App")
-    target_link_libraries(SocietyWorkspaceAgentBackend PUBLIC Qt6::Core Qt6::Concurrent Qt6::Network iiFileProvider::Catalog iiMultimodalAgent::iiMultimodalAgent
-        iiSocietyContainer::iiSocietyContainer iiLocalDiffusion::ModelPackaging iiLocalLLM::iiLocalLLM SocietyResourceAdapter iiFileProvider::Objects)
+    target_link_libraries(SocietyWorkspaceAgentBackend PUBLIC Qt6::Core Qt6::Gui Qt6::Concurrent Qt6::Network iiFileProvider::Catalog iiMultimodalAgent::iiMultimodalAgent
+        iiSocietyContainer::iiSocietyContainer iiSocietyContainer::FileTree iiLocalDiffusion::ModelPackaging iiLocalLLM::iiLocalLLM SocietyResourceAdapter iiFileProvider::Objects)
     target_compile_definitions(SocietyWorkspaceAgentBackend INTERFACE SOCIETY_AGENT_BACKEND=1)
     target_link_libraries(SocietyDaemon PRIVATE SocietyWorkspaceAgentBackend)
 endif()
@@ -377,6 +377,8 @@ lvui_generate(NAME NativeNavigation SOURCE App/Society/Native/NativeNavigation.l
     INCLUDES NativeNavigationViewModel.h OUTPUT_VARIABLE society_native_navigation_view)
 lvui_generate(NAME NativeWorkspace SOURCE App/Society/Native/NativeWorkspace.lvui
     INCLUDES NativeWorkspaceViewModel.h NativeFilesNavigation.h OUTPUT_VARIABLE society_native_workspace_view)
+lvui_generate(NAME NativeSpace SOURCE App/Society/Space/NativeSpace.lvui
+    INCLUDES NativeSpaceViewModel.h OUTPUT_VARIABLE society_native_space_view)
 lvui_generate(NAME NativeGraphNode SOURCE App/Society/Space/NativeGraphNode.lvui
     INCLUDES GraphNodeViewModel.h OUTPUT_VARIABLE society_native_graph_node_view)
 add_library(SocietyGraphNode OBJECT
@@ -388,6 +390,11 @@ target_include_directories(SocietyGraphNode PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/
 target_link_libraries(SocietyGraphNode PUBLIC iiGUI::iiGUI PRIVATE LVUI::Native)
 add_library(SocietyNativeNavigationSurface STATIC
     App/Society/Native/LegacyNavigationBridge.cpp App/Society/Native/LegacyNavigationBridge.h
+    App/Society/Space/NativeSpaceSurface.cpp App/Society/Space/NativeSpaceSurface.h
+    App/Society/Space/SpaceOrbGaze.cpp App/Society/Space/SpaceOrbGaze.h
+    App/Society/Space/NativeSpaceViewModel.cpp App/Society/Space/NativeSpaceViewModel.h
+    App/Society/Space/SpaceDictation.h
+    App/Society/Space/SpaceAssets.qrc
     App/Society/Native/NativeNavigationSurface.cpp App/Society/Native/NativeNavigationSurface.h
     App/Society/Native/NativeNavigationViewModel.cpp App/Society/Native/NativeNavigationViewModel.h
     App/Society/Native/QtPaintDevice.cpp App/Society/Native/QtPaintDevice.h
@@ -397,12 +404,21 @@ add_library(SocietyNativeNavigationSurface STATIC
     App/Society/Native/PhotoPreviewResolver.cpp App/Society/Native/PhotoPreviewResolver.h
     App/Society/Native/LegacyWorkspaceBridge.cpp App/Society/Native/LegacyWorkspaceBridge.h
     App/Society/Native/NavigationIcons.qrc App/Society/Native/WorkspaceIcons.qrc
-    "${society_native_navigation_view}" "${society_native_workspace_view}")
+    "${society_native_navigation_view}" "${society_native_workspace_view}" "${society_native_space_view}")
 set_target_properties(SocietyNativeNavigationSurface PROPERTIES AUTOMOC ON AUTORCC ON)
 target_compile_features(SocietyNativeNavigationSurface PUBLIC cxx_std_23)
 target_include_directories(SocietyNativeNavigationSurface PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/App"
-    PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/App/Society/Native" "${CMAKE_CURRENT_BINARY_DIR}")
-target_link_libraries(SocietyNativeNavigationSurface PUBLIC Qt6::Quick SocietyModelBackendClient PRIVATE LVUI::Native iiGUI::iiGUI iiSocietyContainer::Gui Qt6::Concurrent)
+    PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/App/Society/Native" "${CMAKE_CURRENT_SOURCE_DIR}/App/Society/Space" "${CMAKE_CURRENT_BINARY_DIR}")
+target_link_libraries(SocietyNativeNavigationSurface PUBLIC Qt6::Quick SocietyModelBackendClient PRIVATE LVUI::Native iiGUI::iiGUI iiSocietyContainer::Gui iiSocietyContainer::FileTree Qt6::Concurrent)
+if(APPLE AND NOT IOS)
+    find_package(iiDeviceMultimedia 0.2 CONFIG REQUIRED HINTS "$ENV{HOME}/.local/SDK/iiDeviceMultimedia")
+    target_sources(SocietyNativeNavigationSurface PRIVATE App/Society/Space/SpaceDictationApple.mm)
+    set_source_files_properties(App/Society/Space/SpaceDictationApple.mm PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
+    set_target_properties(SocietyNativeNavigationSurface PROPERTIES OBJCXX_STANDARD 23 OBJCXX_STANDARD_REQUIRED YES)
+    target_link_libraries(SocietyNativeNavigationSurface PRIVATE iiDeviceMultimedia::iiDeviceMultimedia "-framework Speech" "-framework AVFoundation")
+else()
+    target_sources(SocietyNativeNavigationSurface PRIVATE App/Society/Space/SpaceDictationUnsupported.cpp)
+endif()
 qt_add_executable(Society
     ${society_notification_sources}
     ${society_environment_sources}
@@ -424,6 +440,8 @@ qt_add_executable(Society
         App/Society/Drive/StorageNavigation.cpp App/Society/Drive/StorageNavigation.h
         App/Society/Network/NetworkDriveController.cpp App/Society/Network/NetworkDriveController.h
 )
+include(cmake/NativeOverlay.cmake)
+target_link_libraries(SocietyNativeNavigationSurface PRIVATE SocietyNativeOverlay)
 if(NOT IOS AND NOT ANDROID AND NOT EMSCRIPTEN)
     qt_add_executable(SocietyCli App/Society/Commands/main.cpp ${society_backend_command_sources})
     target_include_directories(SocietyCli PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/App")
@@ -792,7 +810,7 @@ if(APPLE AND NOT IOS)
     foreach(runtime_target IN LISTS society_container_runtime_targets)
         list(APPEND society_container_verify_arguments --library "$<TARGET_FILE:${runtime_target}>")
     endforeach()
-    foreach(runtime_target IN ITEMS LVRS::LVRS ${society_container_runtime_targets} iiSharedCanvas::Core ${society_sdk_targets} ${society_agent_runtime_targets})
+    foreach(runtime_target IN ITEMS LVRS::LVRS ${society_container_runtime_targets} iiSharedCanvas::Core iiDeviceMultimedia::iiDeviceMultimedia ${society_sdk_targets} ${society_agent_runtime_targets})
         get_target_property(runtime_type ${runtime_target} TYPE)
         if(runtime_type STREQUAL "SHARED_LIBRARY")
             list(APPEND society_runtime_arguments --library "$<TARGET_FILE:${runtime_target}>")
@@ -919,6 +937,12 @@ if(BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)
         target_compile_definitions(SocietyWorkspaceAgentTests PRIVATE SOCIETY_TEST_DIRECTORY="${_society_test_directory}")
         add_test(NAME Society.WorkspaceAgent COMMAND SocietyWorkspaceAgentTests)
         set_tests_properties(Society.WorkspaceAgent PROPERTIES FIXTURES_REQUIRED societyTestOutput TIMEOUT 120)
+        add_test(NAME Society.SpaceAgent COMMAND SocietyWorkspaceAgentTests spaceSessionsAreIsolatedAndUseReasoningBudgets)
+        set_tests_properties(Society.SpaceAgent PROPERTIES FIXTURES_REQUIRED societyTestOutput TIMEOUT 120)
+        add_test(NAME Society.SpaceAgentAttachments COMMAND SocietyWorkspaceAgentTests spaceAcceptsSelectedExternalAttachments)
+        set_tests_properties(Society.SpaceAgentAttachments PROPERTIES FIXTURES_REQUIRED societyTestOutput TIMEOUT 120)
+        add_test(NAME Society.SpaceUnsupportedMedia COMMAND SocietyWorkspaceAgentTests spaceReportsUnsupportedImageModels)
+        set_tests_properties(Society.SpaceUnsupportedMedia PROPERTIES FIXTURES_REQUIRED societyTestOutput TIMEOUT 120)
         add_test(NAME Society.ResidentModelRefresh COMMAND SocietyWorkspaceAgentTests relevantModelImportRefreshesUnavailableResident)
         set_tests_properties(Society.ResidentModelRefresh PROPERTIES FIXTURES_REQUIRED societyTestOutput TIMEOUT 120)
         add_test(NAME Society.WorkspaceAgentAttachment COMMAND SocietyWorkspaceAgentTests attachmentsReachTheModelAndStayInsideTheSelectedDrive)
@@ -973,6 +997,11 @@ if(BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)
     target_compile_definitions(SocietyNativeWorkspaceSurfaceTests PRIVATE SOCIETY_TEST_DIRECTORY="${_society_test_directory}")
     add_test(NAME Society.NativeWorkspaceSurface COMMAND SocietyNativeWorkspaceSurfaceTests)
     set_tests_properties(Society.NativeWorkspaceSurface PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software")
+    add_executable(SocietyNativeSpaceTests tests/tst_native_space.cpp)
+    set_target_properties(SocietyNativeSpaceTests PROPERTIES AUTOMOC ON)
+    target_link_libraries(SocietyNativeSpaceTests PRIVATE SocietyNativeNavigationSurface Qt6::Test iiGUI::iiGUI iiSocietyContainer::FileTree)
+    add_test(NAME Society.NativeSpace COMMAND SocietyNativeSpaceTests)
+    set_tests_properties(Society.NativeSpace PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software")
     add_executable(SocietyPaintDevicePixelsTests
         tests/qt_paint_device_pixels.cpp App/Society/Native/QtPaintDevice.cpp)
     target_include_directories(SocietyPaintDevicePixelsTests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/App")
@@ -1154,6 +1183,9 @@ if(BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)
     target_compile_definitions(SocietyNetworkTests PRIVATE SOCIETY_TEST_DIRECTORY="${_society_test_directory}"
         SOCIETY_ACCOUNT_FIXTURE="${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/account.json")
     add_test(NAME Society.NetworkDrive COMMAND SocietyNetworkTests)
+    add_test(NAME Society.ContainerAccountIsolation COMMAND SocietyNetworkTests
+        differentLocalContainerDoesNotJoinAccountSynchronization)
+    set_tests_properties(Society.ContainerAccountIsolation PROPERTIES TIMEOUT 60)
     add_test(NAME Society.PhotoLibraryIntegration COMMAND SocietyNetworkTests photosUsesSdkAndKeepsLegacyDisableSwitch)
     set_tests_properties(Society.PhotoLibraryIntegration PROPERTIES TIMEOUT 60)
     set_tests_properties(Society.NetworkDrive PROPERTIES TIMEOUT 180)
@@ -1230,6 +1262,8 @@ if(BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)
         add_test(NAME Society.BackendDaemon COMMAND SocietyBackendDaemonTests)
         if(TARGET SocietyWorkspaceAgentBackend)
             add_test(NAME Society.ResidentProtocol COMMAND SocietyBackendDaemonTests residentRequestsStayOnTheirOwnConnection)
+            add_test(NAME Society.SpaceProtocol COMMAND SocietyBackendDaemonTests spaceProtocolChecksSessionAndContainer)
+            add_test(NAME Society.SpaceClientIsolation COMMAND SocietyBackendDaemonTests oldSpaceRepliesCannotCrossSessionSelection)
         endif()
         set_tests_properties(Society.BackendDaemon PROPERTIES TIMEOUT 120)
         add_test(NAME Society.NativeDirectoryBackend COMMAND SocietyBackendDaemonTests
@@ -1295,9 +1329,13 @@ if(BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)
     target_include_directories(SocietyDriveBackendTests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/App")
     target_link_libraries(SocietyDriveBackendTests PRIVATE Qt6::Core Qt6::Gui Qt6::Qml Qt6::Network Qt6::Concurrent
         Qt6::Test iiAccountManager::iiAccountManager iiSocietyContainer::iiSocietyContainer)
-    target_compile_definitions(SocietyDriveBackendTests PRIVATE SOCIETY_TEST_DIRECTORY="${_society_test_directory}")
+    target_compile_definitions(SocietyDriveBackendTests PRIVATE SOCIETY_TEST_DIRECTORY="${_society_test_directory}"
+        SOCIETY_ACCOUNT_FIXTURE="${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/account.json")
     add_test(NAME Society.SystemDriveBackendClient COMMAND SocietyDriveBackendTests)
+    add_test(NAME Society.ContainerAccountSelection COMMAND SocietyDriveBackendTests
+        selectedContainerOpensIndependentlyOfAccountRegistration)
     set_tests_properties(Society.SystemDriveBackendClient PROPERTIES TIMEOUT 60)
+    set_tests_properties(Society.ContainerAccountSelection PROPERTIES TIMEOUT 60)
     if(APPLE AND NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")
         add_test(NAME Society.SystemDriveHostPath COMMAND "${Python3_EXECUTABLE}" -B
             "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_system_drive_host.py"
@@ -1467,6 +1505,9 @@ if(BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)
         notificationCenterIntegratesWithExistingPopover)
     set_tests_properties(Society.NotificationPopoverIntegration PROPERTIES TIMEOUT 60
         ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software;QML_DISABLE_DISK_CACHE=1;SOCIETY_DISABLE_BACKEND_AUTOSTART=1;IILOCALLLM_DISABLE_APP_MCP=1")
+    add_test(NAME Society.SpaceNavigation COMMAND SocietyDriveTests spaceSegmentOpensContainerAndRestoresTab)
+    set_tests_properties(Society.SpaceNavigation PROPERTIES TIMEOUT 120
+        ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software;QML_DISABLE_DISK_CACHE=1")
     add_test(NAME Society.TasksNavigation COMMAND SocietyDriveTests
         tasksSegmentOpensExistingTools globalToolbarMatchesFigmaAndRoutesActions)
     set_tests_properties(Society.TasksNavigation PROPERTIES TIMEOUT 300
@@ -1604,7 +1645,7 @@ if(BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)
             sameUserReceivesOnlySignedDeviceBoundLicense rejectsSharedDirectory)
         set_tests_properties(Society.LocalLicenseInMemory PROPERTIES TIMEOUT 60)
     endif()
-    foreach(license_fixture_consumer SocietyAccountTests SocietyPairingTests SocietyNetworkTests SocietyClientOnlyNetworkTests SocietyDriveTests)
+    foreach(license_fixture_consumer SocietyAccountTests SocietyPairingTests SocietyNetworkTests SocietyClientOnlyNetworkTests SocietyDriveTests SocietyDriveBackendTests)
         target_link_libraries(${license_fixture_consumer} PRIVATE OpenSSL::Crypto)
     endforeach()
     foreach(account_consumer SocietyAccountTests SocietyNetworkTests SocietyClientOnlyNetworkTests SocietyDriveTests)

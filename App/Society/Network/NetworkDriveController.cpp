@@ -411,12 +411,20 @@ void NetworkDriveController::updateSynchronization() {
         || (m_localActive && !m_nearby.authenticated())) {
         m_syncHosts.clear(); invalidateHostConnection();
     }
+    const bool photosActive = m_runtimeEnabled && !m_suspended && signedIn() && containerReady()
+        && qEnvironmentVariableIntValue("SOCIETY_DISABLE_PHOTOS") != 1;
+    if (localAccountDriveMismatch()) {
+        // Keep local photos available without granting peers or creating account-scoped sync state.
+        m_syncHosts.clear(); invalidateHostConnection();
+        if (!m_namespace.isEmpty()) { m_namespace = {}; emit synchronizationChanged(); }
+        m_photos->configure(m_container, photosActive);
+        m_sync.close();
+        return;
+    }
     if (m_clientLease && !m_clientLease->isLocked()) {
         m_syncHosts.clear(); invalidateHostConnection();
         m_sync.close(); m_photos->configure(m_container, false); return;
     }
-    const bool photosActive = m_runtimeEnabled && !m_suspended && signedIn() && containerReady()
-        && qEnvironmentVariableIntValue("SOCIETY_DISABLE_PHOTOS") != 1;
     if (!m_runtimeEnabled || m_suspended || !signedIn()) {
         if (!m_namespace.isEmpty()) { m_namespace = {}; emit synchronizationChanged(); }
         m_photos->configure(m_container, photosActive); m_sync.close(); return;
@@ -497,6 +505,7 @@ bool NetworkDriveController::reconnecting() const {
 QString NetworkDriveController::synchronizationStatus() const {
     if (!signedIn()) return tr("Sign in to connect to your account's Society host.");
     if (accountHost().isEmpty() || accountContainer().isEmpty()) return tr("Register a Society host drive with your account before syncing.");
+    if (localAccountDriveMismatch()) return tr("This local container is different from the drive registered to your account. Device synchronization is unavailable.");
     const auto error = m_sync.errorString();
     if (error == "container_account_binding_mismatch") return tr("This container is linked to another account.");
     if (error == "insufficient_storage") return tr("Not enough free space to continue syncing.");
@@ -520,6 +529,11 @@ QString NetworkDriveController::accountHost() const {
 }
 QString NetworkDriveController::accountContainer() const {
     return signedIn() ? m_account->manager()->account()->societyContainerDrive().value("containerId").toString() : QString();
+}
+bool NetworkDriveController::localAccountDriveMismatch() const {
+    if (!hostModeAvailable() || !signedIn() || m_container.isEmpty() || accountContainer().isEmpty()) return false;
+    const auto drive = iiSocietyContainer::SocietyDrive::open(m_container);
+    return drive && drive->identifier() != accountContainer();
 }
 bool NetworkDriveController::pairingAuthenticated() const {
     return signedIn() && m_account->pairingCredentials().value("scope").toString() == accountSyncScope()

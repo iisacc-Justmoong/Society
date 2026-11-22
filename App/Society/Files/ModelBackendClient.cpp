@@ -14,7 +14,7 @@
 namespace {
 constexpr qsizetype maxFrame = 1024 * 1024;
 bool driveBound(const QString &operation) {
-    return operation.startsWith("agent") || operation.startsWith("suggested") || operation.startsWith("recent")
+    return operation.startsWith("agent") || operation.startsWith("space") || operation.startsWith("suggested") || operation.startsWith("recent")
         || operation.startsWith("file") || operation.startsWith("directory") || operation.startsWith("workspaceAdd") || operation=="resourceInspect";
 }
 }
@@ -44,10 +44,11 @@ ModelBackendClient::ModelBackendClient(QObject *parent, int requestTimeoutMs, st
 #endif
         m_input.clear(); emit connectedChanged();
         if (!m_container.isEmpty()) request(QStringLiteral("snapshot"));
+        if (!m_spaceSession.isEmpty()) request(QStringLiteral("spaceSubscribe"));
     });
     connect(&m_socket, &QLocalSocket::disconnected, this, [this] {
         const bool uncertain = !m_mutations.isEmpty();
-        m_pending.clear(); m_pendingOperations.clear(); m_pendingAgentContainers.clear(); m_pendingAgentGenerations.clear(); m_agentSubscription.clear(); m_suggestedSubscription.clear(); m_recentSubscription.clear(); m_mutations.clear(); m_input.clear();
+        m_pending.clear(); m_pendingOperations.clear(); m_pendingAgentContainers.clear(); m_pendingAgentGenerations.clear(); m_pendingSpaceGenerations.clear(); m_pendingSpaceSessions.clear(); m_spaceSubscription.clear(); m_agentSubscription.clear(); m_suggestedSubscription.clear(); m_recentSubscription.clear(); m_mutations.clear(); m_input.clear();
         emit connectedChanged(); emit pendingChanged();
         if (uncertain && m_enabled) emit requestError(tr("Connection interrupted. Check the operation status before retrying."));
     });
@@ -68,15 +69,24 @@ void ModelBackendClient::start()
 void ModelBackendClient::stop()
 {
     m_enabled = false; m_retry.stop(); m_socket.abort();
-    m_pending.clear(); m_pendingOperations.clear(); m_pendingAgentContainers.clear(); m_pendingAgentGenerations.clear(); m_agentSubscription.clear(); m_suggestedSubscription.clear(); m_recentSubscription.clear(); m_mutations.clear(); m_input.clear();
+    m_pending.clear(); m_pendingOperations.clear(); m_pendingAgentContainers.clear(); m_pendingAgentGenerations.clear(); m_pendingSpaceGenerations.clear(); m_pendingSpaceSessions.clear(); m_spaceSubscription.clear(); m_agentSubscription.clear(); m_suggestedSubscription.clear(); m_recentSubscription.clear(); m_mutations.clear(); m_input.clear();
 }
 void ModelBackendClient::setContainerPath(const QString &path)
 {
     const auto clean = path.isEmpty() ? QString() : QDir::cleanPath(path);
     if (m_container == clean) return;
-    m_container = clean; ++m_selectionGeneration; m_agentSubscription.clear(); m_suggestedSubscription.clear(); m_recentSubscription.clear();
-    if (connected() && !m_container.isEmpty()) request(QStringLiteral("snapshot"));
+    m_container = clean; ++m_selectionGeneration; ++m_spaceGeneration; m_spaceSubscription.clear(); m_agentSubscription.clear(); m_suggestedSubscription.clear(); m_recentSubscription.clear();
+    if (connected() && !m_container.isEmpty()) {
+        request(QStringLiteral("snapshot"));
+        if (!m_spaceSession.isEmpty()) request(QStringLiteral("spaceSubscribe"));
+    }
     else if (m_enabled) connectIfNeeded();
+}
+void ModelBackendClient::setSpaceSession(const QString &session)
+{
+    if (m_spaceSession == session) return;
+    m_spaceSession = session; ++m_spaceGeneration; m_spaceSubscription.clear();
+    if (connected() && !m_container.isEmpty() && !m_spaceSession.isEmpty()) request(QStringLiteral("spaceSubscribe"));
 }
 bool ModelBackendClient::connected() const { return m_socket.state() == QLocalSocket::ConnectedState; }
 
@@ -108,7 +118,13 @@ bool ModelBackendClient::request(const QString &operation, QJsonObject arguments
         if (mutation) emit requestError(tr("The Society background service is unavailable. Try again when it reconnects."));
         return false;
     }
+    if (operation.startsWith("space") && m_spaceSession.isEmpty()) return false;
     const auto id = QUuid::createUuid().toString(QUuid::WithoutBraces);
+    if (operation.startsWith("space")) arguments.insert("spaceId",m_spaceSession);
+    if (operation=="spaceSubscribe") {
+        m_spaceSubscription=QUuid::createUuid().toString(QUuid::WithoutBraces);
+        arguments.insert("subscription",m_spaceSubscription);
+    }
     if (operation=="agentSubscribe") {
         m_agentSubscription=QUuid::createUuid().toString(QUuid::WithoutBraces);
         arguments.insert("subscription",m_agentSubscription);
@@ -138,6 +154,9 @@ bool ModelBackendClient::request(const QString &operation, QJsonObject arguments
     if (driveBound(operation)) {
         m_pendingAgentContainers.insert(id,m_container); m_pendingAgentGenerations.insert(id,m_selectionGeneration);
     }
+    if (operation.startsWith("space")) {
+        m_pendingSpaceSessions.insert(id,m_spaceSession); m_pendingSpaceGenerations.insert(id,m_spaceGeneration);
+    }
     if (mutation) { m_mutations.insert(id); emit pendingChanged(); }
     if (requestId) *requestId=id;
     QTimer::singleShot(m_requestTimeoutMs, this, [this, id] {
@@ -145,7 +164,11 @@ bool ModelBackendClient::request(const QString &operation, QJsonObject arguments
         const auto operation=m_pendingOperations.take(id);
         const auto container=m_pendingAgentContainers.take(id);
         const auto generation=m_pendingAgentGenerations.take(id);
+        const auto spaceSession=m_pendingSpaceSessions.take(id);
+        const auto spaceGeneration=m_pendingSpaceGenerations.take(id);
         const bool current=generation==m_selectionGeneration && societySameBackendPath(container,m_container);
+        if (operation.startsWith("space") && current && spaceGeneration==m_spaceGeneration && spaceSession==m_spaceSession)
+            emit spaceResultReceived(operation,spaceSession,id,false,tr("The request timed out. Check the conversation before retrying."));
         if (operation.startsWith("file") && current)
             emit fileResultReceived(operation,id,{{"accepted",false},{"uncertain",true},{"error",tr("The background service did not respond. Check the job before retrying.")}});
         if (operation=="resourceInspect" && current)
@@ -194,9 +217,16 @@ void ModelBackendClient::handle(const QJsonObject &message)
         const auto operation = m_pendingOperations.take(id);
         const auto agentContainer=m_pendingAgentContainers.take(id);
         const auto agentGeneration=m_pendingAgentGenerations.take(id);
+        const auto spaceSession=m_pendingSpaceSessions.take(id);
+        const auto spaceGeneration=m_pendingSpaceGenerations.take(id);
         const bool mutation = m_mutations.remove(id);
         if (mutation) emit pendingChanged();
         if (driveBound(operation) && (agentGeneration!=m_selectionGeneration || !societySameBackendPath(agentContainer,m_container))) return;
+        if (operation.startsWith("space") && (spaceGeneration!=m_spaceGeneration || spaceSession!=m_spaceSession)) return;
+        if (operation.startsWith("space")) {
+            if (message.value("space").isObject()) emit spaceStateReceived(spaceSession,message.value("space").toObject());
+            emit spaceResultReceived(operation,spaceSession,id,message.value("accepted").toBool(),message.value("error").toString());
+        }
         if (operation=="fileOperation" || operation=="fileJobStatus") emit fileResultReceived(operation,id,message);
         if (operation=="resourceInspect") emit resourceResultReceived(id,message);
         if (operation.startsWith("workspaceAdd")) emit workspaceResultReceived(operation,id,message);
@@ -230,6 +260,11 @@ void ModelBackendClient::handle(const QJsonObject &message)
         }
         if (societySameBackendPath(state.value("containerPath").toString(), m_container)
             && societySameBackendPath(state.value("selectedContainer").toString(), m_container)) emit stateReceived(state);
+    } else if (type == "spaceState" && !m_spaceSubscription.isEmpty() && message.value("subscription").toString()==m_spaceSubscription
+               && message.value("spaceId").toString()==m_spaceSession
+               && societySameBackendPath(message.value("container").toString(),m_container)
+               && message.value("space").isObject()) {
+        emit spaceStateReceived(m_spaceSession,message.value("space").toObject());
     } else if (type == "agentState" && !m_agentSubscription.isEmpty() && message.value("subscription").toString()==m_agentSubscription
                && societySameBackendPath(message.value("container").toString(), m_container)
                && message.value("agent").isObject()) {

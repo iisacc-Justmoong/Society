@@ -89,6 +89,12 @@ ModelBackendServer::ModelBackendServer(QObject *parent, UiPeerVerifier uiPeerVer
         for (auto it=m_agentClients.cbegin();it!=m_agentClients.cend();++it)
             send(it.key(), {{"type","agentState"},{"container",m_selected},{"subscription",it.value()},{"agent",agent}});
     });
+    connect(m_agent.get(), &WorkspaceAgentBackend::spaceChanged, this, [this](const QString &id,const QJsonObject &space) {
+        const auto subscriptions=m_spaceClients;
+        for (auto it=subscriptions.cbegin();it!=subscriptions.cend();++it)
+            if (it->session==id) send(it.key(),{{"type","spaceState"},{"container",m_selected},
+                                                 {"subscription",it->token},{"spaceId",id},{"space",space}});
+    });
     connect(m_suggested.get(), &SuggestedBackend::changed, this, [this](const QJsonObject &suggested) {
         for (auto it=m_suggestedClients.cbegin();it!=m_suggestedClients.cend();++it)
             send(it.key(), {{"type","suggestedState"},{"container",m_selected},{"subscription",it.value()},{"suggested",suggested}});
@@ -301,6 +307,7 @@ void ModelBackendServer::accept()
             m_recentClients.remove(socket);
 #ifdef SOCIETY_AGENT_BACKEND
             m_suggestedClients.remove(socket);
+            m_spaceClients.remove(socket);
             m_residentClients.remove(socket);
             const auto resident=m_residentRequests.take(socket);
             for (const auto &ticket:resident) {
@@ -460,6 +467,43 @@ void ModelBackendServer::receive(QLocalSocket *socket, const QJsonObject &reques
             m_suggested->activate();
         } else m_suggested->refresh();
         reply.insert("accepted",true); reply.insert("suggested",m_suggested->snapshot()); send(socket,reply); return;
+    }
+    if (operation.startsWith("space")) {
+        QJsonObject reply{{"type","result"},{"id",id},{"accepted",false},{"operation",operation}};
+        const auto directory=QDir(QCoreApplication::applicationDirPath());
+        if (!m_uiPeerVerifier(socket) && societyBackendPeerPid(socket)!=QCoreApplication::applicationPid()
+            && !societyBackendPeerMatchesExecutable(socket,directory.filePath("society-cli"))
+            && !societyBackendPeerMatchesExecutable(socket,directory.filePath("bin/society-cli"))) {
+            reply.insert("error","The Space client could not be verified."); send(socket,reply); return;
+        }
+        if (m_selected.isEmpty() || !societySameBackendPath(QDir::cleanPath(request.value("container").toString()),m_selected)) {
+            reply.insert("error","The selected Society drive is unavailable or has changed."); send(socket,reply); return;
+        }
+        const auto bytes=QJsonDocument(request).toJson(QJsonDocument::Compact);
+        if (!m_agentReplies.contains(socket))
+            connect(socket,&QObject::destroyed,this,[this,socket] { m_agentClients.remove(socket); m_spaceClients.remove(socket); m_agentReplies.remove(socket); });
+        auto &cache=m_agentReplies[socket];
+        if (cache.contains(id)) {
+            const auto previous=cache.value(id);
+            if (previous.first!=bytes) { socket->abort(); return; }
+            send(socket,previous.second); return;
+        }
+        const auto spaceId=request.value("spaceId").toString();
+        QString error; bool accepted=false;
+        if (operation=="spaceSubscribe") {
+            const auto subscription=request.value("subscription").toString(id);
+            if (subscription.isEmpty() || subscription.size()>128) error="Invalid Space subscription.";
+            else if ((accepted=m_agent->observeSpace(spaceId,&error))) m_spaceClients.insert(socket,{spaceId,subscription});
+        } else if (operation=="spaceSend") {
+            if (request.contains("attachments") && !request.value("attachments").isArray()) error="Attachments must be an array of file paths.";
+            else accepted=m_agent->submitSpace(spaceId,request.value("prompt").toString(),request.value("attachments").toArray(),request.value("effort").toString(),&error);
+        } else if (operation=="spaceCancel") accepted=m_agent->cancelSpace(spaceId,&error);
+        else error="Unknown Space operation.";
+        reply.insert("accepted",accepted); reply.insert("spaceId",spaceId);
+        if (!error.isEmpty()) reply.insert("error",error);
+        reply.insert("space",m_agent->spaceSnapshot(spaceId));
+        if (cache.size()>=32) cache.clear();
+        cache.insert(id,{bytes,reply}); send(socket,reply); return;
     }
     if (operation.startsWith("agent")) {
         QJsonObject reply{{"type","result"},{"id",id},{"accepted",false},{"operation",operation}};

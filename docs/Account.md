@@ -54,11 +54,9 @@ SDK는 HTTPS와 loopback HTTP만 허용하고 리다이렉트를 따라가지 �
 사용자가 지정한 한도는 **PC 2대·태블릿 2대·휴대폰 2대**이다. 각 유형은 독립적이고 동일 기기의
 여러 앱은 슬롯 하나를 공유한다. 휴대폰을 태블릿으로 보고하지 않는다.
 
-| 플랫폼 | 식별자와 유형 |
-| --- | --- |
-| 데스크톱 | Qt의 machineUniqueId를 iisacc 접두사와 함께 SHA-256으로 해시, `pc` |
-| iOS/iPadOS | identifierForVendor 해시, 실제 userInterfaceIdiom으로 `phone`/`tablet` 구분 |
-| Android | 서명·사용자·기기 범위의 ANDROID_ID 해시, smallestScreenWidthDp 600 이상은 `tablet`, 그 외 `phone` |
+- 플랫폼: 데스크톱; 식별자와 유형: Qt의 machineUniqueId를 iisacc 접두사와 함께 SHA-256으로 해시, `pc`
+- 플랫폼: iOS/iPadOS; 식별자와 유형: identifierForVendor 해시, 실제 userInterfaceIdiom으로 `phone`/`tablet` 구분
+- 플랫폼: Android; 식별자와 유형: 서명·사용자·기기 범위의 ANDROID_ID 해시, smallestScreenWidthDp 600 이상은 `tablet`, 그 외 `phone`
 
 OS가 식별자를 제공하지 않을 때만 QSettings의 비밀값이 아닌 설치 ID를 생성해 재사용한다.
 앱 ID는 모든 플랫폼에서 `com.iisacc.society`, 버전은 CMake 프로젝트 버전이다.

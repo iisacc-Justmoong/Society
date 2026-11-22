@@ -1,0 +1,5 @@
+<RCC>
+  <qresource prefix="/society/space">
+    <file alias="minimal-cyan-orb.svg">../../../resources/space/minimal-cyan-orb.svg</file>
+  </qresource>
+</RCC>

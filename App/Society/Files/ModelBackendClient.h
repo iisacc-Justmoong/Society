@@ -19,6 +19,8 @@ public:
     void start();
     void stop();
     void setContainerPath(const QString &path);
+    /// Select the Space transcript observed on this connection. Old replies are discarded.
+    void setSpaceSession(const QString &session);
     bool connected() const;
     bool pendingMutation() const { return !m_mutations.isEmpty(); }
     bool request(const QString &operation, QJsonObject arguments = {}, bool mutation = false, QString *requestId = nullptr);
@@ -30,6 +32,11 @@ signals:
     void eventReceived(const QJsonObject &event);
     void agentStateReceived(const QJsonObject &state);
     void agentResultReceived(const QString &operation, bool accepted, const QString &error);
+    /// A snapshot is delivered only for the current container and Space subscription.
+    void spaceStateReceived(const QString &session, const QJsonObject &state);
+    /// Completion of a Space request; uncertain requests must not be replayed automatically.
+    void spaceResultReceived(const QString &operation, const QString &session, const QString &id,
+                             bool accepted, const QString &error);
     void suggestedStateReceived(const QJsonObject &state);
     void suggestedResultReceived(const QString &operation, bool accepted, const QString &error);
     void recentStateReceived(const QJsonObject &state);
@@ -54,6 +61,10 @@ private:
     QHash<QString, QString> m_pendingOperations;
     QHash<QString, QString> m_pendingAgentContainers;
     QHash<QString, quint64> m_pendingAgentGenerations;
+    QHash<QString, quint64> m_pendingSpaceGenerations;
+    QHash<QString, QString> m_pendingSpaceSessions;
+    QString m_spaceSession, m_spaceSubscription;
+    quint64 m_spaceGeneration = 0;
     QString m_agentSubscription, m_suggestedSubscription, m_recentSubscription;
     quint64 m_selectionGeneration = 0;
     QSet<QString> m_mutations;

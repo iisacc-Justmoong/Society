@@ -1,6 +1,7 @@
 #include "Daemon/DaemonMcp.h"
 #include "Daemon/ModelBackendServer.h"
 #include <iiSocietyContainer>
+#include <SpaceStore.h>
 #include <iiMultimodalAgent>
 #include <QDir>
 #include <QDirIterator>
@@ -27,6 +28,8 @@ private slots:
         qputenv("SOCIETY_JOB_STATE_ROOT",fixture.filePath("jobs").toUtf8());
         const auto restore=qScopeGuard([&]{if(hadPrevious)qputenv("SOCIETY_JOB_STATE_ROOT",previous);else qunsetenv("SOCIETY_JOB_STATE_ROOT");});
         const auto root=fixture.filePath("drive.societycontainer"); QVERIFY(QDir().mkdir(root)); QVERIFY(iiSocietyContainer::SocietyDrive::create(root));
+        auto spaces=iiSocietyContainer::SpaceStore::open(std::filesystem::path(root.toStdU16String())); QVERIFY(spaces);
+        QVERIFY(spaces->createSession({"space-test","Space test","","active"}));
         QFile sample(root+"/Files/example.txt"); QVERIFY(sample.open(QIODevice::WriteOnly)); sample.write("example"); sample.close();
         const auto storage=iiSocietyContainer::SharedStorage::open(root); QVERIFY(storage);
         { auto repository=storage->fileRepository(); (void)repository->observe("files/example.txt"); }
@@ -48,6 +51,11 @@ private slots:
             const auto state=call("workspace_agent_status");
             if (state.value("isError").toBool() || !state.value("structuredContent").toObject().contains("messages"))
                 throw std::runtime_error("headless agent status failed");
+            const auto space=call("space_agent_status",{{"session","space-test"}});
+            if (space.value("isError").toBool() || space.value("structuredContent").toObject().value("session")!="space-test")
+                throw std::runtime_error("headless Space status failed: "+QJsonDocument(space).toJson(QJsonDocument::Compact).toStdString());
+            const auto spaceSend=call("space_agent_send",{{"session","space-test"},{"prompt","fixture"},{"effort","high"}});
+            if (!spaceSend.value("isError").toBool()) throw std::runtime_error("Space without a model must reject submission");
             const auto suggested=call("suggested_status");
             if (suggested.value("isError").toBool() || !suggested.value("structuredContent").toObject().contains("items"))
                 throw std::runtime_error("headless Suggested status failed: "+QJsonDocument(suggested).toJson(QJsonDocument::Compact).toStdString());

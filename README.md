@@ -49,7 +49,7 @@ compatible service. See [CloudFiles.md](docs/CloudFiles.md) for the source and d
 
 A common LVRS account screen is provided for all Society platforms. Log in directly with just email and password from the desktop top account icon or the mobile Sign in button. The account panel, Devices, and iiSocietyHelper share the same iiAccountManager object. Independent limits of PC 2 desktops, 2 tablets, and 2 mobiles are used, and no relay address is required for login. Refer to the [authentication flow, device identification, and verification scope](docs/Account.md).
 
-On desktop, the [Figma dashboard](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=18-14) is placed as `SocietyView` in the `content` slot of `LV.ApplicationWindow`. The header uses the [seven-item LVUI navigation](docs/NativeNavigation.md) and ends with the account Avatar. Tasks opens the existing Tools view, and Library opens Storage. Space and People report that their services are not connected. Open **Tools** also from the View menu or with Command+2 on macOS / Ctrl+2 on other desktop platforms. **Tools** provides the [model addition/subtraction merge tool](docs/ModelMerge.md) based on iiLocalDiffusion; base and additional checkpoints/LoRA are selected from the dropdown and context menu in the container's `Models/`. It provides weights, output, cache, the Python environment, and configuration validation. **Browse** browses files on connected devices. **Environment** displays [Overview, Devices, Apps, and four app collections](docs/Environment.md), and Hosting opens its hosting information. The device-pairing modal opens through Environment → Devices → Add device. Merge settings, the current folder, and prompts persist when switching tabs. Actual recent files and generation history, screen composition, and the scope of behavior are documented in the [Dashboard documentation](docs/Dashboard.md). The Storage sidebar has four groups: My storage, Other devices, Guild, and Organization. Actual device lists, per-account browsing objects, empty states, and scrolling behavior are documented in the [Storage navigation documentation](docs/StorageNavigation.md). Storage → Photos [connects bidirectionally to the device photo library](docs/Photos.md) and provides photo and video aliases, directly saved previews, and authenticated original transfers.
+On desktop, the [Figma dashboard](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=18-14) is placed as `SocietyView` in the `content` slot of `LV.ApplicationWindow`. The header uses the [seven-item LVUI navigation](docs/NativeNavigation.md) and ends with the account Avatar. Tasks opens the existing Tools view, and Library opens Storage. Space opens the native [discovery view and session agent](docs/GraphNodes.md#space-discovery-view); People reports that its service is not connected. Open **Tools** also from the View menu or with Command+2 on macOS / Ctrl+2 on other desktop platforms. **Tools** provides the [model addition/subtraction merge tool](docs/ModelMerge.md) based on iiLocalDiffusion; base and additional checkpoints/LoRA are selected from the dropdown and context menu in the container's `Models/`. It provides weights, output, cache, the Python environment, and configuration validation. **Browse** browses files on connected devices. **Environment** displays [Overview, Devices, Apps, and four app collections](docs/Environment.md), and Hosting opens its hosting information. The device-pairing modal opens through Environment → Devices → Add device. Merge settings, the current folder, and prompts persist when switching tabs. Actual recent files and generation history, screen composition, and the scope of behavior are documented in the [Dashboard documentation](docs/Dashboard.md). The Storage sidebar has four groups: My storage, Other devices, Guild, and Organization. Actual device lists, per-account browsing objects, empty states, and scrolling behavior are documented in the [Storage navigation documentation](docs/StorageNavigation.md). Storage → Photos [connects bidirectionally to the device photo library](docs/Photos.md) and provides photo and video aliases, directly saved previews, and authenticated original transfers.
 
 App title, drive home, and path display, and the OS drive display name are `Society`. iiSocietyContainer 0.9.1 reads existing drives with previous names while maintaining UUID and files. Re-registering the original at macOS updates the display name of the same File Provider domain. `Society.Drive` validates app title, home, and path display.
 
@@ -147,18 +147,16 @@ macOS's `Society` build copies Qt · LVRS · SDK ·native library of GUI and emb
 The product links the SDK capabilities used by its current features. Package discovery
 uses explicit package directories or `~/.local/SDK/<package name>`.
 
-| Required capability | Owning SDK |
-| --- | --- |
-| Account UI and authentication | iiAccountManager Quick |
-| Persistent calendar, events and tasks | iiCalendarIntegration |
-| File creation, temporary leases and native presentation | iiFileProvider |
-| Device pairing and authenticated LAN hosting | iiWebServer |
-| Native container, previews and system-drive presentation | iiSocietyContainer Gui |
-| Shared application presence and file mirror | iiSocietyHelper 0.9.3 or later |
-| Bidirectional container replication | iiSocietyHelper Sync |
-| Photo library and gallery | iiPhotoLibrary |
-| Model packaging and desktop inference hosting | iiLocalDiffusion ModelPackaging and iiSocietyHelper Generation Host |
-| Local desktop MCP endpoint and agent harness on supported Unix platforms | iiMultimodalAgent 0.1 (iiLocalLLM 0.56 inference dependency) |
+- Required capability: Account UI and authentication; Owning SDK: iiAccountManager Quick
+- Required capability: Persistent calendar, events and tasks; Owning SDK: iiCalendarIntegration
+- Required capability: File creation, temporary leases and native presentation; Owning SDK: iiFileProvider
+- Required capability: Device pairing and authenticated LAN hosting; Owning SDK: iiWebServer
+- Required capability: Native container, previews and system-drive presentation; Owning SDK: iiSocietyContainer Gui
+- Required capability: Shared application presence and file mirror; Owning SDK: iiSocietyHelper 0.9.3 or later
+- Required capability: Bidirectional container replication; Owning SDK: iiSocietyHelper Sync
+- Required capability: Photo library and gallery; Owning SDK: iiPhotoLibrary
+- Required capability: Model packaging and desktop inference hosting; Owning SDK: iiLocalDiffusion ModelPackaging and iiSocietyHelper Generation Host
+- Required capability: Local desktop MCP endpoint and agent harness on supported Unix platforms; Owning SDK: iiMultimodalAgent 0.1 (iiLocalLLM 0.56 inference dependency)
 
 The desktop links the installed agent SDK and packages its native runtime.
 See [agent integration](docs/AgentIntegration.md) for package selection and checks.

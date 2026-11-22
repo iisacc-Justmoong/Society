@@ -21,10 +21,8 @@ Society의 기존 시작 정책은 유지한다. 로그인된 계정에 등록�
 
 기기 역할은 플랫폼으로 고정된다.
 
-| 플랫폼 | 역할 |
-| --- | --- |
-| macOS, Windows, Linux 데스크톱 및 NAS의 SocietyDaemon |호스트|
-| iOS, Android |클라이언트|
+- 플랫폼: macOS, Windows, Linux 데스크톱 및 NAS의 SocietyDaemon; 역할: 호스트
+- 플랫폼: iOS, Android; 역할: 클라이언트
 
 `NetworkDriveController.mode`는 읽기 전용 상수이며 런타임 변경 API가 없다. 서버 연결·연결 해제·로그아웃·컨테이너 변경도 이 값을 바꾸지 않는다. Devices는 현재 기기의 역할을 설명하고 서버 연결 버튼 하나만 제공한다. 데스크톱은 유효한 컨테이너와 인증된 연결이 준비되면 호스팅하며, 모바일에서는 호스팅 옵션을 전달해도 파일 서버를 열지 않는다.
 

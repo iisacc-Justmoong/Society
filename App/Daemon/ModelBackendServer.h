@@ -71,6 +71,9 @@ private:
     std::unique_ptr<WorkspaceAgentBackend> m_agent;
     std::unique_ptr<SuggestedBackend> m_suggested;
     QHash<QLocalSocket *, QString> m_agentClients;
+    /// A connection subscribes to exactly one Space session at a time.
+    struct SpaceSubscription { QString session, token; };
+    QHash<QLocalSocket *, SpaceSubscription> m_spaceClients;
     QHash<QLocalSocket *, QString> m_suggestedClients;
     QHash<QLocalSocket *, QHash<QString, QPair<QByteArray, QJsonObject>>> m_agentReplies;
     struct ResidentRequest { QPointer<QLocalSocket> socket; QString id; };

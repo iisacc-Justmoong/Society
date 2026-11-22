@@ -30,6 +30,17 @@ class WorkspaceAgentBindingTest(unittest.TestCase):
         client.agent_send("hello")
         self.assertEqual(client.recorded, (["agent", "send", "--stdin"], True, "hello"))
 
+    def test_space_preserves_session_budget_and_selected_paths(self):
+        client = Probe()
+        client.space_send("session one", "inspect", ["/one file.png"], effort="high", container="/drive")
+        self.assertEqual(client.recorded, (["space", "send", "--stdin", "--session", "session one",
+                                            "--effort", "high", "--attach", "/one file.png",
+                                            "--container", "/drive"], True, "inspect"))
+        client.space_status("session one")
+        self.assertEqual(client.recorded, (["space", "status", "--session", "session one"], False, None))
+        client.space_cancel("session one")
+        self.assertEqual(client.recorded, (["space", "cancel", "--session", "session one"], True, None))
+
 
 if __name__ == "__main__":
     unittest.main()

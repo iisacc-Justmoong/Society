@@ -6,6 +6,7 @@
 #include "Daemon/ResidentGateway.h"
 #include "Shared/LocalBackendAddress.h"
 #include <iiSocietyContainer>
+#include <SpaceStore.h>
 #include <ModelPackaging/ModelPackaging.hpp>
 #include <iiMultimodalAgent>
 #include <QDir>
@@ -13,6 +14,8 @@
 #include <QJsonDocument>
 #include <QTemporaryDir>
 #include <QFile>
+#include <QFileInfo>
+#include <QImage>
 #include <QSignalSpy>
 #include <QPointer>
 #include <QLocalServer>
@@ -50,6 +53,7 @@ public:
     QStringList selectedModels;
     QStringList systemPrompts;
     QList<QJsonArray> submittedContent;
+    QList<int> outputBudgets;
     a::ModelReply generate(const a::ModelRequest &request, const iiMultimodalAgent::CancellationToken &token,
                            const std::function<bool(const QString &)> &delta) override {
         {
@@ -58,6 +62,7 @@ public:
             selectedModels.append(request.model);
             systemPrompts.append(request.systemPrompt);
             submittedContent.append(request.messages.back().content);
+            outputBudgets.append(request.generation.maxTokens);
         }
         const auto text=request.messages.back().text;
         if (text=="fail") throw std::runtime_error("fixture failure");
@@ -146,6 +151,131 @@ public:
 class WorkspaceAgentTest final : public QObject {
     Q_OBJECT
 private slots:
+    /// Space sessions share the model runtime but retain distinct, durable transcripts and budgets.
+    void spaceSessionsAreIsolatedAndUseReasoningBudgets() {
+        QTemporaryDir fixture(QDir(QStringLiteral(SOCIETY_TEST_DIRECTORY)).filePath("space-agent-XXXXXX"));
+        QVERIFY(fixture.isValid());
+        const auto root = fixture.filePath("test.societycontainer");
+        QVERIFY(QDir().mkdir(root)); QVERIFY(iiSocietyContainer::SocietyDrive::create(root));
+        auto store = iiSocietyContainer::SpaceStore::open(std::filesystem::path(root.toStdU16String())); QVERIFY(store);
+        QVERIFY(store->createSession({"space-a", "A", "", "active"}));
+        QVERIFY(store->createSession({"space-b", "B", "", "active"}));
+        QFile note(root + "/Files/context.txt"); QVERIFY(note.open(QIODevice::WriteOnly));
+        QCOMPARE(note.write("selected context"), qint64(16)); note.close();
+        auto model = std::make_shared<FakeModel>(); QString error;
+        {
+            WorkspaceAgentBackend backend(nullptr, model, QStringLiteral("model://test"));
+            backend.selectContainer(root);
+            QTRY_COMPARE_WITH_TIMEOUT(backend.snapshot().value("model").toString(), QStringLiteral("model://test"), 30000);
+            QVERIFY2(backend.submit("workspace only", &error), qPrintable(error));
+            QTRY_VERIFY_WITH_TIMEOUT(!backend.snapshot().value("busy").toBool(), 30000);
+            const auto workspace = backend.snapshot().value("messages").toArray();
+            QCOMPARE(workspace.size(), 2);
+            QVERIFY2(backend.observeSpace("space-a", &error), qPrintable(error));
+            QTRY_VERIFY_WITH_TIMEOUT(backend.spaceSnapshot("space-a").value("loaded").toBool(), 30000);
+            QVERIFY2(backend.submitSpace("space-a", "first", QJsonArray{root + "/Files/context.txt"}, "low", &error), qPrintable(error));
+            QTRY_VERIFY_WITH_TIMEOUT(!backend.spaceSnapshot("space-a").value("busy").toBool(), 30000);
+            QCOMPARE(backend.spaceSnapshot("space-a").value("messages").toArray().size(), 2);
+            QVERIFY2(backend.observeSpace("space-b", &error), qPrintable(error));
+            QTRY_VERIFY_WITH_TIMEOUT(backend.spaceSnapshot("space-b").value("loaded").toBool(), 30000);
+            QVERIFY2(backend.submitSpace("space-b", "second", {}, "high", &error), qPrintable(error));
+            QTRY_VERIFY_WITH_TIMEOUT(!backend.spaceSnapshot("space-b").value("busy").toBool(), 30000);
+            QVERIFY2(backend.submitSpace("space-a", "again", {}, "standard", &error), qPrintable(error));
+            QTRY_VERIFY_WITH_TIMEOUT(!backend.spaceSnapshot("space-a").value("busy").toBool(), 30000);
+            QCOMPARE(backend.snapshot().value("messages").toArray(), workspace);
+            QVERIFY(!backend.submitSpace("space-a", "invalid", {}, "unlimited", &error));
+        }
+        {
+            std::lock_guard lock(model->mutex);
+            QCOMPARE(model->historyLengths.size(), 4);
+            QCOMPARE(model->historyLengths[0], 1);
+            QCOMPARE(model->historyLengths[1], 1);
+            QCOMPARE(model->historyLengths[2], 1);
+            QVERIFY(model->historyLengths[3] > model->historyLengths[1]);
+            QVERIFY(model->outputBudgets[1] < model->outputBudgets[3]);
+            QVERIFY(model->outputBudgets[3] < model->outputBudgets[2]);
+            QVERIFY(QString::fromUtf8(QJsonDocument(model->submittedContent[1]).toJson()).contains("selected context"));
+        }
+        WorkspaceAgentBackend reopened(nullptr, model, QStringLiteral("model://test"));
+        reopened.selectContainer(root);
+        QTRY_COMPARE_WITH_TIMEOUT(reopened.snapshot().value("model").toString(), QStringLiteral("model://test"), 30000);
+        QVERIFY2(reopened.observeSpace("space-a", &error), qPrintable(error));
+        QTRY_VERIFY_WITH_TIMEOUT(reopened.spaceSnapshot("space-a").value("loaded").toBool(), 30000);
+        QCOMPARE(reopened.spaceSnapshot("space-a").value("messages").toArray().size(), 4);
+        QVERIFY(reopened.snapshot().value("messages").toArray().isEmpty());
+    }
+
+    /// Explicitly selected external documents and photos reach only the requested Space turn.
+    void spaceAcceptsSelectedExternalAttachments() {
+        QTemporaryDir fixture(QDir(QStringLiteral(SOCIETY_TEST_DIRECTORY)).filePath("space-attachments-XXXXXX"));
+        QVERIFY(fixture.isValid()); const auto root=fixture.filePath("drive.societycontainer");
+        QVERIFY(QDir().mkdir(root)); QVERIFY(iiSocietyContainer::SocietyDrive::create(root));
+        auto store=iiSocietyContainer::SpaceStore::open(std::filesystem::path(root.toStdU16String())); QVERIFY(store);
+        QVERIFY(store->createSession({"space-a","A","","active"}));
+        const auto notePath=fixture.filePath("selected.txt"), imagePath=fixture.filePath("photo.png");
+        QFile note(notePath); QVERIFY(note.open(QIODevice::WriteOnly)); QCOMPARE(note.write("external document"),qint64(17)); note.close();
+        QString selectedNote=notePath;
+#ifndef Q_OS_WIN
+        const auto aliasPath=fixture.filePath("selected-alias.txt"); QVERIFY(QFile::link(notePath,aliasPath)); selectedNote=aliasPath;
+#endif
+        const auto png=QByteArray::fromBase64("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=");
+        QFile image(imagePath); QVERIFY(image.open(QIODevice::WriteOnly)); QCOMPARE(image.write(png),qint64(png.size())); image.close();
+        const auto largePath=fixture.filePath("large.jpg"); QImage large(1200,1200,QImage::Format_RGB32);
+        quint32 noise=0x12345678;
+        for (int y=0;y<large.height();++y) for (int x=0;x<large.width();++x) {
+            noise^=noise<<13; noise^=noise>>17; noise^=noise<<5; large.setPixel(x,y,0xff000000u|(noise&0x00ffffffu));
+        }
+        QVERIFY(large.save(largePath,"JPEG",95)); const auto originalSize=QFileInfo(largePath).size();
+        QVERIFY(originalSize>512*1024);
+        auto model=std::make_shared<FakeModel>(); WorkspaceAgentBackend backend(nullptr,model,QStringLiteral("model://test"));
+        backend.selectContainer(root);
+        QTRY_COMPARE_WITH_TIMEOUT(backend.snapshot().value("model").toString(),QStringLiteral("model://test"),30000);
+        QString error; QVERIFY2(backend.observeSpace("space-a",&error),qPrintable(error));
+        QTRY_VERIFY_WITH_TIMEOUT(backend.spaceSnapshot("space-a").value("loaded").toBool(),30000);
+        QVERIFY2(backend.submitSpace("space-a","Inspect",QJsonArray{selectedNote,imagePath,largePath},"standard",&error),qPrintable(error));
+        QTRY_VERIFY_WITH_TIMEOUT(!backend.spaceSnapshot("space-a").value("busy").toBool(),30000);
+        QVERIFY2(!backend.spaceSnapshot("space-a").value("retryable").toBool(),qPrintable(backend.spaceSnapshot("space-a").value("status").toString()));
+        std::lock_guard lock(model->mutex); QCOMPARE(model->submittedContent.size(),1);
+        const auto blocks=model->submittedContent.front();
+        QVERIFY(QString::fromUtf8(QJsonDocument(blocks).toJson()).contains("external document"));
+        bool found=false,compressed=false; for(const auto &value:blocks) {
+            const auto block=value.toObject();
+            if(block.value("type").toString()=="image") {
+                const auto bytes=QByteArray::fromBase64(block.value("data").toString().toLatin1());
+                if (block.value("mimeType")=="image/png") {found=true; QCOMPARE(bytes,png);}
+                else { compressed=true; QVERIFY(bytes.size()<512*1024); QVERIFY(!QImage::fromData(bytes).isNull()); }
+            }
+        }
+        QVERIFY(found); QVERIFY(compressed); QCOMPARE(QFileInfo(largePath).size(),originalSize);
+        QVERIFY(QFileInfo::exists(notePath)); QVERIFY(QFileInfo::exists(imagePath));
+    }
+
+    /// A text-only model must reject a photo explicitly instead of silently ignoring it.
+    void spaceReportsUnsupportedImageModels() {
+        QTemporaryDir fixture(QDir(QStringLiteral(SOCIETY_TEST_DIRECTORY)).filePath("space-no-vision-XXXXXX"));
+        QVERIFY(fixture.isValid()); const auto root=fixture.filePath("drive.societycontainer");
+        QVERIFY(QDir().mkdir(root)); QVERIFY(iiSocietyContainer::SocietyDrive::create(root));
+        auto store=iiSocietyContainer::SpaceStore::open(std::filesystem::path(root.toStdU16String())); QVERIFY(store);
+        QVERIFY(store->createSession({"session","Session","","active"}));
+        const auto path=fixture.filePath("photo.png"); QFile image(path); QVERIFY(image.open(QIODevice::WriteOnly));
+        image.write(QByteArray::fromBase64("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=")); image.close();
+        auto model=std::make_shared<FakeModel>(); auto policy=std::make_shared<a::DecisionOptions>(); policy->enabled=false;
+        policy->modelRoutes={{"text","model://test",iiMultimodalAgent::modality(iiMultimodalAgent::Modality::Text)}};
+        WorkspaceAgentBackend backend(nullptr,model,"model://test",policy); backend.selectContainer(root);
+        QTRY_COMPARE_WITH_TIMEOUT(backend.snapshot().value("model").toString(),QStringLiteral("model://test"),30000);
+        QString error; QVERIFY(backend.observeSpace("session",&error));
+        QTRY_VERIFY_WITH_TIMEOUT(backend.spaceSnapshot("session").value("loaded").toBool(),30000);
+        QVERIFY(backend.submitSpace("session","Inspect",QJsonArray{path},"standard",&error));
+        QTRY_VERIFY_WITH_TIMEOUT(!backend.spaceSnapshot("session").value("busy").toBool(),30000);
+        const auto state=backend.spaceSnapshot("session"); QVERIFY(state.value("retryable").toBool());
+        QVERIFY2(state.value("status").toString().contains("supports the attached media"),qPrintable(state.value("status").toString()));
+        { std::lock_guard lock(model->mutex); QVERIFY(model->submittedContent.isEmpty()); }
+        QVERIFY(backend.submitSpace("session","Continue without the photo",{},"standard",&error));
+        QTRY_VERIFY_WITH_TIMEOUT(!backend.spaceSnapshot("session").value("busy").toBool(),30000);
+        QVERIFY2(!backend.spaceSnapshot("session").value("retryable").toBool(),qPrintable(backend.spaceSnapshot("session").value("status").toString()));
+        std::lock_guard lock(model->mutex); QCOMPARE(model->submittedContent.size(),1);
+    }
+
     void localRuntimePolicyUsesAutomaticUnlessExplicitlyConfigured() {
         QTemporaryDir fixture(QDir(QStringLiteral(SOCIETY_TEST_DIRECTORY)).filePath("agent-runtime-policy-XXXXXX"));
         QVERIFY(fixture.isValid());

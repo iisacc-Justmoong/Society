@@ -2,11 +2,9 @@
 
 Society connects its existing `Files/` contents to the platform file manager. The original directory, manifest UUID, other eight sections, and application metadata stay at their existing locations. Connecting does not create a copied image or a Finder/Explorer favorite.
 
-| Platform | System connection | Success check |
-| --- | --- | --- |
-| macOS 26+ | FSKit volume named Society | Native result and `QStorageInfo` identify `societyfs` at the mounted root |
-| Windows | Dokan 2 removable drive named Society, using a free letter starting at S: | Windows reports the Society label, filesystem name, and original UUID-derived serial; `QStorageInfo` identifies the returned drive root |
-| Android 9+ | Society root in system Files and Storage Access Framework pickers | The installed DocumentsProvider returns the selected UUID and its public root document |
+- Platform: macOS 26+; System connection: FSKit volume named Society; Success check: Native result and `QStorageInfo` identify `societyfs` at the mounted root
+- Platform: Windows; System connection: Dokan 2 removable drive named Society, using a free letter starting at S:; Success check: Windows reports the Society label, filesystem name, and original UUID-derived serial; `QStorageInfo` identifies the returned drive root
+- Platform: Android 9+; System connection: Society root in system Files and Storage Access Framework pickers; Success check: The installed DocumentsProvider returns the selected UUID and its public root document
 
 데스크톱의 디스크 활성화와 재연결은 Society 백엔드 데몬의 작업자만 수행한다. 앱은 선택한 컨테이너에 대한 데몬 상태를 비동기로 구독하고 `Reconnect` 또는 `Refresh` 요청을 전달한다. 앱이 마운트 실행 파일이나 파일시스템 호스트를 직접 실행하지 않는다. 데몬이 연결되지 않았거나 다른 컨테이너·UUID를 보고하면 이전 시스템 경로를 지우며, 실제 원본 폴더를 마운트된 디스크로 표시하지 않는다. 검증된 시스템 경로는 `Open in Finder` 또는 `Open in File Explorer`에서 열 수 있다. iOS와 Android의 시스템 파일 제공자 연결은 각 모바일 플랫폼에서 계속 처리한다.
 

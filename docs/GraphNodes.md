@@ -89,6 +89,75 @@ callers. It describes a legacy output but does not declare a typed output value;
 typed publishing and subscriptions require the `GraphValue` constructor.
 
 The [Society Figma component examples](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=1178-612)
-show the intended node and edge layout. The app component is linked into the
-Society build for use by a future graph host; the existing Space navigation is
-not replaced with a sample screen.
+show the intended node and edge layout. The graph node component is available to graph hosts; the Space discovery
+view described below uses the separate persisted idea model.
+
+
+## Space discovery view
+
+The desktop Space navigation opens an LVUI/iiGUI discovery surface in the
+existing Society shell. Its proportions, discovery canvas, session controls and
+activity/idea inspector follow the Society Figma Space [discovery](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=1149-13)
+and [node selection](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=1170-147) frames. The central image is the original
+`resources/space/minimal-cyan-orb.svg`, rasterized by iiGUI from the SVG at
+three times the logical display size. It is a project resource, not a generated
+build artifact or a reference to a file outside the application.
+
+While Space is visible, both eyes of the AI orb follow the system mouse pointer
+relative to the center of the orb, including positions outside the window when
+the platform supplies them. The face and outline remain stationary and the eye
+shapes and colors come from the same SVG. The eyes move together by no more than
+eight percent of the orb diameter; the centered pointer gives a neutral gaze.
+The visible Space surface samples the pointer continuously and stops sampling
+when it is hidden or its window is hidden or minimized. Rendering reuses decoded SVG layers and only
+updates the image when the eye displacement changes.
+
+The Space conversation composer is a compact LVUI surface containing a prompt
+field and only three additional controls: add files or photos, reasoning strength,
+and microphone mode. Drafts are kept locally per session while the view is open
+and cleared when the container changes. Enter submits to the selected Space
+session; its conversation and the Workspace agent's conversation have separate
+transcripts. The UI reports preparation, response, errors and model capabilities;
+an unacknowledged submission does not silently discard the draft. Attachments
+are explicit user selections, bounded and validated before their contents reach
+the model; selecting the filename marked × removes it from that session's draft.
+Image input requires a compatible model and errors rather than silently
+discarding image content. Reasoning profiles set explicit generation and agent
+turn budgets rather than promising an outcome: Light is 128 output tokens and up
+to 4 agent turns, Standard is 256 and 8, and Deep is 512 and 16. Microphone
+activation requires a user action and platform permission, and inserts recognized
+speech into the draft. On macOS, iiDeviceMultimedia captures microphone PCM and
+Apple Speech is required to recognize it on the device. The current locale must
+support on-device recognition; unsupported recognition or denied permission is
+reported without sending microphone audio to a network service. Other platforms
+currently report that dictation is unavailable. Capture stops on session change,
+view dismissal or container loss; raw microphone audio is not stored by Society.
+Saved agent activity and connection status remain outside the composer. The separate Sessions control expands or hides the existing session
+creation, switching, and manual idea-entry tools without clearing their drafts.
+The application uses LVUI's flat input surface: the current native paint adapter
+does not render the Figma TextField's rounded backdrop material yet.
+
+The view reads the current container through the SDK `SpaceStore`. It presents
+real sessions and saved idea nodes; clicking an idea shows its content,
+provenance, unverified evaluation and saved relationships. Dashed connections are
+drawn between visible related ideas, using an LVUI color token, and are updated
+when the graph layout or scrolling changes. The activity panel shows the session's
+conversation and persisted agent activity. In narrow windows the conversation
+moves into a scrollable region above the graph. A user may create a session and
+add named ideas explicitly; these are saved to the current container using application-generated UUIDs as
+durable identities. Switching or losing the container
+clears the previous snapshot. The screen reloads stored data when opened again.
+No sample sessions, ideas, connections or activity are inserted.
+
+The current Space storage and presentation do not autonomously merge ideas or
+promote them to a project. Merge and promotion controls remain disabled until
+their services exist. It does not yet display saved artifact
+previews, support direct graph manipulation, or subscribe to external database
+changes while the view stays open. The installed iiSocietyContainer FileTree
+package must provide the public `SpaceStore.h` API and its matching library.
+`Society.NativeSpace` covers the compact composer, its draft and session manager,
+isolated store persistence, SVG image colors,
+bounded gaze direction and live hover updates, fixed face pixels, tracking
+lifecycle, visible connections, idea selection, navigation, and container switching.
+`Society.SpaceNavigation` additionally exercises the real shell and container
+through the offscreen test host. Neither test launches the installed application.

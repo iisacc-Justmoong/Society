@@ -2,12 +2,10 @@
 
 Society는 로컬 네트워크를 포함하는 계정 기반 기기 동기화 시스템이다. 같은 계정의 Society 앱과 SocietyDaemon이 컨테이너를 교환한다. NAS, 데스크톱, 별도 서버는 동일한 호스트 역할을 수행할 수 있다. Dreamscapes 등 소비 앱은 각 기기의 동기화된 로컬 컨테이너를 사용한다.
 
-| 배치 | 연결 방법 | 컨테이너 제공자 |
-| --- | --- | --- |
-| 같은 LAN의 기기 | Bonjour/NSD 자동 페어링과 직접 TLS | Society 데스크톱 |
-| NAS에 자체 호스팅 | NAS의 WebSocket 서버에 같은 계정으로 접속 | NAS의 SocietyDaemon |
-| 인터넷의 자체 웹서버 | TLS reverse proxy와 WebSocket 중계 | 데스크톱 또는 별도 SocietyDaemon |
-| 로컬·원격 혼합 | 인증된 서버 목록의 로컬 TLS 주소를 우선 시도하고 원격 중계로 전환 | 동일한 기본 호스트 |
+- 배치: 같은 LAN의 기기; 연결 방법: Bonjour/NSD 자동 페어링과 직접 TLS; 컨테이너 제공자: Society 데스크톱
+- 배치: NAS에 자체 호스팅; 연결 방법: NAS의 WebSocket 서버에 같은 계정으로 접속; 컨테이너 제공자: NAS의 SocietyDaemon
+- 배치: 인터넷의 자체 웹서버; 연결 방법: TLS reverse proxy와 WebSocket 중계; 컨테이너 제공자: 데스크톱 또는 별도 SocietyDaemon
+- 배치: 로컬·원격 혼합; 연결 방법: 인증된 서버 목록의 로컬 TLS 주소를 우선 시도하고 원격 중계로 전환; 컨테이너 제공자: 동일한 기본 호스트
 
 NAS의 SMB/NFS 폴더만 지정하는 것이 이 프로토콜의 서버를 만드는 것은 아니다. 지원 OS와 CPU용 SocietyDaemon 및 SDK 런타임을 NAS에 배치하여 컨테이너 소유 프로세스를 실행한다. 동일 컨테이너를 여러 호스트 프로세스가 공유 마운트해 동시에 소유하지 않는다. 일반 웹사이트도 Society WebSocket 프로토콜 구현 없이는 연결 대상이 아니다.
 

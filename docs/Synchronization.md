@@ -4,14 +4,12 @@
 
 앱 협업·인증·발견·자동 페어링·호스트 접근은 통합 iiSocietyHelper 0.10.0이 담당하며, 기기 간 복제는 같은 Core 라이브러리의 Sync 구현을 사용한다. Dreamscapes는 Society 앱이 중단되어도 앱 안의 iiSocietyHelper로 호스트에 연결한다. 생성은 로컬 iiLocalDiffusion이 담당한다. [이미지 생성 책임](Generation.md)을 참조한다.
 
-| 계층 | 담당 책임 |
-| --- | --- |
-| iiAccountManager 0.2.6 | 계정 검증·인증 상태·세션 바인딩·이벤트 기반 갱신·캐시 수명 |
-| Society 앱 | 보안 그룹 저장소 제공, LAN 발견·자동 페어링, 계정 기반 자체 서버 연결·NAS 호스팅, 호스트 선택, 데몬·모바일 백그라운드 수명과 사용자 화면 |
-| iiSocietyHelper 0.10.0 | 기기 내 관측·메시지/ACK·객체 스냅샷·계정 참조·로컬 Container 접근 |
-| iiSocietyHelper Core의 Sync | Namespace authority·리비전 그래프·변경 저널·저장 공급자·청크 복제·원격 Files 탐색 |
-| iiSocietyContainer 0.14.0 | 드라이브 UUID·9개 영역·로컬 공유 및 Files 전용 OS 투영 |
-| iiWebServer 0.6.0 | 계정으로 인증된 일반 연결과 TLS, 요청·응답·Files 전용 전송 원시 기능 |
+- 계층: iiAccountManager 0.2.6; 담당 책임: 계정 검증·인증 상태·세션 바인딩·이벤트 기반 갱신·캐시 수명
+- 계층: Society 앱; 담당 책임: 보안 그룹 저장소 제공, LAN 발견·자동 페어링, 계정 기반 자체 서버 연결·NAS 호스팅, 호스트 선택, 데몬·모바일 백그라운드 수명과 사용자 화면
+- 계층: iiSocietyHelper 0.10.0; 담당 책임: 기기 내 관측·메시지/ACK·객체 스냅샷·계정 참조·로컬 Container 접근
+- 계층: iiSocietyHelper Core의 Sync; 담당 책임: Namespace authority·리비전 그래프·변경 저널·저장 공급자·청크 복제·원격 Files 탐색
+- 계층: iiSocietyContainer 0.14.0; 담당 책임: 드라이브 UUID·9개 영역·로컬 공유 및 Files 전용 OS 투영
+- 계층: iiWebServer 0.6.0; 담당 책임: 계정으로 인증된 일반 연결과 TLS, 요청·응답·Files 전용 전송 원시 기능
 
 Sync는 Helper Core의 내부 기능이며 별도 SDK를 링크하지 않는다. Monitoring은 같은 패키지의 독립 네이티브 구성요소이다. 하위 SDK는 Society 앱을 참조하지 않는다. 새 외부 의존성은 없으며 기존 Qt/SQLite·Container·ServerHost를 재사용한다. 파일 시스템·버전·충돌의 상세 계약과 외부 문서는 [Sync README](../../../SDK/iiSocietyHelper/docs/Sync/README.md)에 있다.
 

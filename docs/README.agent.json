@@ -10,9 +10,9 @@
   },
   "source": {
     "path": "docs/README.md",
-    "sha256": "cbb3e5dfd1ed0da8b6ea7e44be1cfb6fe990ec5a6c57c41f0811fd4065fbb8ba",
-    "bytes": 7601,
-    "line_count": 91,
+    "sha256": "c75864e9c232a367cf97a745c39c447035e205c7770e8ed2d8df32c3f37b117d",
+    "bytes": 9100,
+    "line_count": 89,
     "encoding": "utf-8",
     "language": "en"
   },
@@ -77,346 +77,423 @@
     },
     {
       "id": "b000008",
-      "kind": "table",
       "start_line": 8,
-      "end_line": 90,
-      "raw": "| Document | Agent JSON |\n| --- | --- |\n| [`AGENT.md`](../AGENT.md) | [JSON](entrypoints/AGENT.agent.json) |\n| [`LICENSING.md`](../LICENSING.md) | [JSON](entrypoints/LICENSING.agent.json) |\n| [`README.md`](../README.md) | [JSON](entrypoints/README.agent.json) |\n| [`docs/AIIntegrationNames.md`](AIIntegrationNames.md) | [JSON](AIIntegrationNames.agent.json) |\n| [`docs/Account.md`](Account.md) | [JSON](Account.agent.json) |\n| [`docs/AccountLicenses.md`](AccountLicenses.md) | [JSON](AccountLicenses.agent.json) |\n| [`docs/AgentIntegration.md`](AgentIntegration.md) | [JSON](AgentIntegration.agent.json) |\n| [`docs/ApplicationLifetime.md`](ApplicationLifetime.md) | [JSON](ApplicationLifetime.agent.json) |\n| [`docs/AssetSemanticsAndProvenance.md`](AssetSemanticsAndProvenance.md) | [JSON](AssetSemanticsAndProvenance.agent.json) |\n| [`docs/AutomaticPairing.md`](AutomaticPairing.md) | [JSON](AutomaticPairing.agent.json) |\n| [`docs/BundleFootprint.md`](BundleFootprint.md) | [JSON](BundleFootprint.agent.json) |\n| [`docs/CloudFiles.md`](CloudFiles.md) | [JSON](CloudFiles.agent.json) |\n| [`docs/CommonFoundationAudit.md`](CommonFoundationAudit.md) | [JSON](CommonFoundationAudit.agent.json) |\n| [`docs/Dashboard.md`](Dashboard.md) | [JSON](Dashboard.agent.json) |\n| [`docs/DeviceStateAndCapabilities.md`](DeviceStateAndCapabilities.md) | [JSON](DeviceStateAndCapabilities.agent.json) |\n| [`docs/Environment.md`](Environment.md) | [JSON](Environment.agent.json) |\n| [`docs/EnvironmentDesktopConcept.md`](EnvironmentDesktopConcept.md) | [JSON](EnvironmentDesktopConcept.agent.json) |\n| [`docs/FILE_PROVIDER.md`](FILE_PROVIDER.md) | [JSON](FILE_PROVIDER.agent.json) |\n| [`docs/FileLoading.md`](FileLoading.md) | [JSON](FileLoading.agent.json) |\n| [`docs/FileLoadingPerformance.md`](FileLoadingPerformance.md) | [JSON](FileLoadingPerformance.agent.json) |\n| [`docs/FileLoadingVerification.md`](FileLoadingVerification.md) | [JSON](FileLoadingVerification.agent.json) |\n| [`docs/FilePresentation.md`](FilePresentation.md) | [JSON](FilePresentation.agent.json) |\n| [`docs/Files.md`](Files.md) | [JSON](Files.agent.json) |\n| [`docs/FinderDrive.md`](FinderDrive.md) | [JSON](FinderDrive.agent.json) |\n| [`docs/Gallery.md`](Gallery.md) | [JSON](Gallery.agent.json) |\n| [`docs/Generation.md`](Generation.md) | [JSON](Generation.agent.json) |\n| [`docs/GroupState.md`](GroupState.md) | [JSON](GroupState.agent.json) |\n| [`docs/JobsAndOperations.md`](JobsAndOperations.md) | [JSON](JobsAndOperations.agent.json) |\n| [`docs/LVUIMigrationReadiness.md`](LVUIMigrationReadiness.md) | [JSON](LVUIMigrationReadiness.agent.json) |\n| [`docs/ManagedStorage.md`](ManagedStorage.md) | [JSON](ManagedStorage.agent.json) |\n| [`docs/Mcp.md`](Mcp.md) | [JSON](Mcp.agent.json) |\n| [`docs/MobileViews.md`](MobileViews.md) | [JSON](MobileViews.agent.json) |\n| [`docs/ModelCalibration.md`](ModelCalibration.md) | [JSON](ModelCalibration.agent.json) |\n| [`docs/ModelMerge.md`](ModelMerge.md) | [JSON](ModelMerge.agent.json) |\n| [`docs/ModelPackaging.md`](ModelPackaging.md) | [JSON](ModelPackaging.agent.json) |\n| [`docs/ModelPackagingNativeChooser.md`](ModelPackagingNativeChooser.md) | [JSON](ModelPackagingNativeChooser.agent.json) |\n| [`docs/ModelPackagingVerification.md`](ModelPackagingVerification.md) | [JSON](ModelPackagingVerification.agent.json) |\n| [`docs/Models.md`](Models.md) | [JSON](Models.agent.json) |\n| [`docs/NativeAccountOverlay.md`](NativeAccountOverlay.md) | [JSON](NativeAccountOverlay.agent.json) |\n| [`docs/NativeMigrationBackend.md`](NativeMigrationBackend.md) | [JSON](NativeMigrationBackend.agent.json) |\n| [`docs/NativeNavigation.md`](NativeNavigation.md) | [JSON](NativeNavigation.agent.json) |\n| [`docs/NativePhotoOverlay.md`](NativePhotoOverlay.md) | [JSON](NativePhotoOverlay.agent.json) |\n| [`docs/NativeQuestionOverlay.md`](NativeQuestionOverlay.md) | [JSON](NativeQuestionOverlay.agent.json) |\n| [`docs/NativeStorageView.md`](NativeStorageView.md) | [JSON](NativeStorageView.agent.json) |\n| [`docs/NativeWorkspace.md`](NativeWorkspace.md) | [JSON](NativeWorkspace.agent.json) |\n| [`docs/NetworkDrive.md`](NetworkDrive.md) | [JSON](NetworkDrive.agent.json) |\n| [`docs/OfflineStartupVerification.md`](OfflineStartupVerification.md) | [JSON](OfflineStartupVerification.agent.json) |\n| [`docs/Onboarding.md`](Onboarding.md) | [JSON](Onboarding.agent.json) |\n| [`docs/Pairing.md`](Pairing.md) | [JSON](Pairing.agent.json) |\n| [`docs/PairingFailure-2026-09-21.md`](PairingFailure-2026-09-21.md) | [JSON](PairingFailure-2026-09-21.agent.json) |\n| [`docs/PanelBackgrounds.md`](PanelBackgrounds.md) | [JSON](PanelBackgrounds.agent.json) |\n| [`docs/Performance.md`](Performance.md) | [JSON](Performance.agent.json) |\n| [`docs/PhotoLibraryMigration.md`](PhotoLibraryMigration.md) | [JSON](PhotoLibraryMigration.agent.json) |\n| [`docs/Photos.md`](Photos.md) | [JSON](Photos.agent.json) |\n| [`docs/Preferences.md`](Preferences.md) | [JSON](Preferences.agent.json) |\n| [`docs/Projects.md`](Projects.md) | [JSON](Projects.agent.json) |\n| [`docs/QtBoundary.md`](QtBoundary.md) | [JSON](QtBoundary.agent.json) |\n| [`docs/ResourceIdentityAndProtection.md`](ResourceIdentityAndProtection.md) | [JSON](ResourceIdentityAndProtection.agent.json) |\n| [`docs/ResourceModule.md`](ResourceModule.md) | [JSON](ResourceModule.agent.json) |\n| [`docs/ResourceOptimization.md`](ResourceOptimization.md) | [JSON](ResourceOptimization.agent.json) |\n| [`docs/ResourceSearchAndViews.md`](ResourceSearchAndViews.md) | [JSON](ResourceSearchAndViews.agent.json) |\n| [`docs/RuntimeRetirement.md`](RuntimeRetirement.md) | [JSON](RuntimeRetirement.agent.json) |\n| [`docs/SelfHosting.md`](SelfHosting.md) | [JSON](SelfHosting.agent.json) |\n| [`docs/SemanticRelations.md`](SemanticRelations.md) | [JSON](SemanticRelations.agent.json) |\n| [`docs/SharedLogicalStorage.md`](SharedLogicalStorage.md) | [JSON](SharedLogicalStorage.agent.json) |\n| [`docs/SingleAppBuild.md`](SingleAppBuild.md) | [JSON](SingleAppBuild.agent.json) |\n| [`docs/SocietyDaemon.md`](SocietyDaemon.md) | [JSON](SocietyDaemon.agent.json) |\n| [`docs/SourceLayout.md`](SourceLayout.md) | [JSON](SourceLayout.agent.json) |\n| [`docs/StorageNavigation.md`](StorageNavigation.md) | [JSON](StorageNavigation.agent.json) |\n| [`docs/Synchronization.md`](Synchronization.md) | [JSON](Synchronization.agent.json) |\n| [`docs/SystemDrive.md`](SystemDrive.md) | [JSON](SystemDrive.agent.json) |\n| [`docs/Tools.md`](Tools.md) | [JSON](Tools.agent.json) |\n| [`docs/ToolsDesktopConcept.md`](ToolsDesktopConcept.md) | [JSON](ToolsDesktopConcept.agent.json) |\n| [`docs/VersionTrashReplicaBackup.md`](VersionTrashReplicaBackup.md) | [JSON](VersionTrashReplicaBackup.agent.json) |\n| [`docs/WindowsValidation.md`](WindowsValidation.md) | [JSON](WindowsValidation.agent.json) |\n| [`docs/WorkspaceAgent.md`](WorkspaceAgent.md) | [JSON](WorkspaceAgent.agent.json) |\n| [`docs/WorkspaceAgentTools.md`](WorkspaceAgentTools.md) | [JSON](WorkspaceAgentTools.agent.json) |\n| [`docs/WorkspaceSuggested.md`](WorkspaceSuggested.md) | [JSON](WorkspaceSuggested.agent.json) |\n| [`docs/documentation-structure.md`](documentation-structure.md) | [JSON](documentation-structure.agent.json) |\n| [`docs/iOS.md`](iOS.md) | [JSON](iOS.agent.json) |\n| [`resources/Appicon/README.md`](../resources/Appicon/README.md) | [JSON](mirrors/resources/Appicon/README.agent.json) |\n",
-      "columns": [
-        "Document",
-        "Agent JSON"
-      ],
-      "rows": [
-        [
-          "[`AGENT.md`](../AGENT.md)",
-          "[JSON](entrypoints/AGENT.agent.json)"
-        ],
-        [
-          "[`LICENSING.md`](../LICENSING.md)",
-          "[JSON](entrypoints/LICENSING.agent.json)"
-        ],
-        [
-          "[`README.md`](../README.md)",
-          "[JSON](entrypoints/README.agent.json)"
-        ],
-        [
-          "[`docs/AIIntegrationNames.md`](AIIntegrationNames.md)",
-          "[JSON](AIIntegrationNames.agent.json)"
-        ],
-        [
-          "[`docs/Account.md`](Account.md)",
-          "[JSON](Account.agent.json)"
-        ],
-        [
-          "[`docs/AccountLicenses.md`](AccountLicenses.md)",
-          "[JSON](AccountLicenses.agent.json)"
-        ],
-        [
-          "[`docs/AgentIntegration.md`](AgentIntegration.md)",
-          "[JSON](AgentIntegration.agent.json)"
-        ],
-        [
-          "[`docs/ApplicationLifetime.md`](ApplicationLifetime.md)",
-          "[JSON](ApplicationLifetime.agent.json)"
-        ],
-        [
-          "[`docs/AssetSemanticsAndProvenance.md`](AssetSemanticsAndProvenance.md)",
-          "[JSON](AssetSemanticsAndProvenance.agent.json)"
-        ],
-        [
-          "[`docs/AutomaticPairing.md`](AutomaticPairing.md)",
-          "[JSON](AutomaticPairing.agent.json)"
-        ],
-        [
-          "[`docs/BundleFootprint.md`](BundleFootprint.md)",
-          "[JSON](BundleFootprint.agent.json)"
-        ],
-        [
-          "[`docs/CloudFiles.md`](CloudFiles.md)",
-          "[JSON](CloudFiles.agent.json)"
-        ],
-        [
-          "[`docs/CommonFoundationAudit.md`](CommonFoundationAudit.md)",
-          "[JSON](CommonFoundationAudit.agent.json)"
-        ],
-        [
-          "[`docs/Dashboard.md`](Dashboard.md)",
-          "[JSON](Dashboard.agent.json)"
-        ],
-        [
-          "[`docs/DeviceStateAndCapabilities.md`](DeviceStateAndCapabilities.md)",
-          "[JSON](DeviceStateAndCapabilities.agent.json)"
-        ],
-        [
-          "[`docs/Environment.md`](Environment.md)",
-          "[JSON](Environment.agent.json)"
-        ],
-        [
-          "[`docs/EnvironmentDesktopConcept.md`](EnvironmentDesktopConcept.md)",
-          "[JSON](EnvironmentDesktopConcept.agent.json)"
-        ],
-        [
-          "[`docs/FILE_PROVIDER.md`](FILE_PROVIDER.md)",
-          "[JSON](FILE_PROVIDER.agent.json)"
-        ],
-        [
-          "[`docs/FileLoading.md`](FileLoading.md)",
-          "[JSON](FileLoading.agent.json)"
-        ],
-        [
-          "[`docs/FileLoadingPerformance.md`](FileLoadingPerformance.md)",
-          "[JSON](FileLoadingPerformance.agent.json)"
-        ],
-        [
-          "[`docs/FileLoadingVerification.md`](FileLoadingVerification.md)",
-          "[JSON](FileLoadingVerification.agent.json)"
-        ],
-        [
-          "[`docs/FilePresentation.md`](FilePresentation.md)",
-          "[JSON](FilePresentation.agent.json)"
-        ],
-        [
-          "[`docs/Files.md`](Files.md)",
-          "[JSON](Files.agent.json)"
-        ],
-        [
-          "[`docs/FinderDrive.md`](FinderDrive.md)",
-          "[JSON](FinderDrive.agent.json)"
-        ],
-        [
-          "[`docs/Gallery.md`](Gallery.md)",
-          "[JSON](Gallery.agent.json)"
-        ],
-        [
-          "[`docs/Generation.md`](Generation.md)",
-          "[JSON](Generation.agent.json)"
-        ],
-        [
-          "[`docs/GroupState.md`](GroupState.md)",
-          "[JSON](GroupState.agent.json)"
-        ],
-        [
-          "[`docs/JobsAndOperations.md`](JobsAndOperations.md)",
-          "[JSON](JobsAndOperations.agent.json)"
-        ],
-        [
-          "[`docs/LVUIMigrationReadiness.md`](LVUIMigrationReadiness.md)",
-          "[JSON](LVUIMigrationReadiness.agent.json)"
-        ],
-        [
-          "[`docs/ManagedStorage.md`](ManagedStorage.md)",
-          "[JSON](ManagedStorage.agent.json)"
-        ],
-        [
-          "[`docs/Mcp.md`](Mcp.md)",
-          "[JSON](Mcp.agent.json)"
-        ],
-        [
-          "[`docs/MobileViews.md`](MobileViews.md)",
-          "[JSON](MobileViews.agent.json)"
-        ],
-        [
-          "[`docs/ModelCalibration.md`](ModelCalibration.md)",
-          "[JSON](ModelCalibration.agent.json)"
-        ],
-        [
-          "[`docs/ModelMerge.md`](ModelMerge.md)",
-          "[JSON](ModelMerge.agent.json)"
-        ],
-        [
-          "[`docs/ModelPackaging.md`](ModelPackaging.md)",
-          "[JSON](ModelPackaging.agent.json)"
-        ],
-        [
-          "[`docs/ModelPackagingNativeChooser.md`](ModelPackagingNativeChooser.md)",
-          "[JSON](ModelPackagingNativeChooser.agent.json)"
-        ],
-        [
-          "[`docs/ModelPackagingVerification.md`](ModelPackagingVerification.md)",
-          "[JSON](ModelPackagingVerification.agent.json)"
-        ],
-        [
-          "[`docs/Models.md`](Models.md)",
-          "[JSON](Models.agent.json)"
-        ],
-        [
-          "[`docs/NativeAccountOverlay.md`](NativeAccountOverlay.md)",
-          "[JSON](NativeAccountOverlay.agent.json)"
-        ],
-        [
-          "[`docs/NativeMigrationBackend.md`](NativeMigrationBackend.md)",
-          "[JSON](NativeMigrationBackend.agent.json)"
-        ],
-        [
-          "[`docs/NativeNavigation.md`](NativeNavigation.md)",
-          "[JSON](NativeNavigation.agent.json)"
-        ],
-        [
-          "[`docs/NativePhotoOverlay.md`](NativePhotoOverlay.md)",
-          "[JSON](NativePhotoOverlay.agent.json)"
-        ],
-        [
-          "[`docs/NativeQuestionOverlay.md`](NativeQuestionOverlay.md)",
-          "[JSON](NativeQuestionOverlay.agent.json)"
-        ],
-        [
-          "[`docs/NativeStorageView.md`](NativeStorageView.md)",
-          "[JSON](NativeStorageView.agent.json)"
-        ],
-        [
-          "[`docs/NativeWorkspace.md`](NativeWorkspace.md)",
-          "[JSON](NativeWorkspace.agent.json)"
-        ],
-        [
-          "[`docs/NetworkDrive.md`](NetworkDrive.md)",
-          "[JSON](NetworkDrive.agent.json)"
-        ],
-        [
-          "[`docs/OfflineStartupVerification.md`](OfflineStartupVerification.md)",
-          "[JSON](OfflineStartupVerification.agent.json)"
-        ],
-        [
-          "[`docs/Onboarding.md`](Onboarding.md)",
-          "[JSON](Onboarding.agent.json)"
-        ],
-        [
-          "[`docs/Pairing.md`](Pairing.md)",
-          "[JSON](Pairing.agent.json)"
-        ],
-        [
-          "[`docs/PairingFailure-2026-09-21.md`](PairingFailure-2026-09-21.md)",
-          "[JSON](PairingFailure-2026-09-21.agent.json)"
-        ],
-        [
-          "[`docs/PanelBackgrounds.md`](PanelBackgrounds.md)",
-          "[JSON](PanelBackgrounds.agent.json)"
-        ],
-        [
-          "[`docs/Performance.md`](Performance.md)",
-          "[JSON](Performance.agent.json)"
-        ],
-        [
-          "[`docs/PhotoLibraryMigration.md`](PhotoLibraryMigration.md)",
-          "[JSON](PhotoLibraryMigration.agent.json)"
-        ],
-        [
-          "[`docs/Photos.md`](Photos.md)",
-          "[JSON](Photos.agent.json)"
-        ],
-        [
-          "[`docs/Preferences.md`](Preferences.md)",
-          "[JSON](Preferences.agent.json)"
-        ],
-        [
-          "[`docs/Projects.md`](Projects.md)",
-          "[JSON](Projects.agent.json)"
-        ],
-        [
-          "[`docs/QtBoundary.md`](QtBoundary.md)",
-          "[JSON](QtBoundary.agent.json)"
-        ],
-        [
-          "[`docs/ResourceIdentityAndProtection.md`](ResourceIdentityAndProtection.md)",
-          "[JSON](ResourceIdentityAndProtection.agent.json)"
-        ],
-        [
-          "[`docs/ResourceModule.md`](ResourceModule.md)",
-          "[JSON](ResourceModule.agent.json)"
-        ],
-        [
-          "[`docs/ResourceOptimization.md`](ResourceOptimization.md)",
-          "[JSON](ResourceOptimization.agent.json)"
-        ],
-        [
-          "[`docs/ResourceSearchAndViews.md`](ResourceSearchAndViews.md)",
-          "[JSON](ResourceSearchAndViews.agent.json)"
-        ],
-        [
-          "[`docs/RuntimeRetirement.md`](RuntimeRetirement.md)",
-          "[JSON](RuntimeRetirement.agent.json)"
-        ],
-        [
-          "[`docs/SelfHosting.md`](SelfHosting.md)",
-          "[JSON](SelfHosting.agent.json)"
-        ],
-        [
-          "[`docs/SemanticRelations.md`](SemanticRelations.md)",
-          "[JSON](SemanticRelations.agent.json)"
-        ],
-        [
-          "[`docs/SharedLogicalStorage.md`](SharedLogicalStorage.md)",
-          "[JSON](SharedLogicalStorage.agent.json)"
-        ],
-        [
-          "[`docs/SingleAppBuild.md`](SingleAppBuild.md)",
-          "[JSON](SingleAppBuild.agent.json)"
-        ],
-        [
-          "[`docs/SocietyDaemon.md`](SocietyDaemon.md)",
-          "[JSON](SocietyDaemon.agent.json)"
-        ],
-        [
-          "[`docs/SourceLayout.md`](SourceLayout.md)",
-          "[JSON](SourceLayout.agent.json)"
-        ],
-        [
-          "[`docs/StorageNavigation.md`](StorageNavigation.md)",
-          "[JSON](StorageNavigation.agent.json)"
-        ],
-        [
-          "[`docs/Synchronization.md`](Synchronization.md)",
-          "[JSON](Synchronization.agent.json)"
-        ],
-        [
-          "[`docs/SystemDrive.md`](SystemDrive.md)",
-          "[JSON](SystemDrive.agent.json)"
-        ],
-        [
-          "[`docs/Tools.md`](Tools.md)",
-          "[JSON](Tools.agent.json)"
-        ],
-        [
-          "[`docs/ToolsDesktopConcept.md`](ToolsDesktopConcept.md)",
-          "[JSON](ToolsDesktopConcept.agent.json)"
-        ],
-        [
-          "[`docs/VersionTrashReplicaBackup.md`](VersionTrashReplicaBackup.md)",
-          "[JSON](VersionTrashReplicaBackup.agent.json)"
-        ],
-        [
-          "[`docs/WindowsValidation.md`](WindowsValidation.md)",
-          "[JSON](WindowsValidation.agent.json)"
-        ],
-        [
-          "[`docs/WorkspaceAgent.md`](WorkspaceAgent.md)",
-          "[JSON](WorkspaceAgent.agent.json)"
-        ],
-        [
-          "[`docs/WorkspaceAgentTools.md`](WorkspaceAgentTools.md)",
-          "[JSON](WorkspaceAgentTools.agent.json)"
-        ],
-        [
-          "[`docs/WorkspaceSuggested.md`](WorkspaceSuggested.md)",
-          "[JSON](WorkspaceSuggested.agent.json)"
-        ],
-        [
-          "[`docs/documentation-structure.md`](documentation-structure.md)",
-          "[JSON](documentation-structure.agent.json)"
-        ],
-        [
-          "[`docs/iOS.md`](iOS.md)",
-          "[JSON](iOS.agent.json)"
-        ],
-        [
-          "[`resources/Appicon/README.md`](../resources/Appicon/README.md)",
-          "[JSON](mirrors/resources/Appicon/README.agent.json)"
-        ]
+      "end_line": 88,
+      "raw": "- Document: [`AGENT.md`](../AGENT.md); Agent JSON: [JSON](entrypoints/AGENT.agent.json)\n- Document: [`LICENSING.md`](../LICENSING.md); Agent JSON: [JSON](entrypoints/LICENSING.agent.json)\n- Document: [`README.md`](../README.md); Agent JSON: [JSON](entrypoints/README.agent.json)\n- Document: [`docs/AIIntegrationNames.md`](AIIntegrationNames.md); Agent JSON: [JSON](AIIntegrationNames.agent.json)\n- Document: [`docs/Account.md`](Account.md); Agent JSON: [JSON](Account.agent.json)\n- Document: [`docs/AccountLicenses.md`](AccountLicenses.md); Agent JSON: [JSON](AccountLicenses.agent.json)\n- Document: [`docs/AgentIntegration.md`](AgentIntegration.md); Agent JSON: [JSON](AgentIntegration.agent.json)\n- Document: [`docs/ApplicationLifetime.md`](ApplicationLifetime.md); Agent JSON: [JSON](ApplicationLifetime.agent.json)\n- Document: [`docs/AssetSemanticsAndProvenance.md`](AssetSemanticsAndProvenance.md); Agent JSON: [JSON](AssetSemanticsAndProvenance.agent.json)\n- Document: [`docs/AutomaticPairing.md`](AutomaticPairing.md); Agent JSON: [JSON](AutomaticPairing.agent.json)\n- Document: [`docs/BundleFootprint.md`](BundleFootprint.md); Agent JSON: [JSON](BundleFootprint.agent.json)\n- Document: [`docs/CloudFiles.md`](CloudFiles.md); Agent JSON: [JSON](CloudFiles.agent.json)\n- Document: [`docs/CommonFoundationAudit.md`](CommonFoundationAudit.md); Agent JSON: [JSON](CommonFoundationAudit.agent.json)\n- Document: [`docs/Dashboard.md`](Dashboard.md); Agent JSON: [JSON](Dashboard.agent.json)\n- Document: [`docs/DeviceStateAndCapabilities.md`](DeviceStateAndCapabilities.md); Agent JSON: [JSON](DeviceStateAndCapabilities.agent.json)\n- Document: [`docs/Environment.md`](Environment.md); Agent JSON: [JSON](Environment.agent.json)\n- Document: [`docs/EnvironmentDesktopConcept.md`](EnvironmentDesktopConcept.md); Agent JSON: [JSON](EnvironmentDesktopConcept.agent.json)\n- Document: [`docs/FILE_PROVIDER.md`](FILE_PROVIDER.md); Agent JSON: [JSON](FILE_PROVIDER.agent.json)\n- Document: [`docs/FileLoading.md`](FileLoading.md); Agent JSON: [JSON](FileLoading.agent.json)\n- Document: [`docs/FileLoadingPerformance.md`](FileLoadingPerformance.md); Agent JSON: [JSON](FileLoadingPerformance.agent.json)\n- Document: [`docs/FileLoadingVerification.md`](FileLoadingVerification.md); Agent JSON: [JSON](FileLoadingVerification.agent.json)\n- Document: [`docs/FilePresentation.md`](FilePresentation.md); Agent JSON: [JSON](FilePresentation.agent.json)\n- Document: [`docs/Files.md`](Files.md); Agent JSON: [JSON](Files.agent.json)\n- Document: [`docs/FinderDrive.md`](FinderDrive.md); Agent JSON: [JSON](FinderDrive.agent.json)\n- Document: [`docs/Gallery.md`](Gallery.md); Agent JSON: [JSON](Gallery.agent.json)\n- Document: [`docs/Generation.md`](Generation.md); Agent JSON: [JSON](Generation.agent.json)\n- Document: [`docs/GroupState.md`](GroupState.md); Agent JSON: [JSON](GroupState.agent.json)\n- Document: [`docs/JobsAndOperations.md`](JobsAndOperations.md); Agent JSON: [JSON](JobsAndOperations.agent.json)\n- Document: [`docs/LVUIMigrationReadiness.md`](LVUIMigrationReadiness.md); Agent JSON: [JSON](LVUIMigrationReadiness.agent.json)\n- Document: [`docs/ManagedStorage.md`](ManagedStorage.md); Agent JSON: [JSON](ManagedStorage.agent.json)\n- Document: [`docs/Mcp.md`](Mcp.md); Agent JSON: [JSON](Mcp.agent.json)\n- Document: [`docs/MobileViews.md`](MobileViews.md); Agent JSON: [JSON](MobileViews.agent.json)\n- Document: [`docs/ModelCalibration.md`](ModelCalibration.md); Agent JSON: [JSON](ModelCalibration.agent.json)\n- Document: [`docs/ModelMerge.md`](ModelMerge.md); Agent JSON: [JSON](ModelMerge.agent.json)\n- Document: [`docs/ModelPackaging.md`](ModelPackaging.md); Agent JSON: [JSON](ModelPackaging.agent.json)\n- Document: [`docs/ModelPackagingNativeChooser.md`](ModelPackagingNativeChooser.md); Agent JSON: [JSON](ModelPackagingNativeChooser.agent.json)\n- Document: [`docs/ModelPackagingVerification.md`](ModelPackagingVerification.md); Agent JSON: [JSON](ModelPackagingVerification.agent.json)\n- Document: [`docs/Models.md`](Models.md); Agent JSON: [JSON](Models.agent.json)\n- Document: [`docs/NativeAccountOverlay.md`](NativeAccountOverlay.md); Agent JSON: [JSON](NativeAccountOverlay.agent.json)\n- Document: [`docs/NativeMigrationBackend.md`](NativeMigrationBackend.md); Agent JSON: [JSON](NativeMigrationBackend.agent.json)\n- Document: [`docs/NativeNavigation.md`](NativeNavigation.md); Agent JSON: [JSON](NativeNavigation.agent.json)\n- Document: [`docs/NativePhotoOverlay.md`](NativePhotoOverlay.md); Agent JSON: [JSON](NativePhotoOverlay.agent.json)\n- Document: [`docs/NativeQuestionOverlay.md`](NativeQuestionOverlay.md); Agent JSON: [JSON](NativeQuestionOverlay.agent.json)\n- Document: [`docs/NativeStorageView.md`](NativeStorageView.md); Agent JSON: [JSON](NativeStorageView.agent.json)\n- Document: [`docs/NativeWorkspace.md`](NativeWorkspace.md); Agent JSON: [JSON](NativeWorkspace.agent.json)\n- Document: [`docs/NetworkDrive.md`](NetworkDrive.md); Agent JSON: [JSON](NetworkDrive.agent.json)\n- Document: [`docs/OfflineStartupVerification.md`](OfflineStartupVerification.md); Agent JSON: [JSON](OfflineStartupVerification.agent.json)\n- Document: [`docs/Onboarding.md`](Onboarding.md); Agent JSON: [JSON](Onboarding.agent.json)\n- Document: [`docs/Pairing.md`](Pairing.md); Agent JSON: [JSON](Pairing.agent.json)\n- Document: [`docs/PairingFailure-2026-09-21.md`](PairingFailure-2026-09-21.md); Agent JSON: [JSON](PairingFailure-2026-09-21.agent.json)\n- Document: [`docs/PanelBackgrounds.md`](PanelBackgrounds.md); Agent JSON: [JSON](PanelBackgrounds.agent.json)\n- Document: [`docs/Performance.md`](Performance.md); Agent JSON: [JSON](Performance.agent.json)\n- Document: [`docs/PhotoLibraryMigration.md`](PhotoLibraryMigration.md); Agent JSON: [JSON](PhotoLibraryMigration.agent.json)\n- Document: [`docs/Photos.md`](Photos.md); Agent JSON: [JSON](Photos.agent.json)\n- Document: [`docs/Preferences.md`](Preferences.md); Agent JSON: [JSON](Preferences.agent.json)\n- Document: [`docs/Projects.md`](Projects.md); Agent JSON: [JSON](Projects.agent.json)\n- Document: [`docs/QtBoundary.md`](QtBoundary.md); Agent JSON: [JSON](QtBoundary.agent.json)\n- Document: [`docs/ResourceIdentityAndProtection.md`](ResourceIdentityAndProtection.md); Agent JSON: [JSON](ResourceIdentityAndProtection.agent.json)\n- Document: [`docs/ResourceModule.md`](ResourceModule.md); Agent JSON: [JSON](ResourceModule.agent.json)\n- Document: [`docs/ResourceOptimization.md`](ResourceOptimization.md); Agent JSON: [JSON](ResourceOptimization.agent.json)\n- Document: [`docs/ResourceSearchAndViews.md`](ResourceSearchAndViews.md); Agent JSON: [JSON](ResourceSearchAndViews.agent.json)\n- Document: [`docs/RuntimeRetirement.md`](RuntimeRetirement.md); Agent JSON: [JSON](RuntimeRetirement.agent.json)\n- Document: [`docs/SelfHosting.md`](SelfHosting.md); Agent JSON: [JSON](SelfHosting.agent.json)\n- Document: [`docs/SemanticRelations.md`](SemanticRelations.md); Agent JSON: [JSON](SemanticRelations.agent.json)\n- Document: [`docs/SharedLogicalStorage.md`](SharedLogicalStorage.md); Agent JSON: [JSON](SharedLogicalStorage.agent.json)\n- Document: [`docs/SingleAppBuild.md`](SingleAppBuild.md); Agent JSON: [JSON](SingleAppBuild.agent.json)\n- Document: [`docs/SocietyDaemon.md`](SocietyDaemon.md); Agent JSON: [JSON](SocietyDaemon.agent.json)\n- Document: [`docs/SourceLayout.md`](SourceLayout.md); Agent JSON: [JSON](SourceLayout.agent.json)\n- Document: [`docs/StorageNavigation.md`](StorageNavigation.md); Agent JSON: [JSON](StorageNavigation.agent.json)\n- Document: [`docs/Synchronization.md`](Synchronization.md); Agent JSON: [JSON](Synchronization.agent.json)\n- Document: [`docs/SystemDrive.md`](SystemDrive.md); Agent JSON: [JSON](SystemDrive.agent.json)\n- Document: [`docs/Tools.md`](Tools.md); Agent JSON: [JSON](Tools.agent.json)\n- Document: [`docs/ToolsDesktopConcept.md`](ToolsDesktopConcept.md); Agent JSON: [JSON](ToolsDesktopConcept.agent.json)\n- Document: [`docs/VersionTrashReplicaBackup.md`](VersionTrashReplicaBackup.md); Agent JSON: [JSON](VersionTrashReplicaBackup.agent.json)\n- Document: [`docs/WindowsValidation.md`](WindowsValidation.md); Agent JSON: [JSON](WindowsValidation.agent.json)\n- Document: [`docs/WorkspaceAgent.md`](WorkspaceAgent.md); Agent JSON: [JSON](WorkspaceAgent.agent.json)\n- Document: [`docs/WorkspaceAgentTools.md`](WorkspaceAgentTools.md); Agent JSON: [JSON](WorkspaceAgentTools.agent.json)\n- Document: [`docs/WorkspaceSuggested.md`](WorkspaceSuggested.md); Agent JSON: [JSON](WorkspaceSuggested.agent.json)\n- Document: [`docs/documentation-structure.md`](documentation-structure.md); Agent JSON: [JSON](documentation-structure.agent.json)\n- Document: [`docs/iOS.md`](iOS.md); Agent JSON: [JSON](iOS.agent.json)\n- Document: [`resources/Appicon/README.md`](../resources/Appicon/README.md); Agent JSON: [JSON](mirrors/resources/Appicon/README.agent.json)\n",
+      "kind": "list",
+      "items": [
+        {
+          "marker": "-",
+          "text": "Document: [`AGENT.md`](../AGENT.md); Agent JSON: [JSON](entrypoints/AGENT.agent.json)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Document: [`LICENSING.md`](../LICENSING.md); Agent JSON: [JSON](entrypoints/LICENSING.agent.json)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Document: [`README.md`](../README.md); Agent JSON: [JSON](entrypoints/README.agent.json)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Document: [`docs/AIIntegrationNames.md`](AIIntegrationNames.md); Agent JSON: [JSON](AIIntegrationNames.agent.json)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Document: [`docs/Account.md`](Account.md); Agent JSON: [JSON](Account.agent.json)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Document: [`docs/AccountLicenses.md`](AccountLicenses.md); Agent JSON: [JSON](AccountLicenses.agent.json)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Document: [`docs/AgentIntegration.md`](AgentIntegration.md); Agent JSON: [JSON](AgentIntegration.agent.json)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Document: [`docs/ApplicationLifetime.md`](ApplicationLifetime.md); Agent JSON: [JSON](ApplicationLifetime.agent.json)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Document: [`docs/AssetSemanticsAndProvenance.md`](AssetSemanticsAndProvenance.md); Agent JSON: [JSON](AssetSemanticsAndProvenance.agent.json)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Document: [`docs/AutomaticPairing.md`](AutomaticPairing.md); Agent JSON: [JSON](AutomaticPairing.agent.json)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Document: [`docs/BundleFootprint.md`](BundleFootprint.md); Agent JSON: [JSON](BundleFootprint.agent.json)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Document: [`docs/CloudFiles.md`](CloudFiles.md); Agent JSON: [JSON](CloudFiles.agent.json)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Document: [`docs/CommonFoundationAudit.md`](CommonFoundationAudit.md); Agent JSON: [JSON](CommonFoundationAudit.agent.json)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Document: [`docs/Dashboard.md`](Dashboard.md); Agent JSON: [JSON](Dashboard.agent.json)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Document: [`docs/DeviceStateAndCapabilities.md`](DeviceStateAndCapabilities.md); Agent JSON: [JSON](DeviceStateAndCapabilities.agent.json)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Document: [`docs/Environment.md`](Environment.md); Agent JSON: [JSON](Environment.agent.json)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Document: [`docs/EnvironmentDesktopConcept.md`](EnvironmentDesktopConcept.md); Agent JSON: [JSON](EnvironmentDesktopConcept.agent.json)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Document: [`docs/FILE_PROVIDER.md`](FILE_PROVIDER.md); Agent JSON: [JSON](FILE_PROVIDER.agent.json)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Document: [`docs/FileLoading.md`](FileLoading.md); Agent JSON: [JSON](FileLoading.agent.json)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Document: [`docs/FileLoadingPerformance.md`](FileLoadingPerformance.md); Agent JSON: [JSON](FileLoadingPerformance.agent.json)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Document: [`docs/FileLoadingVerification.md`](FileLoadingVerification.md); Agent JSON: [JSON](FileLoadingVerification.agent.json)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Document: [`docs/FilePresentation.md`](FilePresentation.md); Agent JSON: [JSON](FilePresentation.agent.json)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Document: [`docs/Files.md`](Files.md); Agent JSON: [JSON](Files.agent.json)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Document: [`docs/FinderDrive.md`](FinderDrive.md); Agent JSON: [JSON](FinderDrive.agent.json)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Document: [`docs/Gallery.md`](Gallery.md); Agent JSON: [JSON](Gallery.agent.json)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Document: [`docs/Generation.md`](Generation.md); Agent JSON: [JSON](Generation.agent.json)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Document: [`docs/GroupState.md`](GroupState.md); Agent JSON: [JSON](GroupState.agent.json)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Document: [`docs/JobsAndOperations.md`](JobsAndOperations.md); Agent JSON: [JSON](JobsAndOperations.agent.json)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Document: [`docs/LVUIMigrationReadiness.md`](LVUIMigrationReadiness.md); Agent JSON: [JSON](LVUIMigrationReadiness.agent.json)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Document: [`docs/ManagedStorage.md`](ManagedStorage.md); Agent JSON: [JSON](ManagedStorage.agent.json)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Document: [`docs/Mcp.md`](Mcp.md); Agent JSON: [JSON](Mcp.agent.json)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Document: [`docs/MobileViews.md`](MobileViews.md); Agent JSON: [JSON](MobileViews.agent.json)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Document: [`docs/ModelCalibration.md`](ModelCalibration.md); Agent JSON: [JSON](ModelCalibration.agent.json)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Document: [`docs/ModelMerge.md`](ModelMerge.md); Agent JSON: [JSON](ModelMerge.agent.json)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Document: [`docs/ModelPackaging.md`](ModelPackaging.md); Agent JSON: [JSON](ModelPackaging.agent.json)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Document: [`docs/ModelPackagingNativeChooser.md`](ModelPackagingNativeChooser.md); Agent JSON: [JSON](ModelPackagingNativeChooser.agent.json)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Document: [`docs/ModelPackagingVerification.md`](ModelPackagingVerification.md); Agent JSON: [JSON](ModelPackagingVerification.agent.json)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Document: [`docs/Models.md`](Models.md); Agent JSON: [JSON](Models.agent.json)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Document: [`docs/NativeAccountOverlay.md`](NativeAccountOverlay.md); Agent JSON: [JSON](NativeAccountOverlay.agent.json)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Document: [`docs/NativeMigrationBackend.md`](NativeMigrationBackend.md); Agent JSON: [JSON](NativeMigrationBackend.agent.json)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Document: [`docs/NativeNavigation.md`](NativeNavigation.md); Agent JSON: [JSON](NativeNavigation.agent.json)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Document: [`docs/NativePhotoOverlay.md`](NativePhotoOverlay.md); Agent JSON: [JSON](NativePhotoOverlay.agent.json)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Document: [`docs/NativeQuestionOverlay.md`](NativeQuestionOverlay.md); Agent JSON: [JSON](NativeQuestionOverlay.agent.json)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Document: [`docs/NativeStorageView.md`](NativeStorageView.md); Agent JSON: [JSON](NativeStorageView.agent.json)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Document: [`docs/NativeWorkspace.md`](NativeWorkspace.md); Agent JSON: [JSON](NativeWorkspace.agent.json)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Document: [`docs/NetworkDrive.md`](NetworkDrive.md); Agent JSON: [JSON](NetworkDrive.agent.json)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Document: [`docs/OfflineStartupVerification.md`](OfflineStartupVerification.md); Agent JSON: [JSON](OfflineStartupVerification.agent.json)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Document: [`docs/Onboarding.md`](Onboarding.md); Agent JSON: [JSON](Onboarding.agent.json)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Document: [`docs/Pairing.md`](Pairing.md); Agent JSON: [JSON](Pairing.agent.json)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Document: [`docs/PairingFailure-2026-09-21.md`](PairingFailure-2026-09-21.md); Agent JSON: [JSON](PairingFailure-2026-09-21.agent.json)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Document: [`docs/PanelBackgrounds.md`](PanelBackgrounds.md); Agent JSON: [JSON](PanelBackgrounds.agent.json)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Document: [`docs/Performance.md`](Performance.md); Agent JSON: [JSON](Performance.agent.json)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Document: [`docs/PhotoLibraryMigration.md`](PhotoLibraryMigration.md); Agent JSON: [JSON](PhotoLibraryMigration.agent.json)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Document: [`docs/Photos.md`](Photos.md); Agent JSON: [JSON](Photos.agent.json)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Document: [`docs/Preferences.md`](Preferences.md); Agent JSON: [JSON](Preferences.agent.json)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Document: [`docs/Projects.md`](Projects.md); Agent JSON: [JSON](Projects.agent.json)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Document: [`docs/QtBoundary.md`](QtBoundary.md); Agent JSON: [JSON](QtBoundary.agent.json)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Document: [`docs/ResourceIdentityAndProtection.md`](ResourceIdentityAndProtection.md); Agent JSON: [JSON](ResourceIdentityAndProtection.agent.json)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Document: [`docs/ResourceModule.md`](ResourceModule.md); Agent JSON: [JSON](ResourceModule.agent.json)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Document: [`docs/ResourceOptimization.md`](ResourceOptimization.md); Agent JSON: [JSON](ResourceOptimization.agent.json)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Document: [`docs/ResourceSearchAndViews.md`](ResourceSearchAndViews.md); Agent JSON: [JSON](ResourceSearchAndViews.agent.json)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Document: [`docs/RuntimeRetirement.md`](RuntimeRetirement.md); Agent JSON: [JSON](RuntimeRetirement.agent.json)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Document: [`docs/SelfHosting.md`](SelfHosting.md); Agent JSON: [JSON](SelfHosting.agent.json)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Document: [`docs/SemanticRelations.md`](SemanticRelations.md); Agent JSON: [JSON](SemanticRelations.agent.json)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Document: [`docs/SharedLogicalStorage.md`](SharedLogicalStorage.md); Agent JSON: [JSON](SharedLogicalStorage.agent.json)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Document: [`docs/SingleAppBuild.md`](SingleAppBuild.md); Agent JSON: [JSON](SingleAppBuild.agent.json)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Document: [`docs/SocietyDaemon.md`](SocietyDaemon.md); Agent JSON: [JSON](SocietyDaemon.agent.json)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Document: [`docs/SourceLayout.md`](SourceLayout.md); Agent JSON: [JSON](SourceLayout.agent.json)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Document: [`docs/StorageNavigation.md`](StorageNavigation.md); Agent JSON: [JSON](StorageNavigation.agent.json)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Document: [`docs/Synchronization.md`](Synchronization.md); Agent JSON: [JSON](Synchronization.agent.json)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Document: [`docs/SystemDrive.md`](SystemDrive.md); Agent JSON: [JSON](SystemDrive.agent.json)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Document: [`docs/Tools.md`](Tools.md); Agent JSON: [JSON](Tools.agent.json)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Document: [`docs/ToolsDesktopConcept.md`](ToolsDesktopConcept.md); Agent JSON: [JSON](ToolsDesktopConcept.agent.json)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Document: [`docs/VersionTrashReplicaBackup.md`](VersionTrashReplicaBackup.md); Agent JSON: [JSON](VersionTrashReplicaBackup.agent.json)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Document: [`docs/WindowsValidation.md`](WindowsValidation.md); Agent JSON: [JSON](WindowsValidation.agent.json)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Document: [`docs/WorkspaceAgent.md`](WorkspaceAgent.md); Agent JSON: [JSON](WorkspaceAgent.agent.json)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Document: [`docs/WorkspaceAgentTools.md`](WorkspaceAgentTools.md); Agent JSON: [JSON](WorkspaceAgentTools.agent.json)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Document: [`docs/WorkspaceSuggested.md`](WorkspaceSuggested.md); Agent JSON: [JSON](WorkspaceSuggested.agent.json)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Document: [`docs/documentation-structure.md`](documentation-structure.md); Agent JSON: [JSON](documentation-structure.agent.json)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Document: [`docs/iOS.md`](iOS.md); Agent JSON: [JSON](iOS.agent.json)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Document: [`resources/Appicon/README.md`](../resources/Appicon/README.md); Agent JSON: [JSON](mirrors/resources/Appicon/README.agent.json)",
+          "checked": null
+        }
       ]
     },
     {
       "id": "b000009",
       "kind": "html",
-      "start_line": 91,
-      "end_line": 91,
+      "start_line": 89,
+      "end_line": 89,
       "raw": "<!-- workspace-docs:document-map:end -->\n"
     }
   ],
@@ -447,1471 +524,1137 @@
         "label": "`AGENT.md`",
         "target": "../AGENT.md",
         "kind": "relative",
-        "line": 10
+        "line": 8
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "entrypoints/AGENT.agent.json",
         "kind": "relative",
-        "line": 10
+        "line": 8
       },
       {
         "block_id": "b000008",
         "label": "`LICENSING.md`",
         "target": "../LICENSING.md",
         "kind": "relative",
-        "line": 11
+        "line": 9
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "entrypoints/LICENSING.agent.json",
         "kind": "relative",
-        "line": 11
+        "line": 9
       },
       {
         "block_id": "b000008",
         "label": "`README.md`",
         "target": "../README.md",
         "kind": "relative",
-        "line": 12
+        "line": 10
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "entrypoints/README.agent.json",
         "kind": "relative",
-        "line": 12
+        "line": 10
       },
       {
         "block_id": "b000008",
         "label": "`docs/AIIntegrationNames.md`",
         "target": "AIIntegrationNames.md",
         "kind": "relative",
-        "line": 13
+        "line": 11
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "AIIntegrationNames.agent.json",
         "kind": "relative",
-        "line": 13
+        "line": 11
       },
       {
         "block_id": "b000008",
         "label": "`docs/Account.md`",
         "target": "Account.md",
         "kind": "relative",
-        "line": 14
+        "line": 12
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "Account.agent.json",
         "kind": "relative",
-        "line": 14
+        "line": 12
       },
       {
         "block_id": "b000008",
         "label": "`docs/AccountLicenses.md`",
         "target": "AccountLicenses.md",
         "kind": "relative",
-        "line": 15
+        "line": 13
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "AccountLicenses.agent.json",
         "kind": "relative",
-        "line": 15
+        "line": 13
       },
       {
         "block_id": "b000008",
         "label": "`docs/AgentIntegration.md`",
         "target": "AgentIntegration.md",
         "kind": "relative",
-        "line": 16
+        "line": 14
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "AgentIntegration.agent.json",
         "kind": "relative",
-        "line": 16
+        "line": 14
       },
       {
         "block_id": "b000008",
         "label": "`docs/ApplicationLifetime.md`",
         "target": "ApplicationLifetime.md",
         "kind": "relative",
-        "line": 17
+        "line": 15
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "ApplicationLifetime.agent.json",
         "kind": "relative",
-        "line": 17
+        "line": 15
       },
       {
         "block_id": "b000008",
         "label": "`docs/AssetSemanticsAndProvenance.md`",
         "target": "AssetSemanticsAndProvenance.md",
         "kind": "relative",
-        "line": 18
+        "line": 16
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "AssetSemanticsAndProvenance.agent.json",
         "kind": "relative",
-        "line": 18
+        "line": 16
       },
       {
         "block_id": "b000008",
         "label": "`docs/AutomaticPairing.md`",
         "target": "AutomaticPairing.md",
         "kind": "relative",
-        "line": 19
+        "line": 17
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "AutomaticPairing.agent.json",
         "kind": "relative",
-        "line": 19
+        "line": 17
       },
       {
         "block_id": "b000008",
         "label": "`docs/BundleFootprint.md`",
         "target": "BundleFootprint.md",
         "kind": "relative",
-        "line": 20
+        "line": 18
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "BundleFootprint.agent.json",
         "kind": "relative",
-        "line": 20
+        "line": 18
       },
       {
         "block_id": "b000008",
         "label": "`docs/CloudFiles.md`",
         "target": "CloudFiles.md",
         "kind": "relative",
-        "line": 21
+        "line": 19
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "CloudFiles.agent.json",
         "kind": "relative",
-        "line": 21
+        "line": 19
       },
       {
         "block_id": "b000008",
         "label": "`docs/CommonFoundationAudit.md`",
         "target": "CommonFoundationAudit.md",
         "kind": "relative",
-        "line": 22
+        "line": 20
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "CommonFoundationAudit.agent.json",
         "kind": "relative",
-        "line": 22
+        "line": 20
       },
       {
         "block_id": "b000008",
         "label": "`docs/Dashboard.md`",
         "target": "Dashboard.md",
         "kind": "relative",
-        "line": 23
+        "line": 21
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "Dashboard.agent.json",
         "kind": "relative",
-        "line": 23
+        "line": 21
       },
       {
         "block_id": "b000008",
         "label": "`docs/DeviceStateAndCapabilities.md`",
         "target": "DeviceStateAndCapabilities.md",
         "kind": "relative",
-        "line": 24
+        "line": 22
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "DeviceStateAndCapabilities.agent.json",
         "kind": "relative",
-        "line": 24
+        "line": 22
       },
       {
         "block_id": "b000008",
         "label": "`docs/Environment.md`",
         "target": "Environment.md",
         "kind": "relative",
-        "line": 25
+        "line": 23
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "Environment.agent.json",
         "kind": "relative",
-        "line": 25
+        "line": 23
       },
       {
         "block_id": "b000008",
         "label": "`docs/EnvironmentDesktopConcept.md`",
         "target": "EnvironmentDesktopConcept.md",
         "kind": "relative",
-        "line": 26
+        "line": 24
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "EnvironmentDesktopConcept.agent.json",
         "kind": "relative",
-        "line": 26
+        "line": 24
       },
       {
         "block_id": "b000008",
         "label": "`docs/FILE_PROVIDER.md`",
         "target": "FILE_PROVIDER.md",
         "kind": "relative",
-        "line": 27
+        "line": 25
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "FILE_PROVIDER.agent.json",
         "kind": "relative",
-        "line": 27
+        "line": 25
       },
       {
         "block_id": "b000008",
         "label": "`docs/FileLoading.md`",
         "target": "FileLoading.md",
         "kind": "relative",
-        "line": 28
+        "line": 26
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "FileLoading.agent.json",
         "kind": "relative",
-        "line": 28
+        "line": 26
       },
       {
         "block_id": "b000008",
         "label": "`docs/FileLoadingPerformance.md`",
         "target": "FileLoadingPerformance.md",
         "kind": "relative",
-        "line": 29
+        "line": 27
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "FileLoadingPerformance.agent.json",
         "kind": "relative",
-        "line": 29
+        "line": 27
       },
       {
         "block_id": "b000008",
         "label": "`docs/FileLoadingVerification.md`",
         "target": "FileLoadingVerification.md",
         "kind": "relative",
-        "line": 30
+        "line": 28
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "FileLoadingVerification.agent.json",
         "kind": "relative",
-        "line": 30
+        "line": 28
       },
       {
         "block_id": "b000008",
         "label": "`docs/FilePresentation.md`",
         "target": "FilePresentation.md",
         "kind": "relative",
-        "line": 31
+        "line": 29
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "FilePresentation.agent.json",
         "kind": "relative",
-        "line": 31
+        "line": 29
       },
       {
         "block_id": "b000008",
         "label": "`docs/Files.md`",
         "target": "Files.md",
         "kind": "relative",
-        "line": 32
+        "line": 30
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "Files.agent.json",
         "kind": "relative",
-        "line": 32
+        "line": 30
       },
       {
         "block_id": "b000008",
         "label": "`docs/FinderDrive.md`",
         "target": "FinderDrive.md",
         "kind": "relative",
-        "line": 33
+        "line": 31
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "FinderDrive.agent.json",
         "kind": "relative",
-        "line": 33
+        "line": 31
       },
       {
         "block_id": "b000008",
         "label": "`docs/Gallery.md`",
         "target": "Gallery.md",
         "kind": "relative",
-        "line": 34
+        "line": 32
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "Gallery.agent.json",
         "kind": "relative",
-        "line": 34
+        "line": 32
       },
       {
         "block_id": "b000008",
         "label": "`docs/Generation.md`",
         "target": "Generation.md",
         "kind": "relative",
-        "line": 35
+        "line": 33
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "Generation.agent.json",
         "kind": "relative",
-        "line": 35
+        "line": 33
       },
       {
         "block_id": "b000008",
         "label": "`docs/GroupState.md`",
         "target": "GroupState.md",
         "kind": "relative",
-        "line": 36
+        "line": 34
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "GroupState.agent.json",
         "kind": "relative",
-        "line": 36
+        "line": 34
       },
       {
         "block_id": "b000008",
         "label": "`docs/JobsAndOperations.md`",
         "target": "JobsAndOperations.md",
         "kind": "relative",
-        "line": 37
+        "line": 35
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "JobsAndOperations.agent.json",
         "kind": "relative",
-        "line": 37
+        "line": 35
       },
       {
         "block_id": "b000008",
         "label": "`docs/LVUIMigrationReadiness.md`",
         "target": "LVUIMigrationReadiness.md",
         "kind": "relative",
-        "line": 38
+        "line": 36
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "LVUIMigrationReadiness.agent.json",
         "kind": "relative",
-        "line": 38
+        "line": 36
       },
       {
         "block_id": "b000008",
         "label": "`docs/ManagedStorage.md`",
         "target": "ManagedStorage.md",
         "kind": "relative",
-        "line": 39
+        "line": 37
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "ManagedStorage.agent.json",
         "kind": "relative",
-        "line": 39
+        "line": 37
       },
       {
         "block_id": "b000008",
         "label": "`docs/Mcp.md`",
         "target": "Mcp.md",
         "kind": "relative",
-        "line": 40
+        "line": 38
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "Mcp.agent.json",
         "kind": "relative",
-        "line": 40
+        "line": 38
       },
       {
         "block_id": "b000008",
         "label": "`docs/MobileViews.md`",
         "target": "MobileViews.md",
         "kind": "relative",
-        "line": 41
+        "line": 39
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "MobileViews.agent.json",
         "kind": "relative",
-        "line": 41
+        "line": 39
       },
       {
         "block_id": "b000008",
         "label": "`docs/ModelCalibration.md`",
         "target": "ModelCalibration.md",
         "kind": "relative",
-        "line": 42
+        "line": 40
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "ModelCalibration.agent.json",
         "kind": "relative",
-        "line": 42
+        "line": 40
       },
       {
         "block_id": "b000008",
         "label": "`docs/ModelMerge.md`",
         "target": "ModelMerge.md",
         "kind": "relative",
-        "line": 43
+        "line": 41
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "ModelMerge.agent.json",
         "kind": "relative",
-        "line": 43
+        "line": 41
       },
       {
         "block_id": "b000008",
         "label": "`docs/ModelPackaging.md`",
         "target": "ModelPackaging.md",
         "kind": "relative",
-        "line": 44
+        "line": 42
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "ModelPackaging.agent.json",
         "kind": "relative",
-        "line": 44
+        "line": 42
       },
       {
         "block_id": "b000008",
         "label": "`docs/ModelPackagingNativeChooser.md`",
         "target": "ModelPackagingNativeChooser.md",
         "kind": "relative",
-        "line": 45
+        "line": 43
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "ModelPackagingNativeChooser.agent.json",
         "kind": "relative",
-        "line": 45
+        "line": 43
       },
       {
         "block_id": "b000008",
         "label": "`docs/ModelPackagingVerification.md`",
         "target": "ModelPackagingVerification.md",
         "kind": "relative",
-        "line": 46
+        "line": 44
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "ModelPackagingVerification.agent.json",
         "kind": "relative",
-        "line": 46
+        "line": 44
       },
       {
         "block_id": "b000008",
         "label": "`docs/Models.md`",
         "target": "Models.md",
         "kind": "relative",
-        "line": 47
+        "line": 45
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "Models.agent.json",
         "kind": "relative",
-        "line": 47
+        "line": 45
       },
       {
         "block_id": "b000008",
         "label": "`docs/NativeAccountOverlay.md`",
         "target": "NativeAccountOverlay.md",
         "kind": "relative",
-        "line": 48
+        "line": 46
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "NativeAccountOverlay.agent.json",
         "kind": "relative",
-        "line": 48
+        "line": 46
       },
       {
         "block_id": "b000008",
         "label": "`docs/NativeMigrationBackend.md`",
         "target": "NativeMigrationBackend.md",
         "kind": "relative",
-        "line": 49
+        "line": 47
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "NativeMigrationBackend.agent.json",
         "kind": "relative",
-        "line": 49
+        "line": 47
       },
       {
         "block_id": "b000008",
         "label": "`docs/NativeNavigation.md`",
         "target": "NativeNavigation.md",
         "kind": "relative",
-        "line": 50
+        "line": 48
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "NativeNavigation.agent.json",
         "kind": "relative",
-        "line": 50
+        "line": 48
       },
       {
         "block_id": "b000008",
         "label": "`docs/NativePhotoOverlay.md`",
         "target": "NativePhotoOverlay.md",
         "kind": "relative",
-        "line": 51
+        "line": 49
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "NativePhotoOverlay.agent.json",
         "kind": "relative",
-        "line": 51
+        "line": 49
       },
       {
         "block_id": "b000008",
         "label": "`docs/NativeQuestionOverlay.md`",
         "target": "NativeQuestionOverlay.md",
         "kind": "relative",
-        "line": 52
+        "line": 50
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "NativeQuestionOverlay.agent.json",
         "kind": "relative",
-        "line": 52
+        "line": 50
       },
       {
         "block_id": "b000008",
         "label": "`docs/NativeStorageView.md`",
         "target": "NativeStorageView.md",
         "kind": "relative",
-        "line": 53
+        "line": 51
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "NativeStorageView.agent.json",
         "kind": "relative",
-        "line": 53
+        "line": 51
       },
       {
         "block_id": "b000008",
         "label": "`docs/NativeWorkspace.md`",
         "target": "NativeWorkspace.md",
         "kind": "relative",
-        "line": 54
+        "line": 52
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "NativeWorkspace.agent.json",
         "kind": "relative",
-        "line": 54
+        "line": 52
       },
       {
         "block_id": "b000008",
         "label": "`docs/NetworkDrive.md`",
         "target": "NetworkDrive.md",
         "kind": "relative",
-        "line": 55
+        "line": 53
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "NetworkDrive.agent.json",
         "kind": "relative",
-        "line": 55
+        "line": 53
       },
       {
         "block_id": "b000008",
         "label": "`docs/OfflineStartupVerification.md`",
         "target": "OfflineStartupVerification.md",
         "kind": "relative",
-        "line": 56
+        "line": 54
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "OfflineStartupVerification.agent.json",
         "kind": "relative",
-        "line": 56
+        "line": 54
       },
       {
         "block_id": "b000008",
         "label": "`docs/Onboarding.md`",
         "target": "Onboarding.md",
         "kind": "relative",
-        "line": 57
+        "line": 55
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "Onboarding.agent.json",
         "kind": "relative",
-        "line": 57
+        "line": 55
       },
       {
         "block_id": "b000008",
         "label": "`docs/Pairing.md`",
         "target": "Pairing.md",
         "kind": "relative",
-        "line": 58
+        "line": 56
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "Pairing.agent.json",
         "kind": "relative",
-        "line": 58
+        "line": 56
       },
       {
         "block_id": "b000008",
         "label": "`docs/PairingFailure-2026-09-21.md`",
         "target": "PairingFailure-2026-09-21.md",
         "kind": "relative",
-        "line": 59
+        "line": 57
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "PairingFailure-2026-09-21.agent.json",
         "kind": "relative",
-        "line": 59
+        "line": 57
       },
       {
         "block_id": "b000008",
         "label": "`docs/PanelBackgrounds.md`",
         "target": "PanelBackgrounds.md",
         "kind": "relative",
-        "line": 60
+        "line": 58
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "PanelBackgrounds.agent.json",
         "kind": "relative",
-        "line": 60
+        "line": 58
       },
       {
         "block_id": "b000008",
         "label": "`docs/Performance.md`",
         "target": "Performance.md",
         "kind": "relative",
-        "line": 61
+        "line": 59
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "Performance.agent.json",
         "kind": "relative",
-        "line": 61
+        "line": 59
       },
       {
         "block_id": "b000008",
         "label": "`docs/PhotoLibraryMigration.md`",
         "target": "PhotoLibraryMigration.md",
         "kind": "relative",
-        "line": 62
+        "line": 60
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "PhotoLibraryMigration.agent.json",
         "kind": "relative",
-        "line": 62
+        "line": 60
       },
       {
         "block_id": "b000008",
         "label": "`docs/Photos.md`",
         "target": "Photos.md",
         "kind": "relative",
-        "line": 63
+        "line": 61
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "Photos.agent.json",
         "kind": "relative",
-        "line": 63
+        "line": 61
       },
       {
         "block_id": "b000008",
         "label": "`docs/Preferences.md`",
         "target": "Preferences.md",
         "kind": "relative",
-        "line": 64
+        "line": 62
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "Preferences.agent.json",
         "kind": "relative",
-        "line": 64
+        "line": 62
       },
       {
         "block_id": "b000008",
         "label": "`docs/Projects.md`",
         "target": "Projects.md",
         "kind": "relative",
-        "line": 65
+        "line": 63
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "Projects.agent.json",
         "kind": "relative",
-        "line": 65
+        "line": 63
       },
       {
         "block_id": "b000008",
         "label": "`docs/QtBoundary.md`",
         "target": "QtBoundary.md",
         "kind": "relative",
-        "line": 66
+        "line": 64
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "QtBoundary.agent.json",
         "kind": "relative",
-        "line": 66
+        "line": 64
       },
       {
         "block_id": "b000008",
         "label": "`docs/ResourceIdentityAndProtection.md`",
         "target": "ResourceIdentityAndProtection.md",
         "kind": "relative",
-        "line": 67
+        "line": 65
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "ResourceIdentityAndProtection.agent.json",
         "kind": "relative",
-        "line": 67
+        "line": 65
       },
       {
         "block_id": "b000008",
         "label": "`docs/ResourceModule.md`",
         "target": "ResourceModule.md",
         "kind": "relative",
-        "line": 68
+        "line": 66
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "ResourceModule.agent.json",
         "kind": "relative",
-        "line": 68
+        "line": 66
       },
       {
         "block_id": "b000008",
         "label": "`docs/ResourceOptimization.md`",
         "target": "ResourceOptimization.md",
         "kind": "relative",
-        "line": 69
+        "line": 67
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "ResourceOptimization.agent.json",
         "kind": "relative",
-        "line": 69
+        "line": 67
       },
       {
         "block_id": "b000008",
         "label": "`docs/ResourceSearchAndViews.md`",
         "target": "ResourceSearchAndViews.md",
         "kind": "relative",
-        "line": 70
+        "line": 68
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "ResourceSearchAndViews.agent.json",
         "kind": "relative",
-        "line": 70
+        "line": 68
       },
       {
         "block_id": "b000008",
         "label": "`docs/RuntimeRetirement.md`",
         "target": "RuntimeRetirement.md",
         "kind": "relative",
-        "line": 71
+        "line": 69
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "RuntimeRetirement.agent.json",
         "kind": "relative",
-        "line": 71
+        "line": 69
       },
       {
         "block_id": "b000008",
         "label": "`docs/SelfHosting.md`",
         "target": "SelfHosting.md",
         "kind": "relative",
-        "line": 72
+        "line": 70
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "SelfHosting.agent.json",
         "kind": "relative",
-        "line": 72
+        "line": 70
       },
       {
         "block_id": "b000008",
         "label": "`docs/SemanticRelations.md`",
         "target": "SemanticRelations.md",
         "kind": "relative",
-        "line": 73
+        "line": 71
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "SemanticRelations.agent.json",
         "kind": "relative",
-        "line": 73
+        "line": 71
       },
       {
         "block_id": "b000008",
         "label": "`docs/SharedLogicalStorage.md`",
         "target": "SharedLogicalStorage.md",
         "kind": "relative",
-        "line": 74
+        "line": 72
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "SharedLogicalStorage.agent.json",
         "kind": "relative",
-        "line": 74
+        "line": 72
       },
       {
         "block_id": "b000008",
         "label": "`docs/SingleAppBuild.md`",
         "target": "SingleAppBuild.md",
         "kind": "relative",
-        "line": 75
+        "line": 73
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "SingleAppBuild.agent.json",
         "kind": "relative",
-        "line": 75
+        "line": 73
       },
       {
         "block_id": "b000008",
         "label": "`docs/SocietyDaemon.md`",
         "target": "SocietyDaemon.md",
         "kind": "relative",
-        "line": 76
+        "line": 74
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "SocietyDaemon.agent.json",
         "kind": "relative",
-        "line": 76
+        "line": 74
       },
       {
         "block_id": "b000008",
         "label": "`docs/SourceLayout.md`",
         "target": "SourceLayout.md",
         "kind": "relative",
-        "line": 77
+        "line": 75
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "SourceLayout.agent.json",
         "kind": "relative",
-        "line": 77
+        "line": 75
       },
       {
         "block_id": "b000008",
         "label": "`docs/StorageNavigation.md`",
         "target": "StorageNavigation.md",
         "kind": "relative",
-        "line": 78
+        "line": 76
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "StorageNavigation.agent.json",
         "kind": "relative",
-        "line": 78
+        "line": 76
       },
       {
         "block_id": "b000008",
         "label": "`docs/Synchronization.md`",
         "target": "Synchronization.md",
         "kind": "relative",
-        "line": 79
+        "line": 77
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "Synchronization.agent.json",
         "kind": "relative",
-        "line": 79
+        "line": 77
       },
       {
         "block_id": "b000008",
         "label": "`docs/SystemDrive.md`",
         "target": "SystemDrive.md",
         "kind": "relative",
-        "line": 80
+        "line": 78
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "SystemDrive.agent.json",
         "kind": "relative",
-        "line": 80
+        "line": 78
       },
       {
         "block_id": "b000008",
         "label": "`docs/Tools.md`",
         "target": "Tools.md",
         "kind": "relative",
-        "line": 81
+        "line": 79
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "Tools.agent.json",
         "kind": "relative",
-        "line": 81
+        "line": 79
       },
       {
         "block_id": "b000008",
         "label": "`docs/ToolsDesktopConcept.md`",
         "target": "ToolsDesktopConcept.md",
         "kind": "relative",
-        "line": 82
+        "line": 80
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "ToolsDesktopConcept.agent.json",
         "kind": "relative",
-        "line": 82
+        "line": 80
       },
       {
         "block_id": "b000008",
         "label": "`docs/VersionTrashReplicaBackup.md`",
         "target": "VersionTrashReplicaBackup.md",
         "kind": "relative",
-        "line": 83
+        "line": 81
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "VersionTrashReplicaBackup.agent.json",
         "kind": "relative",
-        "line": 83
+        "line": 81
       },
       {
         "block_id": "b000008",
         "label": "`docs/WindowsValidation.md`",
         "target": "WindowsValidation.md",
         "kind": "relative",
-        "line": 84
+        "line": 82
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "WindowsValidation.agent.json",
         "kind": "relative",
-        "line": 84
+        "line": 82
       },
       {
         "block_id": "b000008",
         "label": "`docs/WorkspaceAgent.md`",
         "target": "WorkspaceAgent.md",
         "kind": "relative",
-        "line": 85
+        "line": 83
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "WorkspaceAgent.agent.json",
         "kind": "relative",
-        "line": 85
+        "line": 83
       },
       {
         "block_id": "b000008",
         "label": "`docs/WorkspaceAgentTools.md`",
         "target": "WorkspaceAgentTools.md",
         "kind": "relative",
-        "line": 86
+        "line": 84
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "WorkspaceAgentTools.agent.json",
         "kind": "relative",
-        "line": 86
+        "line": 84
       },
       {
         "block_id": "b000008",
         "label": "`docs/WorkspaceSuggested.md`",
         "target": "WorkspaceSuggested.md",
         "kind": "relative",
-        "line": 87
+        "line": 85
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "WorkspaceSuggested.agent.json",
         "kind": "relative",
-        "line": 87
+        "line": 85
       },
       {
         "block_id": "b000008",
         "label": "`docs/documentation-structure.md`",
         "target": "documentation-structure.md",
         "kind": "relative",
-        "line": 88
+        "line": 86
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "documentation-structure.agent.json",
         "kind": "relative",
-        "line": 88
+        "line": 86
       },
       {
         "block_id": "b000008",
         "label": "`docs/iOS.md`",
         "target": "iOS.md",
         "kind": "relative",
-        "line": 89
+        "line": 87
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "iOS.agent.json",
         "kind": "relative",
-        "line": 89
+        "line": 87
       },
       {
         "block_id": "b000008",
         "label": "`resources/Appicon/README.md`",
         "target": "../resources/Appicon/README.md",
         "kind": "relative",
-        "line": 90
+        "line": 88
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "mirrors/resources/Appicon/README.agent.json",
         "kind": "relative",
-        "line": 90
+        "line": 88
       }
     ],
-    "tables": [
-      {
-        "block_id": "b000008",
-        "columns": [
-          "Document",
-          "Agent JSON"
-        ],
-        "rows": [
-          [
-            "[`AGENT.md`](../AGENT.md)",
-            "[JSON](entrypoints/AGENT.agent.json)"
-          ],
-          [
-            "[`LICENSING.md`](../LICENSING.md)",
-            "[JSON](entrypoints/LICENSING.agent.json)"
-          ],
-          [
-            "[`README.md`](../README.md)",
-            "[JSON](entrypoints/README.agent.json)"
-          ],
-          [
-            "[`docs/AIIntegrationNames.md`](AIIntegrationNames.md)",
-            "[JSON](AIIntegrationNames.agent.json)"
-          ],
-          [
-            "[`docs/Account.md`](Account.md)",
-            "[JSON](Account.agent.json)"
-          ],
-          [
-            "[`docs/AccountLicenses.md`](AccountLicenses.md)",
-            "[JSON](AccountLicenses.agent.json)"
-          ],
-          [
-            "[`docs/AgentIntegration.md`](AgentIntegration.md)",
-            "[JSON](AgentIntegration.agent.json)"
-          ],
-          [
-            "[`docs/ApplicationLifetime.md`](ApplicationLifetime.md)",
-            "[JSON](ApplicationLifetime.agent.json)"
-          ],
-          [
-            "[`docs/AssetSemanticsAndProvenance.md`](AssetSemanticsAndProvenance.md)",
-            "[JSON](AssetSemanticsAndProvenance.agent.json)"
-          ],
-          [
-            "[`docs/AutomaticPairing.md`](AutomaticPairing.md)",
-            "[JSON](AutomaticPairing.agent.json)"
-          ],
-          [
-            "[`docs/BundleFootprint.md`](BundleFootprint.md)",
-            "[JSON](BundleFootprint.agent.json)"
-          ],
-          [
-            "[`docs/CloudFiles.md`](CloudFiles.md)",
-            "[JSON](CloudFiles.agent.json)"
-          ],
-          [
-            "[`docs/CommonFoundationAudit.md`](CommonFoundationAudit.md)",
-            "[JSON](CommonFoundationAudit.agent.json)"
-          ],
-          [
-            "[`docs/Dashboard.md`](Dashboard.md)",
-            "[JSON](Dashboard.agent.json)"
-          ],
-          [
-            "[`docs/DeviceStateAndCapabilities.md`](DeviceStateAndCapabilities.md)",
-            "[JSON](DeviceStateAndCapabilities.agent.json)"
-          ],
-          [
-            "[`docs/Environment.md`](Environment.md)",
-            "[JSON](Environment.agent.json)"
-          ],
-          [
-            "[`docs/EnvironmentDesktopConcept.md`](EnvironmentDesktopConcept.md)",
-            "[JSON](EnvironmentDesktopConcept.agent.json)"
-          ],
-          [
-            "[`docs/FILE_PROVIDER.md`](FILE_PROVIDER.md)",
-            "[JSON](FILE_PROVIDER.agent.json)"
-          ],
-          [
-            "[`docs/FileLoading.md`](FileLoading.md)",
-            "[JSON](FileLoading.agent.json)"
-          ],
-          [
-            "[`docs/FileLoadingPerformance.md`](FileLoadingPerformance.md)",
-            "[JSON](FileLoadingPerformance.agent.json)"
-          ],
-          [
-            "[`docs/FileLoadingVerification.md`](FileLoadingVerification.md)",
-            "[JSON](FileLoadingVerification.agent.json)"
-          ],
-          [
-            "[`docs/FilePresentation.md`](FilePresentation.md)",
-            "[JSON](FilePresentation.agent.json)"
-          ],
-          [
-            "[`docs/Files.md`](Files.md)",
-            "[JSON](Files.agent.json)"
-          ],
-          [
-            "[`docs/FinderDrive.md`](FinderDrive.md)",
-            "[JSON](FinderDrive.agent.json)"
-          ],
-          [
-            "[`docs/Gallery.md`](Gallery.md)",
-            "[JSON](Gallery.agent.json)"
-          ],
-          [
-            "[`docs/Generation.md`](Generation.md)",
-            "[JSON](Generation.agent.json)"
-          ],
-          [
-            "[`docs/GroupState.md`](GroupState.md)",
-            "[JSON](GroupState.agent.json)"
-          ],
-          [
-            "[`docs/JobsAndOperations.md`](JobsAndOperations.md)",
-            "[JSON](JobsAndOperations.agent.json)"
-          ],
-          [
-            "[`docs/LVUIMigrationReadiness.md`](LVUIMigrationReadiness.md)",
-            "[JSON](LVUIMigrationReadiness.agent.json)"
-          ],
-          [
-            "[`docs/ManagedStorage.md`](ManagedStorage.md)",
-            "[JSON](ManagedStorage.agent.json)"
-          ],
-          [
-            "[`docs/Mcp.md`](Mcp.md)",
-            "[JSON](Mcp.agent.json)"
-          ],
-          [
-            "[`docs/MobileViews.md`](MobileViews.md)",
-            "[JSON](MobileViews.agent.json)"
-          ],
-          [
-            "[`docs/ModelCalibration.md`](ModelCalibration.md)",
-            "[JSON](ModelCalibration.agent.json)"
-          ],
-          [
-            "[`docs/ModelMerge.md`](ModelMerge.md)",
-            "[JSON](ModelMerge.agent.json)"
-          ],
-          [
-            "[`docs/ModelPackaging.md`](ModelPackaging.md)",
-            "[JSON](ModelPackaging.agent.json)"
-          ],
-          [
-            "[`docs/ModelPackagingNativeChooser.md`](ModelPackagingNativeChooser.md)",
-            "[JSON](ModelPackagingNativeChooser.agent.json)"
-          ],
-          [
-            "[`docs/ModelPackagingVerification.md`](ModelPackagingVerification.md)",
-            "[JSON](ModelPackagingVerification.agent.json)"
-          ],
-          [
-            "[`docs/Models.md`](Models.md)",
-            "[JSON](Models.agent.json)"
-          ],
-          [
-            "[`docs/NativeAccountOverlay.md`](NativeAccountOverlay.md)",
-            "[JSON](NativeAccountOverlay.agent.json)"
-          ],
-          [
-            "[`docs/NativeMigrationBackend.md`](NativeMigrationBackend.md)",
-            "[JSON](NativeMigrationBackend.agent.json)"
-          ],
-          [
-            "[`docs/NativeNavigation.md`](NativeNavigation.md)",
-            "[JSON](NativeNavigation.agent.json)"
-          ],
-          [
-            "[`docs/NativePhotoOverlay.md`](NativePhotoOverlay.md)",
-            "[JSON](NativePhotoOverlay.agent.json)"
-          ],
-          [
-            "[`docs/NativeQuestionOverlay.md`](NativeQuestionOverlay.md)",
-            "[JSON](NativeQuestionOverlay.agent.json)"
-          ],
-          [
-            "[`docs/NativeStorageView.md`](NativeStorageView.md)",
-            "[JSON](NativeStorageView.agent.json)"
-          ],
-          [
-            "[`docs/NativeWorkspace.md`](NativeWorkspace.md)",
-            "[JSON](NativeWorkspace.agent.json)"
-          ],
-          [
-            "[`docs/NetworkDrive.md`](NetworkDrive.md)",
-            "[JSON](NetworkDrive.agent.json)"
-          ],
-          [
-            "[`docs/OfflineStartupVerification.md`](OfflineStartupVerification.md)",
-            "[JSON](OfflineStartupVerification.agent.json)"
-          ],
-          [
-            "[`docs/Onboarding.md`](Onboarding.md)",
-            "[JSON](Onboarding.agent.json)"
-          ],
-          [
-            "[`docs/Pairing.md`](Pairing.md)",
-            "[JSON](Pairing.agent.json)"
-          ],
-          [
-            "[`docs/PairingFailure-2026-09-21.md`](PairingFailure-2026-09-21.md)",
-            "[JSON](PairingFailure-2026-09-21.agent.json)"
-          ],
-          [
-            "[`docs/PanelBackgrounds.md`](PanelBackgrounds.md)",
-            "[JSON](PanelBackgrounds.agent.json)"
-          ],
-          [
-            "[`docs/Performance.md`](Performance.md)",
-            "[JSON](Performance.agent.json)"
-          ],
-          [
-            "[`docs/PhotoLibraryMigration.md`](PhotoLibraryMigration.md)",
-            "[JSON](PhotoLibraryMigration.agent.json)"
-          ],
-          [
-            "[`docs/Photos.md`](Photos.md)",
-            "[JSON](Photos.agent.json)"
-          ],
-          [
-            "[`docs/Preferences.md`](Preferences.md)",
-            "[JSON](Preferences.agent.json)"
-          ],
-          [
-            "[`docs/Projects.md`](Projects.md)",
-            "[JSON](Projects.agent.json)"
-          ],
-          [
-            "[`docs/QtBoundary.md`](QtBoundary.md)",
-            "[JSON](QtBoundary.agent.json)"
-          ],
-          [
-            "[`docs/ResourceIdentityAndProtection.md`](ResourceIdentityAndProtection.md)",
-            "[JSON](ResourceIdentityAndProtection.agent.json)"
-          ],
-          [
-            "[`docs/ResourceModule.md`](ResourceModule.md)",
-            "[JSON](ResourceModule.agent.json)"
-          ],
-          [
-            "[`docs/ResourceOptimization.md`](ResourceOptimization.md)",
-            "[JSON](ResourceOptimization.agent.json)"
-          ],
-          [
-            "[`docs/ResourceSearchAndViews.md`](ResourceSearchAndViews.md)",
-            "[JSON](ResourceSearchAndViews.agent.json)"
-          ],
-          [
-            "[`docs/RuntimeRetirement.md`](RuntimeRetirement.md)",
-            "[JSON](RuntimeRetirement.agent.json)"
-          ],
-          [
-            "[`docs/SelfHosting.md`](SelfHosting.md)",
-            "[JSON](SelfHosting.agent.json)"
-          ],
-          [
-            "[`docs/SemanticRelations.md`](SemanticRelations.md)",
-            "[JSON](SemanticRelations.agent.json)"
-          ],
-          [
-            "[`docs/SharedLogicalStorage.md`](SharedLogicalStorage.md)",
-            "[JSON](SharedLogicalStorage.agent.json)"
-          ],
-          [
-            "[`docs/SingleAppBuild.md`](SingleAppBuild.md)",
-            "[JSON](SingleAppBuild.agent.json)"
-          ],
-          [
-            "[`docs/SocietyDaemon.md`](SocietyDaemon.md)",
-            "[JSON](SocietyDaemon.agent.json)"
-          ],
-          [
-            "[`docs/SourceLayout.md`](SourceLayout.md)",
-            "[JSON](SourceLayout.agent.json)"
-          ],
-          [
-            "[`docs/StorageNavigation.md`](StorageNavigation.md)",
-            "[JSON](StorageNavigation.agent.json)"
-          ],
-          [
-            "[`docs/Synchronization.md`](Synchronization.md)",
-            "[JSON](Synchronization.agent.json)"
-          ],
-          [
-            "[`docs/SystemDrive.md`](SystemDrive.md)",
-            "[JSON](SystemDrive.agent.json)"
-          ],
-          [
-            "[`docs/Tools.md`](Tools.md)",
-            "[JSON](Tools.agent.json)"
-          ],
-          [
-            "[`docs/ToolsDesktopConcept.md`](ToolsDesktopConcept.md)",
-            "[JSON](ToolsDesktopConcept.agent.json)"
-          ],
-          [
-            "[`docs/VersionTrashReplicaBackup.md`](VersionTrashReplicaBackup.md)",
-            "[JSON](VersionTrashReplicaBackup.agent.json)"
-          ],
-          [
-            "[`docs/WindowsValidation.md`](WindowsValidation.md)",
-            "[JSON](WindowsValidation.agent.json)"
-          ],
-          [
-            "[`docs/WorkspaceAgent.md`](WorkspaceAgent.md)",
-            "[JSON](WorkspaceAgent.agent.json)"
-          ],
-          [
-            "[`docs/WorkspaceAgentTools.md`](WorkspaceAgentTools.md)",
-            "[JSON](WorkspaceAgentTools.agent.json)"
-          ],
-          [
-            "[`docs/WorkspaceSuggested.md`](WorkspaceSuggested.md)",
-            "[JSON](WorkspaceSuggested.agent.json)"
-          ],
-          [
-            "[`docs/documentation-structure.md`](documentation-structure.md)",
-            "[JSON](documentation-structure.agent.json)"
-          ],
-          [
-            "[`docs/iOS.md`](iOS.md)",
-            "[JSON](iOS.agent.json)"
-          ],
-          [
-            "[`resources/Appicon/README.md`](../resources/Appicon/README.md)",
-            "[JSON](mirrors/resources/Appicon/README.agent.json)"
-          ]
-        ]
-      }
-    ]
+    "tables": []
   },
   "provenance": {
     "generator": "workspace-docs",

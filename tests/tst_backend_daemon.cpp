@@ -1,5 +1,6 @@
 #include <iiSocietyHelper>
 #include <iiSocietyContainer>
+#include <SpaceStore.h>
 #include "Society/Files/ModelImporter.h"
 #include "Shared/LocalBackendAddress.h"
 #include "Shared/LocalBackendPeer.h"
@@ -63,6 +64,37 @@ class BackendDaemonTests final : public QObject {
     }
 private slots:
 #ifdef SOCIETY_AGENT_BACKEND
+    /// Space operations are scoped to the selected container and a specific session.
+    void spaceProtocolChecksSessionAndContainer()
+    {
+        QTemporaryDir fixture(QDir::cleanPath(QStringLiteral(SOCIETY_TEST_DIRECTORY)+"/../../.space-ipc-XXXXXX"));
+        QVERIFY(fixture.isValid());
+        const auto root=fixture.filePath("drive.societycontainer");
+        QVERIFY(QDir().mkdir(root)); QVERIFY(iiSocietyContainer::SocietyDrive::create(root));
+        auto store=iiSocietyContainer::SpaceStore::open(std::filesystem::path(root.toStdU16String())); QVERIFY(store);
+        QVERIFY(store->createSession({"session-a","A","","active"}));
+        ModelBackendServer server; server.selectContainer(root); QVERIFY(server.listen(fixture.path()));
+        QLocalSocket socket; socket.connectToServer(societyBackendAddress(fixture.path())); QVERIFY(socket.waitForConnected(5000));
+        const auto subscribe=request(socket,{{"id","subscribe"},{"op","spaceSubscribe"},{"container",root},
+                                             {"spaceId","session-a"},{"subscription","token-a"}});
+        QVERIFY2(subscribe.value("accepted").toBool(),qPrintable(subscribe.value("error").toString()));
+        QCOMPARE(subscribe.value("space").toObject().value("session").toString(),QStringLiteral("session-a"));
+        const auto wrong=request(socket,{{"id","wrong"},{"op","spaceSend"},{"container",fixture.filePath("other")},
+                                         {"spaceId","session-a"},{"prompt","hello"},{"effort","standard"}});
+        QVERIFY(!wrong.value("accepted").toBool());
+        const auto invalid=request(socket,{{"id","invalid"},{"op","spaceSend"},{"container",root},
+                                           {"spaceId","session-a"},{"prompt","hello"},{"effort","unlimited"}});
+        QVERIFY(!invalid.value("accepted").toBool());
+#ifdef SOCIETY_CLI_EXECUTABLE
+        QProcess cli; cli.start(QStringLiteral(SOCIETY_CLI_EXECUTABLE),{"--broker",fixture.path(),"space","status","--session","session-a","--container",root});
+        QVERIFY(cli.waitForStarted()); QTRY_COMPARE_WITH_TIMEOUT(cli.state(),QProcess::NotRunning,20000);
+        QCOMPARE(cli.exitCode(),0);
+        const auto reply=QJsonDocument::fromJson(cli.readAllStandardOutput()).object();
+        QVERIFY(reply.value("accepted").toBool());
+        QCOMPARE(reply.value("space").toObject().value("session").toString(),QStringLiteral("session-a"));
+#endif
+    }
+
     void residentRequestsStayOnTheirOwnConnection()
     {
         QTemporaryDir fixture(QDir::cleanPath(QStringLiteral(SOCIETY_TEST_DIRECTORY)+"/../../.resident-ipc-XXXXXX"));
@@ -666,6 +698,52 @@ private slots:
         QTRY_VERIFY(!view.backendConnected());
         QVERIFY(!view.busy());
         QVERIFY(!view.errorString().isEmpty());
+    }
+    /// A → B → A session changes reject both old replies and old subscription events.
+    void oldSpaceRepliesCannotCrossSessionSelection()
+    {
+        QTemporaryDir fixture(QDir::cleanPath(QStringLiteral(SOCIETY_TEST_DIRECTORY)+"/../../.space-peer-XXXXXX"));
+        QVERIFY(fixture.isValid()); QLocalServer server; QVERIFY(server.listen(fixture.filePath("backend.sock")));
+        const auto previous=qgetenv("SOCIETY_LOCAL_BROKER_DIR"); const bool had=qEnvironmentVariableIsSet("SOCIETY_LOCAL_BROKER_DIR");
+        const auto restore=qScopeGuard([&]{if(had)qputenv("SOCIETY_LOCAL_BROKER_DIR",previous);else qunsetenv("SOCIETY_LOCAL_BROKER_DIR");});
+        qputenv("SOCIETY_LOCAL_BROKER_DIR",fixture.path().toUtf8());
+        const auto root=fixture.filePath("drive.societycontainer");
+        ModelBackendClient client(nullptr,5000,[]{}); client.setContainerPath(root); client.setSpaceSession("a"); client.start();
+        QTRY_VERIFY(client.connected()); QTRY_VERIFY(server.hasPendingConnections()); auto *peer=server.nextPendingConnection(); QVERIFY(peer);
+        QByteArray input; QList<QJsonObject> requests;
+        const auto collect=[&] {
+            input+=peer->readAll();
+            while (input.size()>=4) {
+                const auto size=qFromBigEndian<quint32>(input.constData()); if (input.size()<qsizetype(size+4)) break;
+                requests.append(QJsonDocument::fromJson(input.mid(4,size)).object()); input.remove(0,size+4);
+            }
+        };
+        const auto findLast=[&](const QString &op,const QString &session) {
+            collect();
+            for (auto i=requests.crbegin();i!=requests.crend();++i)
+                if (i->value("op")==op && i->value("spaceId")==session) return *i;
+            return QJsonObject{};
+        };
+        QJsonObject initial; QTRY_VERIFY_WITH_TIMEOUT(!(initial=findLast("spaceSubscribe","a")).isEmpty(),5000);
+        const auto oldToken=initial.value("subscription").toString(); QVERIFY(!oldToken.isEmpty());
+        QVERIFY(client.request("spaceSend",{{"prompt","old"},{"effort","standard"}},true));
+        QJsonObject oldSend; QTRY_VERIFY_WITH_TIMEOUT(!(oldSend=findLast("spaceSend","a")).isEmpty(),5000);
+        client.setSpaceSession("b"); client.setSpaceSession("a");
+        QJsonObject current; QTRY_VERIFY_WITH_TIMEOUT(!(current=findLast("spaceSubscribe","a")).isEmpty()
+            && current.value("subscription")!=oldToken,5000);
+        const auto send=[&](const QJsonObject &object) {
+            const auto body=QJsonDocument(object).toJson(QJsonDocument::Compact); QByteArray frame(4,'\0');
+            qToBigEndian(quint32(body.size()),frame.data()); peer->write(frame+body); peer->flush();
+        };
+        QSignalSpy states(&client,&ModelBackendClient::spaceStateReceived), results(&client,&ModelBackendClient::spaceResultReceived);
+        const QJsonObject secret{{"status","old"}};
+        send({{"type","spaceState"},{"container",root},{"spaceId","a"},{"subscription",oldToken},{"space",secret}});
+        send({{"type","result"},{"id",oldSend.value("id")},{"accepted",true},{"space",secret}});
+        send({{"type","spaceState"},{"container",root},{"spaceId","b"},{"subscription",current.value("subscription")},{"space",secret}});
+        QTRY_VERIFY_WITH_TIMEOUT(!client.pendingMutation(),5000); QCOMPARE(states.size(),0); QCOMPARE(results.size(),0);
+        send({{"type","spaceState"},{"container",root},{"spaceId","a"},{"subscription",current.value("subscription")},{"space",QJsonObject{{"status","current"}}}});
+        QTRY_COMPARE_WITH_TIMEOUT(states.size(),1,5000);
+        QCOMPARE(states.first().at(1).toJsonObject().value("status").toString(),QStringLiteral("current"));
     }
     void oldAgentRepliesCannotCrossContainerSelection()
     {

@@ -22,14 +22,12 @@ Dashboard의 검색 입력은 iiFileProvider의 인덱스 검색으로 연결된
 
 예시는 다음과 같다.
 
-| 검색 | 의미 |
-| --- | --- |
-| `campaign approved` | 두 단어 접두사를 모두 가진 파일 |
-| `keyword:approved rating:4` | approved 키워드와 4점 이상 |
-| `color:green` | 초록색 라벨 |
-| `collection:collection-key` | 해당 컬렉션 키의 파일 |
-| `class:ProjectAsset keyword:approved` | 사용자 온톨로지 클래스와 키워드 관계 |
-| `in:Projects/Launch` | 저장된 가상 디렉터리 |
+- 검색: `campaign approved`; 의미: 두 단어 접두사를 모두 가진 파일
+- 검색: `keyword:approved rating:4`; 의미: approved 키워드와 4점 이상
+- 검색: `color:green`; 의미: 초록색 라벨
+- 검색: `collection:collection-key`; 의미: 해당 컬렉션 키의 파일
+- 검색: `class:ProjectAsset keyword:approved`; 의미: 사용자 온톨로지 클래스와 키워드 관계
+- 검색: `in:Projects/Launch`; 의미: 저장된 가상 디렉터리
 
 `class:`와 함께 사용하는 `rating:`은 온톨로지 정수 값의 정확 일치이다. `in:`은 저장된 쿼리 자체를 사용하므로 단독으로 사용한다. 클래스·가상 디렉터리는 Helper/Provider의 공개 온톨로지 API로 저장한다. 이 변경은 온톨로지 편집용 별도 화면을 추가하지 않는다.
 

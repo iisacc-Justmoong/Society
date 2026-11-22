@@ -10,9 +10,9 @@
   },
   "source": {
     "path": "docs/SelfHosting.md",
-    "sha256": "13a07ae2da5b9d753c15ee839e250e405c02580c1e680205ad96addd09f326e4",
-    "bytes": 10482,
-    "line_count": 84,
+    "sha256": "77142de776a481f98acb8a64ca197eb60586c442542320449a9d5ba105f52a58",
+    "bytes": 10582,
+    "line_count": 82,
     "encoding": "utf-8",
     "language": "ko"
   },
@@ -54,64 +54,59 @@
     },
     {
       "id": "b000005",
-      "kind": "table",
       "start_line": 5,
-      "end_line": 10,
-      "raw": "| 배치 | 연결 방법 | 컨테이너 제공자 |\n| --- | --- | --- |\n| 같은 LAN의 기기 | Bonjour/NSD 자동 페어링과 직접 TLS | Society 데스크톱 |\n| NAS에 자체 호스팅 | NAS의 WebSocket 서버에 같은 계정으로 접속 | NAS의 SocietyDaemon |\n| 인터넷의 자체 웹서버 | TLS reverse proxy와 WebSocket 중계 | 데스크톱 또는 별도 SocietyDaemon |\n| 로컬·원격 혼합 | 인증된 서버 목록의 로컬 TLS 주소를 우선 시도하고 원격 중계로 전환 | 동일한 기본 호스트 |\n",
-      "columns": [
-        "배치",
-        "연결 방법",
-        "컨테이너 제공자"
-      ],
-      "rows": [
-        [
-          "같은 LAN의 기기",
-          "Bonjour/NSD 자동 페어링과 직접 TLS",
-          "Society 데스크톱"
-        ],
-        [
-          "NAS에 자체 호스팅",
-          "NAS의 WebSocket 서버에 같은 계정으로 접속",
-          "NAS의 SocietyDaemon"
-        ],
-        [
-          "인터넷의 자체 웹서버",
-          "TLS reverse proxy와 WebSocket 중계",
-          "데스크톱 또는 별도 SocietyDaemon"
-        ],
-        [
-          "로컬·원격 혼합",
-          "인증된 서버 목록의 로컬 TLS 주소를 우선 시도하고 원격 중계로 전환",
-          "동일한 기본 호스트"
-        ]
+      "end_line": 8,
+      "raw": "- 배치: 같은 LAN의 기기; 연결 방법: Bonjour/NSD 자동 페어링과 직접 TLS; 컨테이너 제공자: Society 데스크톱\n- 배치: NAS에 자체 호스팅; 연결 방법: NAS의 WebSocket 서버에 같은 계정으로 접속; 컨테이너 제공자: NAS의 SocietyDaemon\n- 배치: 인터넷의 자체 웹서버; 연결 방법: TLS reverse proxy와 WebSocket 중계; 컨테이너 제공자: 데스크톱 또는 별도 SocietyDaemon\n- 배치: 로컬·원격 혼합; 연결 방법: 인증된 서버 목록의 로컬 TLS 주소를 우선 시도하고 원격 중계로 전환; 컨테이너 제공자: 동일한 기본 호스트\n",
+      "kind": "list",
+      "items": [
+        {
+          "marker": "-",
+          "text": "배치: 같은 LAN의 기기; 연결 방법: Bonjour/NSD 자동 페어링과 직접 TLS; 컨테이너 제공자: Society 데스크톱",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "배치: NAS에 자체 호스팅; 연결 방법: NAS의 WebSocket 서버에 같은 계정으로 접속; 컨테이너 제공자: NAS의 SocietyDaemon",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "배치: 인터넷의 자체 웹서버; 연결 방법: TLS reverse proxy와 WebSocket 중계; 컨테이너 제공자: 데스크톱 또는 별도 SocietyDaemon",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "배치: 로컬·원격 혼합; 연결 방법: 인증된 서버 목록의 로컬 TLS 주소를 우선 시도하고 원격 중계로 전환; 컨테이너 제공자: 동일한 기본 호스트",
+          "checked": null
+        }
       ]
     },
     {
       "id": "b000006",
+      "kind": "blank",
+      "start_line": 9,
+      "end_line": 9,
+      "raw": "\n"
+    },
+    {
+      "id": "b000007",
+      "kind": "paragraph",
+      "start_line": 10,
+      "end_line": 10,
+      "raw": "NAS의 SMB/NFS 폴더만 지정하는 것이 이 프로토콜의 서버를 만드는 것은 아니다. 지원 OS와 CPU용 SocietyDaemon 및 SDK 런타임을 NAS에 배치하여 컨테이너 소유 프로세스를 실행한다. 동일 컨테이너를 여러 호스트 프로세스가 공유 마운트해 동시에 소유하지 않는다. 일반 웹사이트도 Society WebSocket 프로토콜 구현 없이는 연결 대상이 아니다.\n"
+    },
+    {
+      "id": "b000008",
       "kind": "blank",
       "start_line": 11,
       "end_line": 11,
       "raw": "\n"
     },
     {
-      "id": "b000007",
-      "kind": "paragraph",
-      "start_line": 12,
-      "end_line": 12,
-      "raw": "NAS의 SMB/NFS 폴더만 지정하는 것이 이 프로토콜의 서버를 만드는 것은 아니다. 지원 OS와 CPU용 SocietyDaemon 및 SDK 런타임을 NAS에 배치하여 컨테이너 소유 프로세스를 실행한다. 동일 컨테이너를 여러 호스트 프로세스가 공유 마운트해 동시에 소유하지 않는다. 일반 웹사이트도 Society WebSocket 프로토콜 구현 없이는 연결 대상이 아니다.\n"
-    },
-    {
-      "id": "b000008",
-      "kind": "blank",
-      "start_line": 13,
-      "end_line": 13,
-      "raw": "\n"
-    },
-    {
       "id": "b000009",
       "kind": "heading",
-      "start_line": 14,
-      "end_line": 14,
+      "start_line": 12,
+      "end_line": 12,
       "raw": "## 앱에서 연결\n",
       "level": 2,
       "title": "앱에서 연결"
@@ -119,15 +114,15 @@
     {
       "id": "b000010",
       "kind": "blank",
-      "start_line": 15,
-      "end_line": 15,
+      "start_line": 13,
+      "end_line": 13,
       "raw": "\n"
     },
     {
       "id": "b000011",
       "kind": "list",
-      "start_line": 16,
-      "end_line": 19,
+      "start_line": 14,
+      "end_line": 17,
       "raw": "1. 같은 iisacc 계정으로 호스트와 클라이언트에 로그인하고, 계정의 기본 호스트 기기와 `.societycontainer`를 등록한다.\n2. Devices → **Your Society server**에 `wss://nas.example.com/society`를 입력한다.\n3. **Connect to server**를 선택한다. 데스크톱·NAS는 호스트, 모바일은 클라이언트로 자동 고정된다.\n4. 최초 전체 미러가 완료되면 변경·삭제를 양방향으로 교환한다. **Disconnect**는 자동 재접속도 중지하고, **Resume automatic sync**로 재개한다. **Use nearby discovery**는 서버 설정을 해제한다.\n",
       "items": [
         {
@@ -155,29 +150,29 @@
     {
       "id": "b000012",
       "kind": "blank",
-      "start_line": 20,
-      "end_line": 20,
+      "start_line": 18,
+      "end_line": 18,
       "raw": "\n"
     },
     {
       "id": "b000013",
       "kind": "paragraph",
-      "start_line": 21,
-      "end_line": 21,
+      "start_line": 19,
+      "end_line": 19,
       "raw": "서버 주소는 기존 암호화 그룹 저장소의 세션 바인딩에 포함된다. 역할은 저장하지 않으며 이전 버전의 호스트 선택값은 복원 시 제거한다. 같은 로그인 세션을 복원한 GUI와 데몬이 설정을 공유한다. 로그아웃·계정 교체 시 연결을 정리하고 설정도 제거한다. 주소만 바꾸는 기존 C++ `setRelayUrl()`는 자동으로 자격증명을 전송하지 않으며, 앱의 명시적 `configureServer()`가 저장과 연결을 수행한다.\n"
     },
     {
       "id": "b000014",
       "kind": "blank",
-      "start_line": 22,
-      "end_line": 22,
+      "start_line": 20,
+      "end_line": 20,
       "raw": "\n"
     },
     {
       "id": "b000015",
       "kind": "heading",
-      "start_line": 23,
-      "end_line": 23,
+      "start_line": 21,
+      "end_line": 21,
       "raw": "## 서버 배치\n",
       "level": 2,
       "title": "서버 배치"
@@ -185,29 +180,29 @@
     {
       "id": "b000016",
       "kind": "blank",
-      "start_line": 24,
-      "end_line": 24,
+      "start_line": 22,
+      "end_line": 22,
       "raw": "\n"
     },
     {
       "id": "b000017",
       "kind": "paragraph",
-      "start_line": 25,
-      "end_line": 25,
+      "start_line": 23,
+      "end_line": 23,
       "raw": "`iiWebServer`의 `ii-server-relay`는 계정 검증과 호스트 목록·WebSocket 중계를 담당한다. SocietyDaemon은 컨테이너 및 실제 동기화를 담당한다. 두 프로세스를 같은 NAS에서 실행하거나 분리할 수 있다. 기존 Qt WebSockets와 SDK를 사용하며 추가 유료 서비스나 신규 패키지 의존성은 없다.\n"
     },
     {
       "id": "b000018",
       "kind": "blank",
-      "start_line": 26,
-      "end_line": 26,
+      "start_line": 24,
+      "end_line": 24,
       "raw": "\n"
     },
     {
       "id": "b000019",
       "kind": "fenced_code",
-      "start_line": 27,
-      "end_line": 30,
+      "start_line": 25,
+      "end_line": 28,
       "raw": "```sh\nii-server-relay --address 127.0.0.1 --port 9443 \\\n  --session-url https://iisacc.com/Account/GraphQL\n```\n",
       "language": "sh",
       "code": "ii-server-relay --address 127.0.0.1 --port 9443 \\\n  --session-url https://iisacc.com/Account/GraphQL\n",
@@ -216,29 +211,29 @@
     {
       "id": "b000020",
       "kind": "blank",
-      "start_line": 31,
-      "end_line": 31,
+      "start_line": 29,
+      "end_line": 29,
       "raw": "\n"
     },
     {
       "id": "b000021",
       "kind": "paragraph",
-      "start_line": 32,
-      "end_line": 32,
+      "start_line": 30,
+      "end_line": 30,
       "raw": "외부 웹서버의 `/society`를 이 loopback 포트에 연결한다. [nginx WebSocket 공식 설정](https://nginx.org/en/docs/http/websocket.html)에 따라 기존 TLS 가상 서버에 다음 location을 추가한다.\n"
     },
     {
       "id": "b000022",
       "kind": "blank",
-      "start_line": 33,
-      "end_line": 33,
+      "start_line": 31,
+      "end_line": 31,
       "raw": "\n"
     },
     {
       "id": "b000023",
       "kind": "fenced_code",
-      "start_line": 34,
-      "end_line": 42,
+      "start_line": 32,
+      "end_line": 40,
       "raw": "```nginx\nlocation /society {\n    proxy_pass http://127.0.0.1:9443;\n    proxy_http_version 1.1;\n    proxy_set_header Upgrade $http_upgrade;\n    proxy_set_header Connection \"upgrade\";\n    proxy_read_timeout 120s;\n}\n```\n",
       "language": "nginx",
       "code": "location /society {\n    proxy_pass http://127.0.0.1:9443;\n    proxy_http_version 1.1;\n    proxy_set_header Upgrade $http_upgrade;\n    proxy_set_header Connection \"upgrade\";\n    proxy_read_timeout 120s;\n}\n",
@@ -247,29 +242,29 @@
     {
       "id": "b000024",
       "kind": "blank",
-      "start_line": 43,
-      "end_line": 43,
+      "start_line": 41,
+      "end_line": 41,
       "raw": "\n"
     },
     {
       "id": "b000025",
       "kind": "paragraph",
-      "start_line": 44,
-      "end_line": 44,
+      "start_line": 42,
+      "end_line": 42,
       "raw": "reverse proxy를 사용하지 않으면 `ii-server-relay --address 0.0.0.0 --certificate /path/fullchain.pem --key /path/privkey.pem`으로 직접 TLS를 제공한다. 외부 접속 가능한 DNS·TLS·방화벽 경로는 운영자가 제공한다. 사설 NAS가 인터넷에서 직접 도달하지 않으면 접근 가능한 자체 서버를 중계로 배치하고 NAS와 클라이언트가 그 서버로 외향 연결한다. LAN 검색이 라우터나 NAT를 넘어 서버 주소를 자동으로 알아내지는 않는다.\n"
     },
     {
       "id": "b000026",
       "kind": "blank",
-      "start_line": 45,
-      "end_line": 45,
+      "start_line": 43,
+      "end_line": 43,
       "raw": "\n"
     },
     {
       "id": "b000027",
       "kind": "heading",
-      "start_line": 46,
-      "end_line": 46,
+      "start_line": 44,
+      "end_line": 44,
       "raw": "## NAS에서 화면 없이 실행\n",
       "level": 2,
       "title": "NAS에서 화면 없이 실행"
@@ -277,29 +272,29 @@
     {
       "id": "b000028",
       "kind": "blank",
-      "start_line": 47,
-      "end_line": 47,
+      "start_line": 45,
+      "end_line": 45,
       "raw": "\n"
     },
     {
       "id": "b000029",
       "kind": "paragraph",
-      "start_line": 48,
-      "end_line": 48,
+      "start_line": 46,
+      "end_line": 46,
       "raw": "NAS의 로컬 파일시스템에 컨테이너를 준비한다. 다음은 설치 경로를 PATH에 추가한 환경의 예이다.\n"
     },
     {
       "id": "b000030",
       "kind": "blank",
-      "start_line": 49,
-      "end_line": 49,
+      "start_line": 47,
+      "end_line": 47,
       "raw": "\n"
     },
     {
       "id": "b000031",
       "kind": "fenced_code",
-      "start_line": 50,
-      "end_line": 57,
+      "start_line": 48,
+      "end_line": 55,
       "raw": "```sh\niiSocietyContainerDriveTool create /srv/society/Society.societycontainer\nSocietyDaemon --sync --container /srv/society/Society.societycontainer \\\n  --directory /srv/society/Society.societycontainer/.society-runtime/helpers/v1 \\\n  --server wss://nas.example.com/society \\\n  --login-file /etc/society/login.json \\\n  --status-file /srv/society/Society.societycontainer/.society-runtime/status.json\n```\n",
       "language": "sh",
       "code": "iiSocietyContainerDriveTool create /srv/society/Society.societycontainer\nSocietyDaemon --sync --container /srv/society/Society.societycontainer \\\n  --directory /srv/society/Society.societycontainer/.society-runtime/helpers/v1 \\\n  --server wss://nas.example.com/society \\\n  --login-file /etc/society/login.json \\\n  --status-file /srv/society/Society.societycontainer/.society-runtime/status.json\n",
@@ -308,71 +303,71 @@
     {
       "id": "b000032",
       "kind": "blank",
-      "start_line": 58,
-      "end_line": 58,
+      "start_line": 56,
+      "end_line": 56,
       "raw": "\n"
     },
     {
       "id": "b000033",
       "kind": "paragraph",
-      "start_line": 59,
-      "end_line": 59,
+      "start_line": 57,
+      "end_line": 57,
       "raw": "`login.json`은 `email`, `password` 문자열을 가진 JSON이며 실행 계정만 읽고 쓸 수 있는 모드 `0600`으로 둔다. 프로그램은 심볼릭 링크·그룹/다른 사용자 권한·16 KiB 초과 파일을 거부한다. 비밀번호를 명령행 인자나 로그에 넣지 않는다. 이 명시적 headless 경로는 파일을 읽어 매 실행마다 로그인하고 인증 정보를 메모리에만 유지한다. OS 보안 저장소에 로그인된 데스크톱에서는 `--login-file`을 생략하여 기존 세션을 복원한다. 메일 코드가 요구되는 계정은 상태 파일의 `codeRequired`로 구분하며 로그인된 앱의 세션을 먼저 준비해야 한다.\n"
     },
     {
       "id": "b000034",
       "kind": "blank",
-      "start_line": 60,
-      "end_line": 60,
+      "start_line": 58,
+      "end_line": 58,
       "raw": "\n"
     },
     {
       "id": "b000035",
       "kind": "paragraph",
-      "start_line": 61,
-      "end_line": 62,
+      "start_line": 59,
+      "end_line": 60,
       "raw": "데몬 시작 시와 계정 세션 준비 시 모두 지정된 파일 경로 자체의 심볼릭 링크 여부를\n검사한다. `Society.DaemonHeadless`의 잘못된 설정 테스트는 Unix에서 링크된 로그인 파일을 거부한다.\n"
     },
     {
       "id": "b000036",
+      "kind": "blank",
+      "start_line": 61,
+      "end_line": 61,
+      "raw": "\n"
+    },
+    {
+      "id": "b000037",
+      "kind": "paragraph",
+      "start_line": 62,
+      "end_line": 62,
+      "raw": "데스크톱·NAS 데몬은 `--host` 유무와 관계없이 호스트 역할이다. 기존 배포 스크립트의 `--host`는 호환성을 위해 계속 허용한다. `--container`는 기존 `.societycontainer`를 요구하며 앱이 마지막으로 선택한 컨테이너를 쓸 때는 생략한다. 계정에 등록된 기본 호스트 기기와 컨테이너 UUID가 이 데몬의 기기·패키지와 일치해야 하며, 파일 기반 로그인 자체가 호스트 등록을 대신하지 않는다. `--directory`와 `--status-file`은 선택한 컨테이너의 `.society-runtime` 안에 둔다. 프로세스 감시는 운영체제의 기존 서비스 관리자를 사용한다. 예제의 전용 실행 계정, 설치 경로와 컨테이너 권한을 실제 배치에 맞춘다. 예제 systemd 단위 파일은 [deploy/self-hosted](../deploy/self-hosted/)에 있다.\n"
+    },
+    {
+      "id": "b000038",
       "kind": "blank",
       "start_line": 63,
       "end_line": 63,
       "raw": "\n"
     },
     {
-      "id": "b000037",
+      "id": "b000039",
       "kind": "paragraph",
       "start_line": 64,
       "end_line": 64,
-      "raw": "데스크톱·NAS 데몬은 `--host` 유무와 관계없이 호스트 역할이다. 기존 배포 스크립트의 `--host`는 호환성을 위해 계속 허용한다. `--container`는 기존 `.societycontainer`를 요구하며 앱이 마지막으로 선택한 컨테이너를 쓸 때는 생략한다. 계정에 등록된 기본 호스트 기기와 컨테이너 UUID가 이 데몬의 기기·패키지와 일치해야 하며, 파일 기반 로그인 자체가 호스트 등록을 대신하지 않는다. `--directory`와 `--status-file`은 선택한 컨테이너의 `.society-runtime` 안에 둔다. 프로세스 감시는 운영체제의 기존 서비스 관리자를 사용한다. 예제의 전용 실행 계정, 설치 경로와 컨테이너 권한을 실제 배치에 맞춘다. 예제 systemd 단위 파일은 [deploy/self-hosted](../deploy/self-hosted/)에 있다.\n"
+      "raw": "호스트에서 `SOCIETY_HOST_CERTIFICATE`와 `SOCIETY_HOST_KEY`를 함께 지정하면 서버 경로에서도 직접 로컬 TLS 리스너를 제공한다. 클라이언트는 인증된 서버 목록의 인증서 지문과 대조하며 연결 실패 시 원격 중계를 사용한다. 이 설정이 없으면 원격 중계만 사용한다. [Qt WebSocket 문서](https://doc.qt.io/qt-6.8/qwebsocket.html)를 따른다.\n"
     },
     {
-      "id": "b000038",
+      "id": "b000040",
       "kind": "blank",
       "start_line": 65,
       "end_line": 65,
       "raw": "\n"
     },
     {
-      "id": "b000039",
-      "kind": "paragraph",
-      "start_line": 66,
-      "end_line": 66,
-      "raw": "호스트에서 `SOCIETY_HOST_CERTIFICATE`와 `SOCIETY_HOST_KEY`를 함께 지정하면 서버 경로에서도 직접 로컬 TLS 리스너를 제공한다. 클라이언트는 인증된 서버 목록의 인증서 지문과 대조하며 연결 실패 시 원격 중계를 사용한다. 이 설정이 없으면 원격 중계만 사용한다. [Qt WebSocket 문서](https://doc.qt.io/qt-6.8/qwebsocket.html)를 따른다.\n"
-    },
-    {
-      "id": "b000040",
-      "kind": "blank",
-      "start_line": 67,
-      "end_line": 67,
-      "raw": "\n"
-    },
-    {
       "id": "b000041",
       "kind": "heading",
-      "start_line": 68,
-      "end_line": 68,
+      "start_line": 66,
+      "end_line": 66,
       "raw": "## 인증과 동기화 경계\n",
       "level": 2,
       "title": "인증과 동기화 경계"
@@ -380,57 +375,57 @@
     {
       "id": "b000042",
       "kind": "blank",
-      "start_line": 69,
-      "end_line": 69,
+      "start_line": 67,
+      "end_line": 67,
       "raw": "\n"
     },
     {
       "id": "b000043",
       "kind": "paragraph",
-      "start_line": 70,
-      "end_line": 70,
+      "start_line": 68,
+      "end_line": 68,
       "raw": "계정 이름을 입력하는 것만으로 권한을 얻지 않는다. 설정한 서버가 신뢰하는 계정 authority에 현재 세션을 검증하여 얻은 subject로 호스트 목록과 요청을 격리한다. 세션 쿠키는 설정한 신뢰 서버로 전달되므로 사용자가 운영하거나 신뢰하는 서버를 지정해야 한다. 서버 운영자는 전달되는 파일을 볼 수 있다. 이는 TLS 연결이며 종단 간 암호화 저장소는 아니다.\n"
     },
     {
       "id": "b000044",
+      "kind": "blank",
+      "start_line": 69,
+      "end_line": 69,
+      "raw": "\n"
+    },
+    {
+      "id": "b000045",
+      "kind": "paragraph",
+      "start_line": 70,
+      "end_line": 70,
+      "raw": "외부 연결에는 `wss://`만 허용하고 숫자형 loopback의 `ws://`만 개발·내부 proxy용으로 허용한다. URL 내 사용자 정보·쿼리·fragment·0번 포트는 거부하며 인증서 오류를 무시하지 않는다. 서버에서 인증된 account subject와 현재 계정이 다르면 동기화와 컨테이너 요청을 거부한다. 서버용 scope는 계정 origin·subject에서 LAN 권한 발급기와 동일하게 계산하므로 LAN 증명의 만료나 로컬 네트워크 권한 거부가 원격 동기화를 막지 않는다.\n"
+    },
+    {
+      "id": "b000046",
       "kind": "blank",
       "start_line": 71,
       "end_line": 71,
       "raw": "\n"
     },
     {
-      "id": "b000045",
+      "id": "b000047",
       "kind": "paragraph",
       "start_line": 72,
       "end_line": 72,
-      "raw": "외부 연결에는 `wss://`만 허용하고 숫자형 loopback의 `ws://`만 개발·내부 proxy용으로 허용한다. URL 내 사용자 정보·쿼리·fragment·0번 포트는 거부하며 인증서 오류를 무시하지 않는다. 서버에서 인증된 account subject와 현재 계정이 다르면 동기화와 컨테이너 요청을 거부한다. 서버용 scope는 계정 origin·subject에서 LAN 권한 발급기와 동일하게 계산하므로 LAN 증명의 만료나 로컬 네트워크 권한 거부가 원격 동기화를 막지 않는다.\n"
+      "raw": "컨테이너 UUID, 최초 미러 전 원본 보존, 해시·매니페스트 우선 교환, 부분 전송 재개, 양방향 변경·삭제는 기존 iiSocietyHelper Sync 계약을 유지한다. 서버 호스트도 기본 호스트 ID를 기록하므로 LAN 방식으로 전환할 때 기존 호스트 선택을 유지한다. 이미 미러링한 클라이언트는 저장된 기본 호스트만 따른다. 최초 연결에 여러 독립 호스트가 있으면 임의로 미러하지 않고 하나의 기본 호스트가 남을 때까지 기다린다. 모바일은 모든 연결 방식에서 클라이언트이며 OS가 허용한 백그라운드 시간만 사용한다.\n"
     },
     {
-      "id": "b000046",
+      "id": "b000048",
       "kind": "blank",
       "start_line": 73,
       "end_line": 73,
       "raw": "\n"
     },
     {
-      "id": "b000047",
-      "kind": "paragraph",
-      "start_line": 74,
-      "end_line": 74,
-      "raw": "컨테이너 UUID, 최초 미러 전 원본 보존, 해시·매니페스트 우선 교환, 부분 전송 재개, 양방향 변경·삭제는 기존 iiSocietyHelper Sync 계약을 유지한다. 서버 호스트도 기본 호스트 ID를 기록하므로 LAN 방식으로 전환할 때 기존 호스트 선택을 유지한다. 이미 미러링한 클라이언트는 저장된 기본 호스트만 따른다. 최초 연결에 여러 독립 호스트가 있으면 임의로 미러하지 않고 하나의 기본 호스트가 남을 때까지 기다린다. 모바일은 모든 연결 방식에서 클라이언트이며 OS가 허용한 백그라운드 시간만 사용한다.\n"
-    },
-    {
-      "id": "b000048",
-      "kind": "blank",
-      "start_line": 75,
-      "end_line": 75,
-      "raw": "\n"
-    },
-    {
       "id": "b000049",
       "kind": "heading",
-      "start_line": 76,
-      "end_line": 76,
+      "start_line": 74,
+      "end_line": 74,
       "raw": "## 검증\n",
       "level": 2,
       "title": "검증"
@@ -438,57 +433,57 @@
     {
       "id": "b000050",
       "kind": "blank",
-      "start_line": 77,
-      "end_line": 77,
+      "start_line": 75,
+      "end_line": 75,
       "raw": "\n"
     },
     {
       "id": "b000051",
       "kind": "paragraph",
-      "start_line": 78,
-      "end_line": 78,
+      "start_line": 76,
+      "end_line": 76,
       "raw": "`Society.Account`는 합성 계정 HTTP authority와 실제 WebSocket 중계로 LAN 탐색·LAN 증명 없이 700,000바이트 모델 복제, UUID 일치, 클라이언트 업로드, 호스트 수정, 삭제, 중계 재시작 후 재연결, 로그아웃 정리를 검사한다. 저장된 서버 설정 복원과 안전하지 않은 URL 거부도 확인한다. `Society.ClientOnlyNetwork`는 모바일 서버 입력과 호스트 제어 차단을, `Society.Daemon`은 headless 인자 검증을 포함한다. `Society.Account`는 별도 SocietyDaemon 프로세스의 파일 기반 로그인, `--host` 없는 자동 호스팅, 모델 복제와 상태 파일도 검사한다. 데몬 재시작 후 GUI 수신 검사는 개발 라이브러리 경로를 제거한 패키지 환경에서 수행하며, 외장 스토리지의 초기 Qt/QML 로딩을 포함하여 최대 30초 동안 실제 메시지 수신을 기다린다.\n"
     },
     {
       "id": "b000052",
+      "kind": "blank",
+      "start_line": 77,
+      "end_line": 77,
+      "raw": "\n"
+    },
+    {
+      "id": "b000053",
+      "kind": "paragraph",
+      "start_line": 78,
+      "end_line": 78,
+      "raw": "실제 NAS OS/CPU 패키지, 공인 도메인의 TLS, 서로 다른 인터넷 회선의 물리 기기 전송은 별도 배포 검증이다. 로컬 중계 테스트 성공을 해당 배포 완료로 간주하지 않는다.\n"
+    },
+    {
+      "id": "b000054",
       "kind": "blank",
       "start_line": 79,
       "end_line": 79,
       "raw": "\n"
     },
     {
-      "id": "b000053",
+      "id": "b000055",
       "kind": "paragraph",
       "start_line": 80,
       "end_line": 80,
-      "raw": "실제 NAS OS/CPU 패키지, 공인 도메인의 TLS, 서로 다른 인터넷 회선의 물리 기기 전송은 별도 배포 검증이다. 로컬 중계 테스트 성공을 해당 배포 완료로 간주하지 않는다.\n"
+      "raw": "헤드리스 통합 검사는 합성 계정 authority에 실제 데몬 기기의 호스트 ID와 테스트 패키지 UUID를 먼저 등록한다. 프로세스 시작 뒤 상태 파일의 `hosting`·`connected`가 준비될 때까지 최대 25초 동안 기다린 다음 별도 기기 ID의 메모리 세션 클라이언트를 연결한다. 호스트 등록 없는 세션은 제품의 인증 계약에 따라 연결을 거부하며 테스트에서 이를 우회하지 않는다.\n"
     },
     {
-      "id": "b000054",
+      "id": "b000056",
       "kind": "blank",
       "start_line": 81,
       "end_line": 81,
       "raw": "\n"
     },
     {
-      "id": "b000055",
+      "id": "b000057",
       "kind": "paragraph",
       "start_line": 82,
       "end_line": 82,
-      "raw": "헤드리스 통합 검사는 합성 계정 authority에 실제 데몬 기기의 호스트 ID와 테스트 패키지 UUID를 먼저 등록한다. 프로세스 시작 뒤 상태 파일의 `hosting`·`connected`가 준비될 때까지 최대 25초 동안 기다린 다음 별도 기기 ID의 메모리 세션 클라이언트를 연결한다. 호스트 등록 없는 세션은 제품의 인증 계약에 따라 연결을 거부하며 테스트에서 이를 우회하지 않는다.\n"
-    },
-    {
-      "id": "b000056",
-      "kind": "blank",
-      "start_line": 83,
-      "end_line": 83,
-      "raw": "\n"
-    },
-    {
-      "id": "b000057",
-      "kind": "paragraph",
-      "start_line": 84,
-      "end_line": 84,
       "raw": "`python3 -B tests/test_self_hosting.py`는 배포 예제의 Helper·진단 경로가 선택한 `.societycontainer/.society-runtime` 안에 있는지 검사하며, systemd가 별도의 앱 데이터 디렉터리를 만드는 설정을 거부한다. 이 정적 검사는 실제 Linux 서비스 설치·기동 검증과 구분한다.\n"
     }
   ],
@@ -507,7 +502,7 @@
       "level": 2,
       "title": "앱에서 연결",
       "anchor": "앱에서-연결",
-      "start_line": 14
+      "start_line": 12
     },
     {
       "block_id": "b000015",
@@ -515,7 +510,7 @@
       "level": 2,
       "title": "서버 배치",
       "anchor": "서버-배치",
-      "start_line": 23
+      "start_line": 21
     },
     {
       "block_id": "b000027",
@@ -523,7 +518,7 @@
       "level": 2,
       "title": "NAS에서 화면 없이 실행",
       "anchor": "nas에서-화면-없이-실행",
-      "start_line": 46
+      "start_line": 44
     },
     {
       "block_id": "b000041",
@@ -531,7 +526,7 @@
       "level": 2,
       "title": "인증과 동기화 경계",
       "anchor": "인증과-동기화-경계",
-      "start_line": 68
+      "start_line": 66
     },
     {
       "block_id": "b000049",
@@ -539,56 +534,56 @@
       "level": 2,
       "title": "검증",
       "anchor": "검증",
-      "start_line": 76
+      "start_line": 74
     }
   ],
   "indexes": {
     "directive_candidates": [
       {
         "block_id": "b000007",
-        "line": 12,
+        "line": 10,
         "text": "NAS의 SMB/NFS 폴더만 지정하는 것이 이 프로토콜의 서버를 만드는 것은 아니다. 지원 OS와 CPU용 SocietyDaemon 및 SDK 런타임을 NAS에 배치하여 컨테이너 소유 프로세스를 실행한다. 동일 컨테이너를 여러 호스트 프로세스가 공유 마운트해 동시에 소유하지 않는다. 일반 웹사이트도 Society WebSocket 프로토콜 구현 없이는 연결 대상이 아니다.",
         "basis": "lexical_match",
         "context": "paragraph"
       },
       {
         "block_id": "b000033",
-        "line": 59,
+        "line": 57,
         "text": "`login.json`은 `email`, `password` 문자열을 가진 JSON이며 실행 계정만 읽고 쓸 수 있는 모드 `0600`으로 둔다. 프로그램은 심볼릭 링크·그룹/다른 사용자 권한·16 KiB 초과 파일을 거부한다. 비밀번호를 명령행 인자나 로그에 넣지 않는다. 이 명시적 headless 경로는 파일을 읽어 매 실행마다 로그인하고 인증 정보를 메모리에만 유지한다. OS 보안 저장소에 로그인된 데스크톱에서는 `--login-file`을 생략하여 기존 세션을 복원한다. 메일 코드가 요구되는 계정은 상태 파일의 `codeRequired`로 구분하며 로그인된 앱의 세션을 먼저 준비해야 한다.",
         "basis": "lexical_match",
         "context": "paragraph"
       },
       {
         "block_id": "b000037",
-        "line": 64,
+        "line": 62,
         "text": "데스크톱·NAS 데몬은 `--host` 유무와 관계없이 호스트 역할이다. 기존 배포 스크립트의 `--host`는 호환성을 위해 계속 허용한다. `--container`는 기존 `.societycontainer`를 요구하며 앱이 마지막으로 선택한 컨테이너를 쓸 때는 생략한다. 계정에 등록된 기본 호스트 기기와 컨테이너 UUID가 이 데몬의 기기·패키지와 일치해야 하며, 파일 기반 로그인 자체가 호스트 등록을 대신하지 않는다. `--directory`와 `--status-file`은 선택한 컨테이너의 `.society-runtime` 안에 둔다. 프로세스 감시는 운영체제의 기존 서비스 관리자를 사용한다. 예제의 전용 실행 계정, 설치 경로와 컨테이너 권한을 실제 배치에 맞춘다. 예제 systemd 단위 파일은 [deploy/self-hosted](../deploy/self-hosted/)에 있다.",
         "basis": "lexical_match",
         "context": "paragraph"
       },
       {
         "block_id": "b000043",
-        "line": 70,
+        "line": 68,
         "text": "계정 이름을 입력하는 것만으로 권한을 얻지 않는다. 설정한 서버가 신뢰하는 계정 authority에 현재 세션을 검증하여 얻은 subject로 호스트 목록과 요청을 격리한다. 세션 쿠키는 설정한 신뢰 서버로 전달되므로 사용자가 운영하거나 신뢰하는 서버를 지정해야 한다. 서버 운영자는 전달되는 파일을 볼 수 있다. 이는 TLS 연결이며 종단 간 암호화 저장소는 아니다.",
         "basis": "lexical_match",
         "context": "paragraph"
       },
       {
         "block_id": "b000045",
-        "line": 72,
+        "line": 70,
         "text": "외부 연결에는 `wss://`만 허용하고 숫자형 loopback의 `ws://`만 개발·내부 proxy용으로 허용한다. URL 내 사용자 정보·쿼리·fragment·0번 포트는 거부하며 인증서 오류를 무시하지 않는다. 서버에서 인증된 account subject와 현재 계정이 다르면 동기화와 컨테이너 요청을 거부한다. 서버용 scope는 계정 origin·subject에서 LAN 권한 발급기와 동일하게 계산하므로 LAN 증명의 만료나 로컬 네트워크 권한 거부가 원격 동기화를 막지 않는다.",
         "basis": "lexical_match",
         "context": "paragraph"
       },
       {
         "block_id": "b000053",
-        "line": 80,
+        "line": 78,
         "text": "실제 NAS OS/CPU 패키지, 공인 도메인의 TLS, 서로 다른 인터넷 회선의 물리 기기 전송은 별도 배포 검증이다. 로컬 중계 테스트 성공을 해당 배포 완료로 간주하지 않는다.",
         "basis": "lexical_match",
         "context": "paragraph"
       },
       {
         "block_id": "b000055",
-        "line": 82,
+        "line": 80,
         "text": "헤드리스 통합 검사는 합성 계정 authority에 실제 데몬 기기의 호스트 ID와 테스트 패키지 UUID를 먼저 등록한다. 프로세스 시작 뒤 상태 파일의 `hosting`·`connected`가 준비될 때까지 최대 25초 동안 기다린 다음 별도 기기 ID의 메모리 세션 클라이언트를 연결한다. 호스트 등록 없는 세션은 제품의 인증 계약에 따라 연결을 거부하며 테스트에서 이를 우회하지 않는다.",
         "basis": "lexical_match",
         "context": "paragraph"
@@ -612,55 +607,24 @@
         "label": "nginx WebSocket 공식 설정",
         "target": "https://nginx.org/en/docs/http/websocket.html",
         "kind": "external",
-        "line": 32
+        "line": 30
       },
       {
         "block_id": "b000037",
         "label": "deploy/self-hosted",
         "target": "../deploy/self-hosted/",
         "kind": "relative",
-        "line": 64
+        "line": 62
       },
       {
         "block_id": "b000039",
         "label": "Qt WebSocket 문서",
         "target": "https://doc.qt.io/qt-6.8/qwebsocket.html",
         "kind": "external",
-        "line": 66
+        "line": 64
       }
     ],
-    "tables": [
-      {
-        "block_id": "b000005",
-        "columns": [
-          "배치",
-          "연결 방법",
-          "컨테이너 제공자"
-        ],
-        "rows": [
-          [
-            "같은 LAN의 기기",
-            "Bonjour/NSD 자동 페어링과 직접 TLS",
-            "Society 데스크톱"
-          ],
-          [
-            "NAS에 자체 호스팅",
-            "NAS의 WebSocket 서버에 같은 계정으로 접속",
-            "NAS의 SocietyDaemon"
-          ],
-          [
-            "인터넷의 자체 웹서버",
-            "TLS reverse proxy와 WebSocket 중계",
-            "데스크톱 또는 별도 SocietyDaemon"
-          ],
-          [
-            "로컬·원격 혼합",
-            "인증된 서버 목록의 로컬 TLS 주소를 우선 시도하고 원격 중계로 전환",
-            "동일한 기본 호스트"
-          ]
-        ]
-      }
-    ]
+    "tables": []
   },
   "provenance": {
     "generator": "workspace-docs",

@@ -10,9 +10,9 @@
   },
   "source": {
     "path": "docs/Pairing.md",
-    "sha256": "660f3c7f2567e6cdb1b846063df4efcc621af8319359cb19b6330afdd29337d3",
-    "bytes": 18189,
-    "line_count": 109,
+    "sha256": "31415f869a2daa42e8c764fd9eb7b80f8ea2fd0866bf035f4271af54956368c4",
+    "bytes": 18272,
+    "line_count": 107,
     "encoding": "utf-8",
     "language": "ko"
   },
@@ -515,93 +515,98 @@
     },
     {
       "id": "b000065",
-      "kind": "table",
       "start_line": 69,
-      "end_line": 79,
-      "raw": "| 구성 | 역할 |\n| --- | --- |\n| `NetworkDevices.qml` | 데스크탑 QR 표시 / 모바일 스캔 진입과 로컬 Files 탐색 |\n| `PairingPanel.qml` | 플랫폼 역할에 따른 QR·스캔 버튼·진행·만료·완료 표시 |\n| `DevicePairing` | UI 상태와 `NetworkDriveController.localPeer()` 연결 |\n| `NetworkDriveController` | 플랫폼 역할·컨테이너 수명·Files 공개·다운로드 관리 |\n| `iiWebServer::LanPeer` | 직접 TLS 리스너/클라이언트, 일회용 키, Files 확인, 연결 수명, 요청·응답 |\n| `iiWebServer::LanLink` | 버전 2 QR의 사설 IPv4 주소·포트·인증서 지문·코드·만료 정보 검증 |\n| `PairingQr` | 고정된 Nayuki C++ 라이브러리로 QR 행렬 생성·정수 배율 렌더링 |\n| `IosQrScanner.mm` / `AppleQrDecoder` | AVFoundation 메타데이터·실제 프레임의 Vision QR 해독, 초점·안내·권한·중단·취소 |\n| `AndroidQrScanner.cpp` / `SocietyActivity.java` | JNI 콜백과 앱 내부 QR 카메라, 권한·중단·취소 |\n",
-      "columns": [
-        "구성",
-        "역할"
-      ],
-      "rows": [
-        [
-          "`NetworkDevices.qml`",
-          "데스크탑 QR 표시 / 모바일 스캔 진입과 로컬 Files 탐색"
-        ],
-        [
-          "`PairingPanel.qml`",
-          "플랫폼 역할에 따른 QR·스캔 버튼·진행·만료·완료 표시"
-        ],
-        [
-          "`DevicePairing`",
-          "UI 상태와 `NetworkDriveController.localPeer()` 연결"
-        ],
-        [
-          "`NetworkDriveController`",
-          "플랫폼 역할·컨테이너 수명·Files 공개·다운로드 관리"
-        ],
-        [
-          "`iiWebServer::LanPeer`",
-          "직접 TLS 리스너/클라이언트, 일회용 키, Files 확인, 연결 수명, 요청·응답"
-        ],
-        [
-          "`iiWebServer::LanLink`",
-          "버전 2 QR의 사설 IPv4 주소·포트·인증서 지문·코드·만료 정보 검증"
-        ],
-        [
-          "`PairingQr`",
-          "고정된 Nayuki C++ 라이브러리로 QR 행렬 생성·정수 배율 렌더링"
-        ],
-        [
-          "`IosQrScanner.mm` / `AppleQrDecoder`",
-          "AVFoundation 메타데이터·실제 프레임의 Vision QR 해독, 초점·안내·권한·중단·취소"
-        ],
-        [
-          "`AndroidQrScanner.cpp` / `SocietyActivity.java`",
-          "JNI 콜백과 앱 내부 QR 카메라, 권한·중단·취소"
-        ]
+      "end_line": 77,
+      "raw": "- 구성: `NetworkDevices.qml`; 역할: 데스크탑 QR 표시 / 모바일 스캔 진입과 로컬 Files 탐색\n- 구성: `PairingPanel.qml`; 역할: 플랫폼 역할에 따른 QR·스캔 버튼·진행·만료·완료 표시\n- 구성: `DevicePairing`; 역할: UI 상태와 `NetworkDriveController.localPeer()` 연결\n- 구성: `NetworkDriveController`; 역할: 플랫폼 역할·컨테이너 수명·Files 공개·다운로드 관리\n- 구성: `iiWebServer::LanPeer`; 역할: 직접 TLS 리스너/클라이언트, 일회용 키, Files 확인, 연결 수명, 요청·응답\n- 구성: `iiWebServer::LanLink`; 역할: 버전 2 QR의 사설 IPv4 주소·포트·인증서 지문·코드·만료 정보 검증\n- 구성: `PairingQr`; 역할: 고정된 Nayuki C++ 라이브러리로 QR 행렬 생성·정수 배율 렌더링\n- 구성: `IosQrScanner.mm` / `AppleQrDecoder`; 역할: AVFoundation 메타데이터·실제 프레임의 Vision QR 해독, 초점·안내·권한·중단·취소\n- 구성: `AndroidQrScanner.cpp` / `SocietyActivity.java`; 역할: JNI 콜백과 앱 내부 QR 카메라, 권한·중단·취소\n",
+      "kind": "list",
+      "items": [
+        {
+          "marker": "-",
+          "text": "구성: `NetworkDevices.qml`; 역할: 데스크탑 QR 표시 / 모바일 스캔 진입과 로컬 Files 탐색",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "구성: `PairingPanel.qml`; 역할: 플랫폼 역할에 따른 QR·스캔 버튼·진행·만료·완료 표시",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "구성: `DevicePairing`; 역할: UI 상태와 `NetworkDriveController.localPeer()` 연결",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "구성: `NetworkDriveController`; 역할: 플랫폼 역할·컨테이너 수명·Files 공개·다운로드 관리",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "구성: `iiWebServer::LanPeer`; 역할: 직접 TLS 리스너/클라이언트, 일회용 키, Files 확인, 연결 수명, 요청·응답",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "구성: `iiWebServer::LanLink`; 역할: 버전 2 QR의 사설 IPv4 주소·포트·인증서 지문·코드·만료 정보 검증",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "구성: `PairingQr`; 역할: 고정된 Nayuki C++ 라이브러리로 QR 행렬 생성·정수 배율 렌더링",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "구성: `IosQrScanner.mm` / `AppleQrDecoder`; 역할: AVFoundation 메타데이터·실제 프레임의 Vision QR 해독, 초점·안내·권한·중단·취소",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "구성: `AndroidQrScanner.cpp` / `SocietyActivity.java`; 역할: JNI 콜백과 앱 내부 QR 카메라, 권한·중단·취소",
+          "checked": null
+        }
       ]
     },
     {
       "id": "b000066",
+      "kind": "blank",
+      "start_line": 78,
+      "end_line": 78,
+      "raw": "\n"
+    },
+    {
+      "id": "b000067",
+      "kind": "paragraph",
+      "start_line": 79,
+      "end_line": 79,
+      "raw": "주소는 활성 Wi-Fi/Ethernet을 우선하여 최대 8개 사설 IPv4 주소를 포함한다. 모바일은 이 주소만 순서대로 시도한다. DNS 이름, 공인 인터넷 주소와 링크 로컬 metadata 주소를 QR 연결 대상으로 허용하지 않는다. 자동 감지에는 loopback을 넣지 않으며 SDK 테스트는 명시한 loopback TLS 주소를 사용할 수 있다. IPv6 전용 LAN은 현재 지원하지 않는다. 공유기의 client isolation, VPN 분리, 방화벽 또는 로컬 네트워크 권한 거부로 접속이 막힐 수 있다.\n"
+    },
+    {
+      "id": "b000068",
       "kind": "blank",
       "start_line": 80,
       "end_line": 80,
       "raw": "\n"
     },
     {
-      "id": "b000067",
+      "id": "b000069",
       "kind": "paragraph",
       "start_line": 81,
       "end_line": 81,
-      "raw": "주소는 활성 Wi-Fi/Ethernet을 우선하여 최대 8개 사설 IPv4 주소를 포함한다. 모바일은 이 주소만 순서대로 시도한다. DNS 이름, 공인 인터넷 주소와 링크 로컬 metadata 주소를 QR 연결 대상으로 허용하지 않는다. 자동 감지에는 loopback을 넣지 않으며 SDK 테스트는 명시한 loopback TLS 주소를 사용할 수 있다. IPv6 전용 LAN은 현재 지원하지 않는다. 공유기의 client isolation, VPN 분리, 방화벽 또는 로컬 네트워크 권한 거부로 접속이 막힐 수 있다.\n"
+      "raw": "데스크탑은 실행 중 RSA-2048 개인 키와 하루 수명의 인증서를 메모리에서 만들고 QR에는 SHA-256 지문만 넣는다. 모바일은 TLS 핸드셰이크와 연결 직후 지문을 모두 대조한 뒤 일회용 코드만 전송한다. 인증서 오류를 무조건 무시하지 않는다. 기존 FileShare의 경로·inode·symlink·원본 컨테이너 UUID 검사를 유지하며 공개 루트는 `Files/`이다. Models 등 나머지 영역을 네트워크 루트에 포함하지 않는다.\n"
     },
     {
-      "id": "b000068",
+      "id": "b000070",
       "kind": "blank",
       "start_line": 82,
       "end_line": 82,
       "raw": "\n"
     },
     {
-      "id": "b000069",
-      "kind": "paragraph",
-      "start_line": 83,
-      "end_line": 83,
-      "raw": "데스크탑은 실행 중 RSA-2048 개인 키와 하루 수명의 인증서를 메모리에서 만들고 QR에는 SHA-256 지문만 넣는다. 모바일은 TLS 핸드셰이크와 연결 직후 지문을 모두 대조한 뒤 일회용 코드만 전송한다. 인증서 오류를 무조건 무시하지 않는다. 기존 FileShare의 경로·inode·symlink·원본 컨테이너 UUID 검사를 유지하며 공개 루트는 `Files/`이다. Models 등 나머지 영역을 네트워크 루트에 포함하지 않는다.\n"
-    },
-    {
-      "id": "b000070",
-      "kind": "blank",
-      "start_line": 84,
-      "end_line": 84,
-      "raw": "\n"
-    },
-    {
       "id": "b000071",
       "kind": "heading",
-      "start_line": 85,
-      "end_line": 85,
+      "start_line": 83,
+      "end_line": 83,
       "raw": "## 의존성과 검증\n",
       "level": 2,
       "title": "의존성과 검증"
@@ -609,57 +614,57 @@
     {
       "id": "b000072",
       "kind": "blank",
-      "start_line": 86,
-      "end_line": 86,
+      "start_line": 84,
+      "end_line": 84,
       "raw": "\n"
     },
     {
       "id": "b000073",
       "kind": "paragraph",
-      "start_line": 87,
-      "end_line": 87,
+      "start_line": 85,
+      "end_line": 85,
       "raw": "Qt 6.8.3 Core/Network/WebSockets를 재사용한다. 데스크탑 인증서 생성은 OpenSSL 3 Crypto를 사용한다. SDK의 `ThirdParty/OpenSSL-LICENSE.txt`는 Apache 2.0 고지이며 클라이언트 전용 iOS/Android에는 인증서 생성 의존성을 추가하지 않는다. Qt Secure Transport 호스팅에서 검증한 RSA 형식을 사용한다. [OpenSSL 키 생성](https://docs.openssl.org/3.5/man3/EVP_PKEY_keygen/), [인증서 서명](https://docs.openssl.org/3.5/man3/X509_sign/), [Qt WebSocket TLS](https://doc.qt.io/qt-6.8/qwebsocket.html)를 따른다.\n"
     },
     {
       "id": "b000074",
+      "kind": "blank",
+      "start_line": 86,
+      "end_line": 86,
+      "raw": "\n"
+    },
+    {
+      "id": "b000075",
+      "kind": "paragraph",
+      "start_line": 87,
+      "end_line": 87,
+      "raw": "Android 카메라는 [ZXing Android Embedded 4.3.0](https://github.com/journeyapps/zxing-android-embedded)의 공개 안정 버전을 고정한다. Apache 2.0이며 카메라·프레임 수명 관리는 해당 라이브러리에 맡긴다. AndroidX 및 ZXing decoder 전이 의존성이 있고 서버나 별도 설치 앱은 필요하지 않다. 배포 간격이 긴 라이브러리이므로 target SDK를 변경할 때 실제 카메라 회귀 검증이 필요하다. QR만 해독하며 이미지 저장·업로드·마이크 접근·소리를 사용하지 않는다.\n"
+    },
+    {
+      "id": "b000076",
       "kind": "blank",
       "start_line": 88,
       "end_line": 88,
       "raw": "\n"
     },
     {
-      "id": "b000075",
+      "id": "b000077",
       "kind": "paragraph",
       "start_line": 89,
       "end_line": 89,
-      "raw": "Android 카메라는 [ZXing Android Embedded 4.3.0](https://github.com/journeyapps/zxing-android-embedded)의 공개 안정 버전을 고정한다. Apache 2.0이며 카메라·프레임 수명 관리는 해당 라이브러리에 맡긴다. AndroidX 및 ZXing decoder 전이 의존성이 있고 서버나 별도 설치 앱은 필요하지 않다. 배포 간격이 긴 라이브러리이므로 target SDK를 변경할 때 실제 카메라 회귀 검증이 필요하다. QR만 해독하며 이미지 저장·업로드·마이크 접근·소리를 사용하지 않는다.\n"
+      "raw": "`iiWebServer.lan` 는 실제 TLS, 상호 계정 증명, 파일 접근 전 거부, 재방송, 만료 및 인증서 불일치를 확인합니다. Society QR 픽스처 는 이제 로컬 계정 서버에 대해 인증하고 예상 호스트를 등록합니다. Society 입니다. 계정이 수동 및 자동 동기화, 등록되지 않은 계정 거부 및 계정-호스트 변경 후 회수를 확인합니다. 물리적 카메라/장치 인증은 별도로 보고되어야 합니다.\n"
     },
     {
-      "id": "b000076",
+      "id": "b000078",
       "kind": "blank",
       "start_line": 90,
       "end_line": 90,
       "raw": "\n"
     },
     {
-      "id": "b000077",
-      "kind": "paragraph",
-      "start_line": 91,
-      "end_line": 91,
-      "raw": "`iiWebServer.lan` 는 실제 TLS, 상호 계정 증명, 파일 접근 전 거부, 재방송, 만료 및 인증서 불일치를 확인합니다. Society QR 픽스처 는 이제 로컬 계정 서버에 대해 인증하고 예상 호스트를 등록합니다. Society 입니다. 계정이 수동 및 자동 동기화, 등록되지 않은 계정 거부 및 계정-호스트 변경 후 회수를 확인합니다. 물리적 카메라/장치 인증은 별도로 보고되어야 합니다.\n"
-    },
-    {
-      "id": "b000078",
-      "kind": "blank",
-      "start_line": 92,
-      "end_line": 92,
-      "raw": "\n"
-    },
-    {
       "id": "b000079",
       "kind": "heading",
-      "start_line": 93,
-      "end_line": 93,
+      "start_line": 91,
+      "end_line": 91,
       "raw": "## 2026-09-09 검증 기록\n",
       "level": 2,
       "title": "2026-09-09 검증 기록"
@@ -667,29 +672,29 @@
     {
       "id": "b000080",
       "kind": "blank",
-      "start_line": 94,
-      "end_line": 94,
+      "start_line": 92,
+      "end_line": 92,
       "raw": "\n"
     },
     {
       "id": "b000081",
       "kind": "paragraph",
-      "start_line": 95,
-      "end_line": 95,
+      "start_line": 93,
+      "end_line": 93,
       "raw": "다음은 당시 버전의 역사적 기록이다. 로그인 없는 QR 연결은 2026-09-21 계정 호스트 정책으로 폐기되었다.\n"
     },
     {
       "id": "b000082",
       "kind": "blank",
-      "start_line": 96,
-      "end_line": 96,
+      "start_line": 94,
+      "end_line": 94,
       "raw": "\n"
     },
     {
       "id": "b000083",
       "kind": "list",
-      "start_line": 97,
-      "end_line": 101,
+      "start_line": 95,
+      "end_line": 99,
       "raw": "- macOS 실제 Society 앱에서 로그인하지 않은 상태로 **Devices → Pair mobile device**를 눌러 QR과 60초 카운트다운이 표시되는 것을 확인했다.\n- Society의 로그인 검사를 제외한 CTest 13/13과 QML 정적 검사가 통과했다. 로컬 페어링/클라이언트 전용/기존 네이티브 파일 경계 검사를 포함한다.\n- 1120×720, 390×844, 640×360의 네이티브 QR 화면 검사가 통과했다. CoreImage와 Android에 실제 포함된 ZXing decoder가 Qt 렌더링 QR을 해독했다.\n- iOS Release 서명 및 File Provider/카메라 목적/리소스 검사를 통과했고 연결된 iPhone 15 Pro Max에 새 앱을 설치했다.\n- Android arm64 Release APK와 Gradle lint가 통과했다. APK의 SocietyActivity 진입점, CAMERA 권한 및 마이크 권한 부재를 확인했다.\n",
       "items": [
         {
@@ -722,43 +727,43 @@
     {
       "id": "b000084",
       "kind": "blank",
-      "start_line": 102,
-      "end_line": 102,
+      "start_line": 100,
+      "end_line": 100,
       "raw": "\n"
     },
     {
       "id": "b000085",
       "kind": "paragraph",
-      "start_line": 103,
-      "end_line": 103,
+      "start_line": 101,
+      "end_line": 101,
       "raw": "로그인 테스트와 실제 휴대폰 카메라로 모니터를 촬영하는 동작은 수행하지 않았다. 위 자동 QR 해독과 파일 전송 검사로 실물 카메라 검증을 대체하지 않는다. 세부 로그·스크린샷은 `build/local-pairing-*.log`, `build/local-pairing-desktop.png`, iPhone 설치 기록은 `build/local-pairing-ios-install.json`에 있다.\n"
     },
     {
       "id": "b000086",
+      "kind": "blank",
+      "start_line": 102,
+      "end_line": 102,
+      "raw": "\n"
+    },
+    {
+      "id": "b000087",
+      "kind": "html",
+      "start_line": 103,
+      "end_line": 103,
+      "raw": "<a id=\"environment-entry-points-2026-09-24\"></a>\n"
+    },
+    {
+      "id": "b000088",
       "kind": "blank",
       "start_line": 104,
       "end_line": 104,
       "raw": "\n"
     },
     {
-      "id": "b000087",
-      "kind": "html",
-      "start_line": 105,
-      "end_line": 105,
-      "raw": "<a id=\"environment-entry-points-2026-09-24\"></a>\n"
-    },
-    {
-      "id": "b000088",
-      "kind": "blank",
-      "start_line": 106,
-      "end_line": 106,
-      "raw": "\n"
-    },
-    {
       "id": "b000089",
       "kind": "heading",
-      "start_line": 107,
-      "end_line": 107,
+      "start_line": 105,
+      "end_line": 105,
       "raw": "## 환경 진입점(2026-09-24)\n",
       "level": 2,
       "title": "환경 진입점(2026-09-24)"
@@ -766,15 +771,15 @@
     {
       "id": "b000090",
       "kind": "blank",
-      "start_line": 108,
-      "end_line": 108,
+      "start_line": 106,
+      "end_line": 106,
       "raw": "\n"
     },
     {
       "id": "b000091",
       "kind": "paragraph",
-      "start_line": 109,
-      "end_line": 109,
+      "start_line": 107,
+      "end_line": 107,
       "raw": "환경 → 장치 → 장치를 추가하면 기존 발견/서버 모달이 열립니다. QR 코드로 짝을 맞추면 짝짓기 시트가 열립니다. 지금 탐색은 연결된 호스트 파일을 탐색하며 메인 탭에서 짝짓기를 열지 않습니다. 선호 사항과 온보딩은 기존 장치 동작을 유지합니다. [환경](Environment.md)을 참조하세요.\n"
     }
   ],
@@ -849,7 +854,7 @@
       "level": 2,
       "title": "의존성과 검증",
       "anchor": "의존성과-검증",
-      "start_line": 85
+      "start_line": 83
     },
     {
       "block_id": "b000079",
@@ -857,7 +862,7 @@
       "level": 2,
       "title": "2026-09-09 검증 기록",
       "anchor": "2026-09-09-검증-기록",
-      "start_line": 93
+      "start_line": 91
     },
     {
       "block_id": "b000089",
@@ -865,7 +870,7 @@
       "level": 2,
       "title": "환경 진입점(2026-09-24)",
       "anchor": "환경-진입점2026-09-24",
-      "start_line": 107
+      "start_line": 105
     }
   ],
   "indexes": {
@@ -949,35 +954,35 @@
       },
       {
         "block_id": "b000067",
-        "line": 81,
+        "line": 79,
         "text": "주소는 활성 Wi-Fi/Ethernet을 우선하여 최대 8개 사설 IPv4 주소를 포함한다. 모바일은 이 주소만 순서대로 시도한다. DNS 이름, 공인 인터넷 주소와 링크 로컬 metadata 주소를 QR 연결 대상으로 허용하지 않는다. 자동 감지에는 loopback을 넣지 않으며 SDK 테스트는 명시한 loopback TLS 주소를 사용할 수 있다. IPv6 전용 LAN은 현재 지원하지 않는다. 공유기의 client isolation, VPN 분리, 방화벽 또는 로컬 네트워크 권한 거부로 접속이 막힐 수 있다.",
         "basis": "lexical_match",
         "context": "paragraph"
       },
       {
         "block_id": "b000069",
-        "line": 83,
+        "line": 81,
         "text": "데스크탑은 실행 중 RSA-2048 개인 키와 하루 수명의 인증서를 메모리에서 만들고 QR에는 SHA-256 지문만 넣는다. 모바일은 TLS 핸드셰이크와 연결 직후 지문을 모두 대조한 뒤 일회용 코드만 전송한다. 인증서 오류를 무조건 무시하지 않는다. 기존 FileShare의 경로·inode·symlink·원본 컨테이너 UUID 검사를 유지하며 공개 루트는 `Files/`이다. Models 등 나머지 영역을 네트워크 루트에 포함하지 않는다.",
         "basis": "lexical_match",
         "context": "paragraph"
       },
       {
         "block_id": "b000073",
-        "line": 87,
+        "line": 85,
         "text": "Qt 6.8.3 Core/Network/WebSockets를 재사용한다. 데스크탑 인증서 생성은 OpenSSL 3 Crypto를 사용한다. SDK의 `ThirdParty/OpenSSL-LICENSE.txt`는 Apache 2.0 고지이며 클라이언트 전용 iOS/Android에는 인증서 생성 의존성을 추가하지 않는다. Qt Secure Transport 호스팅에서 검증한 RSA 형식을 사용한다. [OpenSSL 키 생성](https://docs.openssl.org/3.5/man3/EVP_PKEY_keygen/), [인증서 서명](https://docs.openssl.org/3.5/man3/X509_sign/), [Qt WebSocket TLS](https://doc.qt.io/qt-6.8/qwebsocket.html)를 따른다.",
         "basis": "lexical_match",
         "context": "paragraph"
       },
       {
         "block_id": "b000075",
-        "line": 89,
+        "line": 87,
         "text": "Android 카메라는 [ZXing Android Embedded 4.3.0](https://github.com/journeyapps/zxing-android-embedded)의 공개 안정 버전을 고정한다. Apache 2.0이며 카메라·프레임 수명 관리는 해당 라이브러리에 맡긴다. AndroidX 및 ZXing decoder 전이 의존성이 있고 서버나 별도 설치 앱은 필요하지 않다. 배포 간격이 긴 라이브러리이므로 target SDK를 변경할 때 실제 카메라 회귀 검증이 필요하다. QR만 해독하며 이미지 저장·업로드·마이크 접근·소리를 사용하지 않는다.",
         "basis": "lexical_match",
         "context": "paragraph"
       },
       {
         "block_id": "b000085",
-        "line": 103,
+        "line": 101,
         "text": "로그인 테스트와 실제 휴대폰 카메라로 모니터를 촬영하는 동작은 수행하지 않았다. 위 자동 QR 해독과 파일 전송 검사로 실물 카메라 검증을 대체하지 않는다. 세부 로그·스크린샷은 `build/local-pairing-*.log`, `build/local-pairing-desktop.png`, iPhone 설치 기록은 `build/local-pairing-ios-install.json`에 있다.",
         "basis": "lexical_match",
         "context": "paragraph"
@@ -1039,84 +1044,38 @@
         "label": "OpenSSL 키 생성",
         "target": "https://docs.openssl.org/3.5/man3/EVP_PKEY_keygen/",
         "kind": "external",
-        "line": 87
+        "line": 85
       },
       {
         "block_id": "b000073",
         "label": "인증서 서명",
         "target": "https://docs.openssl.org/3.5/man3/X509_sign/",
         "kind": "external",
-        "line": 87
+        "line": 85
       },
       {
         "block_id": "b000073",
         "label": "Qt WebSocket TLS",
         "target": "https://doc.qt.io/qt-6.8/qwebsocket.html",
         "kind": "external",
-        "line": 87
+        "line": 85
       },
       {
         "block_id": "b000075",
         "label": "ZXing Android Embedded 4.3.0",
         "target": "https://github.com/journeyapps/zxing-android-embedded",
         "kind": "external",
-        "line": 89
+        "line": 87
       },
       {
         "block_id": "b000091",
         "label": "환경",
         "target": "Environment.md",
         "kind": "relative",
-        "line": 109
+        "line": 107
       }
     ],
-    "tables": [
-      {
-        "block_id": "b000065",
-        "columns": [
-          "구성",
-          "역할"
-        ],
-        "rows": [
-          [
-            "`NetworkDevices.qml`",
-            "데스크탑 QR 표시 / 모바일 스캔 진입과 로컬 Files 탐색"
-          ],
-          [
-            "`PairingPanel.qml`",
-            "플랫폼 역할에 따른 QR·스캔 버튼·진행·만료·완료 표시"
-          ],
-          [
-            "`DevicePairing`",
-            "UI 상태와 `NetworkDriveController.localPeer()` 연결"
-          ],
-          [
-            "`NetworkDriveController`",
-            "플랫폼 역할·컨테이너 수명·Files 공개·다운로드 관리"
-          ],
-          [
-            "`iiWebServer::LanPeer`",
-            "직접 TLS 리스너/클라이언트, 일회용 키, Files 확인, 연결 수명, 요청·응답"
-          ],
-          [
-            "`iiWebServer::LanLink`",
-            "버전 2 QR의 사설 IPv4 주소·포트·인증서 지문·코드·만료 정보 검증"
-          ],
-          [
-            "`PairingQr`",
-            "고정된 Nayuki C++ 라이브러리로 QR 행렬 생성·정수 배율 렌더링"
-          ],
-          [
-            "`IosQrScanner.mm` / `AppleQrDecoder`",
-            "AVFoundation 메타데이터·실제 프레임의 Vision QR 해독, 초점·안내·권한·중단·취소"
-          ],
-          [
-            "`AndroidQrScanner.cpp` / `SocietyActivity.java`",
-            "JNI 콜백과 앱 내부 QR 카메라, 권한·중단·취소"
-          ]
-        ]
-      }
-    ]
+    "tables": []
   },
   "provenance": {
     "generator": "workspace-docs",

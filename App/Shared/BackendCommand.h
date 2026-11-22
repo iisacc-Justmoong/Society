@@ -16,6 +16,11 @@ struct SocietyBackendCommandReply {
     const QString &brokerDirectory, const QString &operation, QJsonObject arguments = {},
     const QString &expectedContainer = {}, int timeoutMs = 10000);
 
+/// Submit a Space request after its transcript loads; mutations are never replayed.
+[[nodiscard]] SocietyBackendCommandReply societySpaceCommand(
+    const QString &brokerDirectory, const QString &operation, QJsonObject arguments,
+    const QString &expectedContainer = {}, int timeoutMs = 10000);
+
 // Up to 200 entries from one revision-bound backend directory session.
 // Call off the GUI and backend event-loop threads.
 [[nodiscard]] SocietyBackendCommandReply societyBackendDirectoryPage(

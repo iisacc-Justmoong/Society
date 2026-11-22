@@ -82,6 +82,30 @@ class Client:
     def agent_select(self, model_id: str) -> dict[str, Any]:
         return self._request(["agent", "select", model_id], mutation=True)
 
+    def space_status(self, session_id: str, *, container: str | None = None) -> dict[str, Any]:
+        """Inspect one Space conversation; loading can continue after the acknowledgement."""
+        arguments = ["space", "status", "--session", session_id]
+        if container is not None:
+            arguments.extend(["--container", container])
+        return self._request(arguments)
+
+    def space_send(self, session_id: str, prompt: str, attachments: list[str] | None = None,
+                   *, effort: str = "standard", container: str | None = None) -> dict[str, Any]:
+        """Submit one Space turn; an accepted reply is not the completed response."""
+        arguments = ["space", "send", "--stdin", "--session", session_id, "--effort", effort]
+        for path in attachments or []:
+            arguments.extend(["--attach", path])
+        if container is not None:
+            arguments.extend(["--container", container])
+        return self._request(arguments, mutation=True, input_text=prompt)
+
+    def space_cancel(self, session_id: str, *, container: str | None = None) -> dict[str, Any]:
+        """Cancel a response only when it belongs to this Space session."""
+        arguments = ["space", "cancel", "--session", session_id]
+        if container is not None:
+            arguments.extend(["--container", container])
+        return self._request(arguments, mutation=True)
+
     def suggested_status(self) -> dict[str, Any]:
         return self._request(["suggested", "status"])
 

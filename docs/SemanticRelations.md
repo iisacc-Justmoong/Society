@@ -42,13 +42,11 @@ Finder나 파일 탐색기 등 Society 밖에서 같은 볼륨의 파일을 이�
 
 Society의 지원되는 Unix 데스크톱 로컬 MCP는 현재 열린 컨테이너를 대상으로 다음 명령을 제공한다. 먼저 `semantic_read`에서 반환한 `record.revision`을 해당 주소의 쓰기에 전달한다. 쓰기 시 `actor`는 호출 호스트가 명시하는 로컬 귀속 정보이며 그 값만으로 신원을 인증하지 않는다. 쓰기 명령은 명시적으로 위임된 사용자 선언에 사용하며, 미확정 AI 제안을 위한 격리된 저장 경로는 아직 없다.
 
-| 명령 | 입력 | 결과 |
-| --- | --- | --- |
-| `semantic_read` | `address` | 소유자·revision·메타데이터, 정방향·역방향 관계와 불완전 상태 |
-| `semantic_relations` | `address` | 대상 프로젝트가 현재 없어도 찾을 수 있는 정방향·역방향 관계와 불완전 상태 |
-| `semantic_set_metadata` | `address`, `metadata`, `revision`, `actor` | 해당 주소의 메타데이터 객체 교체 결과 |
-| `semantic_set_relation` | `source`, `predicate`, `target`, `metadata`, `revision`, `actor` | 주체가 소유하는 방향 관계와 관계 ID |
-| `semantic_remove_relation` | `source`, `id`, `revision`, `actor` | 주체가 소유하는 관계 제거 결과 |
-| `semantic_rebind` | `source`, `target`, `actor` | 사용자가 명시적으로 확인한 외부 이동 또는 같은 주소의 파일 교체에 대한 결합 갱신 |
+- 명령: `semantic_read`; 입력: `address`; 결과: 소유자·revision·메타데이터, 정방향·역방향 관계와 불완전 상태
+- 명령: `semantic_relations`; 입력: `address`; 결과: 대상 프로젝트가 현재 없어도 찾을 수 있는 정방향·역방향 관계와 불완전 상태
+- 명령: `semantic_set_metadata`; 입력: `address`, `metadata`, `revision`, `actor`; 결과: 해당 주소의 메타데이터 객체 교체 결과
+- 명령: `semantic_set_relation`; 입력: `source`, `predicate`, `target`, `metadata`, `revision`, `actor`; 결과: 주체가 소유하는 방향 관계와 관계 ID
+- 명령: `semantic_remove_relation`; 입력: `source`, `id`, `revision`, `actor`; 결과: 주체가 소유하는 관계 제거 결과
+- 명령: `semantic_rebind`; 입력: `source`, `target`, `actor`; 결과: 사용자가 명시적으로 확인한 외부 이동 또는 같은 주소의 파일 교체에 대한 결합 갱신
 
 예를 들어 `files/cover.png`의 revision을 읽은 뒤 `semantic_set_relation`에 주체 `files/cover.png`, 관계 유형 `example:references`, 대상 `files/Projects/example.iiproject`를 전달할 수 있다. 같은 대상을 프로젝트 쪽에서 별도로 선언하려면 프로젝트 주소를 주체로 사용한다. 이 인터페이스는 파일 내용, 프로젝트의 권리 또는 외부 주소의 가용성을 검증하지 않는다. 이번 변경은 전용 GUI 편집기를 추가하지 않으며 다른 플랫폼의 MCP 노출은 검증하지 않았다.

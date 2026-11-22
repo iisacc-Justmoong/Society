@@ -3,13 +3,11 @@
 Society retains LVRS/Qt Quick for its GUI. Backend packages consume narrower
 SDK targets rather than presentation facades:
 
-| Consumer | SDK target | Boundary |
-| --- | --- | --- |
-| Native container monitor | `iiSocietyContainer::FileTree` | C++23, no Qt discovery/linkage |
-| Native storage maintenance | `iiSocietyContainer::Maintenance` | C++23 and temporary leases, no Qt |
-| Helper canvas storage and media I/O | `iiSharedCanvas::Core` | No QML or Quick items |
-| Photo controller clipboard/sharing | `iiSocietyContainer::Sharing` | Qt Gui actions, no Quick image provider or application/window helpers |
-| Society GUI | LVRS, Qt Quick, container `Gui` | Presentation and platform GUI integration |
+- Consumer: Native container monitor; SDK target: `iiSocietyContainer::FileTree`; Boundary: C++23, no Qt discovery/linkage
+- Consumer: Native storage maintenance; SDK target: `iiSocietyContainer::Maintenance`; Boundary: C++23 and temporary leases, no Qt
+- Consumer: Helper canvas storage and media I/O; SDK target: `iiSharedCanvas::Core`; Boundary: No QML or Quick items
+- Consumer: Photo controller clipboard/sharing; SDK target: `iiSocietyContainer::Sharing`; Boundary: Qt Gui actions, no Quick image provider or application/window helpers
+- Consumer: Society GUI; SDK target: LVRS, Qt Quick, container `Gui`; Boundary: Presentation and platform GUI integration
 
 The daemon's QML registration annotations use the header-only QmlIntegration
 target. It does not link the QML runtime. The runtime verifier records the

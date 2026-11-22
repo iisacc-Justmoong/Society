@@ -10,9 +10,9 @@
   },
   "source": {
     "path": "docs/SystemDrive.md",
-    "sha256": "d678a985df92d98ffd889091964456bfd2419210708090e0b635ac5dad599eda",
-    "bytes": 5827,
-    "line_count": 31,
+    "sha256": "30aa5d5f758c101a9d59ce22a55b31c136e45a0c4099af5114ad90af4a5c28ee",
+    "bytes": 5878,
+    "line_count": 29,
     "encoding": "utf-8",
     "language": "ko"
   },
@@ -54,185 +54,180 @@
     },
     {
       "id": "b000005",
-      "kind": "table",
       "start_line": 5,
-      "end_line": 9,
-      "raw": "| Platform | System connection | Success check |\n| --- | --- | --- |\n| macOS 26+ | FSKit volume named Society | Native result and `QStorageInfo` identify `societyfs` at the mounted root |\n| Windows | Dokan 2 removable drive named Society, using a free letter starting at S: | Windows reports the Society label, filesystem name, and original UUID-derived serial; `QStorageInfo` identifies the returned drive root |\n| Android 9+ | Society root in system Files and Storage Access Framework pickers | The installed DocumentsProvider returns the selected UUID and its public root document |\n",
-      "columns": [
-        "Platform",
-        "System connection",
-        "Success check"
-      ],
-      "rows": [
-        [
-          "macOS 26+",
-          "FSKit volume named Society",
-          "Native result and `QStorageInfo` identify `societyfs` at the mounted root"
-        ],
-        [
-          "Windows",
-          "Dokan 2 removable drive named Society, using a free letter starting at S:",
-          "Windows reports the Society label, filesystem name, and original UUID-derived serial; `QStorageInfo` identifies the returned drive root"
-        ],
-        [
-          "Android 9+",
-          "Society root in system Files and Storage Access Framework pickers",
-          "The installed DocumentsProvider returns the selected UUID and its public root document"
-        ]
+      "end_line": 7,
+      "raw": "- Platform: macOS 26+; System connection: FSKit volume named Society; Success check: Native result and `QStorageInfo` identify `societyfs` at the mounted root\n- Platform: Windows; System connection: Dokan 2 removable drive named Society, using a free letter starting at S:; Success check: Windows reports the Society label, filesystem name, and original UUID-derived serial; `QStorageInfo` identifies the returned drive root\n- Platform: Android 9+; System connection: Society root in system Files and Storage Access Framework pickers; Success check: The installed DocumentsProvider returns the selected UUID and its public root document\n",
+      "kind": "list",
+      "items": [
+        {
+          "marker": "-",
+          "text": "Platform: macOS 26+; System connection: FSKit volume named Society; Success check: Native result and `QStorageInfo` identify `societyfs` at the mounted root",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Platform: Windows; System connection: Dokan 2 removable drive named Society, using a free letter starting at S:; Success check: Windows reports the Society label, filesystem name, and original UUID-derived serial; `QStorageInfo` identifies the returned drive root",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Platform: Android 9+; System connection: Society root in system Files and Storage Access Framework pickers; Success check: The installed DocumentsProvider returns the selected UUID and its public root document",
+          "checked": null
+        }
       ]
     },
     {
       "id": "b000006",
+      "kind": "blank",
+      "start_line": 8,
+      "end_line": 8,
+      "raw": "\n"
+    },
+    {
+      "id": "b000007",
+      "kind": "paragraph",
+      "start_line": 9,
+      "end_line": 9,
+      "raw": "데스크톱의 디스크 활성화와 재연결은 Society 백엔드 데몬의 작업자만 수행한다. 앱은 선택한 컨테이너에 대한 데몬 상태를 비동기로 구독하고 `Reconnect` 또는 `Refresh` 요청을 전달한다. 앱이 마운트 실행 파일이나 파일시스템 호스트를 직접 실행하지 않는다. 데몬이 연결되지 않았거나 다른 컨테이너·UUID를 보고하면 이전 시스템 경로를 지우며, 실제 원본 폴더를 마운트된 디스크로 표시하지 않는다. 검증된 시스템 경로는 `Open in Finder` 또는 `Open in File Explorer`에서 열 수 있다. iOS와 Android의 시스템 파일 제공자 연결은 각 모바일 플랫폼에서 계속 처리한다.\n"
+    },
+    {
+      "id": "b000008",
       "kind": "blank",
       "start_line": 10,
       "end_line": 10,
       "raw": "\n"
     },
     {
-      "id": "b000007",
+      "id": "b000009",
       "kind": "paragraph",
       "start_line": 11,
       "end_line": 11,
-      "raw": "데스크톱의 디스크 활성화와 재연결은 Society 백엔드 데몬의 작업자만 수행한다. 앱은 선택한 컨테이너에 대한 데몬 상태를 비동기로 구독하고 `Reconnect` 또는 `Refresh` 요청을 전달한다. 앱이 마운트 실행 파일이나 파일시스템 호스트를 직접 실행하지 않는다. 데몬이 연결되지 않았거나 다른 컨테이너·UUID를 보고하면 이전 시스템 경로를 지우며, 실제 원본 폴더를 마운트된 디스크로 표시하지 않는다. 검증된 시스템 경로는 `Open in Finder` 또는 `Open in File Explorer`에서 열 수 있다. iOS와 Android의 시스템 파일 제공자 연결은 각 모바일 플랫폼에서 계속 처리한다.\n"
+      "raw": "이미 선택된 컨테이너를 다시 열어 화면의 경로가 초기화되면 앱은 데몬의 최신 상태 스냅샷을 다시 요청한다. 컨테이너를 더 이상 열 수 없으면 화면의 경로와 연결 상태를 함께 지운다.\n"
     },
     {
-      "id": "b000008",
+      "id": "b000010",
       "kind": "blank",
       "start_line": 12,
       "end_line": 12,
       "raw": "\n"
     },
     {
-      "id": "b000009",
+      "id": "b000011",
       "kind": "paragraph",
       "start_line": 13,
       "end_line": 13,
-      "raw": "이미 선택된 컨테이너를 다시 열어 화면의 경로가 초기화되면 앱은 데몬의 최신 상태 스냅샷을 다시 요청한다. 컨테이너를 더 이상 열 수 없으면 화면의 경로와 연결 상태를 함께 지운다.\n"
+      "raw": "Society 백엔드는 GUI 창이 없어도 선택된 드라이브를 연결한다. 반환된 컨테이너 UUID·마운트 루트·플랫폼 파일시스템을 검증하고, 일시적 실패를 재시도하며, 선택이 바뀌기 전 요청의 결과는 무시한다. 누락되거나 잘못 서명된 호스트는 연결 실패로 보고하며, 볼륨 루트에는 선택한 `Files/`의 내용만 표시한다.\n"
     },
     {
-      "id": "b000010",
+      "id": "b000012",
       "kind": "blank",
       "start_line": 14,
       "end_line": 14,
       "raw": "\n"
     },
     {
-      "id": "b000011",
+      "id": "b000013",
       "kind": "paragraph",
       "start_line": 15,
       "end_line": 15,
-      "raw": "Society 백엔드는 GUI 창이 없어도 선택된 드라이브를 연결한다. 반환된 컨테이너 UUID·마운트 루트·플랫폼 파일시스템을 검증하고, 일시적 실패를 재시도하며, 선택이 바뀌기 전 요청의 결과는 무시한다. 누락되거나 잘못 서명된 호스트는 연결 실패로 보고하며, 볼륨 루트에는 선택한 `Files/`의 내용만 표시한다.\n"
+      "raw": "`SOCIETY_NATIVE_DRIVE_BUNDLE`은 macOS 백엔드 작업자가 사용하는 설치된 네이티브 호스트를 지정한다. 기본값은 선택된 iiSocietyContainer SDK의 호스트이며, 임시 SDK 스테이징을 사용해 빌드할 때는 앱 패키징 전에 실제 설치 호스트를 지정해야 한다.\n"
     },
     {
-      "id": "b000012",
+      "id": "b000014",
       "kind": "blank",
       "start_line": 16,
       "end_line": 16,
       "raw": "\n"
     },
     {
-      "id": "b000013",
+      "id": "b000015",
       "kind": "paragraph",
       "start_line": 17,
       "end_line": 17,
-      "raw": "`SOCIETY_NATIVE_DRIVE_BUNDLE`은 macOS 백엔드 작업자가 사용하는 설치된 네이티브 호스트를 지정한다. 기본값은 선택된 iiSocietyContainer SDK의 호스트이며, 임시 SDK 스테이징을 사용해 빌드할 때는 앱 패키징 전에 실제 설치 호스트를 지정해야 한다.\n"
+      "raw": "On macOS, a correctly signed and registered FSKit module must also be enabled by the user. In **System Settings → General → Login Items & Extensions → Extensions → By Category → File System Extensions**, enable Society. If the module is disabled, macOS can reject mounting with `Operation not permitted`; the backend reports the failure and retries after the setting is enabled. The Society mount is a separate `societyfs` filesystem volume in Finder, backed by the existing `Files/` directory; it is not a block device or an additional copy of the data.\n"
     },
     {
-      "id": "b000014",
+      "id": "b000016",
       "kind": "blank",
       "start_line": 18,
       "end_line": 18,
       "raw": "\n"
     },
     {
-      "id": "b000015",
+      "id": "b000017",
       "kind": "paragraph",
       "start_line": 19,
       "end_line": 19,
-      "raw": "On macOS, a correctly signed and registered FSKit module must also be enabled by the user. In **System Settings → General → Login Items & Extensions → Extensions → By Category → File System Extensions**, enable Society. If the module is disabled, macOS can reject mounting with `Operation not permitted`; the backend reports the failure and retries after the setting is enabled. The Society mount is a separate `societyfs` filesystem volume in Finder, backed by the existing `Files/` directory; it is not a block device or an additional copy of the data.\n"
+      "raw": "Windows needs the signed Dokan 2 kernel driver installed on the target machine. The SDK copies an available architecture-matched `dokan2.dll` next to its mount executable and exposes that runtime to the Society package. Copying the DLL does not install the kernel driver. See [the SDK desktop instructions](../../../SDK/iiSocietyContainer/platform/desktop/README.md).\n"
     },
     {
-      "id": "b000016",
+      "id": "b000018",
       "kind": "blank",
       "start_line": 20,
       "end_line": 20,
       "raw": "\n"
     },
     {
-      "id": "b000017",
+      "id": "b000019",
       "kind": "paragraph",
       "start_line": 21,
       "end_line": 21,
-      "raw": "Windows needs the signed Dokan 2 kernel driver installed on the target machine. The SDK copies an available architecture-matched `dokan2.dll` next to its mount executable and exposes that runtime to the Society package. Copying the DLL does not install the kernel driver. See [the SDK desktop instructions](../../../SDK/iiSocietyContainer/platform/desktop/README.md).\n"
+      "raw": "Android uses the official DocumentsProvider integration, not a kernel block-device mount or drive letter. The provider accesses app-private storage and exposes only Files-relative document IDs. `register`, `refresh`, and `path` verify the actual root before reporting success; `path` opens the system file manager. The initial replica readiness requirement remains in force: a pending account mirror must not be presented as a ready drive. See [the SDK Android instructions](../../../SDK/iiSocietyContainer/platform/android/README.md).\n"
     },
     {
-      "id": "b000018",
+      "id": "b000020",
       "kind": "blank",
       "start_line": 22,
       "end_line": 22,
       "raw": "\n"
     },
     {
-      "id": "b000019",
+      "id": "b000021",
       "kind": "paragraph",
       "start_line": 23,
       "end_line": 23,
-      "raw": "Android uses the official DocumentsProvider integration, not a kernel block-device mount or drive letter. The provider accesses app-private storage and exposes only Files-relative document IDs. `register`, `refresh`, and `path` verify the actual root before reporting success; `path` opens the system file manager. The initial replica readiness requirement remains in force: a pending account mirror must not be presented as a ready drive. See [the SDK Android instructions](../../../SDK/iiSocietyContainer/platform/android/README.md).\n"
+      "raw": "Validation is separated into compilation, host regression tests, and optional target execution. `tests/native_mount.py` checks an actual Windows/Linux mount, Files-only CRUD, Windows removable-volume recognition, reconnect, unmount/remount, and original manifest preservation. Android `ProviderInstrumentation` verifies connection identity, provider root, public operations, and process restart. Target-device execution can be omitted without presenting compilation as runtime proof.\n"
     },
     {
-      "id": "b000020",
+      "id": "b000022",
       "kind": "blank",
       "start_line": 24,
       "end_line": 24,
       "raw": "\n"
     },
     {
-      "id": "b000021",
+      "id": "b000023",
       "kind": "paragraph",
       "start_line": 25,
       "end_line": 25,
-      "raw": "Validation is separated into compilation, host regression tests, and optional target execution. `tests/native_mount.py` checks an actual Windows/Linux mount, Files-only CRUD, Windows removable-volume recognition, reconnect, unmount/remount, and original manifest preservation. Android `ProviderInstrumentation` verifies connection identity, provider root, public operations, and process restart. Target-device execution can be omitted without presenting compilation as runtime proof.\n"
+      "raw": "`tests/drive_compile` compiles the production `DriveController.cpp` with the selected target Qt toolchain, without creating or launching an application. Configure it below `build/`, set `SOCIETY_ACCOUNT_INCLUDE` to installed account headers, and select the Windows or Android CMake toolchain. This validates platform-specific dispatch and native APIs separately from a complete Society package and its other SDK dependencies.\n"
     },
     {
-      "id": "b000022",
+      "id": "b000024",
       "kind": "blank",
       "start_line": 26,
       "end_line": 26,
       "raw": "\n"
     },
     {
-      "id": "b000023",
+      "id": "b000025",
       "kind": "paragraph",
       "start_line": 27,
       "end_line": 27,
-      "raw": "`tests/drive_compile` compiles the production `DriveController.cpp` with the selected target Qt toolchain, without creating or launching an application. Configure it below `build/`, set `SOCIETY_ACCOUNT_INCLUDE` to installed account headers, and select the Windows or Android CMake toolchain. This validates platform-specific dispatch and native APIs separately from a complete Society package and its other SDK dependencies.\n"
+      "raw": "Society's stored source, state, cache and service registry/lock data live beneath the selected package. macOS 27 creates and manages its FSKit mount namespace under `/Volumes/` through the signed host's public mounting API; it stores no additional source data there. The macOS 26 and Linux backing directories are inside `.society-runtime/`. OS extension registration, startup registration and the small shared locator remain OS integration metadata. The app does not manage an ordinary external data directory or restore an old disk image.\n"
     },
     {
-      "id": "b000024",
+      "id": "b000026",
       "kind": "blank",
       "start_line": 28,
       "end_line": 28,
       "raw": "\n"
     },
     {
-      "id": "b000025",
+      "id": "b000027",
       "kind": "paragraph",
       "start_line": 29,
       "end_line": 29,
-      "raw": "Society's stored source, state, cache and service registry/lock data live beneath the selected package. macOS 27 creates and manages its FSKit mount namespace under `/Volumes/` through the signed host's public mounting API; it stores no additional source data there. The macOS 26 and Linux backing directories are inside `.society-runtime/`. OS extension registration, startup registration and the small shared locator remain OS integration metadata. The app does not manage an ordinary external data directory or restore an old disk image.\n"
-    },
-    {
-      "id": "b000026",
-      "kind": "blank",
-      "start_line": 30,
-      "end_line": 30,
-      "raw": "\n"
-    },
-    {
-      "id": "b000027",
-      "kind": "paragraph",
-      "start_line": 31,
-      "end_line": 31,
       "raw": "Product test processes explicitly set `SOCIETY_DISABLE_NATIVE_DRIVE=1`. They exercise valid package storage without registering or mounting disposable fixtures on the user’s computer. The dedicated SDK native integration and installed-app validation run separately with that override removed.\n"
     }
   ],
@@ -250,28 +245,28 @@
     "directive_candidates": [
       {
         "block_id": "b000007",
-        "line": 11,
+        "line": 9,
         "text": "데스크톱의 디스크 활성화와 재연결은 Society 백엔드 데몬의 작업자만 수행한다. 앱은 선택한 컨테이너에 대한 데몬 상태를 비동기로 구독하고 `Reconnect` 또는 `Refresh` 요청을 전달한다. 앱이 마운트 실행 파일이나 파일시스템 호스트를 직접 실행하지 않는다. 데몬이 연결되지 않았거나 다른 컨테이너·UUID를 보고하면 이전 시스템 경로를 지우며, 실제 원본 폴더를 마운트된 디스크로 표시하지 않는다. 검증된 시스템 경로는 `Open in Finder` 또는 `Open in File Explorer`에서 열 수 있다. iOS와 Android의 시스템 파일 제공자 연결은 각 모바일 플랫폼에서 계속 처리한다.",
         "basis": "lexical_match",
         "context": "paragraph"
       },
       {
         "block_id": "b000013",
-        "line": 17,
+        "line": 15,
         "text": "`SOCIETY_NATIVE_DRIVE_BUNDLE`은 macOS 백엔드 작업자가 사용하는 설치된 네이티브 호스트를 지정한다. 기본값은 선택된 iiSocietyContainer SDK의 호스트이며, 임시 SDK 스테이징을 사용해 빌드할 때는 앱 패키징 전에 실제 설치 호스트를 지정해야 한다.",
         "basis": "lexical_match",
         "context": "paragraph"
       },
       {
         "block_id": "b000015",
-        "line": 19,
+        "line": 17,
         "text": "On macOS, a correctly signed and registered FSKit module must also be enabled by the user. In **System Settings → General → Login Items & Extensions → Extensions → By Category → File System Extensions**, enable Society. If the module is disabled, macOS can reject mounting with `Operation not permitted`; the backend reports the failure and retries after the setting is enabled. The Society mount is a separate `societyfs` filesystem volume in Finder, backed by the existing `Files/` directory; it is not a block device or an additional copy of the data.",
         "basis": "lexical_match",
         "context": "paragraph"
       },
       {
         "block_id": "b000019",
-        "line": 23,
+        "line": 21,
         "text": "Android uses the official DocumentsProvider integration, not a kernel block-device mount or drive letter. The provider accesses app-private storage and exposes only Files-relative document IDs. `register`, `refresh`, and `path` verify the actual root before reporting success; `path` opens the system file manager. The initial replica readiness requirement remains in force: a pending account mirror must not be presented as a ready drive. See [the SDK Android instructions](../../../SDK/iiSocietyContainer/platform/android/README.md).",
         "basis": "lexical_match",
         "context": "paragraph"
@@ -284,43 +279,17 @@
         "label": "the SDK desktop instructions",
         "target": "../../../SDK/iiSocietyContainer/platform/desktop/README.md",
         "kind": "relative",
-        "line": 21
+        "line": 19
       },
       {
         "block_id": "b000019",
         "label": "the SDK Android instructions",
         "target": "../../../SDK/iiSocietyContainer/platform/android/README.md",
         "kind": "relative",
-        "line": 23
+        "line": 21
       }
     ],
-    "tables": [
-      {
-        "block_id": "b000005",
-        "columns": [
-          "Platform",
-          "System connection",
-          "Success check"
-        ],
-        "rows": [
-          [
-            "macOS 26+",
-            "FSKit volume named Society",
-            "Native result and `QStorageInfo` identify `societyfs` at the mounted root"
-          ],
-          [
-            "Windows",
-            "Dokan 2 removable drive named Society, using a free letter starting at S:",
-            "Windows reports the Society label, filesystem name, and original UUID-derived serial; `QStorageInfo` identifies the returned drive root"
-          ],
-          [
-            "Android 9+",
-            "Society root in system Files and Storage Access Framework pickers",
-            "The installed DocumentsProvider returns the selected UUID and its public root document"
-          ]
-        ]
-      }
-    ]
+    "tables": []
   },
   "provenance": {
     "generator": "workspace-docs",

@@ -80,19 +80,17 @@ Society 데스크톱의 **Tools → Model merge**는 iiLocalDiffusion의 설치�
 
 ## 노출하는 입력
 
-| 화면 | SDK 입력 | 동작 |
-| --- | --- | --- |
-|기본 모델(A)| `--base-model` | Models 드롭다운에서 단일 전체 체크포인트 파일 선택 |
-|자재 1…N| 반복 `--additional-model` | Models 드롭다운에서 필수 첫 재료와 추가 체크포인트·LoRA 선택 |
-|통합| `--mode unified` |아키텍처별 체크포인트 및 LoRA 라우팅을 사용하여 정렬된 이미지 개선|
-|가중합 / 가중차| `--mode` | 호환 가중치의 합·차, 기본값은 합 |
-|공통 레이어| `--checkpoint-policy common-layer` | 같은 생태계의 다른 저장 레이아웃을 베이스 텐서 좌표계로 축별 재표본화하며 누락 스케줄은 베이스 값 유지 |
-|리소스별 가중치| `--weights`에 N개 | 각 재료 카드의 유한한 0 이상 실수를 화면 순서대로 전달 |
-|모델 이름/| `--output` |에 저장 새로운 `.iildmodel` 패키지(통합) 또는 `.safetensors` 파일(가중 산술)|
-|변환 캐시| `--cache-dir` | 레거시 체크포인트 변환 캐시 경로 |
-|입력 검사(선택 사항)| `--inspect` | 구조·예정 투영·LoRA 대상과 강도를 JSON으로 표시하며 병합을 차단하지 않음 |
-|iiLocalDiffusion 실행 파일| 실행 프로그램 | 설치된 `iild-merge` 자동 탐색 또는 직접 지정 |
-|Python 실행 파일| `IILD_PYTHON_EXECUTABLE` | 선택적 Python 실행 파일. 비우면 SDK의 기본 환경 사용 |
+- 화면: 기본 모델(A); SDK 입력: `--base-model`; 동작: Models 드롭다운에서 단일 전체 체크포인트 파일 선택
+- 화면: 자재 1…N; SDK 입력: 반복 `--additional-model`; 동작: Models 드롭다운에서 필수 첫 재료와 추가 체크포인트·LoRA 선택
+- 화면: 통합; SDK 입력: `--mode unified`; 동작: 아키텍처별 체크포인트 및 LoRA 라우팅을 사용하여 정렬된 이미지 개선
+- 화면: 가중합 / 가중차; SDK 입력: `--mode`; 동작: 호환 가중치의 합·차, 기본값은 합
+- 화면: 공통 레이어; SDK 입력: `--checkpoint-policy common-layer`; 동작: 같은 생태계의 다른 저장 레이아웃을 베이스 텐서 좌표계로 축별 재표본화하며 누락 스케줄은 베이스 값 유지
+- 화면: 리소스별 가중치; SDK 입력: `--weights`에 N개; 동작: 각 재료 카드의 유한한 0 이상 실수를 화면 순서대로 전달
+- 화면: 모델 이름/; SDK 입력: `--output`; 동작: 에 저장 새로운 `.iildmodel` 패키지(통합) 또는 `.safetensors` 파일(가중 산술)
+- 화면: 변환 캐시; SDK 입력: `--cache-dir`; 동작: 레거시 체크포인트 변환 캐시 경로
+- 화면: 입력 검사(선택 사항); SDK 입력: `--inspect`; 동작: 구조·예정 투영·LoRA 대상과 강도를 JSON으로 표시하며 병합을 차단하지 않음
+- 화면: iiLocalDiffusion 실행 파일; SDK 입력: 실행 프로그램; 동작: 설치된 `iild-merge` 자동 탐색 또는 직접 지정
+- 화면: Python 실행 파일; SDK 입력: `IILD_PYTHON_EXECUTABLE`; 동작: 선택적 Python 실행 파일. 비우면 SDK의 기본 환경 사용
 
 가중치는 유한한 0 이상의 수이며 소수와 과학적 표기법을 지원한다. Per-model에서는 모든 재료의 가중치가 필요하다. `NaN`, 무한대, 음수와 쉼표를 포함하는 숫자는 거부한다. LoRA 강도와 차 방식 가중치를 임의로 1 이하로 제한하지 않는다.
 

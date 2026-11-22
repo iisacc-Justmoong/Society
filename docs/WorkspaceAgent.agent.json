@@ -10,9 +10,9 @@
   },
   "source": {
     "path": "docs/WorkspaceAgent.md",
-    "sha256": "b28e4c0f97cfc2ede57c61b1755870b756648159095a41a92013e53e6afc73c2",
-    "bytes": 13078,
-    "line_count": 190,
+    "sha256": "a5b4f382a7315f439628debc474f9a1c6871a54a1d37b8d66b1c29d8eb963e44",
+    "bytes": 15837,
+    "line_count": 233,
     "encoding": "utf-8",
     "language": "en"
   },
@@ -32,231 +32,303 @@
       "title": "Workspace agent"
     },
     {
-      "id": "b000024",
+      "id": "b000002",
       "kind": "blank",
-      "raw": "\n",
       "start_line": 2,
-      "end_line": 2
+      "end_line": 2,
+      "raw": "\n"
     },
     {
-      "id": "b000025",
+      "id": "b000003",
       "kind": "heading",
+      "start_line": 3,
+      "end_line": 3,
       "raw": "## Shared iisaccson residency\n",
       "level": 2,
-      "title": "Shared iisaccson residency",
-      "start_line": 3,
-      "end_line": 3
+      "title": "Shared iisaccson residency"
     },
     {
-      "id": "b000026",
+      "id": "b000004",
       "kind": "blank",
-      "raw": "\n",
       "start_line": 4,
-      "end_line": 4
+      "end_line": 4,
+      "raw": "\n"
     },
     {
-      "id": "b000027",
+      "id": "b000005",
       "kind": "paragraph",
-      "raw": "For the selected Society drive, the daemon prepares and actually loads iisaccson\nin the background, then pins the loaded model for the daemon's lifetime or until\nthe drive changes. Package readiness is distinct from runtime residency. A\nloading or load-error state is reported explicitly. On a drive change or daemon\nshutdown, in-flight app requests are cancelled and the old runtime is released.\nApplications use the same-user daemon endpoint for independent, bounded,\nstateless requests; responses and cancellation are scoped to the originating\nconnection and request. A client does not receive the shared Society workspace\ntranscript. No model weights are sent to clients. Readiness changes are events,\nnot a reason to poll. Absence, unsupported models and memory limits are errors,\nnot claims that inference is ready.\nPending stream events are bounded; a client that cannot keep up has its own\nrequest cancelled and receives a terminal error rather than causing unbounded\ndaemon memory growth.\n",
       "start_line": 5,
-      "end_line": 18
+      "end_line": 18,
+      "raw": "For the selected Society drive, the daemon prepares and actually loads iisaccson\nin the background, then pins the loaded model for the daemon's lifetime or until\nthe drive changes. Package readiness is distinct from runtime residency. A\nloading or load-error state is reported explicitly. On a drive change or daemon\nshutdown, in-flight app requests are cancelled and the old runtime is released.\nApplications use the same-user daemon endpoint for independent, bounded,\nstateless requests; responses and cancellation are scoped to the originating\nconnection and request. A client does not receive the shared Society workspace\ntranscript. No model weights are sent to clients. Readiness changes are events,\nnot a reason to poll. Absence, unsupported models and memory limits are errors,\nnot claims that inference is ready.\nPending stream events are bounded; a client that cannot keep up has its own\nrequest cancelled and receives a terminal error rather than causing unbounded\ndaemon memory growth.\n"
     },
     {
-      "id": "b000002",
+      "id": "b000006",
       "kind": "blank",
       "start_line": 19,
       "end_line": 19,
       "raw": "\n"
     },
     {
-      "id": "b000003",
+      "id": "b000007",
       "kind": "paragraph",
       "start_line": 20,
       "end_line": 27,
       "raw": "The Workspace agent panel is a client of the Society background service. The\nservice owns local model discovery and iiMultimodalAgent sessions; closing the\nwindow does not cancel an accepted conversation. Model loading and generation\nmust never run on the UI or backend event loop. The user chooses a registered\nchat model before submitting a message. A model identifier is a catalog entry,\nnot a content hash or an inferred file identity. Catalog discovery alone does\nnot mean that inference is ready: the daemon separately prepares, loads and\npins the iisaccson runtime in its background worker.\n"
     },
     {
-      "id": "b000004",
+      "id": "b000008",
       "kind": "blank",
       "start_line": 28,
       "end_line": 28,
       "raw": "\n"
     },
     {
-      "id": "b000005",
+      "id": "b000009",
       "kind": "paragraph",
       "start_line": 29,
       "end_line": 51,
       "raw": "The panel displays the current conversation, generation state, and failures. A\nnew conversation starts a distinct session and stopping an active run requests\ncancellation. A failed or disconnected submission must not silently discard\nthe draft. Snapshot and event messages must not be broadcast to unrelated\nclients. Replies from an older run must not overwrite a newer session.\nAn accepted message waits for model preparation and loading instead of being\ndiscarded; the snapshot distinguishes queued preparation, residency, routing,\ngeneration, cancellation and failures. An empty completion is a retryable\nfailure, not an answer. A streamed answer remains valid when the terminal\nevent has no final text. The client keeps this status visible above the\ntranscript while preserving the composer and cancellation controls.\nStale preparation events from a cancelled model selection cannot fail or\noverwrite a newer request after the user selects that model again.\nWhen iiLocalLLM reports insufficient available memory, the daemon waits and\nretries admission after memory increases, with a periodic retry even when a\nchange cannot be measured. It does not bypass memory or integrity checks. Stopping a queued\nrequest removes it without cancelling other clients' shared model preparation.\nOther load failures are reported with their reason and can be retried after the\nunderlying condition is corrected. The shared service retains one KV context:\nits scheduler executes one inference at a time, and other sessions may rebuild\ntheir context when needed.\nThe client also fences requests by container-selection generation and uses a\nfresh subscription token after each selection, including an A → B → A switch.\n"
     },
     {
-      "id": "b000006",
+      "id": "b000010",
       "kind": "blank",
       "start_line": 52,
       "end_line": 52,
       "raw": "\n"
     },
     {
-      "id": "b000007",
+      "id": "b000011",
       "kind": "paragraph",
       "start_line": 53,
       "end_line": 63,
       "raw": "The selected default is included as a routing preference, not a forced model;\niiDecision can still select another eligible route for a particular turn.\nChanging the default retains the current conversation and its session history.\n`society-cli agent status|new|cancel`, `agent select MODEL_ID`, and\n`agent send --stdin [--attach FILE]... [--container DIR]` access the same background session; `send` acknowledges\nsubmission and `status` reads its latest snapshot. The Python `Client` exposes\nthe corresponding `agent_*` methods. The daemon MCP server offers\n`workspace_agent_status`, `workspace_agent_send`, `workspace_agent_new` and\n`workspace_agent_cancel`, plus `workspace_agent_select` to set a default\nwithout disabling automatic routing. A lost acknowledgement is uncertain and is not\nautomatically retried. CLI prompts travel through stdin instead of arguments.\n"
     },
     {
-      "id": "b000008",
+      "id": "b000012",
       "kind": "blank",
       "start_line": 64,
       "end_line": 64,
       "raw": "\n"
     },
     {
-      "id": "b000009",
-      "kind": "paragraph",
-      "start_line": 65,
-      "end_line": 79,
-      "raw": "The adapter supports text conversation and selected Society tools. The daemon\nprovides bounded directory and resource inspection, file jobs, model imports,\ntheir status and connected-window navigation; it captures the selected container for the session. Mutating\nactions require approval for the exact tool and arguments through the existing\nquestion interface. A job acknowledgement is not completion. See\n[Workspace agent tool contract](WorkspaceAgentTools.md) for scope and failure\nbehavior. The caller may explicitly attach Society Files items; the daemon\ncaptures supported bounded content and passes it to iiMultimodalAgent. The\nPython `agent_send` method accepts an optional attachment list and the MCP\n`workspace_agent_send` tool accepts an `attachments` array. Attachment format,\nsize, staging and transcript retention are described in [Native Workspace](NativeWorkspace.md).\nThis does not grant the agent general file-content editing or read access.\nRuntime failures and unsupported model formats are reported rather\nthan represented as answers. The model instruction cannot guarantee that a\nmodel will never make an incorrect claim.\n"
-    },
-    {
-      "id": "b000010",
-      "kind": "blank",
-      "start_line": 80,
-      "end_line": 80,
-      "raw": "\n"
-    },
-    {
-      "id": "b000011",
-      "kind": "paragraph",
-      "start_line": 81,
-      "end_line": 99,
-      "raw": "The inference runtime is iiLocalLLM; iiMultimodalAgent owns the session and run\norchestration. iisaccson is the preferred conversational entry point; model\nselection and escalation are decided dynamically through iiDecision. Asimov is\nan additional reasoning route, not a model invoked on a fixed schedule.\niiDecision remains enabled. With no host assessment policy, the user-approved\nbootstrap asks iisaccson for relative success, gain, loss and cost estimates\nfor the available text routes. These are explicitly labelled **uncalibrated\nmodel estimates** in the interface; they are not measurements or verified\nfacts. The same selected-route estimate is used for the user-requested text\ninference admission. It does not grant a tool, filesystem or external action.\nMissing, malformed, cancelled or ineligible estimates defer or fail explicitly.\nThe same decision gate evaluates each proposed tool using separate uncalibrated\nestimates; this evaluation does not grant approval for changes.\nRouting considers a bounded excerpt of the current request, at most four recent bounded messages,\nand each candidate's package-reported architecture and size where available.\nThose package descriptions remain unverified claims until component validation;\nthe estimated cost is not a live measurement of time, energy or memory.\nThe panel retains a bounded recent snapshot, while the agent transcript is\nstored by iiMultimodalAgent.\n"
-    },
-    {
-      "id": "b000012",
-      "kind": "blank",
-      "start_line": 100,
-      "end_line": 100,
-      "raw": "\n"
-    },
-    {
       "id": "b000013",
-      "kind": "paragraph",
-      "start_line": 101,
-      "end_line": 109,
-      "raw": "An operator can instead provide a private `agent/decision.json` under the\nselected container's Society runtime state. Its schema is the iiMultimodalAgent\n`decisionOptionsFromJson` format, with host-assessed `run` and\n`model:iisaccson` / `model:asimov` profiles, plus profiles or assessments for\nthe actual tool names when tools are used. The adapter retains the SDK's\nthresholds and reloads the assessments at each decision; policy threshold\nchanges take effect when the backend reconnects to the container. The container\nowns this file; neither the chat message nor model output can edit it. No\nsample probabilities or outcome values are installed as facts.\n"
+      "kind": "heading",
+      "start_line": 65,
+      "end_line": 65,
+      "raw": "## Space agent sessions\n",
+      "level": 2,
+      "title": "Space agent sessions"
     },
     {
       "id": "b000014",
       "kind": "blank",
-      "start_line": 110,
-      "end_line": 110,
+      "start_line": 66,
+      "end_line": 66,
       "raw": "\n"
     },
     {
       "id": "b000015",
       "kind": "paragraph",
-      "start_line": 111,
-      "end_line": 128,
-      "raw": "Models must be verified iiLocalLLM catalog packages with chat support; a Society\nmodel storage file is not automatically such a package. In particular, the\nAsimov package contains a draft component, a language model and a projector,\nand its legacy roles do not uniquely identify the language model. The adapter\nselects an unambiguous language component from its manifest and verifies it\nbefore loading; discovery alone does not prove that inference will succeed.\nThe Asimov route uses its embedded Nemotron text model only; its LiLiCorr\ndraft model and multimodal projector are not attached by this adapter.\nCatalog and session data are private runtime state, not files displayed\nin Society Files. The packaging SDK materializes the selected embedded\nlanguage-model component by its verified package path, without reconstructing\nunrelated components. This can require additional free space and take time;\ncancellation removes the adapter's own temporary files. iiLocalLLM rechecks the retained\ncomponent before loading it. The source Society model remains unchanged. The\ndigest in an internal inference-package URI identifies cached bytes; it is not\nthe logical Society resource ID or evidence that distinct resources are equal.\nThe reconstructed text-model manifest currently limits the inference context\nto 2,048 tokens; longer conversations can hit the runtime context limit.\n"
+      "start_line": 67,
+      "end_line": 74,
+      "raw": "Space uses the same daemon, model scheduler, decision policy and Society tool\npermissions as Workspace, but each Space session has its own persistent\niiMultimodalAgent transcript. Space transcripts are stored separately from\nWorkspace transcripts under the container's private runtime state. The\n`SpaceStore` graph retains the binding, and a bounded excerpt of its saved ideas\nis sent as untrusted context. Only one Workspace or Space run occupies the\nshared runtime at a time. Session and container generations and subscription\ntokens prevent late events from being displayed in another session.\n"
     },
     {
       "id": "b000016",
       "kind": "blank",
-      "start_line": 129,
-      "end_line": 129,
+      "start_line": 75,
+      "end_line": 75,
       "raw": "\n"
     },
     {
       "id": "b000017",
       "kind": "paragraph",
-      "start_line": 130,
-      "end_line": 140,
-      "raw": "The daemon records the app-selected model through iiSocietyContainer's private\nmodel cache and restores that preference when the same resource and revision\nare still available. iisaccson remains the default and the model used for\nuncalibrated routing assessments. Selecting another preference does not disable\niiDecision or force every request to that model. The selected package is prepared\non the agent worker before it is requested; the GUI and container file workers\ndo not perform the conversion. Changing the selection or container cancels the\nprevious preparation. The agent snapshot reports cache state, progress, reuse and\nerrors. The selected cache is queued before separate resident model loading.\nCache preparation does not run inference. The separate resident state\nreports whether iiLocalLLM actually loaded and pinned the weights.\n"
+      "start_line": 76,
+      "end_line": 87,
+      "raw": "The user may select up to eight local text documents or photos for a Space turn,\nincluding files outside Society Files. The daemon snapshots the selected files;\nit does not modify their originals. Supported text is UTF-8 and limited to 32 KiB\nper document. Supported photos are PNG, JPEG, BMP or GIF; WAV, MP3 and FLAC\nattachments also require a model that supports audio input. The combined prepared\nattachments are limited to 512 KiB and each selected source is limited to 32 MiB.\nWhen needed to share that budget, photos are decoded, reduced to at most 1280\npixels per side, and compressed as JPEG. Unsupported, changed or\noversize files produce a visible error. Encoded attachment contents become part\nof the private agent transcript, so earlier media can also consume the model's\ninput limit on later turns. This explicit Space selection does not expand the\nWorkspace attachment scope.\n"
     },
     {
       "id": "b000018",
       "kind": "blank",
-      "start_line": 141,
-      "end_line": 141,
+      "start_line": 88,
+      "end_line": 88,
       "raw": "\n"
     },
     {
       "id": "b000019",
       "kind": "paragraph",
-      "start_line": 142,
-      "end_line": 148,
-      "raw": "The cache retains the existing private `agent/models` catalog so installed model\nentries are not lost. A valid prepared component is reused without extracting it\nagain. The original Society model is never moved or replaced. A provider resource\nID is used when available; otherwise the reference is explicitly path-scoped and\nis not treated as a stable resource identity. iiLocalLLM still verifies model\ncontents before loading, and a cache on the same device does not guarantee faster\nphysical reads. No automatic cache eviction or storage limit is currently set.\n"
+      "start_line": 89,
+      "end_line": 97,
+      "raw": "Image analysis requires a chat model package with a verified projector and an\n`image` or `vision` capability in its catalog manifest. The runtime still checks\nthat the projector supports vision. The reconstructed iisaccson and Asimov\nroutes currently provide text only; if no eligible image route is available,\nthe request fails or is deferred rather than silently omitting the photo.\nReasoning profiles bound generation and agent turns: `low` is 128 tokens / 4\nturns, `standard` 256 / 8, and `high` 512 / 16. These limits do not guarantee\nanswer quality. Voice input and its platform availability are documented in\n[Space discovery view](GraphNodes.md#space-discovery-view).\n"
     },
     {
       "id": "b000020",
       "kind": "blank",
-      "start_line": 149,
-      "end_line": 149,
+      "start_line": 98,
+      "end_line": 98,
       "raw": "\n"
     },
     {
       "id": "b000021",
       "kind": "paragraph",
-      "start_line": 150,
-      "end_line": 155,
-      "raw": "Building the workspace agent requires an iiSocietyContainer SDK that exports\n`iiSocietyContainer_HAS_MODEL_CACHE`; use matching headers and libraries from\nthe rebuilt SDK. A successful local build does not update an installed app.\nThe iiLocalLLM runtime must also include the layer-aware GGUF KV reservation\nfix to avoid over-reserving iisaccson's per-layer head arrays. Older runtimes\nretain the conservative fallback and may continue waiting for more memory.\n"
+      "start_line": 99,
+      "end_line": 106,
+      "raw": "The same session API is available to local automation through\n`society-cli space status|cancel --session ID`, and\n`society-cli space send --stdin --session ID [--attach FILE]... [--effort low|standard|high] [--container DIR]`.\nStatus and cancel also accept `--container DIR`. Python exposes `space_status`,\n`space_send` and `space_cancel`; daemon MCP exposes `space_agent_status`,\n`space_agent_send` and `space_agent_cancel`. An accepted send acknowledges\nsubmission, not completion. If acknowledgement is lost, inspect the session\nbefore deciding whether to retry.\n"
     },
     {
       "id": "b000022",
       "kind": "blank",
-      "start_line": 156,
-      "end_line": 156,
+      "start_line": 107,
+      "end_line": 107,
       "raw": "\n"
     },
     {
       "id": "b000023",
       "kind": "paragraph",
-      "start_line": 157,
-      "end_line": 163,
-      "raw": "A ready cache has an initialized inference-service delegate, but does not\nestablish successful runtime loading. The resident status reports that result.\nIf the model cannot be loaded, the daemon reports the error; preparation itself\ndoes not run inference. On desktop Windows and Linux the backend requires the\nmatching iiLocalDiffusion model-packaging, iiMultimodalAgent and iiLocalLLM SDK\npackages. Their native build and runtime behavior must be verified separately.\nThe local desktop broker is not a mobile background-service implementation.\n"
+      "start_line": 108,
+      "end_line": 122,
+      "raw": "The adapter supports text conversation and selected Society tools. The daemon\nprovides bounded directory and resource inspection, file jobs, model imports,\ntheir status and connected-window navigation; it captures the selected container for the session. Mutating\nactions require approval for the exact tool and arguments through the existing\nquestion interface. A job acknowledgement is not completion. See\n[Workspace agent tool contract](WorkspaceAgentTools.md) for scope and failure\nbehavior. The caller may explicitly attach Society Files items; the daemon\ncaptures supported bounded content and passes it to iiMultimodalAgent. The\nPython `agent_send` method accepts an optional attachment list and the MCP\n`workspace_agent_send` tool accepts an `attachments` array. Attachment format,\nsize, staging and transcript retention are described in [Native Workspace](NativeWorkspace.md).\nThis does not grant the agent general file-content editing or read access.\nRuntime failures and unsupported model formats are reported rather\nthan represented as answers. The model instruction cannot guarantee that a\nmodel will never make an incorrect claim.\n"
+    },
+    {
+      "id": "b000024",
+      "kind": "blank",
+      "start_line": 123,
+      "end_line": 123,
+      "raw": "\n"
+    },
+    {
+      "id": "b000025",
+      "kind": "paragraph",
+      "start_line": 124,
+      "end_line": 142,
+      "raw": "The inference runtime is iiLocalLLM; iiMultimodalAgent owns the session and run\norchestration. iisaccson is the preferred conversational entry point; model\nselection and escalation are decided dynamically through iiDecision. Asimov is\nan additional reasoning route, not a model invoked on a fixed schedule.\niiDecision remains enabled. With no host assessment policy, the user-approved\nbootstrap asks iisaccson for relative success, gain, loss and cost estimates\nfor the available text routes. These are explicitly labelled **uncalibrated\nmodel estimates** in the interface; they are not measurements or verified\nfacts. The same selected-route estimate is used for the user-requested text\ninference admission. It does not grant a tool, filesystem or external action.\nMissing, malformed, cancelled or ineligible estimates defer or fail explicitly.\nThe same decision gate evaluates each proposed tool using separate uncalibrated\nestimates; this evaluation does not grant approval for changes.\nRouting considers a bounded excerpt of the current request, at most four recent bounded messages,\nand each candidate's package-reported architecture and size where available.\nThose package descriptions remain unverified claims until component validation;\nthe estimated cost is not a live measurement of time, energy or memory.\nThe panel retains a bounded recent snapshot, while the agent transcript is\nstored by iiMultimodalAgent.\n"
+    },
+    {
+      "id": "b000026",
+      "kind": "blank",
+      "start_line": 143,
+      "end_line": 143,
+      "raw": "\n"
+    },
+    {
+      "id": "b000027",
+      "kind": "paragraph",
+      "start_line": 144,
+      "end_line": 152,
+      "raw": "An operator can instead provide a private `agent/decision.json` under the\nselected container's Society runtime state. Its schema is the iiMultimodalAgent\n`decisionOptionsFromJson` format, with host-assessed `run` and\n`model:iisaccson` / `model:asimov` profiles, plus profiles or assessments for\nthe actual tool names when tools are used. The adapter retains the SDK's\nthresholds and reloads the assessments at each decision; policy threshold\nchanges take effect when the backend reconnects to the container. The container\nowns this file; neither the chat message nor model output can edit it. No\nsample probabilities or outcome values are installed as facts.\n"
     },
     {
       "id": "b000028",
       "kind": "blank",
-      "start_line": 164,
-      "end_line": 164,
+      "start_line": 153,
+      "end_line": 153,
       "raw": "\n"
     },
     {
       "id": "b000029",
       "kind": "paragraph",
-      "start_line": 165,
-      "end_line": 172,
-      "raw": "The daemon reacts to Society model-import, organization and recategorization\nevents affecting `iisaccson.safetensors`. A background metadata check keeps\nthe current loaded model when the component digest is unchanged. A new or\nunavailable component reinitializes the selected drive agent and cancels its\nin-flight requests; an import can also retry an earlier load failure. Society\nretains the workspace conversation and its persisted session when the same\ndrive is refreshed. Interrupted workspace responses remain visible and retryable.\nArbitrary external filesystem changes are not observed by this import-event path.\n"
+      "start_line": 154,
+      "end_line": 171,
+      "raw": "Models must be verified iiLocalLLM catalog packages with chat support; a Society\nmodel storage file is not automatically such a package. In particular, the\nAsimov package contains a draft component, a language model and a projector,\nand its legacy roles do not uniquely identify the language model. The adapter\nselects an unambiguous language component from its manifest and verifies it\nbefore loading; discovery alone does not prove that inference will succeed.\nThe Asimov route uses its embedded Nemotron text model only; its LiLiCorr\ndraft model and multimodal projector are not attached by this adapter.\nCatalog and session data are private runtime state, not files displayed\nin Society Files. The packaging SDK materializes the selected embedded\nlanguage-model component by its verified package path, without reconstructing\nunrelated components. This can require additional free space and take time;\ncancellation removes the adapter's own temporary files. iiLocalLLM rechecks the retained\ncomponent before loading it. The source Society model remains unchanged. The\ndigest in an internal inference-package URI identifies cached bytes; it is not\nthe logical Society resource ID or evidence that distinct resources are equal.\nThe reconstructed text-model manifest currently limits the inference context\nto 2,048 tokens; longer conversations can hit the runtime context limit.\n"
     },
     {
       "id": "b000030",
       "kind": "blank",
-      "start_line": 173,
-      "end_line": 173,
+      "start_line": 172,
+      "end_line": 172,
       "raw": "\n"
     },
     {
       "id": "b000031",
-      "kind": "heading",
-      "start_line": 174,
-      "end_line": 174,
-      "raw": "### Per-device llama execution policy\n",
-      "level": 3,
-      "title": "Per-device llama execution policy"
+      "kind": "paragraph",
+      "start_line": 173,
+      "end_line": 183,
+      "raw": "The daemon records the app-selected model through iiSocietyContainer's private\nmodel cache and restores that preference when the same resource and revision\nare still available. iisaccson remains the default and the model used for\nuncalibrated routing assessments. Selecting another preference does not disable\niiDecision or force every request to that model. The selected package is prepared\non the agent worker before it is requested; the GUI and container file workers\ndo not perform the conversion. Changing the selection or container cancels the\nprevious preparation. The agent snapshot reports cache state, progress, reuse and\nerrors. The selected cache is queued before separate resident model loading.\nCache preparation does not run inference. The separate resident state\nreports whether iiLocalLLM actually loaded and pinned the weights.\n"
     },
     {
       "id": "b000032",
       "kind": "blank",
-      "start_line": 175,
-      "end_line": 175,
+      "start_line": 184,
+      "end_line": 184,
       "raw": "\n"
     },
     {
       "id": "b000033",
       "kind": "paragraph",
-      "start_line": 176,
-      "end_line": 190,
+      "start_line": 185,
+      "end_line": 191,
+      "raw": "The cache retains the existing private `agent/models` catalog so installed model\nentries are not lost. A valid prepared component is reused without extracting it\nagain. The original Society model is never moved or replaced. A provider resource\nID is used when available; otherwise the reference is explicitly path-scoped and\nis not treated as a stable resource identity. iiLocalLLM still verifies model\ncontents before loading, and a cache on the same device does not guarantee faster\nphysical reads. No automatic cache eviction or storage limit is currently set.\n"
+    },
+    {
+      "id": "b000034",
+      "kind": "blank",
+      "start_line": 192,
+      "end_line": 192,
+      "raw": "\n"
+    },
+    {
+      "id": "b000035",
+      "kind": "paragraph",
+      "start_line": 193,
+      "end_line": 198,
+      "raw": "Building the workspace agent requires an iiSocietyContainer SDK that exports\n`iiSocietyContainer_HAS_MODEL_CACHE`; use matching headers and libraries from\nthe rebuilt SDK. A successful local build does not update an installed app.\nThe iiLocalLLM runtime must also include the layer-aware GGUF KV reservation\nfix to avoid over-reserving iisaccson's per-layer head arrays. Older runtimes\nretain the conservative fallback and may continue waiting for more memory.\n"
+    },
+    {
+      "id": "b000036",
+      "kind": "blank",
+      "start_line": 199,
+      "end_line": 199,
+      "raw": "\n"
+    },
+    {
+      "id": "b000037",
+      "kind": "paragraph",
+      "start_line": 200,
+      "end_line": 206,
+      "raw": "A ready cache has an initialized inference-service delegate, but does not\nestablish successful runtime loading. The resident status reports that result.\nIf the model cannot be loaded, the daemon reports the error; preparation itself\ndoes not run inference. On desktop Windows and Linux the backend requires the\nmatching iiLocalDiffusion model-packaging, iiMultimodalAgent and iiLocalLLM SDK\npackages. Their native build and runtime behavior must be verified separately.\nThe local desktop broker is not a mobile background-service implementation.\n"
+    },
+    {
+      "id": "b000038",
+      "kind": "blank",
+      "start_line": 207,
+      "end_line": 207,
+      "raw": "\n"
+    },
+    {
+      "id": "b000039",
+      "kind": "paragraph",
+      "start_line": 208,
+      "end_line": 215,
+      "raw": "The daemon reacts to Society model-import, organization and recategorization\nevents affecting `iisaccson.safetensors`. A background metadata check keeps\nthe current loaded model when the component digest is unchanged. A new or\nunavailable component reinitializes the selected drive agent and cancels its\nin-flight requests; an import can also retry an earlier load failure. Society\nretains the workspace conversation and its persisted session when the same\ndrive is refreshed. Interrupted workspace responses remain visible and retryable.\nArbitrary external filesystem changes are not observed by this import-event path.\n"
+    },
+    {
+      "id": "b000040",
+      "kind": "blank",
+      "start_line": 216,
+      "end_line": 216,
+      "raw": "\n"
+    },
+    {
+      "id": "b000041",
+      "kind": "heading",
+      "start_line": 217,
+      "end_line": 217,
+      "raw": "### Per-device llama execution policy\n",
+      "level": 3,
+      "title": "Per-device llama execution policy"
+    },
+    {
+      "id": "b000042",
+      "kind": "blank",
+      "start_line": 218,
+      "end_line": 218,
+      "raw": "\n"
+    },
+    {
+      "id": "b000043",
+      "kind": "paragraph",
+      "start_line": 219,
+      "end_line": 233,
       "raw": "The backend optionally reads `iisacc/Society/agent-runtime.json` from the\nplatform's per-user generic configuration directory when creating its local\ninference service. The optional `llama.maxGpuLayers` integer is `-1` for\nautomatic device selection, `0` for CPU, or a positive GPU layer limit. If the\nfile or field is absent, the existing automatic policy remains unchanged. An\nunreadable, malformed, or invalid policy is reported as a preparation error.\nFor example, `{\"llama\":{\"maxGpuLayers\":0}}` selects CPU for this device.\nThe policy belongs to this device and user, not to the Society container or a\nmodel manifest. It changes neither model routing nor the memory and integrity\nchecks. Restart the backend after changing it. CPU execution is a recovery\noption when the native GPU runtime cannot complete a request; it can be slower.\nWhen this policy explicitly selects CPU, the resident model disables llama.cpp's\noptional CPU weight repacking. This keeps the existing mapped weights instead of\ncreating a second, eagerly repacked copy. Other execution policies keep their\nexisting defaults; CPU token generation may be slower without the optimized copy.\n"
     }
   ],
@@ -270,7 +342,7 @@
       "start_line": 1
     },
     {
-      "block_id": "b000025",
+      "block_id": "b000003",
       "parent_id": "b000001",
       "level": 2,
       "title": "Shared iisaccson residency",
@@ -278,62 +350,105 @@
       "start_line": 3
     },
     {
-      "block_id": "b000031",
-      "parent_id": "b000025",
+      "block_id": "b000013",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "Space agent sessions",
+      "anchor": "space-agent-sessions",
+      "start_line": 65
+    },
+    {
+      "block_id": "b000041",
+      "parent_id": "b000013",
       "level": 3,
       "title": "Per-device llama execution policy",
       "anchor": "per-device-llama-execution-policy",
-      "start_line": 174
+      "start_line": 217
     }
   ],
   "indexes": {
     "directive_candidates": [
       {
-        "block_id": "b000003",
+        "block_id": "b000007",
         "line": 23,
         "text": "must never run on the UI or backend event loop. The user chooses a registered",
         "basis": "lexical_match",
         "context": "paragraph"
       },
       {
-        "block_id": "b000005",
+        "block_id": "b000009",
         "line": 31,
         "text": "cancellation. A failed or disconnected submission must not silently discard",
         "basis": "lexical_match",
         "context": "paragraph"
       },
       {
-        "block_id": "b000005",
+        "block_id": "b000009",
         "line": 32,
         "text": "the draft. Snapshot and event messages must not be broadcast to unrelated",
         "basis": "lexical_match",
         "context": "paragraph"
       },
       {
-        "block_id": "b000005",
+        "block_id": "b000009",
         "line": 33,
         "text": "clients. Replies from an older run must not overwrite a newer session.",
         "basis": "lexical_match",
         "context": "paragraph"
       },
       {
-        "block_id": "b000009",
-        "line": 79,
+        "block_id": "b000019",
+        "line": 95,
+        "text": "turns, `standard` 256 / 8, and `high` 512 / 16. These limits do not guarantee",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000023",
+        "line": 122,
         "text": "model will never make an incorrect claim.",
         "basis": "lexical_match",
         "context": "paragraph"
       },
       {
-        "block_id": "b000015",
-        "line": 111,
+        "block_id": "b000029",
+        "line": 154,
         "text": "Models must be verified iiLocalLLM catalog packages with chat support; a Society",
         "basis": "lexical_match",
         "context": "paragraph"
       },
       {
-        "block_id": "b000015",
-        "line": 114,
+        "block_id": "b000029",
+        "line": 157,
         "text": "and its legacy roles do not uniquely identify the language model. The adapter",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000031",
+        "line": 179,
+        "text": "do not perform the conversion. Changing the selection or container cancels the",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000033",
+        "line": 187,
+        "text": "again. The original Society model is never moved or replaced. A provider resource",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000035",
+        "line": 196,
+        "text": "The iiLocalLLM runtime must also include the layer-aware GGUF KV reservation",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000037",
+        "line": 205,
+        "text": "packages. Their native build and runtime behavior must be verified separately.",
         "basis": "lexical_match",
         "context": "paragraph"
       }
@@ -341,24 +456,31 @@
     "commands": [],
     "links": [
       {
-        "block_id": "b000009",
+        "block_id": "b000019",
+        "label": "Space discovery view",
+        "target": "GraphNodes.md#space-discovery-view",
+        "kind": "relative",
+        "line": 97
+      },
+      {
+        "block_id": "b000023",
         "label": "Workspace agent tool contract",
         "target": "WorkspaceAgentTools.md",
         "kind": "relative",
-        "line": 70
+        "line": 113
       },
       {
-        "block_id": "b000009",
+        "block_id": "b000023",
         "label": "Native Workspace",
         "target": "NativeWorkspace.md",
         "kind": "relative",
-        "line": 75
+        "line": 118
       }
     ],
     "tables": []
   },
   "provenance": {
-    "generator": "manual-lossless-update",
+    "generator": "workspace-docs",
     "version": "1.0.0",
     "profile": "lossless-blocks-v1",
     "derived": true

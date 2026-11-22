@@ -27,7 +27,9 @@ int main(int argc, char **argv)
             "       society-cli [--broker DIR] recent status|refresh\n"
             "       society-cli [--broker DIR] resource inspect Files/PATH|Models/PATH [--container DIR]\n"
             "       society-cli [--broker DIR] agent send --stdin [--attach FILE]... [--container DIR]\n"
-            "       society-cli [--broker DIR] agent select MODEL_ID\n";
+            "       society-cli [--broker DIR] agent select MODEL_ID\n"
+            "       society-cli [--broker DIR] space status|cancel --session ID [--container DIR]\n"
+            "       society-cli [--broker DIR] space send --stdin --session ID [--attach FILE]... [--effort low|standard|high] [--container DIR]\n";
         return 0;
     }
     auto broker=qEnvironmentVariable("SOCIETY_LOCAL_BROKER_DIR",QDir::homePath()+"/.iisacc-society-ipc-v1");
@@ -66,6 +68,33 @@ int main(int argc, char **argv)
             }
             parameters.insert("attachments",attachments);
         } else return fail("Invalid agent command.");
+    } else if (args.size()>=2 && args.at(0)=="space") {
+        const auto command=args.at(1);
+        if (command=="status") operation="spaceSubscribe";
+        else if (command=="send") operation="spaceSend";
+        else if (command=="cancel") operation="spaceCancel";
+        else return fail("Invalid Space command.");
+        args.erase(args.begin(),args.begin()+2);
+        QString session,effort="standard"; QJsonArray attachments;
+        bool sawInput=false,sawSession=false,sawEffort=false,sawContainer=false;
+        while (!args.isEmpty()) {
+            const auto key=args.takeFirst();
+            if (key=="--stdin" && command=="send" && !sawInput) { sawInput=true; continue; }
+            if (args.isEmpty()) return fail("An option value is missing.");
+            const auto value=args.takeFirst();
+            if (key=="--session" && !sawSession && !value.isEmpty()) { session=value; sawSession=true; }
+            else if (key=="--effort" && command=="send" && !sawEffort && (value=="low" || value=="standard" || value=="high")) { effort=value; sawEffort=true; }
+            else if (key=="--attach" && command=="send" && !value.isEmpty() && attachments.size()<8) attachments.append(value);
+            else if (key=="--container" && !sawContainer && QDir::isAbsolutePath(value)) { expected=value; sawContainer=true; }
+            else return fail("Invalid Space option.");
+        }
+        if (!sawSession || (command=="send" && !sawInput)) return fail("A Space session and message are required.");
+        parameters.insert("spaceId",session);
+        if (command=="send") {
+            QTextStream input(stdin); const auto prompt=input.read(16385);
+            if (prompt.size()>16384 || !input.atEnd()) return fail("The agent message exceeds 16 KiB.");
+            parameters.insert("prompt",prompt); parameters.insert("attachments",attachments); parameters.insert("effort",effort);
+        }
     } else if (args.size()>=3 && args.at(0)=="file-job") {
         const auto command=args.at(1);
         if (command=="submit" && args.size()>=4) {
@@ -89,7 +118,9 @@ int main(int argc, char **argv)
             return fail("The expected Society container must be an absolute path.");
         if (sawArgument) parameters.insert("argument",argument);
     } else return fail("Invalid command. Use --help for usage.");
-    const auto result=societyBackendCommand(broker,operation,parameters,expected,operation=="resourceInspect"?30000:10000);
+    const auto result=operation.startsWith("space")
+        ? societySpaceCommand(broker,operation,parameters,expected,10000)
+        : societyBackendCommand(broker,operation,parameters,expected,operation=="resourceInspect"?30000:10000);
     auto response=result.response;
     if (!result.ok()) { response.insert("accepted",false); response.insert("error",result.error); response.insert("uncertain",result.uncertain); }
     QTextStream(stdout) << QJsonDocument(response).toJson(QJsonDocument::Compact) << Qt::endl;

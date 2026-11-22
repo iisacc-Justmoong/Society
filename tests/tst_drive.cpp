@@ -10,6 +10,7 @@
 #include <QNetworkProxy>
 #include "Society/Drive/StorageNavigation.h"
 #include "Society/Native/NativeNavigationSurface.h"
+#include "Society/Space/NativeSpaceSurface.h"
 #include "Society/Native/LegacyNavigationBridge.h"
 #include "Society/Notifications/NotificationCenter.h"
 #include "Society/Dashboard/DashboardFiles.h"
@@ -28,6 +29,7 @@
 #include "backend/runtime/appbootstrap.h"
 
 #include <QDir>
+#include <QFileInfo>
 #include <QAbstractItemModel>
 #include <QColor>
 #include <QFile>
@@ -3723,7 +3725,7 @@ Window {
         QTRY_COMPARE(tools->property("activeTool").toString(), QString("model-merge"));
 
         QVERIFY(clickNavigationSegment(window, 0));
-        QTRY_COMPARE(window->property("selectedTab").toString(), QString("Environment"));
+        QTRY_COMPARE(window->property("selectedTab").toString(), QString("Dashboard"));
         QTRY_VERIFY(!accessible->state().selected);
         tabs->focusAccessibleItem(1);
         QTest::keyClick(window, Qt::Key_Space);
@@ -3731,6 +3733,36 @@ Window {
         QCOMPARE(window->findChild<QQuickItem *>("toolsView"), tools);
         QCOMPARE(tools->property("activeTool").toString(), QString("model-merge"));
         QTRY_VERIFY(accessible->state().selected);
+        window->close();
+    }
+
+    void spaceSegmentOpensContainerAndRestoresTab()
+    {
+        QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/space-navigation-XXXXXX.societycontainer");
+        QVERIFY(fixture.isValid());
+        QVERIFY(iiSocietyContainer::SocietyDrive::create(fixture.path()));
+        QQmlApplicationEngine engine;
+        engine.addImageProvider(QStringLiteral("society-preview"), new iiSocietyContainer::PreviewProvider);
+        engine.addImportPath(QString::fromUtf8(SOCIETY_LVRS_QML_IMPORT_PATH));
+        engine.setInitialProperties({{"initialContainerPath", fixture.path()}, {"width", 1440}, {"height", 900}});
+        loadSociety(engine);
+        QCOMPARE(engine.rootObjects().size(), 1);
+        auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first()); QVERIFY(window);
+        QVERIFY(QTest::qWaitForWindowExposed(window));
+        auto *drive = window->findChild<DriveController *>("driveController"); QVERIFY(drive);
+        auto *tabs = window->findChild<NativeNavigationSurface *>("dashboardTabs"); QVERIFY(tabs);
+        QTRY_VERIFY(drive->contentsAvailable());
+        QTRY_COMPARE(window->property("selectedTab").toString(), QString("Dashboard"));
+        QVERIFY(clickNavigationSegment(window, 3));
+        NativeSpaceSurface *space = nullptr;
+        QTRY_VERIFY((space = window->findChild<NativeSpaceSurface *>("nativeSpaceSurface")) && space->isVisible());
+        QVERIFY2(space->ready(), qPrintable(space->errorString()));
+        QTRY_VERIFY(QFileInfo::exists(QDir(drive->rootPath()).filePath("Space/spaces.sqlite3")));
+        QTRY_COMPARE(tabs->currentPage(), QString("Space"));
+        QVERIFY(clickNavigationSegment(window, 0));
+        QTRY_VERIFY(!space->isVisible());
+        QTRY_COMPARE(tabs->currentPage(), QString("Dashboard"));
+        QTRY_COMPARE(window->property("selectedTab").toString(), QString("Dashboard"));
         window->close();
     }
 
@@ -3802,12 +3834,12 @@ Window {
             QTest::mouseClick(window, Qt::LeftButton, Qt::NoModifier,
                 item->mapToScene(item->boundingRect().center()).toPoint());
         };
-        const QStringList labels{"Environment", "Tasks", "Library", "Space", "Browse", "People", "Hosting"};
+        const QStringList labels{"Workspace", "Tasks", "Library", "Space", "Browse", "People", "Hosting"};
         for (int index = 0; index < labels.size(); ++index) {
             auto *button = segments->child(index); QVERIFY(button);
             QCOMPARE(button->text(QAccessible::Name), labels[index]);
         }
-        for (const auto &[index, page] : QList<QPair<int, QString>>{{0, "Environment"}, {2, "Storage"}, {4, "Browse"}}) {
+        for (const auto &[index, page] : QList<QPair<int, QString>>{{0, "Dashboard"}, {2, "Storage"}, {4, "Browse"}}) {
             QVERIFY(clickNavigationSegment(window, index));
             QTRY_COMPARE(window->property("selectedTab").toString(), page);
             if (page == "Storage" || page == "Environment")
@@ -3829,12 +3861,22 @@ Window {
         QTRY_COMPARE(window->property("selectedTab").toString(), QString("Tools"));
         auto *legacy = window->findChild<QQuickItem *>("legacyNavigationSegments");
         QVERIFY(legacy && !legacy->isVisible() && !legacy->isEnabled());
-        for (int index : {3, 5}) {
-            QVERIFY(clickNavigationSegment(window, index));
-            QTRY_VERIFY(notice->property("open").toBool());
-            QCOMPARE(window->property("selectedTab").toString(), QString("Tools"));
-            QVERIFY(notice->setProperty("open", false));
-        }
+        QVERIFY(clickNavigationSegment(window, 3));
+        NativeSpaceSurface *space = nullptr;
+        QTRY_VERIFY((space = window->findChild<NativeSpaceSurface *>("nativeSpaceSurface")) && space->isVisible());
+        QVERIFY2(space->ready(), qPrintable(space->errorString()));
+        QTRY_VERIFY(drive->contentsAvailable());
+        QTRY_VERIFY(QFileInfo::exists(QDir(drive->rootPath()).filePath("Space/spaces.sqlite3")));
+        QTRY_VERIFY(segments->child(3)->state().selected);
+        QVERIFY(!notice->property("open").toBool());
+        QCOMPARE(window->property("selectedTab").toString(), QString("Tools"));
+        QVERIFY(clickNavigationSegment(window, 1));
+        QTRY_VERIFY(!space->isVisible());
+        QTRY_VERIFY(segments->child(1)->state().selected);
+        QVERIFY(clickNavigationSegment(window, 5));
+        QTRY_VERIFY(notice->property("open").toBool());
+        QCOMPARE(window->property("selectedTab").toString(), QString("Tools"));
+        QVERIFY(notice->setProperty("open", false));
         QVERIFY(clickNavigationSegment(window, 6));
         QTRY_COMPARE(window->property("selectedTab").toString(), QString("Environment"));
         QTRY_VERIFY(segments->child(6)->state().selected);
@@ -3847,11 +3889,8 @@ Window {
         QVERIFY(QMetaObject::invokeMethod(environment, "showDevices"));
         QTRY_VERIFY(segments->child(0)->state().selected);
         QVERIFY(clickNavigationSegment(window, 0));
-        QTRY_COMPARE(environment->property("page").toString(), QString("Overview"));
-        QQuickItem *society = nullptr;
-        QTRY_VERIFY((society = visualItem(environment, "environmentLaunch-society")));
-        click(society);
         QTRY_COMPARE(window->property("selectedTab").toString(), QString("Dashboard"));
+        QTRY_VERIFY(segments->child(0)->state().selected);
         QSignalSpy moves(window, SIGNAL(windowMoveAttempted(bool))); QVERIFY(moves.isValid());
         click(search); QTest::keyClick(window, Qt::Key_Q);
         QTRY_COMPARE(window->property("selectedTab").toString(), QString("Dashboard"));

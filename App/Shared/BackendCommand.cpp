@@ -7,8 +7,10 @@
 #include <QJsonDocument>
 #include <QJsonParseError>
 #include <QLocalSocket>
+#include <QThread>
 #include <QUuid>
 #include <QtEndian>
+#include <utility>
 
 #if defined(Q_OS_UNIX)
 #include <sys/socket.h>
@@ -88,6 +90,7 @@ SocietyBackendCommandReply societyBackendCommand(const QString &brokerDirectory,
         || (operation != "status" && operation != "fileOperation" && operation != "fileJobStatus"
             && operation != "import" && operation != "agentSubscribe" && operation != "agentSend"
             && operation != "agentSelect" && operation != "agentNew" && operation != "agentCancel"
+            && operation != "spaceSubscribe" && operation != "spaceSend" && operation != "spaceCancel"
             && operation != "suggestedSubscribe" && operation != "suggestedRefresh"
             && operation != "recentSubscribe" && operation != "recentRefresh" && operation != "resourceInspect")
         || arguments.contains("id") || arguments.contains("op") || arguments.contains("container"))
@@ -114,7 +117,8 @@ SocietyBackendCommandReply societyBackendCommand(const QString &brokerDirectory,
     QByteArray frame(4, '\0'); qToBigEndian(quint32(body.size()), frame.data()); frame += body;
     const auto sent = socket.write(frame);
     const bool uncertain = (operation == "fileOperation" || operation == "import" || operation == "agentSend"
-                            || operation == "agentSelect" || operation == "agentNew" || operation == "agentCancel") && sent > 0;
+                            || operation == "agentSelect" || operation == "agentNew" || operation == "agentCancel"
+                            || operation == "spaceSend" || operation == "spaceCancel") && sent > 0;
     if (sent != frame.size()) return fail(QStringLiteral("Could not send the Society request."), uncertain);
     if (socket.bytesToWrite() && !socket.waitForBytesWritten(remaining(timer, timeoutMs)))
         return fail(QStringLiteral("The Society request may not have been delivered."), uncertain);
@@ -127,6 +131,27 @@ SocietyBackendCommandReply societyBackendCommand(const QString &brokerDirectory,
         return reply;
     }
     return fail(QStringLiteral("The Society backend did not respond."), uncertain);
+}
+
+SocietyBackendCommandReply societySpaceCommand(const QString &brokerDirectory,const QString &operation,
+                                               QJsonObject arguments,const QString &expectedContainer,int timeoutMs)
+{
+    if (operation!="spaceSubscribe" && operation!="spaceSend" && operation!="spaceCancel")
+        return {{},QStringLiteral("Invalid Space command."),false};
+    if (operation!="spaceSend") return societyBackendCommand(brokerDirectory,operation,std::move(arguments),expectedContainer,timeoutMs);
+    QElapsedTimer timer; timer.start();
+    while (remaining(timer,timeoutMs)>0) {
+        const auto state=societyBackendCommand(brokerDirectory,"spaceSubscribe",{{"spaceId",arguments.value("spaceId")}},
+                                               expectedContainer,qMin(remaining(timer,timeoutMs),2000));
+        if (!state.ok()) return state;
+        if (state.response.value("space").toObject().value("loaded").toBool()) {
+            const auto budget=remaining(timer,timeoutMs);
+            if (budget<=0) break;
+            return societyBackendCommand(brokerDirectory,operation,std::move(arguments),expectedContainer,budget);
+        }
+        QThread::msleep(100);
+    }
+    return {{},QStringLiteral("The Space conversation did not become ready."),false};
 }
 
 SocietyBackendCommandReply societyBackendDirectoryPage(const QString &brokerDirectory, const QString &path,

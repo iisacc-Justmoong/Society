@@ -2,16 +2,14 @@
 
 데스크톱의 `SocietyView`·`Dashboard`·`ToolsView`·`StorageView`를 iOS와 Android에서도 그대로 사용한다. 모바일 기본 화면은 Dashboard이다. 화면 인스턴스를 유지하여 탭 전환이나 회전으로 프롬프트·대시보드 검색·모델 병합 설정을 초기화하지 않는다. 화면 회전은 현재 폴더도 유지하지만, Storage 탭을 누르면 Files 최상위 폴더를 바로 연다. Overview 영역 그리드는 제공하지 않는다. `DashboardFiles`는 플랫폼과 관계없이 준비된 컨테이너를 읽으며, 초기 동기화가 끝나기 전에는 미완료 드라이브를 검색하지 않는다.
 
-| 영역 | 760 px 미만 모바일 | 넓은 모바일 화면 / 데스크톱 |
-| --- | --- | --- |
-| 주요 탐색 | LVRS MobileTabBar: Home·Tools·Storage·Browse·Environment 순서. iOS 70 px / Android 64 px + 외부 안전 영역 | 기존 상단 세그먼트 |
-| 검색·계정 | 상단 52 px 바 안의 22×22 px 아이콘 버튼, 검색 입력 높이 22 px | 가로 상단 세그먼트·검색 22 px, Avatar 40 px |
-| 사이드바 | 상단 탐색 버튼으로 Workspace 또는 Storage 시트 열기 | 기존 사이드바 표시 |
-|대시보드| 16 px 본문 여백, 22 px 제목 행, 140×160 px 파일 카드 | 24 px 본문 여백과 같은 컨트롤·카드 크기 |
-|도구| 모델 병합 카드 → 작업 화면. 한 열 카드, All tools·가장자리 뒤로 가기 | 모델 병합 카드 하나, 검색·작업 화면 |
-|Storage| Files로 바로 진입하고 탐색 시트로 영역 선택. 가장자리 뒤로 이동 지원. Up·breadcrumb 표시줄 없음 | Files로 바로 진입하고 사이드바로 영역 선택. Up·breadcrumb 표시줄 없음 |
-| Storage 작업 | 앱 상단 바의 Storage actions 버튼에서 작업 시트 열기 | 넓은 모바일도 앱 상단 바, 데스크톱은 기존 가져오기·OS 연결 영역 |
-|환경| Overview·Devices·Apps와 네 개 앱 컬렉션 탭 | 같은 페이지와 좌측 탐색·우측 계정 패널 |
+- 영역: 주요 탐색; 760 px 미만 모바일: LVRS MobileTabBar: Home·Tools·Storage·Browse·Environment 순서. iOS 70 px / Android 64 px + 외부 안전 영역; 넓은 모바일 화면 / 데스크톱: 기존 상단 세그먼트
+- 영역: 검색·계정; 760 px 미만 모바일: 상단 52 px 바 안의 22×22 px 아이콘 버튼, 검색 입력 높이 22 px; 넓은 모바일 화면 / 데스크톱: 가로 상단 세그먼트·검색 22 px, Avatar 40 px
+- 영역: 사이드바; 760 px 미만 모바일: 상단 탐색 버튼으로 Workspace 또는 Storage 시트 열기; 넓은 모바일 화면 / 데스크톱: 기존 사이드바 표시
+- 영역: 대시보드; 760 px 미만 모바일: 16 px 본문 여백, 22 px 제목 행, 140×160 px 파일 카드; 넓은 모바일 화면 / 데스크톱: 24 px 본문 여백과 같은 컨트롤·카드 크기
+- 영역: 도구; 760 px 미만 모바일: 모델 병합 카드 → 작업 화면. 한 열 카드, All tools·가장자리 뒤로 가기; 넓은 모바일 화면 / 데스크톱: 모델 병합 카드 하나, 검색·작업 화면
+- 영역: Storage; 760 px 미만 모바일: Files로 바로 진입하고 탐색 시트로 영역 선택. 가장자리 뒤로 이동 지원. Up·breadcrumb 표시줄 없음; 넓은 모바일 화면 / 데스크톱: Files로 바로 진입하고 사이드바로 영역 선택. Up·breadcrumb 표시줄 없음
+- 영역: Storage 작업; 760 px 미만 모바일: 앱 상단 바의 Storage actions 버튼에서 작업 시트 열기; 넓은 모바일 화면 / 데스크톱: 넓은 모바일도 앱 상단 바, 데스크톱은 기존 가져오기·OS 연결 영역
+- 영역: 환경; 760 px 미만 모바일: Overview·Devices·Apps와 네 개 앱 컬렉션 탭; 넓은 모바일 화면 / 데스크톱: 같은 페이지와 좌측 탐색·우측 계정 패널
 
 하단바는 LVRS의 `MobileTabBar`를 사용한다. iOS에서는 떠 있는 캡슐, Android에서는 Material 3의 활성 표시와 아이콘·레이블 배치를 적용한다. QML 기반 플랫폼 형태이며 UIKit/Android Views 자체를 삽입하지 않는다. `autoSelect: false`와 `selectedTab`에서 계산한 `currentIndex`로 선택 바인딩을 유지한다. Browse와 Environment는 독립된 페이지를 선택한다. 환경설정은 Preferences 메뉴 또는 Hosting settings를 통해 연다.
 

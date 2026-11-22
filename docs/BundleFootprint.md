@@ -28,11 +28,9 @@ The optimized arm64 Release application installed on 2026-10-15 contains
 363,557,012 file bytes (346.71 MiB) in 4,068 files. This saves 630.40 MiB, or
 64.52 percent of the previous bundle. File count falls by 59.01 percent.
 
-| Area | Before | After |
-| --- | ---: | ---: |
-| Entire application | 977.12 MiB | 346.71 MiB |
-| Native frameworks and libraries | 681.38 MiB | 290.39 MiB |
-| Filesystem QML runtime | 243.14 MiB | 6.21 MiB |
+- Area: Entire application; Before: 977.12 MiB; After: 346.71 MiB
+- Area: Native frameworks and libraries; Before: 681.38 MiB; After: 290.39 MiB
+- Area: Filesystem QML runtime; Before: 243.14 MiB; After: 6.21 MiB
 
 The remaining large components include native image generation (53.26 MiB),
 the Society executable (36.25 MiB), LVRS with embedded resources (35.21 MiB),

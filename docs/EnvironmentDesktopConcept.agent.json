@@ -10,9 +10,9 @@
   },
   "source": {
     "path": "docs/EnvironmentDesktopConcept.md",
-    "sha256": "bda3503c73d5d59d56a7c144c069b3dd6c95d2830fc3158e30452c260f81ab50",
-    "bytes": 4573,
-    "line_count": 46,
+    "sha256": "da559ad38c1fee5924fe105d39acd48e5cadbb52b48c77c7331d60b56314f84c",
+    "bytes": 4609,
+    "line_count": 44,
     "encoding": "utf-8",
     "language": "ko"
   },
@@ -98,50 +98,45 @@
     },
     {
       "id": "b000011",
-      "kind": "table",
       "start_line": 11,
-      "end_line": 16,
-      "raw": "| 화면 | 역할 | Figma |\n| --- | --- | --- |\n|장치 및 호스팅| 기기 4대의 상태, 기본 호스트, 이 기기의 설치 앱을 요약하고 상세 화면으로 이동한다. | [관리 개요](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=169-2308) |\n|Devices| 기기 카드와 선택 기기의 역할·호스트·앱·자동 동기화 정보를 함께 표시한다. | [디바이스](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=169-2349) |\n|Hosting| 기본 호스트, 컨테이너, 로컬 연결·자체 서버, 연결된 클라이언트와 동기화 상태를 표시한다. | [호스팅 정보](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=169-2390) |\n|Apps| 선택 기기의 설치 앱, 업데이트 가능 앱, 설치 가능한 앱, 설치 진행 영역과 앱 상세 정보를 표시한다. | [앱 목록](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=169-2431) |\n",
-      "columns": [
-        "화면",
-        "역할",
-        "Figma"
-      ],
-      "rows": [
-        [
-          "장치 및 호스팅",
-          "기기 4대의 상태, 기본 호스트, 이 기기의 설치 앱을 요약하고 상세 화면으로 이동한다.",
-          "[관리 개요](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=169-2308)"
-        ],
-        [
-          "Devices",
-          "기기 카드와 선택 기기의 역할·호스트·앱·자동 동기화 정보를 함께 표시한다.",
-          "[디바이스](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=169-2349)"
-        ],
-        [
-          "Hosting",
-          "기본 호스트, 컨테이너, 로컬 연결·자체 서버, 연결된 클라이언트와 동기화 상태를 표시한다.",
-          "[호스팅 정보](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=169-2390)"
-        ],
-        [
-          "Apps",
-          "선택 기기의 설치 앱, 업데이트 가능 앱, 설치 가능한 앱, 설치 진행 영역과 앱 상세 정보를 표시한다.",
-          "[앱 목록](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=169-2431)"
-        ]
+      "end_line": 14,
+      "raw": "- 화면: 장치 및 호스팅; 역할: 기기 4대의 상태, 기본 호스트, 이 기기의 설치 앱을 요약하고 상세 화면으로 이동한다.; Figma: [관리 개요](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=169-2308)\n- 화면: Devices; 역할: 기기 카드와 선택 기기의 역할·호스트·앱·자동 동기화 정보를 함께 표시한다.; Figma: [디바이스](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=169-2349)\n- 화면: Hosting; 역할: 기본 호스트, 컨테이너, 로컬 연결·자체 서버, 연결된 클라이언트와 동기화 상태를 표시한다.; Figma: [호스팅 정보](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=169-2390)\n- 화면: Apps; 역할: 선택 기기의 설치 앱, 업데이트 가능 앱, 설치 가능한 앱, 설치 진행 영역과 앱 상세 정보를 표시한다.; Figma: [앱 목록](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=169-2431)\n",
+      "kind": "list",
+      "items": [
+        {
+          "marker": "-",
+          "text": "화면: 장치 및 호스팅; 역할: 기기 4대의 상태, 기본 호스트, 이 기기의 설치 앱을 요약하고 상세 화면으로 이동한다.; Figma: [관리 개요](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=169-2308)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "화면: Devices; 역할: 기기 카드와 선택 기기의 역할·호스트·앱·자동 동기화 정보를 함께 표시한다.; Figma: [디바이스](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=169-2349)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "화면: Hosting; 역할: 기본 호스트, 컨테이너, 로컬 연결·자체 서버, 연결된 클라이언트와 동기화 상태를 표시한다.; Figma: [호스팅 정보](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=169-2390)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "화면: Apps; 역할: 선택 기기의 설치 앱, 업데이트 가능 앱, 설치 가능한 앱, 설치 진행 영역과 앱 상세 정보를 표시한다.; Figma: [앱 목록](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=169-2431)",
+          "checked": null
+        }
       ]
     },
     {
       "id": "b000012",
       "kind": "blank",
-      "start_line": 17,
-      "end_line": 17,
+      "start_line": 15,
+      "end_line": 15,
       "raw": "\n"
     },
     {
       "id": "b000013",
       "kind": "heading",
-      "start_line": 18,
-      "end_line": 18,
+      "start_line": 16,
+      "end_line": 16,
       "raw": "## 정보와 기능\n",
       "level": 2,
       "title": "정보와 기능"
@@ -149,15 +144,15 @@
     {
       "id": "b000014",
       "kind": "blank",
-      "start_line": 19,
-      "end_line": 19,
+      "start_line": 17,
+      "end_line": 17,
       "raw": "\n"
     },
     {
       "id": "b000015",
       "kind": "list",
-      "start_line": 20,
-      "end_line": 29,
+      "start_line": 18,
+      "end_line": 27,
       "raw": "- 공통 탐색은 Overview, Devices, Hosting, Apps이다. 기존 상단 Dashboard → Tools → Storage → Browse → Environment 순서를 유지한다.\n- 같은 iisacc 계정의 기기를 관리한다. 데스크톱은 호스트·클라이언트 역할을 가질 수 있으며 모바일은 클라이언트이다.\n- 예시의 현재 기기는 MacBook Pro 클라이언트, 기본 호스트는 Studio Mac이다. iPad는 온라인 클라이언트, iPhone은 오프라인 클라이언트로 표시한다.\n- 기기 카드의 용량은 사용량/전체 용량과 남은 용량을 수치로 표시한다. 오프라인 기기는 마지막 확인 시각을 표시한다.\n- 호스팅 정보는 Society 컨테이너를 제공하는 호스트를 대상으로 한다. 로컬 네트워크 연결과 자체 호스팅 서버 경로를 함께 표시한다.\n- 예시 서버 주소는 `wss://studio.example.com/society`이다. 실제 운영 주소가 아니다.\n- 앱 목록은 선택한 기기를 기준으로 한다. Society와 Dreamscapes는 설치됨, Dreamscapes는 업데이트 가능, Congregation은 설치 가능 상태의 예시이다.\n- 앱 검색, 기기 선택, 설치, 실행, 업데이트 확인, 자동 업데이트, 제거와 진행 목록을 관리 기능으로 정의하였다. 이 설치 관리 기능들은 이번 시안의 제안이며 구현 완료를 뜻하지 않는다.\n- 프로토타입은 네 화면 사이의 이동을 제공한다. 검색·설치·업데이트·연결 설정 변경을 실행하지 않는다.\n- 모든 기기명, 용량, 연결 상태, 동기화 시각과 앱 상태는 설명용 데이터이다.\n",
       "items": [
         {
@@ -215,15 +210,15 @@
     {
       "id": "b000016",
       "kind": "blank",
-      "start_line": 30,
-      "end_line": 30,
+      "start_line": 28,
+      "end_line": 28,
       "raw": "\n"
     },
     {
       "id": "b000017",
       "kind": "heading",
-      "start_line": 31,
-      "end_line": 31,
+      "start_line": 29,
+      "end_line": 29,
       "raw": "## 구성\n",
       "level": 2,
       "title": "구성"
@@ -231,15 +226,15 @@
     {
       "id": "b000018",
       "kind": "blank",
-      "start_line": 32,
-      "end_line": 32,
+      "start_line": 30,
+      "end_line": 30,
       "raw": "\n"
     },
     {
       "id": "b000019",
       "kind": "list",
-      "start_line": 33,
-      "end_line": 38,
+      "start_line": 31,
+      "end_line": 36,
       "raw": "- 네 화면 모두 1440 × 900이다.\n- 도구 모음 높이 56, 사이드바 너비 220, 본문 여백 24이다.\n- 상세 화면은 가변 너비의 주 영역과 400 너비의 우측 상세 영역으로 구성한다.\n- LVRS 원본 Device 카드, ListItem Navigation/Action/Toggle, PushButton, DropdownButton, TextField, LabelSegmentedControl과 아이콘을 인스턴스로 재사용한다.\n- Pretendard 및 LVRS 입력의 기존 SF Pro 시스템 기호를 유지한다. 강조색은 Society의 녹색이며, 색상·간격·모서리·텍스트 스타일을 기존 라이브러리에 연결하였다.\n- 기존 Dashboard, Tools, Storage의 캔버스는 변경하지 않았다. Environment 페이지에는 요청한 네 화면만 추가하였다.\n",
       "items": [
         {
@@ -277,15 +272,15 @@
     {
       "id": "b000020",
       "kind": "blank",
-      "start_line": 39,
-      "end_line": 39,
+      "start_line": 37,
+      "end_line": 37,
       "raw": "\n"
     },
     {
       "id": "b000021",
       "kind": "heading",
-      "start_line": 40,
-      "end_line": 40,
+      "start_line": 38,
+      "end_line": 38,
       "raw": "## 근거와 검증\n",
       "level": 2,
       "title": "근거와 검증"
@@ -293,43 +288,43 @@
     {
       "id": "b000022",
       "kind": "blank",
-      "start_line": 41,
-      "end_line": 41,
+      "start_line": 39,
+      "end_line": 39,
       "raw": "\n"
     },
     {
       "id": "b000023",
       "kind": "paragraph",
-      "start_line": 42,
-      "end_line": 42,
+      "start_line": 40,
+      "end_line": 40,
       "raw": "현행 `docs/SelfHosting.md`, `docs/Preferences.md`, `docs/Dashboard.md`, `README.md` 및 기존 Society / LVRS Figma 원본을 확인하였다. 현재 앱의 Environment는 설정 진입점이므로, 이 네 페이지는 후속 구현을 위한 새 화면 구성안이다.\n"
     },
     {
       "id": "b000024",
+      "kind": "blank",
+      "start_line": 41,
+      "end_line": 41,
+      "raw": "\n"
+    },
+    {
+      "id": "b000025",
+      "kind": "paragraph",
+      "start_line": 42,
+      "end_line": 42,
+      "raw": "1440 및 1280 너비에서 네 화면의 자동 배치를 검사하였다. 보이는 요소의 부모 영역 초과, 잘못된 글꼴, 미치환 예시 레이블, 검은색 텍스트 오류, 남은 작업 표시가 모두 0개이다. 화면 이동 40개의 목적지가 유효함을 확인하였다. 전체 화면과 주요 상세 영역의 렌더링을 확인하였다.\n"
+    },
+    {
+      "id": "b000026",
       "kind": "blank",
       "start_line": 43,
       "end_line": 43,
       "raw": "\n"
     },
     {
-      "id": "b000025",
+      "id": "b000027",
       "kind": "paragraph",
       "start_line": 44,
       "end_line": 44,
-      "raw": "1440 및 1280 너비에서 네 화면의 자동 배치를 검사하였다. 보이는 요소의 부모 영역 초과, 잘못된 글꼴, 미치환 예시 레이블, 검은색 텍스트 오류, 남은 작업 표시가 모두 0개이다. 화면 이동 40개의 목적지가 유효함을 확인하였다. 전체 화면과 주요 상세 영역의 렌더링을 확인하였다.\n"
-    },
-    {
-      "id": "b000026",
-      "kind": "blank",
-      "start_line": 45,
-      "end_line": 45,
-      "raw": "\n"
-    },
-    {
-      "id": "b000027",
-      "kind": "paragraph",
-      "start_line": 46,
-      "end_line": 46,
       "raw": "상태와 검증 기록은 `build/figma-environment/state.json`에 저장하였다.\n"
     }
   ],
@@ -356,7 +351,7 @@
       "level": 2,
       "title": "정보와 기능",
       "anchor": "정보와-기능",
-      "start_line": 18
+      "start_line": 16
     },
     {
       "block_id": "b000017",
@@ -364,7 +359,7 @@
       "level": 2,
       "title": "구성",
       "anchor": "구성",
-      "start_line": 31
+      "start_line": 29
     },
     {
       "block_id": "b000021",
@@ -372,7 +367,7 @@
       "level": 2,
       "title": "근거와 검증",
       "anchor": "근거와-검증",
-      "start_line": 40
+      "start_line": 38
     }
   ],
   "indexes": {
@@ -386,14 +381,14 @@
       },
       {
         "block_id": "b000015",
-        "line": 27,
+        "line": 25,
         "text": "- 앱 검색, 기기 선택, 설치, 실행, 업데이트 확인, 자동 업데이트, 제거와 진행 목록을 관리 기능으로 정의하였다. 이 설치 관리 기능들은 이번 시안의 제안이며 구현 완료를 뜻하지 않는다.",
         "basis": "lexical_match",
         "context": "list"
       },
       {
         "block_id": "b000015",
-        "line": 28,
+        "line": 26,
         "text": "- 프로토타입은 네 화면 사이의 이동을 제공한다. 검색·설치·업데이트·연결 설정 변경을 실행하지 않는다.",
         "basis": "lexical_match",
         "context": "list"
@@ -413,62 +408,31 @@
         "label": "관리 개요",
         "target": "https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=169-2308",
         "kind": "external",
-        "line": 13
+        "line": 11
       },
       {
         "block_id": "b000011",
         "label": "디바이스",
         "target": "https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=169-2349",
         "kind": "external",
-        "line": 14
+        "line": 12
       },
       {
         "block_id": "b000011",
         "label": "호스팅 정보",
         "target": "https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=169-2390",
         "kind": "external",
-        "line": 15
+        "line": 13
       },
       {
         "block_id": "b000011",
         "label": "앱 목록",
         "target": "https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=169-2431",
         "kind": "external",
-        "line": 16
+        "line": 14
       }
     ],
-    "tables": [
-      {
-        "block_id": "b000011",
-        "columns": [
-          "화면",
-          "역할",
-          "Figma"
-        ],
-        "rows": [
-          [
-            "장치 및 호스팅",
-            "기기 4대의 상태, 기본 호스트, 이 기기의 설치 앱을 요약하고 상세 화면으로 이동한다.",
-            "[관리 개요](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=169-2308)"
-          ],
-          [
-            "Devices",
-            "기기 카드와 선택 기기의 역할·호스트·앱·자동 동기화 정보를 함께 표시한다.",
-            "[디바이스](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=169-2349)"
-          ],
-          [
-            "Hosting",
-            "기본 호스트, 컨테이너, 로컬 연결·자체 서버, 연결된 클라이언트와 동기화 상태를 표시한다.",
-            "[호스팅 정보](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=169-2390)"
-          ],
-          [
-            "Apps",
-            "선택 기기의 설치 앱, 업데이트 가능 앱, 설치 가능한 앱, 설치 진행 영역과 앱 상세 정보를 표시한다.",
-            "[앱 목록](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=169-2431)"
-          ]
-        ]
-      }
-    ]
+    "tables": []
   },
   "provenance": {
     "generator": "workspace-docs",

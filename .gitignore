@@ -10,3 +10,10 @@
 **/.iisacc-temporary.lock
 **/.*.iisacc-preview
 resources/
+
+# Version the Space artwork while leaving other resource trees ignored.
+!/resources/
+/resources/*
+!/resources/space/
+/resources/space/*
+!/resources/space/minimal-cyan-orb.svg
