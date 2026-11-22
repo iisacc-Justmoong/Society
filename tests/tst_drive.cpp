@@ -2676,7 +2676,7 @@ Window {
         const QStringList colors{"green", "blue", "purple", "purple", "blue", "orange", "orange"};
         const QStringList collections{"studio", "projects", "publishing", "publishing", "projects", "default", "default"};
         for (int i = 0; i < 7; ++i) {
-            const auto date = QString::fromStdString(iiCalendar::Date(2026, 10, 19).addDays(i).toString());
+            const auto date = QString::fromStdString(iiCalendarIntegration::Date(2026, 10, 19).addDays(i).toString());
             const auto id = workspace->saveEvent({{"title", titles[i]}, {"startLocal", date + " 09:00"},
                 {"endLocal", date + " 10:30"}, {"timeZone", "Asia/Seoul"}, {"calendarId", collections[i]}, {"colorKey", colors[i]}});
             QVERIFY2(!id.isEmpty(), qPrintable(workspace->errorString()));
@@ -2716,7 +2716,7 @@ Window {
         QVERIFY(capture("quick-add"));
         QVERIFY(click(visualItem(window->contentItem(), "calendarSaveEvent")));
         QTRY_VERIFY(!editor->property("visible").toBool());
-        iiCalendar::Store store(openSocietyCalendarDatabase(calendar->databasePath().toStdString()));
+        iiCalendarIntegration::Store store(openSocietyCalendarDatabase(calendar->databasePath().toStdString()));
         const auto matches = [&] {
             auto events = store.query();
             std::erase_if(events, [](const auto &event) { return event.title != "Publish checklist"; });
@@ -2756,7 +2756,7 @@ Window {
 
     void dashboardCalendarMatchesFigmaAndNavigates()
     {
-        using namespace iiCalendar;
+        using namespace iiCalendarIntegration;
         QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/calendar-dashboard-XXXXXX.societycontainer");
         QVERIFY(iiSocietyContainer::SocietyDrive::create(fixture.path()));
         QImage preview(240, 160, QImage::Format_RGB32); preview.fill(QColor("#526757"));

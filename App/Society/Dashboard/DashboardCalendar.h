@@ -1,12 +1,12 @@
 #pragma once
-#include <iiCalendar>
+#include <iiCalendarIntegration>
 #include <QFutureWatcher>
 #include <QObject>
 #include <QTimer>
 #include <QVariantList>
 #include <QtQml/qqmlregistration.h>
 
-// Qt is confined to this presentation adapter; iiCalendar owns dates and storage.
+// Qt is confined to this presentation adapter; iiCalendarIntegration owns dates and storage.
 class DashboardCalendar : public QObject {
     Q_OBJECT
     QML_ELEMENT
@@ -78,9 +78,9 @@ private:
     void clearDetails();
     void updateDays();
     void fail(const std::exception &error);
-    iiCalendar::CalendarRegistry m_calendars;
-    iiCalendar::TimeZone m_zone;
-    iiCalendar::Date m_selected;
+    iiCalendarIntegration::CalendarRegistry m_calendars;
+    iiCalendarIntegration::TimeZone m_zone;
+    iiCalendarIntegration::Date m_selected;
     QString m_containerPath, m_databasePath, m_driveIdentifier, m_calendarSystem = "gregorian", m_error;
     QVariantList m_days, m_events, m_tasks, m_activity, m_notes, m_reminders, m_files;
     int m_completedTasks = 0;

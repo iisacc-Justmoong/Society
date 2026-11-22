@@ -11,6 +11,13 @@
   "agent_schema": "docs/agent-document.schema.json",
   "documents": [
     {
+      "document_id": "urn:iisacc:document:3bb4f9bec43037168a0f128b03c78a9343ec87d4617e21869f2fa546e4f7c0b5",
+      "source": "docs/GraphNodes.md",
+      "agent_json": "docs/GraphNodes.agent.json",
+      "source_sha256": "3c6ede09591a4bc1f9e02d08b8ef30fec5bda9648bee309be219ac3590fa0093",
+      "role": "guide"
+    },
+    {
       "document_id": "urn:iisacc:document:e8d5bb8c34e9ead09c97715802a40b312b5105e23c0a0d473fa7a93b8583c6b2",
       "source": "AGENT.md",
       "agent_json": "docs/entrypoints/AGENT.agent.json",
@@ -28,7 +35,7 @@
       "document_id": "urn:iisacc:document:a8e949809ff94f51752856b9cbb45c547abeab4dc549b1d63d72e710bbc83abe",
       "source": "README.md",
       "agent_json": "docs/entrypoints/README.agent.json",
-      "source_sha256": "36c96951cb44f6ba48d327626661d19b667507dec6e89c6185d1506bcd30e084",
+      "source_sha256": "cd27318b1d98be0bb7b7f897d99164bc8327c352e03961f26615f8ef8807cd8d",
       "role": "overview"
     },
     {
@@ -49,7 +56,7 @@
       "document_id": "urn:iisacc:document:6eadc992fac8621adf69b5e608323604252fed1ed60bc8a273be927074465195",
       "source": "docs/AccountLicenses.md",
       "agent_json": "docs/AccountLicenses.agent.json",
-      "source_sha256": "d2d5f4ec8358a16c786d18ecaf963f754e3346214ea494329e52502241bd042f",
+      "source_sha256": "ab02f8bdfb4c85827feb2604e905e06f72010b0f9e7401edbfb0c8909fdc7adb",
       "role": "guide"
     },
     {
@@ -105,7 +112,7 @@
       "document_id": "urn:iisacc:document:575156b377c0dc0fdbb52a097a6e94da7e63a176434e94052b0b82888139c97a",
       "source": "docs/Dashboard.md",
       "agent_json": "docs/Dashboard.agent.json",
-      "source_sha256": "b4130ca4496100fdac3d7ca3c38165d3bb5ce7d6beb990a94b0202a611edf41a",
+      "source_sha256": "d4775a77b744de5df83a67e267d727c17f3ed652e461eb19853a256092c17f89",
       "role": "guide"
     },
     {
@@ -168,7 +175,7 @@
       "document_id": "urn:iisacc:document:873ef1a5108212d1d1586e77a9c026d8c05fe1b0af925e32c5de292c0297cecd",
       "source": "docs/Files.md",
       "agent_json": "docs/Files.agent.json",
-      "source_sha256": "7f7240b0426b80db22b1f6bcf25f0f508e377b7c5feeb0c6fa130ea6ca245164",
+      "source_sha256": "7f9709a835a8ebc2e9fa63a838110b53228d42757c20c5e71cb34191ec481563",
       "role": "guide"
     },
     {
@@ -322,7 +329,7 @@
       "document_id": "urn:iisacc:document:cb2a4ced6b0abd39760c1d2493388f35db0ccbd5f245bf990905c2bcad63fe6e",
       "source": "docs/NativeWorkspace.md",
       "agent_json": "docs/NativeWorkspace.agent.json",
-      "source_sha256": "7765eab4e860e141ef108364dc71004f26dab66d34043838eba43aefde692177",
+      "source_sha256": "2b6247ca0d49e6b2e8cf3139446eaf3b67584a89d86594b4674c6ea5e6386261",
       "role": "guide"
     },
     {
@@ -371,7 +378,7 @@
       "document_id": "urn:iisacc:document:b0f5c97f16a6ca6a2b6497301d9283e914983691c69b04772a80ca3c1f2be086",
       "source": "docs/Performance.md",
       "agent_json": "docs/Performance.agent.json",
-      "source_sha256": "ade88bf5d5ac1c63ba3d0f5bda65a9ad618b858be7cab2aed0c9666edd5bf0e0",
+      "source_sha256": "061559eb6f38464d01aa8f0c766f1d1ac296c371c854a10cfa32c47530a62f61",
       "role": "guide"
     },
     {

@@ -10,8 +10,8 @@
   },
   "source": {
     "path": "docs/Performance.md",
-    "sha256": "ade88bf5d5ac1c63ba3d0f5bda65a9ad618b858be7cab2aed0c9666edd5bf0e0",
-    "bytes": 16492,
+    "sha256": "061559eb6f38464d01aa8f0c766f1d1ac296c371c854a10cfa32c47530a62f61",
+    "bytes": 16503,
     "line_count": 260,
     "encoding": "utf-8",
     "language": "ko"
@@ -301,7 +301,7 @@
       "kind": "paragraph",
       "start_line": 145,
       "end_line": 149,
-      "raw": "Counts retain the native iiCalendar overlap rules: nonempty events exclude their\nending midnight, point events belong to their containing day, and a skipped civil\nday has no events. The native timezone resolver still supplies boundaries for\n23-hour, 25-hour and skipped days. Event/task details, recurrence, persistent\ncompletion, asynchronous storage epochs and explicit refresh remain unchanged.\n"
+      "raw": "Counts retain the native iiCalendarIntegration overlap rules: nonempty events exclude their\nending midnight, point events belong to their containing day, and a skipped civil\nday has no events. The native timezone resolver still supplies boundaries for\n23-hour, 25-hour and skipped days. Event/task details, recurrence, persistent\ncompletion, asynchronous storage epochs and explicit refresh remain unchanged.\n"
     },
     {
       "id": "b000040",

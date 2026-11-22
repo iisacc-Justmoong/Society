@@ -142,7 +142,7 @@ updates a difference array using two boundary searches; a final pass produces
 the visible counts. This replaces a complete event scan for every day with
 `O(events * log(days) + days)` work and `O(days)` scratch storage.
 
-Counts retain the native iiCalendar overlap rules: nonempty events exclude their
+Counts retain the native iiCalendarIntegration overlap rules: nonempty events exclude their
 ending midnight, point events belong to their containing day, and a skipped civil
 day has no events. The native timezone resolver still supplies boundaries for
 23-hour, 25-hour and skipped days. Event/task details, recurrence, persistent

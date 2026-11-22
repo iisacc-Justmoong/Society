@@ -10,7 +10,7 @@
 #include <QtConcurrentRun>
 #include <algorithm>
 
-using namespace iiCalendar;
+using namespace iiCalendarIntegration;
 namespace {
 QString string(const std::string &value) { return QString::fromStdString(value); }
 QString timeText(Instant instant, const TimeZone &zone) {
@@ -124,7 +124,7 @@ void DashboardCalendar::setActive(bool active) {
 void DashboardCalendar::selectDate(const QString &isoDate) {
     try {
         auto date = Date::parse(isoDate.toStdString());
-        // Presentation labels use the common civil range; iiCalendar itself supports wider years.
+        // Presentation labels use the common civil range; iiCalendarIntegration itself supports wider years.
         if (date.year() < 1 || date.year() > 9999) throw std::out_of_range("dashboard date must be between years 1 and 9999");
         m_selected = date; ++m_generation; clearDetails(); updateDays(); refresh();
     } catch (const std::exception &e) { fail(e); }

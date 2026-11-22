@@ -1,0 +1,253 @@
+{
+  "format": "iisacc.agent-document",
+  "schema_version": 1,
+  "document_id": "urn:iisacc:document:3bb4f9bec43037168a0f128b03c78a9343ec87d4617e21869f2fa546e4f7c0b5",
+  "project": {
+    "id": "urn:iisacc:project:Product%2FSociety",
+    "name": "Society",
+    "root": "Product/Society",
+    "kind": "application"
+  },
+  "source": {
+    "path": "docs/GraphNodes.md",
+    "sha256": "3c6ede09591a4bc1f9e02d08b8ef30fec5bda9648bee309be219ac3590fa0093",
+    "bytes": 5715,
+    "line_count": 94,
+    "encoding": "utf-8",
+    "language": "en"
+  },
+  "document": {
+    "title": "Society graph node component",
+    "role": "guide",
+    "authority": "markdown_source"
+  },
+  "blocks": [
+    {
+      "id": "b000001",
+      "kind": "heading",
+      "start_line": 1,
+      "end_line": 1,
+      "raw": "# Society graph node component\n",
+      "level": 1,
+      "title": "Society graph node component"
+    },
+    {
+      "id": "b000002",
+      "kind": "blank",
+      "start_line": 2,
+      "end_line": 2,
+      "raw": "\n"
+    },
+    {
+      "id": "b000003",
+      "kind": "paragraph",
+      "start_line": 3,
+      "end_line": 10,
+      "raw": "The Society-owned graph node is an embeddable LVUI/iiGUI view. Its constructor\naccepts an ordered list of inputs, an output format, a stable node ID, a display\nname and description, and separate counts for ports on the top, bottom, left and\nright edges. The ID is an application-supplied identity, not a path, hash, or\ngenerated display name. Input identifiers must be unique within the node; input\nlabels and values are display data and do not automatically map to a port. Each input\nID is nonempty, NUL-free and at most 1,024 bytes. Each edge accepts zero to 64\nports; invalid counts and input identifiers are rejected before mounting.\n"
+    },
+    {
+      "id": "b000004",
+      "kind": "blank",
+      "start_line": 11,
+      "end_line": 11,
+      "raw": "\n"
+    },
+    {
+      "id": "b000005",
+      "kind": "paragraph",
+      "start_line": 12,
+      "end_line": 21,
+      "raw": "Each port has a stable address consisting of its node ID, edge and zero-based\nindex. Its semantic role is determined by the edge: left is Input, right is\nOutput, top is Inheritance, and bottom is Reference. The endpoint exposes the\nrole directly; accessible names include both the edge and role. Zero ports on an\nedge is valid. Port activation reports that address to a caller-supplied handler;\nthe surrounding graph owns validation, connections, stream execution and\npersistence. Merely activating a port does not create an edge or claim that\nanything is connected. The component does not automatically map an input value\nto a particular input port, or decide which connected node is the parent or\nreferent in an inheritance or reference relationship.\n"
+    },
+    {
+      "id": "b000006",
+      "kind": "blank",
+      "start_line": 22,
+      "end_line": 22,
+      "raw": "\n"
+    },
+    {
+      "id": "b000007",
+      "kind": "paragraph",
+      "start_line": 23,
+      "end_line": 31,
+      "raw": "The view shows the supplied name, description, inputs and output format, and\nrenders the specified number of port controls on each edge using LVUI tokens.\nPort controls have accessible names and can be activated with the keyboard.\nThe view is an embeddable component, not a complete Space screen; it does not\ncreate sample graph data or modify the container's persisted idea graph.\nThe node body expands to accommodate the larger port count on opposing edges.\nThe current controls expose port activation; stream transport, compatibility\nchecking, connection state and the Figma variants for data versus stream are\nnot implemented by this component.\n"
+    },
+    {
+      "id": "b000008",
+      "kind": "blank",
+      "start_line": 32,
+      "end_line": 32,
+      "raw": "\n"
+    },
+    {
+      "id": "b000009",
+      "kind": "heading",
+      "start_line": 33,
+      "end_line": 33,
+      "raw": "## Input and output value formats\n",
+      "level": 2,
+      "title": "Input and output value formats"
+    },
+    {
+      "id": "b000010",
+      "kind": "blank",
+      "start_line": 34,
+      "end_line": 34,
+      "raw": "\n"
+    },
+    {
+      "id": "b000011",
+      "kind": "paragraph",
+      "start_line": 35,
+      "end_line": 42,
+      "raw": "Both input slots and the output use the same five distinct value alternatives:\n`GraphLabelValue`, `GraphTextInputValue`, `GraphButtonValue`, `GraphImageValue`\nand `GraphFileValue`. A label and an editable text value remain distinct even\nwhen their contents match. A button holds its label; activation is an event,\nnot a boolean value or a file operation. An image holds an optional immutable\niiGUI raster preview, alternative text and optional resource/revision IDs. A\nfile holds its display name and optional resource/revision IDs. An identifier\nor a preview is not a guarantee that the original resource is available.\n"
+    },
+    {
+      "id": "b000012",
+      "kind": "blank",
+      "start_line": 43,
+      "end_line": 43,
+      "raw": "\n"
+    },
+    {
+      "id": "b000013",
+      "kind": "paragraph",
+      "start_line": 44,
+      "end_line": 52,
+      "raw": "Each input and output retains its initially declared alternative. A graph owner\nmay update an input or publish an output using a matching typed value; unknown\ninput IDs, absent typed outputs and incompatible alternatives are rejected\nwithout replacing the previous value. Observable output changes can be\nsubscribed to and explicitly forwarded to a matching input by the owning graph.\nUnchanged values do not generate another change; repeated button activations are\nindependent events. The component does not construct graph connections, transfer\nfiles or automatically choose a resource. Its value state and observers use\niiSDKCore's owner-thread contract; callers must dispatch changes to that thread.\n"
+    },
+    {
+      "id": "b000014",
+      "kind": "blank",
+      "start_line": 53,
+      "end_line": 53,
+      "raw": "\n"
+    },
+    {
+      "id": "b000015",
+      "kind": "paragraph",
+      "start_line": 54,
+      "end_line": 60,
+      "raw": "The LVUI view renders label text, editable text fields, actionable buttons,\nimage previews and file controls for both directions. Edited text updates the\nmatching typed slot and reports an action to the host. Button activations and\nfile choose/open requests are also sent to the host. An absent image preview\nstays empty until a raster is supplied; a file control does not claim to have\nopened or selected a file until the host performs that action. Buttons and file\ncontrols are disabled when no action handler is attached.\n"
+    },
+    {
+      "id": "b000016",
+      "kind": "blank",
+      "start_line": 61,
+      "end_line": 61,
+      "raw": "\n"
+    },
+    {
+      "id": "b000017",
+      "kind": "heading",
+      "start_line": 62,
+      "end_line": 62,
+      "raw": "## C++ integration\n",
+      "level": 2,
+      "title": "C++ integration"
+    },
+    {
+      "id": "b000018",
+      "kind": "blank",
+      "start_line": 63,
+      "end_line": 63,
+      "raw": "\n"
+    },
+    {
+      "id": "b000019",
+      "kind": "paragraph",
+      "start_line": 64,
+      "end_line": 65,
+      "raw": "Include `Society/Space/GraphNode.h` and link `SocietyGraphNode`. A graph owner\ncan construct and embed a view source as follows:\n"
+    },
+    {
+      "id": "b000020",
+      "kind": "blank",
+      "start_line": 66,
+      "end_line": 66,
+      "raw": "\n"
+    },
+    {
+      "id": "b000021",
+      "kind": "fenced_code",
+      "start_line": 67,
+      "end_line": 79,
+      "raw": "```cpp\nusing namespace society::space;\nGraphNode node({{\"prompt\", \"Prompt\", \"\", GraphValue{GraphTextInputValue{\"A misty city\"}}}},\n               GraphValue{GraphImageValue{\"\", \"\", \"Generated image\", {}}},\n               \"node-01\", \"Image\", \"Create an image\",\n               {.top=0, .bottom=0, .left=1, .right=1});\nauto source = node.viewSource([](const GraphPortEndpoint &port) {\n    // Forward port.nodeId, port.side, port.index and port.role() to the graph.\n});\nauto outputSubscription = node.observeOutput([](const GraphValue &value) {\n    // Route this typed value to a compatible input if the graph has a connection.\n});\n```\n"
+    },
+    {
+      "id": "b000022",
+      "kind": "blank",
+      "start_line": 80,
+      "end_line": 80,
+      "raw": "\n"
+    },
+    {
+      "id": "b000023",
+      "kind": "paragraph",
+      "start_line": 81,
+      "end_line": 89,
+      "raw": "`source` implements iiGUI's `NativeViewSource` and can be embedded in an LVUI\n`NativeView`. Each mount has its own LVUI view model observing shared node value\nstate. Calling `setInputValue` or `setOutputValue` on the owner thread updates\nexisting mounts. Copies of a node share that state. The callback's captured\nobjects must outlive any mount that can invoke them. No file or daemon operation\nis performed by the component.\nThe earlier string-only output-format constructor remains available for existing\ncallers. It describes a legacy output but does not declare a typed output value;\ntyped publishing and subscriptions require the `GraphValue` constructor.\n"
+    },
+    {
+      "id": "b000024",
+      "kind": "blank",
+      "start_line": 90,
+      "end_line": 90,
+      "raw": "\n"
+    },
+    {
+      "id": "b000025",
+      "kind": "paragraph",
+      "start_line": 91,
+      "end_line": 94,
+      "raw": "The [Society Figma component examples](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=1178-612)\nshow the intended node and edge layout. The app component is linked into the\nSociety build for use by a future graph host; the existing Space navigation is\nnot replaced with a sample screen.\n"
+    }
+  ],
+  "outline": [
+    {
+      "block_id": "b000001",
+      "parent_id": null,
+      "level": 1,
+      "title": "Society graph node component",
+      "anchor": "society-graph-node-component",
+      "start_line": 1
+    },
+    {
+      "block_id": "b000009",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "Input and output value formats",
+      "anchor": "input-and-output-value-formats",
+      "start_line": 33
+    },
+    {
+      "block_id": "b000017",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "C++ integration",
+      "anchor": "c-integration",
+      "start_line": 62
+    }
+  ],
+  "indexes": {
+    "directive_candidates": [],
+    "commands": [],
+    "links": [
+      {
+        "block_id": "b000025",
+        "label": "Society Figma component examples",
+        "target": "https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=1178-612",
+        "kind": "external",
+        "line": 91
+      }
+    ],
+    "tables": []
+  },
+  "provenance": {
+    "generator": "manual-lossless-update",
+    "version": "1.0.0",
+    "profile": "lossless-blocks-v1",
+    "derived": true
+  }
+}

@@ -11,7 +11,7 @@
 #include <algorithm>
 #include <map>
 
-using namespace iiCalendar;
+using namespace iiCalendarIntegration;
 namespace {
 QString q(const std::string &s) { return QString::fromStdString(s); }
 QString dateText(Date d, const char *format) {

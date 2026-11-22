@@ -75,6 +75,13 @@ void AccountController::withBrokerAccount(QObject *scope, std::function<void(Acc
         if (!account) {done(nullptr);return;}
         brokerAccount_=account;brokerRestoring_=true;brokerWaiters_.append({scope,std::move(done)});
         const auto generation=++brokerGeneration_;
+        // A Keychain or container read can outlive every requesting socket.
+        // Retire only the still-current stalled restore so later requests can
+        // create a fresh account, without accepting an obsolete session.
+        QTimer::singleShot(4000, this, [this, account, generation] {
+            if (brokerRestoring_ && brokerGeneration_ == generation && brokerAccount_ == account && account)
+                account->deleteLater();
+        });
         connect(account.data(),&QObject::destroyed,this,[this,generation] {
             if (brokerGeneration_ != generation) return;
             brokerAccount_=nullptr;brokerRevision_.clear();

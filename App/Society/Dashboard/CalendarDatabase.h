@@ -5,7 +5,7 @@
 #include <stdexcept>
 #include <string>
 
-// The application owns the on-disk connection; iiCalendar only consumes it.
+// The application owns the on-disk connection; iiCalendarIntegration only consumes it.
 inline std::shared_ptr<sqlite3> openSocietyCalendarDatabase(const std::string& path) {
     sqlite3* raw=nullptr;
     const int status=iiFileProvider::native::openDatabase(path.c_str(),&raw,SQLITE_OPEN_READWRITE|SQLITE_OPEN_CREATE|SQLITE_OPEN_FULLMUTEX);

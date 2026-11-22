@@ -10,8 +10,8 @@
   },
   "source": {
     "path": "docs/NativeWorkspace.md",
-    "sha256": "7765eab4e860e141ef108364dc71004f26dab66d34043838eba43aefde692177",
-    "bytes": 16835,
+    "sha256": "2b6247ca0d49e6b2e8cf3139446eaf3b67584a89d86594b4674c6ea5e6386261",
+    "bytes": 16981,
     "line_count": 219,
     "encoding": "utf-8",
     "language": "ko"
@@ -185,7 +185,7 @@
       "kind": "paragraph",
       "start_line": 138,
       "end_line": 156,
-      "raw": "The agent pane displays the selected default, conversation messages, progress,\nerrors and cancellation using the daemon-owned agent connection described in\n[WorkspaceAgent](WorkspaceAgent.md). The available Society agent tools and\ntheir approval boundary are described in [WorkspaceAgentTools](WorkspaceAgentTools.md).\nThe current preparation, memory-wait, routing or response state remains above\nthe transcript. Failures also appear in the conversation with their full reason,\nand Stop cancels a queued request. Context attachments and the model menu\nreserve vertical space so that the message composer remains reachable.\nThe transcript follows new messages and streamed text when the user is at the\nbottom; scrolling up to read earlier messages preserves that position.\nThe panel adds selected files as explicit attachments and permits individual\nremoval. A request admits up to eight files and 512 KiB total; supported UTF-8\ntext files are limited to 32 KiB each, while PNG, JPEG, BMP, GIF, WAV, MP3 and\nFLAC are passed as native media. Unsupported, redirected, changed, empty and\noversized files fail the request. Attachments are captured on the daemon worker\nusing iiFileProvider's stable source snapshot; temporary captures are removed\nafter use. Their contents become part of the agent session transcript. Actual\nmedia interpretation depends on a compatible routed model. UI state belongs\nto the view model, and the desktop shell adapts backend and input events.\n"
+      "raw": "The agent pane displays the selected default, conversation messages, progress,\nerrors and cancellation using the daemon-owned agent connection described in\n[WorkspaceAgent](WorkspaceAgent.md). The available Society agent tools and\ntheir approval boundary are described in [WorkspaceAgentTools](WorkspaceAgentTools.md).\nThe current preparation, memory-wait, routing or response state remains above\nthe transcript. Failures also appear in the conversation with their full reason,\nand Stop cancels a queued request. Context attachments and the model menu\nreserve vertical space so that the message composer remains reachable.\nThe transcript follows new messages and streamed text when the user is at the\nbottom; scrolling up to read earlier messages preserves that position. The Qt host converts system-adjusted wheel and trackpad deltas into iiGUI scroll offsets, including horizontal movement and precise pixel deltas.\nThe panel adds selected files as explicit attachments and permits individual\nremoval. A request admits up to eight files and 512 KiB total; supported UTF-8\ntext files are limited to 32 KiB each, while PNG, JPEG, BMP, GIF, WAV, MP3 and\nFLAC are passed as native media. Unsupported, redirected, changed, empty and\noversized files fail the request. Attachments are captured on the daemon worker\nusing iiFileProvider's stable source snapshot; temporary captures are removed\nafter use. Their contents become part of the agent session transcript. Actual\nmedia interpretation depends on a compatible routed model. UI state belongs\nto the view model, and the desktop shell adapts backend and input events.\n"
     },
     {
       "id": "b000022",

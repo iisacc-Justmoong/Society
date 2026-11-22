@@ -8,7 +8,7 @@
 #include <QTemporaryDir>
 #include <QTest>
 
-using namespace iiCalendar;
+using namespace iiCalendarIntegration;
 
 class CalendarTest : public QObject {
     Q_OBJECT

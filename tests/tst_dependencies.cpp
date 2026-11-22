@@ -88,7 +88,7 @@ public:
         CTEST_CHECK(links.contains(QStringLiteral("iiMultimodalAgent::iiMultimodalAgent")));
         CTEST_CHECK(!links.contains(QStringLiteral("iiLocalLLM::iiLocalLLM")));
 #endif
-        for (const auto *target : {"iiAccountManager::Quick", "iiCalendar::iiCalendar",
+        for (const auto *target : {"iiAccountManager::Quick", "iiCalendarIntegration::iiCalendarIntegration",
                 "iiPhotoLibrary::iiPhotoLibrary", "iiSocietyContainer::Gui",
                 "iiSocietyHelper::iiSocietyHelper",
                 "iiFileProvider::Native", "SocietyModelPackaging"})

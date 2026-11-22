@@ -10,8 +10,8 @@
   },
   "source": {
     "path": "docs/Dashboard.md",
-    "sha256": "b4130ca4496100fdac3d7ca3c38165d3bb5ce7d6beb990a94b0202a611edf41a",
-    "bytes": 35586,
+    "sha256": "d4775a77b744de5df83a67e267d727c17f3ed652e461eb19853a256092c17f89",
+    "bytes": 35730,
     "line_count": 274,
     "encoding": "utf-8",
     "language": "ko"
@@ -327,7 +327,7 @@
       "kind": "paragraph",
       "start_line": 58,
       "end_line": 58,
-      "raw": "캘린더는 Qt 비의존 C++23 SDK `iiCalendar`(ICU·SQLite)를 사용한다. 파일 조회와 캘린더 조회에는 Qt 6.8.3의 Concurrent 모듈을 연결한다. 동일한 Qt 배포·라이선스·유지보수 범위이며 앱 자체 도메인인 카드 데이터만 C++로 구성한다.\n"
+      "raw": "캘린더는 Qt 비의존 C++23 SDK `iiCalendarIntegration`(ICU·SQLite)를 사용한다. 파일 조회와 캘린더 조회에는 Qt 6.8.3의 Concurrent 모듈을 연결한다. 동일한 Qt 배포·라이선스·유지보수 범위이며 앱 자체 도메인인 카드 데이터만 C++로 구성한다.\n"
     },
     {
       "id": "b000038",
@@ -483,9 +483,9 @@
       "kind": "heading",
       "start_line": 81,
       "end_line": 81,
-      "raw": "## iiCalendar 대시보드\n",
+      "raw": "## iiCalendarIntegration 대시보드\n",
       "level": 2,
-      "title": "iiCalendar 대시보드"
+      "title": "iiCalendarIntegration 대시보드"
     },
     {
       "id": "b000060",
@@ -513,7 +513,7 @@
       "kind": "list",
       "start_line": 90,
       "end_line": 102,
-      "raw": "- 월 이전/다음, Today, 날짜 선택, 상세 패널의 일 이전/다음, 날짜 방향키 탐색을 제공한다.\n- 월 그리드는 `iiCalendar::makeView`의 월요일 시작 42칸이다. 선택 날짜는 녹색 배경,\n  오늘은 외곽선, 해당 날짜의 일정은 점으로 표시한다. 날짜·DST·반복 일정 계산은 SDK가 수행한다.\n- `iiCalendar::dayDetails`의 Events·Tasks·Activity·Files를 2/2/1/1개로 미리 보여준다.\n  Notes·Reminders도 값이 있으면 표시한다. `View all`은 같은 패널에서 전체 목록을 열며\n  100개 단위 이전/다음 페이지로 최대 SDK 조회 한도 내의 모든 항목에 접근한다.\n  항목 선택 시 설명, 정확한 시작/종료 시각, 위치, 참가자·첨부 개수를 확인한다.\n- 작업 완료는 SQLite에 revision 조건으로 저장한다. 충돌은 오류로 표시하고 타 변경을\n  덮어쓰지 않는다. 반복 작업은 SDK에 개별 회차 완료 모델이 없으므로 체크박스를 비활성화한다.\n- 첨부파일은 현재 Society 컨테이너 안에 실제 존재하는 파일만 기존 파일 열기 동작으로\n  전달한다. 외부 URL·상위 디렉터리 이탈·심볼릭 링크는 열지 않는다.\n- 임의의 일정과 Figma 예시 파일은 테스트 픽스처에만 사용한다. 실제 데이터가 없으면\n  날짜별 빈 상태를 표시하며 사용자 데이터베이스에 데모를 자동 삽입하지 않는다.\n",
+      "raw": "- 월 이전/다음, Today, 날짜 선택, 상세 패널의 일 이전/다음, 날짜 방향키 탐색을 제공한다.\n- 월 그리드는 `iiCalendarIntegration::makeView`의 월요일 시작 42칸이다. 선택 날짜는 녹색 배경,\n  오늘은 외곽선, 해당 날짜의 일정은 점으로 표시한다. 날짜·DST·반복 일정 계산은 SDK가 수행한다.\n- `iiCalendarIntegration::dayDetails`의 Events·Tasks·Activity·Files를 2/2/1/1개로 미리 보여준다.\n  Notes·Reminders도 값이 있으면 표시한다. `View all`은 같은 패널에서 전체 목록을 열며\n  100개 단위 이전/다음 페이지로 최대 SDK 조회 한도 내의 모든 항목에 접근한다.\n  항목 선택 시 설명, 정확한 시작/종료 시각, 위치, 참가자·첨부 개수를 확인한다.\n- 작업 완료는 SQLite에 revision 조건으로 저장한다. 충돌은 오류로 표시하고 타 변경을\n  덮어쓰지 않는다. 반복 작업은 SDK에 개별 회차 완료 모델이 없으므로 체크박스를 비활성화한다.\n- 첨부파일은 현재 Society 컨테이너 안에 실제 존재하는 파일만 기존 파일 열기 동작으로\n  전달한다. 외부 URL·상위 디렉터리 이탈·심볼릭 링크는 열지 않는다.\n- 임의의 일정과 Figma 예시 파일은 테스트 픽스처에만 사용한다. 실제 데이터가 없으면\n  날짜별 빈 상태를 표시하며 사용자 데이터베이스에 데모를 자동 삽입하지 않는다.\n",
       "items": [
         {
           "marker": "-",
@@ -522,12 +522,12 @@
         },
         {
           "marker": "-",
-          "text": "월 그리드는 `iiCalendar::makeView`의 월요일 시작 42칸이다. 선택 날짜는 녹색 배경,",
+          "text": "월 그리드는 `iiCalendarIntegration::makeView`의 월요일 시작 42칸이다. 선택 날짜는 녹색 배경,",
           "checked": null
         },
         {
           "marker": "-",
-          "text": "`iiCalendar::dayDetails`의 Events·Tasks·Activity·Files를 2/2/1/1개로 미리 보여준다.",
+          "text": "`iiCalendarIntegration::dayDetails`의 Events·Tasks·Activity·Files를 2/2/1/1개로 미리 보여준다.",
           "checked": null
         },
         {
@@ -587,7 +587,7 @@
       "kind": "paragraph",
       "start_line": 116,
       "end_line": 123,
-      "raw": "SQLite 경로는 선택한 `.societycontainer/.society-runtime/calendar/<SHA256(containerId)>.sqlite`이다.\n외부 AppData 경로나 환경 변수 지정 디렉터리에 새 일정 파일을 생성하지 않는다.\n드라이브 경로 이동 후에도 동일 식별자의 데이터는 유지하고 다른 컨테이너의 일정은 격리한다.\nSQLite/WAL 파일을 일반 파일 동기화에 넣지 않으며 **현재 일정은 기기 로컬 데이터**이다.\n외부 캘린더 공급자, OS 일정 가져오기, 원격 일정 동기화는 이 구현에 포함되지 않는다.\n일정 생성·편집은 아래 독립 Calendar 작업 화면에서 제공한다.\n기존 SDK 소비자는 `databasePath`의 `iiCalendar::Store::put`으로 이벤트·\n할 일·활동·메모·알림·첨부를 기록하고 `refresh()`로 화면에 반영할 수 있다.\n"
+      "raw": "SQLite 경로는 선택한 `.societycontainer/.society-runtime/calendar/<SHA256(containerId)>.sqlite`이다.\n외부 AppData 경로나 환경 변수 지정 디렉터리에 새 일정 파일을 생성하지 않는다.\n드라이브 경로 이동 후에도 동일 식별자의 데이터는 유지하고 다른 컨테이너의 일정은 격리한다.\nSQLite/WAL 파일을 일반 파일 동기화에 넣지 않으며 **현재 일정은 기기 로컬 데이터**이다.\n외부 캘린더 공급자, OS 일정 가져오기, 원격 일정 동기화는 이 구현에 포함되지 않는다.\n일정 생성·편집은 아래 독립 Calendar 작업 화면에서 제공한다.\n기존 SDK 소비자는 `databasePath`의 `iiCalendarIntegration::Store::put`으로 이벤트·\n할 일·활동·메모·알림·첨부를 기록하고 `refresh()`로 화면에 반영할 수 있다.\n"
     },
     {
       "id": "b000070",
@@ -696,7 +696,7 @@
       "kind": "paragraph",
       "start_line": 163,
       "end_line": 169,
-      "raw": "`CalendarWorkspace`는 `DashboardCalendar`와 iiCalendar Store를 조합하는 GUI 표현 계층이다.\n날짜·시간대·반복·저장 검증은 SDK가 처리하며 QML에는 날짜 문자열·분 단위 배치 자료를 전달한다.\n비동기 조회는 비활성 화면에서 중단하고 세대 번호로 이전 요청의 결과를 폐기한다.\nHome에서는 작업 화면을 생성하지 않으며 날짜·보기·시간대가 같으면 그리드 자료를 재사용한다.\n월간 조회는 앞뒤 달의 42칸 전체를 포함하고, 일정 투영은 실제 일정과 겹치는 날짜로 계산 범위를 제한한다.\n캘린더 목록은 저장소의 실제 calendarId에서 구성하며 최초 Personal만 빈 기본 목록으로 제공한다.\nFigma 예시 일정·가짜 참여자·캘린더는 실제 사용자 저장소에 넣지 않는다.\n"
+      "raw": "`CalendarWorkspace`는 `DashboardCalendar`와 iiCalendarIntegration Store를 조합하는 GUI 표현 계층이다.\n날짜·시간대·반복·저장 검증은 SDK가 처리하며 QML에는 날짜 문자열·분 단위 배치 자료를 전달한다.\n비동기 조회는 비활성 화면에서 중단하고 세대 번호로 이전 요청의 결과를 폐기한다.\nHome에서는 작업 화면을 생성하지 않으며 날짜·보기·시간대가 같으면 그리드 자료를 재사용한다.\n월간 조회는 앞뒤 달의 42칸 전체를 포함하고, 일정 투영은 실제 일정과 겹치는 날짜로 계산 범위를 제한한다.\n캘린더 목록은 저장소의 실제 calendarId에서 구성하며 최초 Personal만 빈 기본 목록으로 제공한다.\nFigma 예시 일정·가짜 참여자·캘린더는 실제 사용자 저장소에 넣지 않는다.\n"
     },
     {
       "id": "b000080",
@@ -726,7 +726,7 @@
       "kind": "paragraph",
       "start_line": 173,
       "end_line": 175,
-      "raw": "먼저 `SDK/iiCalendar` README대로 SDK를 빌드·테스트하고 `build/install`에 설치한다.\nSociety의 기존 CMake 설정에 다음 패키지 경로를 추가한다(크로스 빌드는 대상 플랫폼용\nICU·SQLite·iiCalendar 설치본을 사용해야 한다).\n"
+      "raw": "먼저 `SDK/iiCalendarIntegration` README대로 SDK를 빌드·테스트하고 `build/install`에 설치한다.\nSociety의 기존 CMake 설정에 다음 패키지 경로를 추가한다(크로스 빌드는 대상 플랫폼용\nICU·SQLite·iiCalendarIntegration 설치본을 사용해야 한다).\n"
     },
     {
       "id": "b000084",
@@ -740,9 +740,9 @@
       "kind": "fenced_code",
       "start_line": 177,
       "end_line": 183,
-      "raw": "```sh\ncmake -S . -B build \\\n  -DiiCalendar_DIR=/Volumes/Storage/Workspace/SDK/iiCalendar/build/install/lib/cmake/iiCalendar \\\n  -DICU_ROOT=/Volumes/Storage/Workspace/SDK/iiCalendar/build/deps/icu/install\ncmake --build build --target Society SocietyCalendarTests SocietyDriveTests Society_qmllint --parallel 8\nctest --test-dir build -R '^Society.Calendar$' --output-on-failure\n```\n",
+      "raw": "```sh\ncmake -S . -B build \\\n  -DiiCalendarIntegration_DIR=/Volumes/Storage/Workspace/SDK/iiCalendarIntegration/build/install/lib/cmake/iiCalendarIntegration \\\n  -DICU_ROOT=/Volumes/Storage/Workspace/SDK/iiCalendarIntegration/resources/dependencies/icu/install\ncmake --build build --target Society SocietyCalendarTests SocietyDriveTests Society_qmllint --parallel 8\nctest --test-dir build -R '^Society.Calendar$' --output-on-failure\n```\n",
       "language": "sh",
-      "code": "cmake -S . -B build \\\n  -DiiCalendar_DIR=/Volumes/Storage/Workspace/SDK/iiCalendar/build/install/lib/cmake/iiCalendar \\\n  -DICU_ROOT=/Volumes/Storage/Workspace/SDK/iiCalendar/build/deps/icu/install\ncmake --build build --target Society SocietyCalendarTests SocietyDriveTests Society_qmllint --parallel 8\nctest --test-dir build -R '^Society.Calendar$' --output-on-failure\n",
+      "code": "cmake -S . -B build \\\n  -DiiCalendarIntegration_DIR=/Volumes/Storage/Workspace/SDK/iiCalendarIntegration/build/install/lib/cmake/iiCalendarIntegration \\\n  -DICU_ROOT=/Volumes/Storage/Workspace/SDK/iiCalendarIntegration/resources/dependencies/icu/install\ncmake --build build --target Society SocietyCalendarTests SocietyDriveTests Society_qmllint --parallel 8\nctest --test-dir build -R '^Society.Calendar$' --output-on-failure\n",
       "closed": true
     },
     {
@@ -1042,8 +1042,8 @@
       "block_id": "b000059",
       "parent_id": "b000003",
       "level": 2,
-      "title": "iiCalendar 대시보드",
-      "anchor": "iicalendar-대시보드",
+      "title": "iiCalendarIntegration 대시보드",
+      "anchor": "iicalendarintegration-대시보드",
       "start_line": 81
     },
     {
@@ -1182,7 +1182,7 @@
       {
         "block_id": "b000083",
         "line": 175,
-        "text": "ICU·SQLite·iiCalendar 설치본을 사용해야 한다).",
+        "text": "ICU·SQLite·iiCalendarIntegration 설치본을 사용해야 한다).",
         "basis": "lexical_match",
         "context": "paragraph"
       },
@@ -1205,7 +1205,7 @@
       {
         "block_id": "b000085",
         "language": "sh",
-        "code": "cmake -S . -B build \\\n  -DiiCalendar_DIR=/Volumes/Storage/Workspace/SDK/iiCalendar/build/install/lib/cmake/iiCalendar \\\n  -DICU_ROOT=/Volumes/Storage/Workspace/SDK/iiCalendar/build/deps/icu/install\ncmake --build build --target Society SocietyCalendarTests SocietyDriveTests Society_qmllint --parallel 8\nctest --test-dir build -R '^Society.Calendar$' --output-on-failure\n"
+        "code": "cmake -S . -B build \\\n  -DiiCalendarIntegration_DIR=/Volumes/Storage/Workspace/SDK/iiCalendarIntegration/build/install/lib/cmake/iiCalendarIntegration \\\n  -DICU_ROOT=/Volumes/Storage/Workspace/SDK/iiCalendarIntegration/resources/dependencies/icu/install\ncmake --build build --target Society SocietyCalendarTests SocietyDriveTests Society_qmllint --parallel 8\nctest --test-dir build -R '^Society.Calendar$' --output-on-failure\n"
       },
       {
         "block_id": "b000091",

@@ -10,8 +10,8 @@
   },
   "source": {
     "path": "README.md",
-    "sha256": "36c96951cb44f6ba48d327626661d19b667507dec6e89c6185d1506bcd30e084",
-    "bytes": 45766,
+    "sha256": "cd27318b1d98be0bb7b7f897d99164bc8327c352e03961f26615f8ef8807cd8d",
+    "bytes": 45832,
     "line_count": 348,
     "encoding": "utf-8",
     "language": "ko"
@@ -891,7 +891,7 @@
       "kind": "table",
       "start_line": 150,
       "end_line": 161,
-      "raw": "| Required capability | Owning SDK |\n| --- | --- |\n| Account UI and authentication | iiAccountManager Quick |\n| Persistent calendar, events and tasks | iiCalendar |\n| File creation, temporary leases and native presentation | iiFileProvider |\n| Device pairing and authenticated LAN hosting | iiWebServer |\n| Native container, previews and system-drive presentation | iiSocietyContainer Gui |\n| Shared application presence and file mirror | iiSocietyHelper 0.9.3 or later |\n| Bidirectional container replication | iiSocietyHelper Sync |\n| Photo library and gallery | iiPhotoLibrary |\n| Model packaging and desktop inference hosting | iiLocalDiffusion ModelPackaging and iiSocietyHelper Generation Host |\n| Local desktop MCP endpoint and agent harness on supported Unix platforms | iiMultimodalAgent 0.1 (iiLocalLLM 0.56 inference dependency) |\n",
+      "raw": "| Required capability | Owning SDK |\n| --- | --- |\n| Account UI and authentication | iiAccountManager Quick |\n| Persistent calendar, events and tasks | iiCalendarIntegration |\n| File creation, temporary leases and native presentation | iiFileProvider |\n| Device pairing and authenticated LAN hosting | iiWebServer |\n| Native container, previews and system-drive presentation | iiSocietyContainer Gui |\n| Shared application presence and file mirror | iiSocietyHelper 0.9.3 or later |\n| Bidirectional container replication | iiSocietyHelper Sync |\n| Photo library and gallery | iiPhotoLibrary |\n| Model packaging and desktop inference hosting | iiLocalDiffusion ModelPackaging and iiSocietyHelper Generation Host |\n| Local desktop MCP endpoint and agent harness on supported Unix platforms | iiMultimodalAgent 0.1 (iiLocalLLM 0.56 inference dependency) |\n",
       "columns": [
         "Required capability",
         "Owning SDK"
@@ -903,7 +903,7 @@
         ],
         [
           "Persistent calendar, events and tasks",
-          "iiCalendar"
+          "iiCalendarIntegration"
         ],
         [
           "File creation, temporary leases and native presentation",
@@ -1822,7 +1822,7 @@
       "kind": "paragraph",
       "start_line": 314,
       "end_line": 314,
-      "raw": "The dashboard calendar uses C++23 `iiCalendar::iiCalendar`. The Calendar sidebar entry opens a dedicated Day, Week, Month and Year workspace with calendar filters, upcoming events, tasks and an event inspector. New event and Edit event support durable event/task creation, revision-safe editing and deletion, time zones, all-day ranges, recurrence, alerts, participants and notes. Calendar data stays local to the selected Society container; participant records do not send invitations. The compact Home calendar remains available. Prepare iiCalendar, ICU and SQLite before building. See [Dashboard — iiCalendar](docs/Dashboard.md#iicalendar-대시보드) for storage, UI and verification details.\n"
+      "raw": "The dashboard calendar uses C++23 `iiCalendarIntegration::iiCalendarIntegration`. The Calendar sidebar entry opens a dedicated Day, Week, Month and Year workspace with calendar filters, upcoming events, tasks and an event inspector. New event and Edit event support durable event/task creation, revision-safe editing and deletion, time zones, all-day ranges, recurrence, alerts, participants and notes. Calendar data stays local to the selected Society container; participant records do not send invitations. The compact Home calendar remains available. Prepare iiCalendarIntegration, ICU and SQLite before building. See [Dashboard — iiCalendarIntegration](docs/Dashboard.md#iicalendarintegration-대시보드) for storage, UI and verification details.\n"
     },
     {
       "id": "b000218",
@@ -2310,7 +2310,7 @@
       {
         "block_id": "b000217",
         "line": 314,
-        "text": "The dashboard calendar uses C++23 `iiCalendar::iiCalendar`. The Calendar sidebar entry opens a dedicated Day, Week, Month and Year workspace with calendar filters, upcoming events, tasks and an event inspector. New event and Edit event support durable event/task creation, revision-safe editing and deletion, time zones, all-day ranges, recurrence, alerts, participants and notes. Calendar data stays local to the selected Society container; participant records do not send invitations. The compact Home calendar remains available. Prepare iiCalendar, ICU and SQLite before building. See [Dashboard — iiCalendar](docs/Dashboard.md#iicalendar-대시보드) for storage, UI and verification details.",
+        "text": "The dashboard calendar uses C++23 `iiCalendarIntegration::iiCalendarIntegration`. The Calendar sidebar entry opens a dedicated Day, Week, Month and Year workspace with calendar filters, upcoming events, tasks and an event inspector. New event and Edit event support durable event/task creation, revision-safe editing and deletion, time zones, all-day ranges, recurrence, alerts, participants and notes. Calendar data stays local to the selected Society container; participant records do not send invitations. The compact Home calendar remains available. Prepare iiCalendarIntegration, ICU and SQLite before building. See [Dashboard — iiCalendarIntegration](docs/Dashboard.md#iicalendarintegration-대시보드) for storage, UI and verification details.",
         "basis": "lexical_match",
         "context": "paragraph"
       },
@@ -2697,8 +2697,8 @@
       },
       {
         "block_id": "b000217",
-        "label": "Dashboard — iiCalendar",
-        "target": "docs/Dashboard.md#iicalendar-대시보드",
+        "label": "Dashboard — iiCalendarIntegration",
+        "target": "docs/Dashboard.md#iicalendarintegration-대시보드",
         "kind": "relative",
         "line": 314
       },
@@ -2759,7 +2759,7 @@
           ],
           [
             "Persistent calendar, events and tasks",
-            "iiCalendar"
+            "iiCalendarIntegration"
           ],
           [
             "File creation, temporary leases and native presentation",

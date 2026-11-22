@@ -55,7 +55,7 @@ Society 데스크톱의 기본 화면은 [Figma 18:14](https://www.figma.com/des
 
 Tools 탭 최상단의 QuickGenerate는 [Dreamscapes 203:6930](https://www.figma.com/design/bn8O4AHKr1X9DWnhR1TgEy/Dreamscapes?node-id=203-6930)의 원래 compact 구성으로 복원하였다. 상단 Prompt 입력란과 하단 Image·화면비·생성 수량 드롭다운 및 오른쪽 Generate를 LVRS로 구성한다. 다섯 화면비와 1~1000 범위의 기존 수량 목록을 다시 선택할 수 있다. 기본값은 Image·1:1·1개이며 `generateRequested(prompt, mediaType, aspectRatio, count)`를 ToolsView → SocietyView → Main으로 전달한다. 기존 Image/Video 선택, 탭 전환 시 초안 보존과 생성 공급자 미연결 안내는 유지한다. 레이아웃과 검증 범위는 [MobileViews.md](MobileViews.md)를 참조한다. Guild·Organization의 서비스 연결은 기존 안내를 유지한다.
 
-캘린더는 Qt 비의존 C++23 SDK `iiCalendar`(ICU·SQLite)를 사용한다. 파일 조회와 캘린더 조회에는 Qt 6.8.3의 Concurrent 모듈을 연결한다. 동일한 Qt 배포·라이선스·유지보수 범위이며 앱 자체 도메인인 카드 데이터만 C++로 구성한다.
+캘린더는 Qt 비의존 C++23 SDK `iiCalendarIntegration`(ICU·SQLite)를 사용한다. 파일 조회와 캘린더 조회에는 Qt 6.8.3의 Concurrent 모듈을 연결한다. 동일한 Qt 배포·라이선스·유지보수 범위이며 앱 자체 도메인인 카드 데이터만 C++로 구성한다.
 
 이전 홈 배치의 카드 회귀 기록은 `SocietyDriveTests dashboardCardRowsMatchFigmaAndRemainInteractive`에 있다. 1440/760/390 px 폭에서 Figma 좌표·140×160 크기·8 px 간격, 이미지 크롭, 날짜, 가로 스크롤, 카드 클릭·Space·Enter, 메뉴의 열기·부모 폴더 이동, 빈 검색 결과를 확인한다. `SOCIETY_DASHBOARD_CARDS_SCREENSHOT_PATH`로 캡처 위치를 지정할 수 있고, 선택적인 `SOCIETY_DASHBOARD_CARDS_PREVIEW_PATH`는 테스트용 참조 사진에만 사용한다.
 
@@ -78,7 +78,7 @@ UI Automation을 사용할 수 없는 실기기는 기본 OFF인 `SOCIETY_DASHBO
 `View all`이 여는 `society://generation-history`는 Society의 `showStorage("generation-history")`에 연결되며 열린 창을 전면에 표시한다. `cmake/ApplicationLinks.cmake`가 Apple URL scheme과 Android intent filter를 기존 패키지 설정에 추가하고 Linux desktop entry도 같은 scheme을 등록한다. 다른 저장소 경로나 사용자 자격 증명은 URL로 받지 않는다. SDK URL 테스트 및 실제 앱 실행 인수와 MCP 상태 조회로 Generation History 이동을 검사한다.
 
 
-## iiCalendar 대시보드
+## iiCalendarIntegration 대시보드
 
 [Figma 62:2386](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=62-2386)의
 월간 캘린더와 일별 상세 패널을 대시보드 최상단에 구현했다. 1440 px 데스크톱에서
@@ -88,9 +88,9 @@ UI Automation을 사용할 수 없는 실기기는 기본 OFF인 `SOCIETY_DASHBO
 글꼴·버튼·체크박스·아이콘은 설치된 LVRS를 사용한다. 테마의 녹색 강조색을 유지한다.
 
 - 월 이전/다음, Today, 날짜 선택, 상세 패널의 일 이전/다음, 날짜 방향키 탐색을 제공한다.
-- 월 그리드는 `iiCalendar::makeView`의 월요일 시작 42칸이다. 선택 날짜는 녹색 배경,
+- 월 그리드는 `iiCalendarIntegration::makeView`의 월요일 시작 42칸이다. 선택 날짜는 녹색 배경,
   오늘은 외곽선, 해당 날짜의 일정은 점으로 표시한다. 날짜·DST·반복 일정 계산은 SDK가 수행한다.
-- `iiCalendar::dayDetails`의 Events·Tasks·Activity·Files를 2/2/1/1개로 미리 보여준다.
+- `iiCalendarIntegration::dayDetails`의 Events·Tasks·Activity·Files를 2/2/1/1개로 미리 보여준다.
   Notes·Reminders도 값이 있으면 표시한다. `View all`은 같은 패널에서 전체 목록을 열며
   100개 단위 이전/다음 페이지로 최대 SDK 조회 한도 내의 모든 항목에 접근한다.
   항목 선택 시 설명, 정확한 시작/종료 시각, 위치, 참가자·첨부 개수를 확인한다.
@@ -119,7 +119,7 @@ SQLite 경로는 선택한 `.societycontainer/.society-runtime/calendar/<SHA256(
 SQLite/WAL 파일을 일반 파일 동기화에 넣지 않으며 **현재 일정은 기기 로컬 데이터**이다.
 외부 캘린더 공급자, OS 일정 가져오기, 원격 일정 동기화는 이 구현에 포함되지 않는다.
 일정 생성·편집은 아래 독립 Calendar 작업 화면에서 제공한다.
-기존 SDK 소비자는 `databasePath`의 `iiCalendar::Store::put`으로 이벤트·
+기존 SDK 소비자는 `databasePath`의 `iiCalendarIntegration::Store::put`으로 이벤트·
 할 일·활동·메모·알림·첨부를 기록하고 `refresh()`로 화면에 반영할 수 있다.
 
 ### 독립 Calendar 작업 화면
@@ -160,7 +160,7 @@ LVRS ApplicationWindow 및 Theme 토큰과 LVRS 입력·버튼·체크박스·�
   참가자는 로컬 일정 정보로 기록하며 초대 메일을 발송하지 않는다. 알림 설정은 저장되는
   일정 속성이며 이 화면에서 OS 알림 예약·외부 캘린더 동기화를 새로 제공하지 않는다.
 
-`CalendarWorkspace`는 `DashboardCalendar`와 iiCalendar Store를 조합하는 GUI 표현 계층이다.
+`CalendarWorkspace`는 `DashboardCalendar`와 iiCalendarIntegration Store를 조합하는 GUI 표현 계층이다.
 날짜·시간대·반복·저장 검증은 SDK가 처리하며 QML에는 날짜 문자열·분 단위 배치 자료를 전달한다.
 비동기 조회는 비활성 화면에서 중단하고 세대 번호로 이전 요청의 결과를 폐기한다.
 Home에서는 작업 화면을 생성하지 않으며 날짜·보기·시간대가 같으면 그리드 자료를 재사용한다.
@@ -170,14 +170,14 @@ Figma 예시 일정·가짜 참여자·캘린더는 실제 사용자 저장소�
 
 ### 빌드와 검증
 
-먼저 `SDK/iiCalendar` README대로 SDK를 빌드·테스트하고 `build/install`에 설치한다.
+먼저 `SDK/iiCalendarIntegration` README대로 SDK를 빌드·테스트하고 `build/install`에 설치한다.
 Society의 기존 CMake 설정에 다음 패키지 경로를 추가한다(크로스 빌드는 대상 플랫폼용
-ICU·SQLite·iiCalendar 설치본을 사용해야 한다).
+ICU·SQLite·iiCalendarIntegration 설치본을 사용해야 한다).
 
 ```sh
 cmake -S . -B build \
-  -DiiCalendar_DIR=/Volumes/Storage/Workspace/SDK/iiCalendar/build/install/lib/cmake/iiCalendar \
-  -DICU_ROOT=/Volumes/Storage/Workspace/SDK/iiCalendar/build/deps/icu/install
+  -DiiCalendarIntegration_DIR=/Volumes/Storage/Workspace/SDK/iiCalendarIntegration/build/install/lib/cmake/iiCalendarIntegration \
+  -DICU_ROOT=/Volumes/Storage/Workspace/SDK/iiCalendarIntegration/resources/dependencies/icu/install
 cmake --build build --target Society SocietyCalendarTests SocietyDriveTests Society_qmllint --parallel 8
 ctest --test-dir build -R '^Society.Calendar$' --output-on-failure
 ```

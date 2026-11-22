@@ -104,7 +104,7 @@ qt_standard_project_setup(REQUIRES 6.8)
 
 set(society_sdk_packages
     iiAccountManager
-    iiCalendar
+    iiCalendarIntegration
     iiFileProvider
     iiPhotoLibrary
     iiLocalDiffusion
@@ -113,7 +113,7 @@ set(society_sdk_packages
     iiSocietyHelper
 )
 if(NOT APPLE OR CMAKE_SYSTEM_NAME STREQUAL "iOS")
-    set(society_sdk_packages iiAccountManager iiCalendar iiFileProvider iiWebServer iiSocietyContainer iiSocietyHelper iiPhotoLibrary)
+    set(society_sdk_packages iiAccountManager iiCalendarIntegration iiFileProvider iiWebServer iiSocietyContainer iiSocietyHelper iiPhotoLibrary)
 endif()
 set(society_sdk_targets)
 foreach(society_sdk IN LISTS society_sdk_packages)
@@ -124,8 +124,8 @@ foreach(society_sdk IN LISTS society_sdk_packages)
     endif()
     if(society_sdk STREQUAL "iiAccountManager")
         find_package(iiAccountManager 0.2.6 CONFIG REQUIRED COMPONENTS Quick HINTS "$ENV{HOME}/.local/SDK/iiAccountManager")
-    elseif(society_sdk STREQUAL "iiCalendar")
-        find_package(iiCalendar 0.1 CONFIG REQUIRED HINTS "$ENV{HOME}/.local/SDK/iiCalendar")
+    elseif(society_sdk STREQUAL "iiCalendarIntegration")
+        find_package(iiCalendarIntegration 0.2 CONFIG REQUIRED HINTS "$ENV{HOME}/.local/SDK/iiCalendarIntegration")
     elseif(society_sdk STREQUAL "iiPhotoLibrary")
         find_package(iiPhotoLibrary 0.1 CONFIG REQUIRED HINTS "$ENV{HOME}/.local/SDK/iiPhotoLibrary")
         if(NOT iiPhotoLibrary_PROVIDER_DEVICE_SHA256)
@@ -377,6 +377,15 @@ lvui_generate(NAME NativeNavigation SOURCE App/Society/Native/NativeNavigation.l
     INCLUDES NativeNavigationViewModel.h OUTPUT_VARIABLE society_native_navigation_view)
 lvui_generate(NAME NativeWorkspace SOURCE App/Society/Native/NativeWorkspace.lvui
     INCLUDES NativeWorkspaceViewModel.h NativeFilesNavigation.h OUTPUT_VARIABLE society_native_workspace_view)
+lvui_generate(NAME NativeGraphNode SOURCE App/Society/Space/NativeGraphNode.lvui
+    INCLUDES GraphNodeViewModel.h OUTPUT_VARIABLE society_native_graph_node_view)
+add_library(SocietyGraphNode OBJECT
+    App/Society/Space/GraphNode.cpp App/Society/Space/GraphNode.h
+    App/Society/Space/GraphNodeViewModel.h "${society_native_graph_node_view}")
+target_compile_features(SocietyGraphNode PUBLIC cxx_std_23)
+target_include_directories(SocietyGraphNode PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/App"
+    PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/App/Society/Space" "${CMAKE_CURRENT_BINARY_DIR}")
+target_link_libraries(SocietyGraphNode PUBLIC iiGUI::iiGUI PRIVATE LVUI::Native)
 add_library(SocietyNativeNavigationSurface STATIC
     App/Society/Native/LegacyNavigationBridge.cpp App/Society/Native/LegacyNavigationBridge.h
     App/Society/Native/NativeNavigationSurface.cpp App/Society/Native/NativeNavigationSurface.h
@@ -501,6 +510,7 @@ if(society_qt_core_type STREQUAL "SHARED_LIBRARY")
 endif()
 target_link_libraries(Society PRIVATE Qt6::Quick Qt6::QuickControls2 iiAccountManager::Quick)
 target_link_libraries(Society PRIVATE SocietyNativeNavigationSurface)
+target_link_libraries(Society PRIVATE SocietyGraphNode)
 if(APPLE AND NOT IOS)
     target_link_options(Society BEFORE PRIVATE "LINKER:-rpath,$<TARGET_FILE_DIR:iiAccountManager::iiAccountManager>")
 endif()
@@ -588,8 +598,8 @@ if(APPLE AND NOT IOS)
             "-Dlunasvg_DIR=${SOCIETY_NATIVE_IIGUI_PREFIX}/lib/cmake/lunasvg"
             "-Dplutovg_DIR=${SOCIETY_NATIVE_IIGUI_PREFIX}/lib/cmake/plutovg"
             "-DiiSDKCore_DIR=${iiSDKCore_DIR}"
-            "-DiiNetwork_DIR=$ENV{HOME}/.local/SDK/iiNetwork/lib/cmake/iiNetwork"
-            "-DiiJson_DIR=$ENV{HOME}/.local/SDK/iiJson/lib/cmake/iiJson"
+            "-DiiNetwork_DIR=${iiNetwork_DIR}"
+            "-DiiJson_DIR=${iiJson_DIR}"
             "-DiiColorManager_DIR=$ENV{HOME}/.local/SDK/iiColorManager/lib/cmake/iiColorManager"
             "-DVulkan_INCLUDE_DIR=${SOCIETY_NATIVE_VULKAN_PREFIX}/include"
             "-DVulkan_LIBRARY=${SOCIETY_NATIVE_VULKAN_PREFIX}/lib/libvulkan.dylib"
@@ -836,6 +846,12 @@ endif()
 
 include(CTest)
 if(BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)
+    add_executable(SocietyGraphNodeTests tests/graph_node.cpp)
+    target_link_libraries(SocietyGraphNodeTests PRIVATE SocietyGraphNode LVUI::Native iiGUI::iiGUI)
+    add_test(NAME Society.GraphNode COMMAND SocietyGraphNodeTests)
+    add_executable(SocietyGraphNodeValueTests tests/graph_node_values.cpp)
+    target_link_libraries(SocietyGraphNodeValueTests PRIVATE SocietyGraphNode LVUI::Native iiGUI::iiGUI)
+    add_test(NAME Society.GraphNodeValues COMMAND SocietyGraphNodeValueTests)
     add_executable(SocietyNotificationStoreTests tests/notification_store.cpp)
     target_include_directories(SocietyNotificationStoreTests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/App")
     target_compile_features(SocietyNotificationStoreTests PRIVATE cxx_std_23)
@@ -1355,7 +1371,7 @@ if(BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)
 
     qt_add_executable(SocietyCalendarTests tests/tst_calendar.cpp ${society_calendar_sources})
     target_include_directories(SocietyCalendarTests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/App")
-    target_link_libraries(SocietyCalendarTests PRIVATE Qt6::Test Qt6::Qml Qt6::Concurrent iiCalendar::iiCalendar iiSocietyContainer::iiSocietyContainer iiFileProvider::Native SQLite3::SQLite3)
+    target_link_libraries(SocietyCalendarTests PRIVATE Qt6::Test Qt6::Qml Qt6::Concurrent iiCalendarIntegration::iiCalendarIntegration iiSocietyContainer::iiSocietyContainer iiFileProvider::Native SQLite3::SQLite3)
     target_compile_definitions(SocietyCalendarTests PRIVATE SOCIETY_TEST_DIRECTORY="${_society_test_directory}")
     add_test(NAME Society.Calendar COMMAND SocietyCalendarTests)
     set_tests_properties(Society.Calendar PROPERTIES TIMEOUT 300)
@@ -1411,7 +1427,7 @@ if(BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)
     society_add_photo_qml(SocietyDriveTests)
     target_include_directories(SocietyDriveTests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/App")
     target_include_directories(SocietyDriveTests BEFORE PRIVATE ${society_provider_include})
-    target_link_libraries(SocietyDriveTests PRIVATE iiFileProvider::Temporary iiFileProvider::Native SQLite3::SQLite3 iiCalendar::iiCalendar Qt6::Test Qt6::Quick Qt6::QuickControls2
+    target_link_libraries(SocietyDriveTests PRIVATE iiFileProvider::Temporary iiFileProvider::Native SQLite3::SQLite3 iiCalendarIntegration::iiCalendarIntegration Qt6::Test Qt6::Quick Qt6::QuickControls2
         Qt6::Concurrent
         iiWebServer::iiWebServer iiAccountManager::iiAccountManager iiSocietyContainer::iiSocietyContainer iiJob::iiJob)
     lvrs_configure_qml_app(SocietyDriveTests NO_PLATFORM_RUNTIME_TARGETS)

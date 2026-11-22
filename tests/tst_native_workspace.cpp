@@ -106,10 +106,17 @@ private slots:
         scroll=surface.controlScrollPosition(QStringLiteral("workspace-agent-history"));
         QVERIFY2(scroll.x()+1.0>=scroll.y(),"A growing streamed reply must remain visible.");
         const auto position=viewport.center();
-        QWheelEvent wheel(position,position,QPoint{},QPoint{0,-9600},Qt::NoButton,Qt::NoModifier,Qt::NoScrollPhase,false);
+        // Qt reports wheel-up as positive, while iiGUI scroll offsets grow downwards.
+        QWheelEvent wheel(position,position,QPoint{},QPoint{0,9600},Qt::NoButton,Qt::NoModifier,Qt::NoScrollPhase,false);
         QCoreApplication::sendEvent(&surface,&wheel);
         scroll=surface.controlScrollPosition(QStringLiteral("workspace-agent-history"));
         QVERIFY2(scroll.x()+1.0<scroll.y(),"Scrolling up must leave the latest message below the viewport.");
+        const auto beforeDown=scroll.x();
+        QWheelEvent down(position,position,QPoint{0,-20},QPoint{0,-120},Qt::NoButton,Qt::NoModifier,Qt::ScrollUpdate,false);
+        QCoreApplication::sendEvent(&surface,&down);
+        scroll=surface.controlScrollPosition(QStringLiteral("workspace-agent-history"));
+        QVERIFY2(scroll.x()>beforeDown,"A negative precise Qt delta must scroll down.");
+        QVERIFY2(scroll.x()+1.0<scroll.y(),"A small downward scroll must not jump to the end.");
         messages.push_back({"message-16","Agent","A newer message"});
         vm->setAgentState("model://small",false,"Ready",messages); surface.refresh();
         const auto newer=surface.controlScrollPosition(QStringLiteral("workspace-agent-history"));

@@ -235,7 +235,17 @@ void NativeWorkspaceSurface::mouseDoubleClickEvent(QMouseEvent *e) {
     e->accept();
 }
 void NativeWorkspaceSurface::mouseUngrabEvent() { if (m->view) (void)m->view->input({.kind=ii::gui::WidgetInputKind::pointer_cancel}); refresh(); }
-void NativeWorkspaceSurface::wheelEvent(QWheelEvent *e) { if (m->view) (void)m->view->input({.kind=ii::gui::WidgetInputKind::scroll,.x=e->position().x(),.y=e->position().y(),.scroll_y=double(e->angleDelta().y())/8.0}); refresh(); e->accept(); }
+void NativeWorkspaceSurface::wheelEvent(QWheelEvent *e) {
+    // Qt's wheel deltas describe content movement; iiGUI uses positive scroll
+    // offsets towards the bottom/right. Qt has already applied system direction.
+    const bool precise = !e->pixelDelta().isNull();
+    const auto delta = precise ? e->pixelDelta() : e->angleDelta();
+    const double scale = precise ? 1.0 : 1.0 / 8.0;
+    if (m->view) (void)m->view->input({.kind=ii::gui::WidgetInputKind::scroll,
+        .x=e->position().x(),.y=e->position().y(),.shift=bool(e->modifiers() & Qt::ShiftModifier),
+        .scroll_y=-double(delta.y())*scale,.scroll_x=-double(delta.x())*scale,.precise_scroll=precise});
+    refresh(); e->accept();
+}
 void NativeWorkspaceSurface::keyPressEvent(QKeyEvent *e) {
     if (!m->view) { e->ignore(); return; }
     using K = ii::gui::WidgetKey;

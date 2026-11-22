@@ -7,7 +7,7 @@
 #include <QVariantMap>
 
 // GUI projection only. Dates, recurrence, validation and durable writes belong
-// to iiCalendar.
+// to iiCalendarIntegration.
 class CalendarWorkspace : public QObject {
   Q_OBJECT
   QML_ELEMENT

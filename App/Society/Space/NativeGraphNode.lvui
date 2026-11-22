@@ -1,0 +1,66 @@
+import vm society.space.GraphNodeViewModel
+
+VStack(id: "graph-node", spacing: Metric.space0, alignment: .center) {
+    HStack(alignment: .center, spacing: Metric.space0) {
+        for (port in vm.top, key: port.key, id: "graph-ports-top", horizontal: true, spacing: Metric.space0) {
+            LabelButton(id: "graph-port-button", text: "●", tone: .borderless, width: Metric.size22, height: Metric.size22,
+                        primaryColor: Color.green, accessibilityName: port.accessibilityName, onClick: callback(vm.activatePort(port.key)))
+        }
+    }
+    HStack(alignment: .center, spacing: Metric.space0) {
+        for (port in vm.left, key: port.key, id: "graph-ports-left", spacing: Metric.space0) {
+            LabelButton(id: "graph-port-button", text: "●", tone: .borderless, width: Metric.size22, height: Metric.size22,
+                        primaryColor: Color.green, accessibilityName: port.accessibilityName, onClick: callback(vm.activatePort(port.key)))
+        }
+        VStack(id: "graph-node-body", width: vm.horizontalPortCount * Metric.size22 > 280 ? vm.horizontalPortCount * Metric.size22 : 280,
+               minimumHeight: vm.verticalPortCount * Metric.size22 > 180 ? vm.verticalPortCount * Metric.size22 : 180,
+               padding: Metric.space16, spacing: Metric.space8,
+               alignment: .leading, backgroundColor: Color.canvas, borderColor: Color.material.alert.border,
+               borderWidth: Metric.stroke1, cornerRadius: Metric.radius8) {
+            Label(id: "graph-node-title", text: vm.title, style: .body)
+            Label(id: "graph-node-description", text: vm.description, style: .caption)
+            MenuDivider()
+            for (input in vm.inputs, key: input.id, id: "graph-node-inputs", spacing: Metric.space4) {
+                HStack(spacing: Metric.space8) {
+                    Label(id: "graph-input-label", text: input.label, style: .caption)
+                    Label(id: "graph-input-value", text: input.text, style: .caption, visible: input.isLabel)
+                    InputField(id: "graph-value-input", text: input.text, width: Metric.size140, visible: input.isTextInput,
+                               accessibilityName: input.accessibilityName, onEdited: callback(vm.editValue(input.id, input.isOutput)))
+                    LabelButton(id: "graph-value-button", text: input.text, visible: input.isButton, enabled: input.actionEnabled, accessibilityName: input.accessibilityName,
+                                onClick: callback(vm.activateValue(input.id, input.isOutput)))
+                    Image(id: "graph-value-image", source: input.image, width: Metric.size72, height: Metric.size72, visible: input.isImage,
+                          fit: .Contain, allowEmpty: true, accessibilityName: input.accessibilityName)
+                    LabelButton(id: "graph-value-file", text: input.text, visible: input.isFile, enabled: input.actionEnabled, accessibilityName: input.accessibilityName,
+                                onClick: callback(vm.activateValue(input.id, input.isOutput)))
+                }
+            }
+            HStack(spacing: Metric.space8) {
+                Label(text: "Output", style: .caption)
+                Label(id: "graph-node-output-format", text: vm.outputFormat, style: .caption)
+            }
+            for (output in vm.outputs, key: output.id, id: "graph-node-outputs", spacing: Metric.space4) {
+                HStack(spacing: Metric.space8) {
+                    Label(id: "graph-output-value", text: output.text, style: .caption, visible: output.isLabel)
+                    InputField(id: "graph-value-input", text: output.text, width: Metric.size140, visible: output.isTextInput,
+                               accessibilityName: output.accessibilityName, onEdited: callback(vm.editValue(output.id, output.isOutput)))
+                    LabelButton(id: "graph-value-button", text: output.text, visible: output.isButton, enabled: output.actionEnabled, accessibilityName: output.accessibilityName,
+                                onClick: callback(vm.activateValue(output.id, output.isOutput)))
+                    Image(id: "graph-value-image", source: output.image, width: Metric.size72, height: Metric.size72, visible: output.isImage,
+                          fit: .Contain, allowEmpty: true, accessibilityName: output.accessibilityName)
+                    LabelButton(id: "graph-value-file", text: output.text, visible: output.isFile, enabled: output.actionEnabled, accessibilityName: output.accessibilityName,
+                                onClick: callback(vm.activateValue(output.id, output.isOutput)))
+                }
+            }
+        }
+        for (port in vm.right, key: port.key, id: "graph-ports-right", spacing: Metric.space0) {
+            LabelButton(id: "graph-port-button", text: "●", tone: .borderless, width: Metric.size22, height: Metric.size22,
+                        primaryColor: Color.green, accessibilityName: port.accessibilityName, onClick: callback(vm.activatePort(port.key)))
+        }
+    }
+    HStack(alignment: .center, spacing: Metric.space0) {
+        for (port in vm.bottom, key: port.key, id: "graph-ports-bottom", horizontal: true, spacing: Metric.space0) {
+            LabelButton(id: "graph-port-button", text: "●", tone: .borderless, width: Metric.size22, height: Metric.size22,
+                        primaryColor: Color.green, accessibilityName: port.accessibilityName, onClick: callback(vm.activatePort(port.key)))
+        }
+    }
+}

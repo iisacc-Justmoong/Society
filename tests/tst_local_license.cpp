@@ -164,9 +164,11 @@ private slots:
         QElapsedTimer elapsed;elapsed.start();const auto timeout=request(daemon.localLicenseBrokerPath(),input);
         QVERIFY(elapsed.elapsed()<1000);QCOMPARE(timeout.value("code").toString(),QString("verification_unavailable"));
         QVERIFY(timeout.value("localToken").toString().isEmpty());QVERIFY(pending);
-        pending->deleteLater();QTRY_VERIFY(pending.isNull());
+        // A stalled storage read must be retired by the broker itself.
+        QTRY_VERIFY_WITH_TIMEOUT(pending.isNull(), 6000);
+        savedSession.holdRead=false;
         const auto retry=request(daemon.localLicenseBrokerPath(),input);
-        QVERIFY2(!retry.value("localToken").toString().isEmpty(),"destroyed restore left the broker unable to recover");
+        QVERIFY2(!retry.value("localToken").toString().isEmpty(),"timed-out restore left the broker unable to recover");
     }
     void legacyBrokerRechecksLogoutDuringTokenRead() {
         AccountServer server;QVERIFY(server.server.listen(QHostAddress::LocalHost));

@@ -150,7 +150,7 @@ uses explicit package directories or `~/.local/SDK/<package name>`.
 | Required capability | Owning SDK |
 | --- | --- |
 | Account UI and authentication | iiAccountManager Quick |
-| Persistent calendar, events and tasks | iiCalendar |
+| Persistent calendar, events and tasks | iiCalendarIntegration |
 | File creation, temporary leases and native presentation | iiFileProvider |
 | Device pairing and authenticated LAN hosting | iiWebServer |
 | Native container, previews and system-drive presentation | iiSocietyContainer Gui |
@@ -311,7 +311,7 @@ The file grid and photo gallery test harnesses import their views from `App/Soci
 
 ### Dashboard calendar
 
-The dashboard calendar uses C++23 `iiCalendar::iiCalendar`. The Calendar sidebar entry opens a dedicated Day, Week, Month and Year workspace with calendar filters, upcoming events, tasks and an event inspector. New event and Edit event support durable event/task creation, revision-safe editing and deletion, time zones, all-day ranges, recurrence, alerts, participants and notes. Calendar data stays local to the selected Society container; participant records do not send invitations. The compact Home calendar remains available. Prepare iiCalendar, ICU and SQLite before building. See [Dashboard — iiCalendar](docs/Dashboard.md#iicalendar-대시보드) for storage, UI and verification details.
+The dashboard calendar uses C++23 `iiCalendarIntegration::iiCalendarIntegration`. The Calendar sidebar entry opens a dedicated Day, Week, Month and Year workspace with calendar filters, upcoming events, tasks and an event inspector. New event and Edit event support durable event/task creation, revision-safe editing and deletion, time zones, all-day ranges, recurrence, alerts, participants and notes. Calendar data stays local to the selected Society container; participant records do not send invitations. The compact Home calendar remains available. Prepare iiCalendarIntegration, ICU and SQLite before building. See [Dashboard — iiCalendarIntegration](docs/Dashboard.md#iicalendarintegration-대시보드) for storage, UI and verification details.
 
 ### Dashboard projects
 

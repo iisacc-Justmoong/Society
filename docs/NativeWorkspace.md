@@ -144,7 +144,7 @@ the transcript. Failures also appear in the conversation with their full reason,
 and Stop cancels a queued request. Context attachments and the model menu
 reserve vertical space so that the message composer remains reachable.
 The transcript follows new messages and streamed text when the user is at the
-bottom; scrolling up to read earlier messages preserves that position.
+bottom; scrolling up to read earlier messages preserves that position. The Qt host converts system-adjusted wheel and trackpad deltas into iiGUI scroll offsets, including horizontal movement and precise pixel deltas.
 The panel adds selected files as explicit attachments and permits individual
 removal. A request admits up to eight files and 512 KiB total; supported UTF-8
 text files are limited to 32 KiB each, while PNG, JPEG, BMP, GIF, WAV, MP3 and

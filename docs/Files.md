@@ -136,3 +136,6 @@ iiSocietyContainer의 관리 파일 수집은 각 일반 파일에 컨테이너 
 
 여러 자원에 걸친 뷰·필터와 비동기 색인의 목표 및 현재 구현 경계는
 [자원 검색과 뷰](ResourceSearchAndViews.md)에 정리한다.
+
+네이티브 Files 화면의 하위 빌드는 상위 Society 빌드가 선택한 iiJson 및 iiNetwork 패키지를 사용한다.
+이를 통해 화면과 앱이 서로 다른 SDK 헤더나 바이너리를 참조하지 않도록 한다.
