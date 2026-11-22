@@ -42,6 +42,24 @@ class SocietyClientTests(unittest.TestCase):
         self.assertFalse(caught.exception.uncertain)
         self.assertIn("drive changed", str(caught.exception))
 
+    def test_duplicate_candidate_cursor_and_validation(self):
+        client = society.Client(executable="society-cli", broker_directory="/fixture/broker")
+        cursor = {"containerId": "drive", "resourceId": "asset", "revisionId": "v1", "index": {"revision": "2"}}
+        result = subprocess.CompletedProcess([], 0, json.dumps({"accepted": True, "duplicates": {"next": {}}}), "")
+        with patch.object(society.subprocess, "run", return_value=result) as run:
+            response = client.resource_duplicates("Files/a b.txt", limit=1, cursor=cursor, container="/fixture/drive")
+        self.assertEqual(response["duplicates"]["next"], {})
+        args = run.call_args.args[0]
+        self.assertEqual(args[:7], ["society-cli", "--broker", "/fixture/broker", "resource", "duplicates", "Files/a b.txt", "--limit"])
+        self.assertEqual(args[7], "1")
+        self.assertEqual(json.loads(args[args.index("--cursor") + 1]), cursor)
+        self.assertEqual(args[-2:], ["--container", "/fixture/drive"])
+        for limit in (0, 21, True, 1.5):
+            with self.assertRaises(ValueError):
+                client.resource_duplicates("Files/a.txt", limit=limit)
+        with self.assertRaises(ValueError):
+            client.resource_duplicates("Files/a.txt", cursor={})
+
 
 if __name__ == "__main__":
     unittest.main()

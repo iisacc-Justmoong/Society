@@ -231,7 +231,7 @@
       "document_id": "urn:iisacc:document:a6e7b3ebe8b76ddf50dff11c79a78afcd0e81004d480e0424542fdd5763df975",
       "source": "docs/Mcp.md",
       "agent_json": "docs/Mcp.agent.json",
-      "source_sha256": "17806b795baacd604e6397df0936e526e3582ec57450cfce6e84bf9c24d3a9ed",
+      "source_sha256": "043c0b9b6b57ff1dbdf6dade44c4fb2de35f742d6a76155170148a4b9c643226",
       "role": "guide"
     },
     {
@@ -434,7 +434,7 @@
       "document_id": "urn:iisacc:document:add45f3d373c0c136779cebafbbb458c181c63e672102144e07f6d502fdec42a",
       "source": "docs/ResourceModule.md",
       "agent_json": "docs/ResourceModule.agent.json",
-      "source_sha256": "baa0a5c16377fb9ee00546ce3694c93d4f71d30ddca2eddba19a779cfd88d147",
+      "source_sha256": "ff77a1bfd714b1c90184b602a026c6380ba46be94cd9a6fafb1244eaef5eac83",
       "role": "guide"
     },
     {
@@ -560,7 +560,7 @@
       "document_id": "urn:iisacc:document:7e1d13093e352ea3a35efa4321bf5672da93e4fc857d85e4f5ff4291d9ab0d23",
       "source": "docs/WorkspaceAgentTools.md",
       "agent_json": "docs/WorkspaceAgentTools.agent.json",
-      "source_sha256": "393b4d4cf0e79f9448553ec3094104551be3750b4f20c0e8e6fa3d129e93ac87",
+      "source_sha256": "c5942fcfa8297dcf6544aac87b5ebbc379ffa04b89bb560723abdce660fe625b",
       "role": "guide"
     },
     {
@@ -601,7 +601,7 @@
   },
   "provenance": {
     "generator": "workspace-docs",
-    "version": "1.0.0",
+    "version": "1.0.0+manual-append",
     "profile": "lossless-blocks-v1",
     "derived": true
   }

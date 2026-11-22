@@ -26,6 +26,7 @@ int main(int argc, char **argv)
             "       society-cli [--broker DIR] suggested status|refresh\n"
             "       society-cli [--broker DIR] recent status|refresh\n"
             "       society-cli [--broker DIR] resource inspect Files/PATH|Models/PATH [--container DIR]\n"
+            "       society-cli [--broker DIR] resource duplicates Files/PATH|Models/PATH [--limit 1-20] [--cursor JSON] [--container DIR]\n"
             "       society-cli [--broker DIR] agent send --stdin [--attach FILE]... [--container DIR]\n"
             "       society-cli [--broker DIR] agent select MODEL_ID\n"
             "       society-cli [--broker DIR] space status|cancel --session ID [--container DIR]\n"
@@ -40,6 +41,26 @@ int main(int argc, char **argv)
         operation="resourceInspect"; parameters={{"path",args.at(2)}};
         if (args.size()==5 && args.at(3)=="--container" && QDir::isAbsolutePath(args.at(4))) expected=args.at(4);
         else if (args.size()!=3) return fail("Invalid resource inspection command.");
+    } else if (args.size()>=3 && args.at(0)=="resource" && args.at(1)=="duplicates") {
+        operation="resourceDuplicates"; parameters={{"path",args.at(2)}};
+        args.erase(args.begin(),args.begin()+3);
+        bool sawLimit=false,sawCursor=false,sawContainer=false;
+        while (!args.isEmpty()) {
+            if (args.size()<2) return fail("An option value is missing.");
+            const auto key=args.takeFirst(), value=args.takeFirst();
+            if (key=="--limit" && !sawLimit) {
+                bool ok=false; const auto limit=value.toInt(&ok);
+                if (!ok || limit<1 || limit>20) return fail("The limit must be from 1 to 20.");
+                parameters.insert("limit",limit); sawLimit=true;
+            } else if (key=="--cursor" && !sawCursor && value.toUtf8().size()<=4096) {
+                QJsonParseError error; const auto document=QJsonDocument::fromJson(value.toUtf8(),&error);
+                if (error.error!=QJsonParseError::NoError || !document.isObject() || document.object().isEmpty())
+                    return fail("The cursor must be a nonempty JSON object.");
+                parameters.insert("cursor",document.object()); sawCursor=true;
+            } else if (key=="--container" && !sawContainer && QDir::isAbsolutePath(value)) {
+                expected=value; sawContainer=true;
+            } else return fail("Invalid or repeated duplicate discovery option.");
+        }
     } else if (args.size()==2 && args.at(0)=="recent") {
         if (args.at(1)=="status") operation="recentSubscribe";
         else if (args.at(1)=="refresh") operation="recentRefresh";
@@ -120,7 +141,8 @@ int main(int argc, char **argv)
     } else return fail("Invalid command. Use --help for usage.");
     const auto result=operation.startsWith("space")
         ? societySpaceCommand(broker,operation,parameters,expected,10000)
-        : societyBackendCommand(broker,operation,parameters,expected,operation=="resourceInspect"?30000:10000);
+        : societyBackendCommand(broker,operation,parameters,expected,
+                                operation=="resourceInspect" || operation=="resourceDuplicates"?30000:10000);
     auto response=result.response;
     if (!result.ok()) { response.insert("accepted",false); response.insert("error",result.error); response.insert("uncertain",result.uncertain); }
     QTextStream(stdout) << QJsonDocument(response).toJson(QJsonDocument::Compact) << Qt::endl;

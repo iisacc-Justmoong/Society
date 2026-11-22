@@ -10,9 +10,9 @@
   },
   "source": {
     "path": "docs/Mcp.md",
-    "sha256": "17806b795baacd604e6397df0936e526e3582ec57450cfce6e84bf9c24d3a9ed",
-    "bytes": 6552,
-    "line_count": 74,
+    "sha256": "043c0b9b6b57ff1dbdf6dade44c4fb2de35f742d6a76155170148a4b9c643226",
+    "bytes": 7128,
+    "line_count": 82,
     "encoding": "utf-8",
     "language": "ko"
   },
@@ -270,6 +270,36 @@
       "start_line": 71,
       "end_line": 74,
       "raw": "당시 빌드는 iiLocalLLM 0.52 계열 설치본을 사용했다. 당시 MCP 통합 테스트는\n설치본과 실제 제품 프로세스를 연결하여 도구 호출, 인증, 경로 제한과\n호스트의 rules 기반 기본 권한 모드를 검증했다. 위의 2026-09-15\n검증 기록은 당시 0.36 계열에 대한 이력이며 현재 검증 결과와 구분한다.\n"
+    },
+    {
+      "id": "b000028",
+      "kind": "blank",
+      "start_line": 75,
+      "end_line": 75,
+      "raw": "\n"
+    },
+    {
+      "id": "b000029",
+      "kind": "heading",
+      "start_line": 76,
+      "end_line": 76,
+      "raw": "## 동일 내용 후보 조회\n",
+      "level": 2,
+      "title": "동일 내용 후보 조회"
+    },
+    {
+      "id": "b000030",
+      "kind": "blank",
+      "start_line": 77,
+      "end_line": 77,
+      "raw": "\n"
+    },
+    {
+      "id": "b000031",
+      "kind": "paragraph",
+      "start_line": 78,
+      "end_line": 82,
+      "raw": "`resource_duplicate_candidates`는 선택된 컨테이너의 관찰된 파일을 기준으로 같은\nSHA-256 관찰값을 가진 색인 후보를 반환하는 읽기 전용 도구이다. 응답의 `next`를\n그대로 전달하여 페이지를 이어 읽으며 빈 페이지가 마지막 페이지라는 보장은 없다.\n색인의 전체 범위와 현재 바이트의 일치는 확인되지 않으며, 이 응답은 삭제 또는\n물리적 중복 제거의 승인이 아니다. 자세한 범위는 자원 저장소 연결 문서를 따른다.\n"
     }
   ],
   "outline": [
@@ -304,6 +334,14 @@
       "title": "2026-09-24 SDK 재설치 기준",
       "anchor": "2026-09-24-sdk-재설치-기준",
       "start_line": 69
+    },
+    {
+      "block_id": "b000029",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "동일 내용 후보 조회",
+      "anchor": "동일-내용-후보-조회",
+      "start_line": 76
     }
   ],
   "indexes": {
@@ -342,6 +380,27 @@
         "text": "추가하지 않는다.",
         "basis": "lexical_match",
         "context": "paragraph"
+      },
+      {
+        "block_id": "b000031",
+        "line": 80,
+        "text": "그대로 전달하여 페이지를 이어 읽으며 빈 페이지가 마지막 페이지라는 보장은 없다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000031",
+        "line": 81,
+        "text": "색인의 전체 범위와 현재 바이트의 일치는 확인되지 않으며, 이 응답은 삭제 또는",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000031",
+        "line": 82,
+        "text": "물리적 중복 제거의 승인이 아니다. 자세한 범위는 자원 저장소 연결 문서를 따른다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
       }
     ],
     "commands": [],
@@ -350,7 +409,7 @@
   },
   "provenance": {
     "generator": "workspace-docs",
-    "version": "1.0.0",
+    "version": "1.0.0+manual-append",
     "profile": "lossless-blocks-v1",
     "derived": true
   }

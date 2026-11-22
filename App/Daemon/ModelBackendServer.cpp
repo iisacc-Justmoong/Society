@@ -357,7 +357,7 @@ void ModelBackendServer::receive(QLocalSocket *socket, const QJsonObject &reques
     const auto id = request.value("id").toString();
     const auto operation = request.value("op").toString();
     if (id.isEmpty() || id.size() > 128 || operation.isEmpty() || operation.size() > 64) { socket->abort(); return; }
-    if (operation=="resourceInspect") {
+    if (operation=="resourceInspect" || operation=="resourceDuplicates") {
         QJsonObject reply{{"type","result"},{"id",id},{"accepted",false},{"operation",operation}};
         const auto directory=QDir(QCoreApplication::applicationDirPath());
         if (!m_uiPeerVerifier(socket) && societyBackendPeerPid(socket)!=QCoreApplication::applicationPid()
@@ -368,24 +368,39 @@ void ModelBackendServer::receive(QLocalSocket *socket, const QJsonObject &reques
         if (m_selected.isEmpty() || !societySameBackendPath(QDir::cleanPath(request.value("container").toString()),m_selected)) {
             reply.insert("error","The selected Society drive is unavailable or has changed."); send(socket,reply); return;
         }
+        if (operation=="resourceDuplicates" && m_selectedId.isEmpty()) {
+            reply.insert("error","The selected Society drive identity is unavailable."); send(socket,reply); return;
+        }
         const auto path=request.value("path");
         if (!path.isString() || path.toString().isEmpty() || path.toString().size()>4096 || m_resourceQueries>=16) {
             reply.insert("error","Invalid or excessive resource inspection requests."); send(socket,reply); return;
         }
-        const auto root=m_selected, logical=path.toString(); const auto generation=m_resourceGeneration;
+        const auto requestedLimit=request.value("limit");
+        const int limit=requestedLimit.isUndefined()?5:requestedLimit.toInt(-1);
+        const auto cursor=request.value("cursor");
+        if (operation=="resourceDuplicates" &&
+            ((!requestedLimit.isUndefined() && (!requestedLimit.isDouble() || requestedLimit.toDouble()!=limit)) ||
+             limit<1 || limit>20 || (!cursor.isUndefined() && !cursor.isObject()) ||
+             QJsonDocument(cursor.toObject()).toJson(QJsonDocument::Compact).size()>4096)) {
+            reply.insert("error","Invalid duplicate candidate page or cursor."); send(socket,reply); return;
+        }
+        const auto root=m_selected, logical=path.toString(), selectedId=m_selectedId; const auto generation=m_resourceGeneration;
         QPointer<QLocalSocket> client(socket); ++m_resourceQueries;
         auto *watcher=new QFutureWatcher<society::resources::Inspection>(this);
-        connect(watcher,&QFutureWatcher<society::resources::Inspection>::finished,this,[this,watcher,client,id,generation] {
+        connect(watcher,&QFutureWatcher<society::resources::Inspection>::finished,this,[this,watcher,client,id,generation,operation,selectedId] {
             const auto result=watcher->result(); watcher->deleteLater(); --m_resourceQueries;
             if (!client) return;
-            QJsonObject response{{"type","result"},{"id",id},{"accepted",false},{"operation","resourceInspect"}};
+            QJsonObject response{{"type","result"},{"id",id},{"accepted",false},{"operation",operation}};
             if (generation!=m_resourceGeneration) response.insert("error","The selected Society drive changed.");
             else if (!result.error.isEmpty()) response.insert("error",result.error);
-            else { response.insert("accepted",true); response.insert("resource",result.snapshot); }
+            else if (operation=="resourceDuplicates" && (selectedId!=m_selectedId || result.snapshot.value("containerId")!=selectedId))
+                response.insert("error","The selected Society drive identity changed.");
+            else { response.insert("accepted",true); response.insert(operation=="resourceInspect"?"resource":"duplicates",result.snapshot); }
             send(client,response);
         });
-        watcher->setFuture(QtConcurrent::run([root,logical] {
-            try { return society::resources::inspect(root,logical); }
+        watcher->setFuture(QtConcurrent::run([root,logical,operation,limit,pageCursor=cursor.toObject()] {
+            try { return operation=="resourceInspect" ? society::resources::inspect(root,logical)
+                : society::resources::duplicateCandidates(root,logical,limit,pageCursor); }
             catch (const std::exception &error) { return society::resources::Inspection{{},QString::fromUtf8(error.what())}; }
             catch (...) { return society::resources::Inspection{{},QStringLiteral("Could not inspect the resource.")}; }
         }));

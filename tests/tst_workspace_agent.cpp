@@ -797,6 +797,24 @@ private slots:
         QCOMPARE(arguments.value("container").toString(),QStringLiteral("/drive-a.societycontainer"));
         QCOMPARE(arguments.value("path").toString(),QStringLiteral("Files/Projects"));
     }
+    void duplicateCandidatesUseThePinnedContainer() {
+        auto transport=std::make_shared<WorkspaceAgentToolTransport>();
+        QString root,operation; QJsonObject arguments; bool oversized=false;
+        transport->command=[&](const QString &container,const QString &op,const QJsonObject &args) {
+            root=container; operation=op; arguments=args;
+            return SocietyBackendCommandReply{{{"accepted",true},{"duplicates",QJsonObject{{"completeness","unknown"},
+                {"candidates",QJsonArray{}},{"reference",oversized?QString(9000,'x'):QStringLiteral("short")}}}},{},false};
+        };
+        const auto registry=workspaceAgentTools("/drive-a.societycontainer",transport);
+        const auto result=registry->get("resource_duplicate_candidates").execute({{"path","Files/a.txt"},{"limit",2}},{});
+        QVERIFY(!result.isError); QCOMPARE(root,QStringLiteral("/drive-a.societycontainer"));
+        QCOMPARE(operation,QStringLiteral("resourceDuplicates")); QCOMPARE(arguments.value("path").toString(),QStringLiteral("Files/a.txt"));
+        QCOMPARE(result.data.value("completeness").toString(),QStringLiteral("unknown"));
+        oversized=true;
+        const auto tooLarge=registry->get("resource_duplicate_candidates").execute({{"path","Files/a.txt"},{"limit",1}},{});
+        QVERIFY(tooLarge.isError); QVERIFY(tooLarge.text.contains("CLI"));
+        QVERIFY_THROWS_EXCEPTION(std::exception,registry->validateInput("resource_duplicate_candidates",{{"path","Files/a.txt"},{"limit",21}}));
+    }
     void directoryResultsArePagedAndTooLargePagesAreRejected() {
         auto transport=std::make_shared<WorkspaceAgentToolTransport>(); int requested=0;
         bool oversized=false;

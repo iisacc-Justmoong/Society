@@ -92,7 +92,8 @@ SocietyBackendCommandReply societyBackendCommand(const QString &brokerDirectory,
             && operation != "agentSelect" && operation != "agentNew" && operation != "agentCancel"
             && operation != "spaceSubscribe" && operation != "spaceSend" && operation != "spaceCancel"
             && operation != "suggestedSubscribe" && operation != "suggestedRefresh"
-            && operation != "recentSubscribe" && operation != "recentRefresh" && operation != "resourceInspect")
+            && operation != "recentSubscribe" && operation != "recentRefresh" && operation != "resourceInspect"
+            && operation != "resourceDuplicates")
         || arguments.contains("id") || arguments.contains("op") || arguments.contains("container"))
         return fail(QStringLiteral("Invalid Society backend command."));
     QElapsedTimer timer; timer.start();

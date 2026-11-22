@@ -10,9 +10,9 @@
   },
   "source": {
     "path": "docs/ResourceModule.md",
-    "sha256": "baa0a5c16377fb9ee00546ce3694c93d4f71d30ddca2eddba19a779cfd88d147",
-    "bytes": 3038,
-    "line_count": 37,
+    "sha256": "ff77a1bfd714b1c90184b602a026c6380ba46be94cd9a6fafb1244eaef5eac83",
+    "bytes": 5101,
+    "line_count": 62,
     "encoding": "utf-8",
     "language": "ko"
   },
@@ -100,6 +100,64 @@
       "start_line": 33,
       "end_line": 37,
       "raw": "Society의 Suggested 경로와 프로젝트 자원 참조가 공용 타입을 사용한다. 새 SDK의\n`ResourceSource`는 저장소 제공자가 구현할 수 있는 인터페이스이며, 이 변경은\n모든 기존 Society 작업을 그 인터페이스로 이전했다고 주장하지 않는다. 격리된\n테스트는 기존 파일의 이름 변경 전후 자원·판본 보존, 미확인 복제 상태와\nCLI·Python·MCP 조회, 다른 자원으로 잘못 연결되는 경우를 검사한다.\n"
+    },
+    {
+      "id": "b000012",
+      "kind": "blank",
+      "start_line": 38,
+      "end_line": 38,
+      "raw": "\n"
+    },
+    {
+      "id": "b000013",
+      "kind": "heading",
+      "start_line": 39,
+      "end_line": 39,
+      "raw": "## 동일 내용 후보 조회 계약\n",
+      "level": 2,
+      "title": "동일 내용 후보 조회 계약"
+    },
+    {
+      "id": "b000014",
+      "kind": "blank",
+      "start_line": 40,
+      "end_line": 40,
+      "raw": "\n"
+    },
+    {
+      "id": "b000015",
+      "kind": "paragraph",
+      "start_line": 41,
+      "end_line": 47,
+      "raw": "선택한 컨테이너의 `Files` 또는 `Models`에 있는 관찰된 파일 하나를 기준으로\n같은 SHA-256 관찰값을 가진 관리 자원을 페이지 단위로 찾는다. 결과는 서로 다른\n자원 ID와 각 관찰 판본을 보존한다. 기준 파일과 후보마다 기록된 파일시스템 관찰값을\n현재 항목과 비교하며, 검색에서 전달된 행 중 확인할 수 없는 후보는 결과에서 빼고\n`skipped`에 센다. SDK 검색이 앞서 제외한 항목은 이 수에 포함되지 않는다. 기준\n파일을 확인할 수 없으면 조회를 거절한다. 다음 페이지는 컨테이너, 기준 자원·판본과\n색인 cursor에 묶이며, 기준 또는 색인이 바뀌면 처음부터 다시 조회해야 한다.\n"
+    },
+    {
+      "id": "b000016",
+      "kind": "blank",
+      "start_line": 48,
+      "end_line": 48,
+      "raw": "\n"
+    },
+    {
+      "id": "b000017",
+      "kind": "paragraph",
+      "start_line": 49,
+      "end_line": 54,
+      "raw": "이 조회는 마지막 관찰의 해시를 비교한다. 현재 바이트의 일치, 원본의 유일성,\n삭제 가능성 또는 복구 가능성을 증명하지 않는다. 색인되지 않은 파일, 다른\n컨테이너·기기, 공개 범위 밖의 항목과 미지원 형식이 빠질 수 있으므로 빈 결과도\n전체에 중복이 없다는 뜻이 아니다. 조회는 파일·자원 관계를 수정하지 않으며,\n물리적 중복 제거와 유사 콘텐츠 연결은 별도의 기능이다. CLI, Python, MCP와\nWorkspace 에이전트는 같은 범위와 한계를 반환해야 한다.\n"
+    },
+    {
+      "id": "b000018",
+      "kind": "blank",
+      "start_line": 55,
+      "end_line": 55,
+      "raw": "\n"
+    },
+    {
+      "id": "b000019",
+      "kind": "paragraph",
+      "start_line": 56,
+      "end_line": 62,
+      "raw": "`society-cli resource duplicates Files/PATH --limit 5 --container DIR`, Python의\n`Client.resource_duplicates(path, limit=5, cursor=..., container=...)`, 데몬 MCP와\nWorkspace 에이전트의 `resource_duplicate_candidates`로 조회한다. `limit`은 반환\n후보 수가 아니라 읽는 색인 페이지의 최대 행 수이며 1부터 20까지이다. 따라서\n후보가 없는 페이지에도 다음 cursor가 있을 수 있다. 응답의 `next`가 빈 객체이면\n해당 검색의 마지막 페이지이고, 그렇지 않으면 그대로 다음 요청에 전달한다.\n`evidence`는 `matching_last_observed_sha256`, `completeness`는 `unknown`이다.\n"
     }
   ],
   "outline": [
@@ -110,6 +168,14 @@
       "title": "공용 iiResource 모델과 Society 저장소 연결",
       "anchor": "공용-iiresource-모델과-society-저장소-연결",
       "start_line": 1
+    },
+    {
+      "block_id": "b000013",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "동일 내용 후보 조회 계약",
+      "anchor": "동일-내용-후보-조회-계약",
+      "start_line": 39
     }
   ],
   "indexes": {
@@ -162,6 +228,48 @@
         "text": "모든 기존 Society 작업을 그 인터페이스로 이전했다고 주장하지 않는다. 격리된",
         "basis": "lexical_match",
         "context": "paragraph"
+      },
+      {
+        "block_id": "b000015",
+        "line": 45,
+        "text": "`skipped`에 센다. SDK 검색이 앞서 제외한 항목은 이 수에 포함되지 않는다. 기준",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000015",
+        "line": 46,
+        "text": "파일을 확인할 수 없으면 조회를 거절한다. 다음 페이지는 컨테이너, 기준 자원·판본과",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000015",
+        "line": 47,
+        "text": "색인 cursor에 묶이며, 기준 또는 색인이 바뀌면 처음부터 다시 조회해야 한다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000017",
+        "line": 50,
+        "text": "삭제 가능성 또는 복구 가능성을 증명하지 않는다. 색인되지 않은 파일, 다른",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000017",
+        "line": 52,
+        "text": "전체에 중복이 없다는 뜻이 아니다. 조회는 파일·자원 관계를 수정하지 않으며,",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000017",
+        "line": 54,
+        "text": "Workspace 에이전트는 같은 범위와 한계를 반환해야 한다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
       }
     ],
     "commands": [],
@@ -170,7 +278,7 @@
   },
   "provenance": {
     "generator": "workspace-docs",
-    "version": "1.0.0",
+    "version": "1.0.0+manual-append",
     "profile": "lossless-blocks-v1",
     "derived": true
   }

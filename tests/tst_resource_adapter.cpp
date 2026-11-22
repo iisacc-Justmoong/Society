@@ -4,8 +4,10 @@
 #include <QDir>
 #include <QFile>
 #include <QJsonArray>
+#include <QSet>
 #include <QTemporaryDir>
 #include <QTest>
+#include <cstdint>
 
 namespace r=ii::resource;
 class ResourceAdapterTest final : public QObject {
@@ -91,6 +93,72 @@ private slots:
         QVERIFY(!result.snapshot.value("resource").toObject().value("id").toString().isEmpty());
         QCOMPARE(result.snapshot.value("contentRevision").toObject().value("resourceId"),
                  result.snapshot.value("resource").toObject().value("id"));
+    }
+    void indexedDuplicateCandidatesKeepIdentityAndExposeUncertainty() {
+        QTemporaryDir fixture(QStringLiteral(SOCIETY_TEST_DIRECTORY)+"/duplicate-candidates-XXXXXX"); QVERIFY(fixture.isValid());
+        const auto root=fixture.filePath("drive.societycontainer"); QVERIFY(QDir().mkdir(root));
+        QVERIFY(iiSocietyContainer::SocietyDrive::create(root));
+        const auto storage=iiSocietyContainer::SharedStorage::open(root); QVERIFY(storage);
+        QVERIFY(QDir().mkpath(root+"/Models/Other"));
+        const auto write=[&](const QString &path,const QByteArray &bytes) {
+            QFile file(root+"/"+path);
+            return file.open(QIODevice::WriteOnly|QIODevice::Truncate) && file.write(bytes)==bytes.size();
+        };
+        QVERIFY(write("Files/reference.txt","same bytes"));
+        QVERIFY(write("Files/copy.txt","same bytes"));
+        QVERIFY(write("Files/stale.txt","same bytes"));
+        QVERIFY(write("Files/unindexed.txt","same bytes"));
+        QVERIFY(write("Files/different.txt","other bytes"));
+        QVERIFY(write("Models/Other/copy.bin","same bytes"));
+        std::uint64_t copyVersion=0;
+        {
+            auto repository=storage->fileRepository();
+            for (const auto &path:{"files/reference.txt","files/copy.txt","files/stale.txt",
+                                   "files/different.txt","models/Other/copy.bin"}) (void)repository->observe(path);
+            copyVersion=repository->lookup("files/copy.txt")->version;
+        }
+        QVERIFY(write("Files/stale.txt","changed after indexing"));
+        QJsonObject cursor, firstCursor; QSet<QString> paths, identities; int skipped=0;
+        for (int page=0;page<10;++page) {
+            const auto result=society::resources::duplicateCandidates(root,"Files/reference.txt",1,cursor);
+            QVERIFY2(result.error.isEmpty(),qPrintable(result.error));
+            QCOMPARE(result.snapshot.value("evidence").toString(),QStringLiteral("matching_last_observed_sha256"));
+            QCOMPARE(result.snapshot.value("completeness").toString(),QStringLiteral("unknown"));
+            skipped+=result.snapshot.value("skipped").toInt();
+            const auto reference=result.snapshot.value("reference").toObject();
+            QVERIFY(!reference.value("resourceId").toString().isEmpty());
+            for (const auto &value:result.snapshot.value("candidates").toArray()) {
+                const auto candidate=value.toObject();
+                const auto id=candidate.value("resourceId").toString();
+                QVERIFY(!id.isEmpty()); QVERIFY(id!=reference.value("resourceId").toString());
+                QVERIFY(!candidate.value("revisionId").toString().isEmpty());
+                QVERIFY(!identities.contains(id)); identities.insert(id);
+                paths.insert(candidate.value("path").toString());
+            }
+            cursor=result.snapshot.value("next").toObject();
+            if (firstCursor.isEmpty() && !cursor.isEmpty()) firstCursor=cursor;
+            if (cursor.isEmpty()) break;
+            QVERIFY2(page<9,"duplicate candidate pagination did not terminate");
+        }
+        QCOMPARE(paths,QSet<QString>({"Files/copy.txt","Models/Other/copy.bin"}));
+        QCOMPARE(identities.size(),2);
+        QVERIFY(skipped>=1);
+        QVERIFY(!firstCursor.isEmpty());
+        auto wrongContainer=firstCursor; wrongContainer.insert("containerId","different-container");
+        QVERIFY(!society::resources::duplicateCandidates(root,"Files/reference.txt",1,wrongContainer).error.isEmpty());
+        { auto repository=storage->fileRepository({},iiSocietyContainer::FileRepository::Access::ReadOnly);
+          QCOMPARE(repository->lookup("files/copy.txt")->version,copyVersion); }
+        QVERIFY(!society::resources::duplicateCandidates(root,"Files/../outside",20,{}).error.isEmpty());
+        QVERIFY(!society::resources::duplicateCandidates(root,"Files/unindexed.txt",20,{}).error.isEmpty());
+        QVERIFY(!society::resources::duplicateCandidates(root,"Files/reference.txt",0,{}).error.isEmpty());
+        QVERIFY(write("Files/later.txt","same bytes"));
+        { auto repository=storage->fileRepository(); (void)repository->observe("files/later.txt"); }
+        QVERIFY(!society::resources::duplicateCandidates(root,"Files/reference.txt",1,firstCursor).error.isEmpty());
+        QVERIFY(write("Files/reference.txt","new content"));
+        QVERIFY(!society::resources::duplicateCandidates(root,"Files/reference.txt",20,firstCursor).error.isEmpty());
+        { auto repository=storage->fileRepository(); (void)repository->observe("files/reference.txt"); }
+        QVERIFY(!society::resources::duplicateCandidates(root,"Files/reference.txt",20,firstCursor).error.isEmpty());
+        QFile copy(root+"/Files/copy.txt"); QVERIFY(copy.open(QIODevice::ReadOnly)); QCOMPARE(copy.readAll(),QByteArray("same bytes"));
     }
 };
 QTEST_GUILESS_MAIN(ResourceAdapterTest)

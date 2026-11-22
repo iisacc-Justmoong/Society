@@ -5,6 +5,8 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QJsonArray>
+#include <QJsonDocument>
+#include <QRegularExpression>
 #include <filesystem>
 
 namespace society::resources {
@@ -66,6 +68,96 @@ Inspection inspect(const QString &container,const QString &logicalPath) {
                 {"locatorHint",text(replica.locatorHint)},{"state","unknown"}});
         out.snapshot={{"resource",resource},{"contentRevision",revision},{"locations",locations},{"replicas",replicas},
                       {"provenance","last_observed"}};
+    } catch (const std::exception &error) { out.error=QString::fromUtf8(error.what()); }
+    return out;
+}
+
+Inspection duplicateCandidates(const QString &container,const QString &logicalPath,int limit,const QJsonObject &cursor) {
+    Inspection out;
+    if (limit<1 || limit>20 || QJsonDocument(cursor).toJson(QJsonDocument::Compact).size()>4096) {
+        out.error="Invalid duplicate candidate page or cursor."; return out;
+    }
+    // Inspect supplies the path, source-stamp, current repository record and
+    // section checks shared with ordinary resource inspection.
+    const auto reference=inspect(container,logicalPath);
+    if (!reference.error.isEmpty()) return reference;
+    const auto referenceResource=reference.snapshot.value("resource").toObject();
+    const auto referenceRevision=reference.snapshot.value("contentRevision").toObject();
+    const auto digest=referenceRevision.value("digest").toObject();
+    const auto resourceId=referenceResource.value("id").toString();
+    const auto revisionId=referenceRevision.value("id").toString();
+    const auto sha=digest.value("value").toString();
+    static const QRegularExpression sha256(QStringLiteral("^[0-9a-f]{64}$"));
+    if (resourceId.isEmpty() || revisionId.isEmpty() || digest.value("algorithm")!="sha256" ||
+        !sha256.match(sha).hasMatch()) {
+        out.error="The file has no usable observed SHA-256; reindex it before comparing."; return out;
+    }
+    if (!cursor.isEmpty() && (cursor.size()!=4 || cursor.value("resourceId").toString()!=resourceId ||
+        cursor.value("revisionId").toString()!=revisionId || !cursor.value("index").isObject() ||
+        cursor.value("index").toObject().isEmpty())) {
+        out.error="The duplicate candidate cursor is invalid or its reference changed."; return out;
+    }
+    try {
+        QString error;
+        const auto storage=iiSocietyContainer::SharedStorage::open(container,&error);
+        if (!storage || !storage->drive().isReady()) {
+            out.error=error.isEmpty()?QStringLiteral("The Society drive is unavailable."):error; return out;
+        }
+        const auto containerId=storage->drive().storageKind()==iiSocietyContainer::SocietyDrive::StorageKind::LogicalDisk
+            ? storage->drive().storageIdentifier() : storage->drive().identifier();
+        if (containerId.isEmpty() || (!cursor.isEmpty() && cursor.value("containerId").toString()!=containerId)) {
+            out.error="The duplicate candidate cursor belongs to another container."; return out;
+        }
+        QJsonObject query{{"classKey","society:File"},{"limit",limit},
+            {"conditions",QJsonArray{QJsonObject{{"property","society:contentSha256"},
+                {"equals",QJsonObject{{"kind","text"},{"value",sha}}}}}}};
+        if (!cursor.isEmpty()) query.insert("cursor",cursor.value("index"));
+        const auto page=storage->searchFiles(query,&error);
+        if (!error.isEmpty()) { out.error=error; return out; }
+        if (page.value("pending").toBool()) { out.error="The file index is not available."; return out; }
+        QJsonArray candidates; int skipped=0;
+        for (const auto &value:page.value("files").toArray()) {
+            const auto row=value.toObject(); const auto path=row.value("path").toString();
+            QString visible;
+            if (path.startsWith("files/")) visible="Files/"+path.mid(6);
+            else if (path.startsWith("models/")) visible="Models/"+path.mid(7);
+            else { ++skipped; continue; }
+            const auto candidate=inspect(container,visible);
+            if (!candidate.error.isEmpty()) { ++skipped; continue; }
+            const auto resource=candidate.snapshot.value("resource").toObject();
+            const auto revision=candidate.snapshot.value("contentRevision").toObject();
+            const auto candidateId=resource.value("id").toString();
+            if (candidateId.isEmpty() || candidateId!=row.value("objectKey").toString() || row.value("sha256")!=sha ||
+                revision.value("id").toString().isEmpty() || revision.value("digest").toObject().value("value")!=sha) {
+                ++skipped; continue;
+            }
+            if (candidateId==resourceId) continue;
+            candidates.append(QJsonObject{{"path",visible},{"resourceId",candidateId},
+                {"revisionId",revision.value("id")}});
+        }
+        // Do not publish a page for a reference that changed while the index
+        // and candidate observations were being read.
+        const auto checked=inspect(container,logicalPath);
+        QString identityError;
+        const auto checkedStorage=iiSocietyContainer::SharedStorage::open(container,&identityError);
+        const auto checkedId=checkedStorage && checkedStorage->drive().isReady()
+            ? (checkedStorage->drive().storageKind()==iiSocietyContainer::SocietyDrive::StorageKind::LogicalDisk
+                ? checkedStorage->drive().storageIdentifier() : checkedStorage->drive().identifier()) : QString();
+        if (!checked.error.isEmpty() || checked.snapshot.value("resource").toObject().value("id")!=resourceId ||
+            checked.snapshot.value("contentRevision").toObject().value("id")!=revisionId ||
+            checked.snapshot.value("contentRevision").toObject().value("digest").toObject().value("value")!=sha ||
+            checkedId!=containerId) {
+            out.error="The reference changed during duplicate candidate discovery."; return out;
+        }
+        QJsonObject next;
+        const auto indexNext=page.value("next").toObject();
+        if (!indexNext.isEmpty()) next={{"containerId",containerId},{"resourceId",resourceId},
+                                        {"revisionId",revisionId},{"index",indexNext}};
+        out.snapshot={{"containerId",containerId},{"reference",QJsonObject{{"path",logicalPath},{"resourceId",resourceId},
+                          {"revisionId",revisionId},{"sha256",sha}}},
+                      {"candidates",candidates},{"next",next},{"skipped",skipped},
+                      {"evidence","matching_last_observed_sha256"},{"coverage","indexed_files_and_models"},
+                      {"completeness","unknown"}};
     } catch (const std::exception &error) { out.error=QString::fromUtf8(error.what()); }
     return out;
 }

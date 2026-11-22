@@ -872,8 +872,10 @@ private slots:
         QVERIFY(fixture.isValid()); const auto root=fixture.filePath("drive.societycontainer");
         QVERIFY(QDir().mkdir(root)); QVERIFY(iiSocietyContainer::SocietyDrive::create(root));
         QFile file(root+"/Files/example.txt"); QVERIFY(file.open(QIODevice::WriteOnly)); file.write("example"); file.close();
+        QFile copy(root+"/Files/copy.txt"); QVERIFY(copy.open(QIODevice::WriteOnly)); copy.write("example"); copy.close();
         const auto storage=iiSocietyContainer::SharedStorage::open(root); QVERIFY(storage);
-        { auto repository=storage->fileRepository(); (void)repository->observe("files/example.txt"); }
+        { auto repository=storage->fileRepository(); (void)repository->observe("files/example.txt");
+          (void)repository->observe("files/copy.txt"); }
         const auto broker=fixture.filePath("broker"); QVERIFY(QDir().mkdir(broker));
         QVERIFY(QFile::setPermissions(broker,QFileDevice::ReadOwner|QFileDevice::WriteOwner|QFileDevice::ExeOwner));
         ModelBackendServer server; server.selectContainer(root); QVERIFY(server.listen(broker));

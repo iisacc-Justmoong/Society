@@ -2,6 +2,7 @@
 #include "UiToolBridge.h"
 #include "Shared/BackendCommand.h"
 #include "Society/Mcp/FileJobTools.h"
+#include "Society/Mcp/ResourceTools.h"
 #include "Society/Mcp/SemanticTools.h"
 #include <iiMultimodalAgent>
 #include <QDir>
@@ -147,6 +148,10 @@ bool DaemonMcp::start()
             return a::ToolResult{QStringLiteral("Society resource observation"),reply.response.value("resource").toObject()};
         };
         registry->add(std::move(resourceInspect));
+        registry->add(societyDuplicateCandidatesTool([broker](const QString &operation,QJsonObject args,const a::ToolContext &context) {
+            context.cancellation.throwIfCancelled();
+            return societyBackendCommand(broker,operation,std::move(args),QString(),30000);
+        }));
         const auto uiTool=[&](const QString &name,const QString &remote,const QString &description,QJsonObject schema,bool readOnly) {
             a::Tool tool;
             tool.definition={name,description,std::move(schema),{},readOnly,readOnly};
@@ -256,7 +261,7 @@ bool DaemonMcp::start()
                 {"space_agent_send",a::PermissionBehavior::Allow}, {"space_agent_cancel",a::PermissionBehavior::Allow},
                 {"suggested_status",a::PermissionBehavior::Allow}, {"suggested_refresh",a::PermissionBehavior::Allow},
                 {"recent_status",a::PermissionBehavior::Allow}, {"recent_refresh",a::PermissionBehavior::Allow},
-                {"resource_inspect",a::PermissionBehavior::Allow}});
+                {"resource_inspect",a::PermissionBehavior::Allow}, {"resource_duplicate_candidates",a::PermissionBehavior::Allow}});
         a::McpServerOptions bridge; bridge.workingDirectory=QDir::currentPath(); bridge.appId="com.iisacc.society";
         auto protocol=a::mcpServerOptions(registry,policy,std::move(bridge));
         protocol.experimentalCapabilities["iisacc/userQuestions"]=QJsonObject{

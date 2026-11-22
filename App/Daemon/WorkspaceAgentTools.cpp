@@ -1,5 +1,6 @@
 #include "WorkspaceAgentTools.h"
 #include "Society/Mcp/FileJobTools.h"
+#include "Society/Mcp/ResourceTools.h"
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <utility>
@@ -56,6 +57,11 @@ std::shared_ptr<a::ToolRegistry> workspaceAgentTools(
         return a::ToolResult{"Society resource observation",reply.response.value("resource").toObject()};
     };
     registry->add(std::move(inspect));
+    registry->add(societyDuplicateCandidatesTool([container,transport](const QString &operation,QJsonObject args,const a::ToolContext &context) {
+        context.cancellation.throwIfCancelled();
+        if (!transport || !transport->command) return SocietyBackendCommandReply{{},"The Society resource service is unavailable.",false};
+        return transport->command(container,operation,args);
+    }));
     for (auto &tool:societyFileJobTools([container,transport](const QString &operation,QJsonObject args,const a::ToolContext &context) {
         context.cancellation.throwIfCancelled();
         if (!transport || !transport->command) return SocietyBackendCommandReply{{},"The Society file service is unavailable.",false};

@@ -309,6 +309,7 @@ if((UNIX OR WIN32) AND NOT IOS AND NOT ANDROID AND NOT EMSCRIPTEN AND TARGET Soc
         App/Daemon/UiToolBridge.cpp App/Daemon/UiToolBridge.h
         App/Shared/BackendCommand.cpp App/Shared/BackendCommand.h
         App/Society/Mcp/FileJobTools.cpp App/Society/Mcp/FileJobTools.h
+        App/Society/Mcp/ResourceTools.cpp App/Society/Mcp/ResourceTools.h
         App/Daemon/SuggestedPolicy.cpp App/Daemon/SuggestedPolicy.h
         App/Daemon/SuggestedCatalog.cpp App/Daemon/SuggestedCatalog.h
         App/Daemon/SuggestedModel.cpp App/Daemon/SuggestedModel.h
@@ -1712,6 +1713,7 @@ if(UNIX AND NOT IOS AND NOT ANDROID AND NOT EMSCRIPTEN)
     if(TARGET SocietyDaemon)
         target_sources(SocietyDaemon PRIVATE App/Daemon/DaemonMcp.cpp App/Daemon/DaemonMcp.h App/Daemon/UiToolBridge.cpp App/Daemon/UiToolBridge.h
             App/Society/Mcp/FileJobTools.cpp App/Society/Mcp/FileJobTools.h
+            App/Society/Mcp/ResourceTools.cpp App/Society/Mcp/ResourceTools.h
             App/Society/Mcp/SemanticTools.cpp App/Society/Mcp/SemanticTools.h ${society_backend_command_sources})
         target_link_libraries(SocietyDaemon PRIVATE iiMultimodalAgent::iiMultimodalAgent SocietyProjectRepository)
         target_compile_definitions(SocietyDaemon PRIVATE SOCIETY_DAEMON_MCP=1)
@@ -1737,6 +1739,7 @@ if(UNIX AND NOT IOS AND NOT ANDROID AND NOT EMSCRIPTEN)
             App/Daemon/ModelBackendServer.cpp App/Daemon/ModelBackendServer.h
             App/Daemon/NativeDirectorySession.cpp App/Daemon/NativeDirectorySession.h
             App/Society/Mcp/FileJobTools.cpp App/Society/Mcp/FileJobTools.h
+            App/Society/Mcp/ResourceTools.cpp App/Society/Mcp/ResourceTools.h
             App/Society/Mcp/SemanticTools.cpp App/Society/Mcp/SemanticTools.h
             ${society_backend_command_sources})
         target_include_directories(SocietyDaemonMcpTests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/App")
@@ -1753,6 +1756,7 @@ if(UNIX AND NOT IOS AND NOT ANDROID AND NOT EMSCRIPTEN)
             App/Daemon/NativeDirectorySession.cpp App/Daemon/NativeDirectorySession.h
             App/Society/Mcp/UiBridgeRegistration.cpp App/Society/Mcp/UiBridgeRegistration.h
             App/Society/Mcp/FileJobTools.cpp App/Society/Mcp/FileJobTools.h
+            App/Society/Mcp/ResourceTools.cpp App/Society/Mcp/ResourceTools.h
             App/Society/Mcp/SemanticTools.cpp App/Society/Mcp/SemanticTools.h
             ${society_backend_command_sources})
         target_include_directories(SocietyUiBridgeTests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/App")

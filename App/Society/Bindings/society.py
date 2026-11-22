@@ -124,6 +124,20 @@ class Client:
             arguments.extend(["--container", container])
         return self._request(arguments)
 
+    def resource_duplicates(self, path: str, *, limit: int = 5, cursor: dict[str, Any] | None = None,
+                            container: str | None = None) -> dict[str, Any]:
+        """Find indexed candidates by last-observed SHA-256; current bytes are not verified."""
+        if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 20:
+            raise ValueError("limit must be an integer from 1 to 20")
+        arguments = ["resource", "duplicates", path, "--limit", str(limit)]
+        if cursor is not None:
+            if not isinstance(cursor, dict) or not cursor:
+                raise ValueError("cursor must be a nonempty object")
+            arguments.extend(["--cursor", json.dumps(cursor, ensure_ascii=False, separators=(",", ":"))])
+        if container is not None:
+            arguments.extend(["--container", container])
+        return self._request(arguments)
+
     def submit(self, action: str, path: str, argument: str | None = None,
                *, container: str | None = None) -> dict[str, Any]:
         arguments = ["file-job", "submit", action, path]

@@ -31,8 +31,10 @@ private slots:
         auto spaces=iiSocietyContainer::SpaceStore::open(std::filesystem::path(root.toStdU16String())); QVERIFY(spaces);
         QVERIFY(spaces->createSession({"space-test","Space test","","active"}));
         QFile sample(root+"/Files/example.txt"); QVERIFY(sample.open(QIODevice::WriteOnly)); sample.write("example"); sample.close();
+        QFile copy(root+"/Files/copy.txt"); QVERIFY(copy.open(QIODevice::WriteOnly)); copy.write("example"); copy.close();
         const auto storage=iiSocietyContainer::SharedStorage::open(root); QVERIFY(storage);
-        { auto repository=storage->fileRepository(); (void)repository->observe("files/example.txt"); }
+        { auto repository=storage->fileRepository(); (void)repository->observe("files/example.txt");
+          (void)repository->observe("files/copy.txt"); }
         const auto broker=fixture.filePath("broker"), registry=fixture.filePath("endpoints");
         QVERIFY(QDir().mkdir(broker)); QVERIFY(QDir().mkdir(registry));
         const auto ownerOnly=QFileDevice::ReadOwner|QFileDevice::WriteOwner|QFileDevice::ExeOwner;
@@ -73,6 +75,14 @@ private slots:
                 throw std::runtime_error("headless resource inspection failed: "+QJsonDocument(resource).toJson(QJsonDocument::Compact).toStdString());
             if (!call("resource_inspect",{{"path","Files/../outside"}}).value("isError").toBool())
                 throw std::runtime_error("resource inspection accepted traversal");
+            const auto duplicates=call("resource_duplicate_candidates",{{"path","Files/example.txt"},{"limit",2}});
+            const auto duplicateData=duplicates.value("structuredContent").toObject();
+            if (duplicates.value("isError").toBool() || duplicateData.value("completeness")!="unknown" ||
+                duplicateData.value("candidates").toArray().size()!=1 ||
+                duplicateData.value("candidates").toArray().first().toObject().value("path")!="Files/copy.txt")
+                throw std::runtime_error("headless duplicate discovery failed: "+QJsonDocument(duplicates).toJson(QJsonDocument::Compact).toStdString());
+            if (!call("resource_duplicate_candidates",{{"path","Files/../outside"}}).value("isError").toBool())
+                throw std::runtime_error("duplicate discovery accepted traversal");
             if (!call("workspace_agent_send",{{"prompt","fixture"}}).value("isError").toBool())
                 throw std::runtime_error("an agent with no model must reject a prompt");
             const auto attachment=call("workspace_agent_send",{{"prompt","fixture"},{"attachments",QJsonArray{"Files/example.txt"}}});
