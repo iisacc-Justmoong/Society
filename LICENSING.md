@@ -1,9 +1,7 @@
 # 라이선스 정책
 
-SPDX-License-Identifier: AGPL-3.0-only
+이 제품의 신규 릴리스에서 iisacc이 권리를 보유한 애플리케이션에 적용하는 최종 사용자 약관은 [iisacc EULA](https://iisacc.com/BuisnessInfo/EULA)이다. 배포본에 포함할 약관 원문은 [LICENSE](LICENSE)에 보관한다.
 
-이 저장소의 자체 애플리케이션 코드와 문서는 GNU Affero General Public License
-버전 3만을 적용하여 배포한다. 전체 조건은 [LICENSE](LICENSE)에 명시되어 있다.
+이 변경은 이전에 AGPL로 배포한 버전의 조건이나 그에 따라 부여된 권리에 소급하지 않는다. 별도로 관리되는 iiSDK 모듈과 제3자 코드, 라이브러리, 폰트, 도구 및 모델 가중치에는 해당 배포본에 실제로 포함된 각 구성 요소의 라이선스와 고지 요건이 계속 적용된다.
 
-독립적으로 관리되는 공개 iiSDK 라이브러리는 각 저장소의 MIT 라이선스를 따른다.
-제3자 코드, 라이브러리, 폰트, 도구와 모델 가중치는 각각의 라이선스를 유지한다.
+세 생성 모델의 제3자 약관과 실제 패키지 확인 상태는 [Society 모델 라이선스 고지](MODEL_LICENSES.md)에 별도로 명시한다.
