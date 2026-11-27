@@ -1,0 +1,11 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Tool Window / web_dark">
+<circle id="Ellipse 429" cx="9" cy="9" r="7.375" stroke="#B6BBC2"/>
+<mask id="stroke0_0_248" fill="white">
+<path d="M12.375 9C12.375 13.3492 10.864 16.875 9 16.875C7.13604 16.875 5.625 13.3492 5.625 9C5.625 4.65076 7.13604 1.125 9 1.125C10.864 1.125 12.375 4.65076 12.375 9Z"/>
+</mask>
+<ellipse id="Ellipse 428" cx="9" cy="9" rx="3.375" ry="7.875" stroke-width="2" stroke="#2373CD" mask="url(#stroke0_0_248)"/>
+<path id="Vector 23" d="M15.9995 6.1875H1.99951" stroke="#B6BBC2"/>
+<path id="Vector 24" d="M15.9995 11.8125H1.99951" stroke="#B6BBC2"/>
+</g>
+</svg>

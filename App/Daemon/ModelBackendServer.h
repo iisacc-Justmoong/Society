@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Society/Content/ContentIndex.h"
 #include <iiSocietyContainer>
 #include <QHash>
 #include <QJsonObject>
@@ -13,6 +14,7 @@
 
 class QLockFile;
 class RecentBackend;
+class ContentIndexScheduler;
 #ifdef SOCIETY_AGENT_BACKEND
 class WorkspaceAgentBackend;
 class SuggestedBackend;
@@ -25,7 +27,10 @@ class ModelBackendServer final : public QObject {
     Q_OBJECT
 public:
     using UiPeerVerifier = std::function<bool(QLocalSocket *)>;
-    explicit ModelBackendServer(QObject *parent = nullptr, UiPeerVerifier uiPeerVerifier = {});
+    using ContentEmbedderFactory = std::function<society::content::EmbedderAccess()>;
+    explicit ModelBackendServer(QObject *parent = nullptr, UiPeerVerifier uiPeerVerifier = {},
+                                ContentEmbedderFactory contentEmbedderFactory = {},
+                                int contentPollIntervalMs = 0);
     ~ModelBackendServer() override;
     bool listen(const QString &directory);
     void selectContainer(const QString &path);
@@ -43,6 +48,7 @@ private:
     void broadcast(const QJsonObject &message);
     void broadcastState();
     QJsonObject state() const;
+    [[nodiscard]] society::content::EmbedderAccess contentEmbedder() const;
     QLocalServer m_server;
     iiSocietyContainer::ModelImportService m_models;
     iiSocietyContainer::FileJobService m_fileJobs;
@@ -55,8 +61,14 @@ private:
     QHash<QString, QString> m_fileJobContainers;
     quint64 m_resourceGeneration = 0;
     int m_resourceQueries = 0;
+    // Bound temporary disk use by admitting at most one byte comparison.
+    int m_resourceComparisons = 0;
+    // Keep local content inference bounded and off the daemon event loop.
+    int m_contentQueries = 0;
+    int m_contentPolicyQueries = 0;
     QJsonObject m_systemDrive;
     UiPeerVerifier m_uiPeerVerifier;
+    ContentEmbedderFactory m_contentEmbedderFactory;
     QPointer<QLocalSocket> m_uiSocket;
     struct UiCall { QPointer<QLocalSocket> caller; QString requestId; };
     QHash<QString,UiCall> m_uiCalls;
@@ -81,4 +93,5 @@ private:
     QHash<QLocalSocket *, QHash<QString, QString>> m_residentRequests;
     QHash<QLocalSocket *, QString> m_residentClients;
 #endif
+    std::unique_ptr<ContentIndexScheduler> m_contentScheduler;
 };

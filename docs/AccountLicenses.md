@@ -74,6 +74,16 @@ Society 창의 계정 객체는 별도로 `iiSocietyHelper::LocalService`를 시
 로그인 쿠키와 서버 자격 증명은 제품에 전달하지 않는다. 제품 측 업데이트 피드 연결과
 실제 서명된 릴리스가 준비되기 전에는 업데이트 기능이 완성된 것으로 취급하지 않는다.
 
+증분 패치 허가 요청은 설치된 기준 버전 `deltaFrom`과 형식 `deltaFormat: iiudlt1`을
+함께 전달한다. 이 두 필드는 제품·기기·계정 검증을 통과한 `grant` 요청에서만 허용한다.
+두 값 중 하나만 있거나 지원하지 않는 형식·잘못된 버전은 서버에 전달하지 않는다.
+macOS의 브로커 검사는 선택된 `SOCIETY_MAC_RUNTIME_SEARCH_PATHS`를 사용해 보조
+라이브러리의 전이 의존성을 찾으며, 셸의 임의 라이브러리 경로에 의존하지 않는다.
+2026-11-23 로컬 검증에서는 기본 클라이언트 검사기가 선택된 iiSDKCore와 호환되지 않아
+`request_unavailable`로 실패했다. Congregation과 동일한 계정 SDK·Core 조합으로
+별도 검사기를 빌드하고 `SOCIETY_TEST_CLIENT_PROBE`로 지정한 재검사는 통과했다.
+기본 검사기의 SDK 선택은 아직 수정되지 않았다.
+
 # 데몬 기반 앱 실행 허가
 
 데스크톱의 앱 라이선스 브로커는 Society 창이 아닌 SocietyDaemon의 수명을 따른다.

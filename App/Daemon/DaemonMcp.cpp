@@ -152,6 +152,30 @@ bool DaemonMcp::start()
             context.cancellation.throwIfCancelled();
             return societyBackendCommand(broker,operation,std::move(args),QString(),30000);
         }));
+        registry->add(societyCompareBytesTool([broker](const QString &operation,QJsonObject args,const a::ToolContext &context) {
+            context.cancellation.throwIfCancelled();
+            return societyBackendCommand(broker,operation,std::move(args),QString(),120000);
+        }));
+        const auto contentTransport=[broker](const QString &operation,QJsonObject args,const a::ToolContext &context) {
+            context.cancellation.throwIfCancelled();
+            return societyBackendCommand(broker,operation,std::move(args),QString(),120000);
+        };
+        registry->add(societyContentIndexTool(contentTransport));
+        registry->add(societyContentSearchTool(contentTransport));
+        registry->add(societyContentPolicyTool(contentTransport));
+        registry->add(societySetContentPolicyTool(contentTransport));
+        registry->add(societyIndexedSearchTool([broker](const QString &operation,QJsonObject args,const a::ToolContext &context) {
+            context.cancellation.throwIfCancelled();
+            return societyBackendCommand(broker,operation,std::move(args),QString(),30000);
+        }));
+        registry->add(societyLineageTool([broker](const QString &operation,QJsonObject args,const a::ToolContext &context) {
+            context.cancellation.throwIfCancelled();
+            return societyBackendCommand(broker,operation,std::move(args),QString(),30000);
+        }));
+        registry->add(societyCleanupPlanTool([broker](const QString &operation,QJsonObject args,const a::ToolContext &context) {
+            context.cancellation.throwIfCancelled();
+            return societyBackendCommand(broker,operation,std::move(args),QString(),30000);
+        }));
         const auto uiTool=[&](const QString &name,const QString &remote,const QString &description,QJsonObject schema,bool readOnly) {
             a::Tool tool;
             tool.definition={name,description,std::move(schema),{},readOnly,readOnly};
@@ -261,7 +285,11 @@ bool DaemonMcp::start()
                 {"space_agent_send",a::PermissionBehavior::Allow}, {"space_agent_cancel",a::PermissionBehavior::Allow},
                 {"suggested_status",a::PermissionBehavior::Allow}, {"suggested_refresh",a::PermissionBehavior::Allow},
                 {"recent_status",a::PermissionBehavior::Allow}, {"recent_refresh",a::PermissionBehavior::Allow},
-                {"resource_inspect",a::PermissionBehavior::Allow}, {"resource_duplicate_candidates",a::PermissionBehavior::Allow}});
+                {"resource_inspect",a::PermissionBehavior::Allow}, {"resource_duplicate_candidates",a::PermissionBehavior::Allow},
+                {"resource_search",a::PermissionBehavior::Allow}, {"resource_lineage",a::PermissionBehavior::Allow},
+                {"resource_cleanup_plan",a::PermissionBehavior::Allow}, {"resource_compare_bytes",a::PermissionBehavior::Allow},
+                {"resource_content_index",a::PermissionBehavior::Allow}, {"resource_content_search",a::PermissionBehavior::Allow},
+                {"resource_content_policy",a::PermissionBehavior::Allow}, {"resource_content_policy_set",a::PermissionBehavior::Allow}});
         a::McpServerOptions bridge; bridge.workingDirectory=QDir::currentPath(); bridge.appId="com.iisacc.society";
         auto protocol=a::mcpServerOptions(registry,policy,std::move(bridge));
         protocol.experimentalCapabilities["iisacc/userQuestions"]=QJsonObject{

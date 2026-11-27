@@ -82,6 +82,12 @@ LegacyWorkspaceBridge::LegacyWorkspaceBridge(QQuickWindow *window, QQuickItem *d
     m_navigation = dashboard->property("navigation").value<QObject *>();
     const QPointer<LegacyWorkspaceBridge> guard(this);
     auto *agent = surface->model();
+    const QPointer<QObject> notifications=window->findChild<QObject *>(QStringLiteral("notificationCenter"));
+    agent->onOperationError=[notifications](const std::string &message) {
+        if (notifications) QMetaObject::invokeMethod(notifications,"record",
+            Q_ARG(QVariant,QVariant(QStringLiteral("Workspace"))),
+            Q_ARG(QVariant,QVariant(QString::fromStdString(message))));
+    };
     agent->onSend = [guard](const std::string &prompt, const std::vector<NativeWorkspaceFile> &context) {
         if (!guard || !guard->m_surface || !guard->m_surface->model()) return false;
         QJsonArray attachments;

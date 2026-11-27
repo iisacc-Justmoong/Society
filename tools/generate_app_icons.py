@@ -131,7 +131,7 @@ def generate(source=SOURCE, output=OUTPUT):
     }, indent=2) + '\n')
     for relative, metadata in emitted.items():
         metadata['sha256'] = hashlib.sha256((output / relative).read_bytes()).hexdigest()
-    manifest = {'source': 'Artboard 1.png', 'source_sha256': hashlib.sha256(source.read_bytes()).hexdigest(),
+    manifest = {'source': source.name, 'source_sha256': hashlib.sha256(source.read_bytes()).hexdigest(),
                 'matte': '#082014', 'files': emitted}
     (output / 'manifest.json').write_text(json.dumps(manifest, indent=2, sort_keys=True) + '\n')
     return manifest

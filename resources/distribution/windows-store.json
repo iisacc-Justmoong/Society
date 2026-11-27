@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "products": [
+    {
+      "id": "dreamscapes",
+      "url": "https://apps.microsoft.com/detail/9NXV9RQDVLQ5",
+      "published": false
+    },
+    {
+      "id": "congregation",
+      "url": "https://apps.microsoft.com/detail/9N5QVRW92QQT",
+      "published": false
+    }
+  ]
+}

@@ -301,4 +301,12 @@ static void fileImport() {
     vm.showModels(); const auto afterNavigation=sent.size(); vm.filesChosen({"/source/stale.png"});
     check(sent.size()==afterNavigation,"file selection cannot target a different folder");
 }
-int main() { try { run(); fileJobs(); sections(); additionalFileActions(); queryAndSort(); fileActivation(); rangeActions(); gridActions(); modelImport(); fileImport(); return 0; } catch (const std::exception &e) { std::cerr<<e.what()<<'\n'; return 1; } }
+static void errorNotifications() {
+    NativeFilesViewModel vm;int changes=0;vm.onNotificationChanged=[&]{++changes;};
+    vm.backendError("First failure");vm.backendError("First failure");vm.backendError("Second failure");
+    check(vm.notificationMessage.get()=="First failure" && changes==3,"first notification or repeated errors were lost");
+    vm.dismissNotification();check(vm.notificationMessage.get()=="First failure","repeated failure was not retained");
+    vm.dismissNotification();check(vm.notificationMessage.get()=="Second failure","notifications were not ordered");
+    vm.dismissNotification();check(vm.notificationMessage.get().empty() && vm.hasErrors.get(),"dismiss removed source error history");
+}
+int main() { try { run(); fileJobs(); sections(); additionalFileActions(); queryAndSort(); fileActivation(); rangeActions(); gridActions(); modelImport(); fileImport(); errorNotifications(); return 0; } catch (const std::exception &e) { std::cerr<<e.what()<<'\n'; return 1; } }

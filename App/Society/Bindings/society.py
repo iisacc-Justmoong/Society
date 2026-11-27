@@ -138,6 +138,100 @@ class Client:
             arguments.extend(["--container", container])
         return self._request(arguments)
 
+    def resource_compare_bytes(self, first_path: str, second_path: str, *,
+                               container: str | None = None) -> dict[str, Any]:
+        """Compare two bounded snapshots; equality does not authorize deduplication."""
+        arguments = ["resource", "compare-bytes", first_path, second_path]
+        if container is not None:
+            arguments.extend(["--container", container])
+        return self._request(arguments)
+
+    def resource_content_index(self, path: str, model: str, *, document_prefix: str = "",
+                               query_prefix: str = "", container: str | None = None) -> dict[str, Any]:
+        """Legacy endpoint; file-content embedding is disabled by storage policy."""
+        arguments = ["resource", "content-index", path, "--model", model,
+                     "--document-prefix", document_prefix, "--query-prefix", query_prefix]
+        if container is not None:
+            arguments.extend(["--container", container])
+        return self._request(arguments, mutation=True)
+
+    def resource_content_search(self, query: str, model: str, *, limit: int = 10,
+                                document_prefix: str = "", query_prefix: str = "",
+                                container: str | None = None) -> dict[str, Any]:
+        """Legacy endpoint; file-content embedding search is disabled by storage policy."""
+        if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 20:
+            raise ValueError("limit must be an integer from 1 to 20")
+        arguments = ["resource", "content-search", "--query", query, "--model", model, "--limit", str(limit),
+                     "--document-prefix", document_prefix, "--query-prefix", query_prefix]
+        if container is not None:
+            arguments.extend(["--container", container])
+        return self._request(arguments)
+
+    def resource_content_policy(self, *, container: str | None = None) -> dict[str, Any]:
+        """Read the disabled content-embedding policy and any saved legacy profile."""
+        arguments = ["resource", "content-policy", "status"]
+        if container is not None:
+            arguments.extend(["--container", container])
+        return self._request(arguments)
+
+    def set_resource_content_policy(self, model: str | None, *, document_prefix: str = "",
+                                    query_prefix: str = "", container: str | None = None) -> dict[str, Any]:
+        """Report disabled content indexing; enabling a model is rejected by the daemon."""
+        if model is not None and (not isinstance(model, str) or not model.strip()):
+            raise ValueError("model must be a nonempty string or None")
+        if not isinstance(document_prefix, str) or not isinstance(query_prefix, str):
+            raise ValueError("embedding prefixes must be strings")
+        if model is None and (document_prefix or query_prefix):
+            raise ValueError("prefixes cannot be supplied while disabling indexing")
+        arguments = ["resource", "content-policy", "enable" if model is not None else "disable"]
+        if model is not None:
+            arguments.extend(["--model", model, "--document-prefix", document_prefix, "--query-prefix", query_prefix])
+        if container is not None:
+            arguments.extend(["--container", container])
+        return self._request(arguments, mutation=True)
+
+    def resource_search(self, query: dict[str, Any], *, limit: int = 5, cursor: dict[str, Any] | None = None,
+                        container: str | None = None) -> dict[str, Any]:
+        """Search the existing metadata index; results do not establish complete coverage."""
+        if not isinstance(query, dict):
+            raise ValueError("query must be an object")
+        if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 20:
+            raise ValueError("limit must be an integer from 1 to 20")
+        arguments = ["resource", "search", "--query", json.dumps(query, ensure_ascii=False, separators=(",", ":")),
+                     "--limit", str(limit)]
+        if cursor is not None:
+            if not isinstance(cursor, dict) or not cursor:
+                raise ValueError("cursor must be a nonempty object")
+            arguments.extend(["--cursor", json.dumps(cursor, ensure_ascii=False, separators=(",", ":"))])
+        if container is not None:
+            arguments.extend(["--container", container])
+        return self._request(arguments)
+
+    def resource_lineage(self, path: str, *, direction: str = "both", depth: int = 2, limit: int = 10,
+                         container: str | None = None) -> dict[str, Any]:
+        """Trace recorded relations without reconciling paths or authorizing cleanup."""
+        if direction not in ("incoming", "outgoing", "both"):
+            raise ValueError("direction must be incoming, outgoing, or both")
+        if isinstance(depth, bool) or not isinstance(depth, int) or not 1 <= depth <= 3:
+            raise ValueError("depth must be an integer from 1 to 3")
+        if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 20:
+            raise ValueError("limit must be an integer from 1 to 20")
+        arguments = ["resource", "lineage", path, "--direction", direction, "--depth", str(depth),
+                     "--limit", str(limit)]
+        if container is not None:
+            arguments.extend(["--container", container])
+        return self._request(arguments)
+
+    def resource_cleanup_plan(self, path: str, *, limit: int = 10,
+                              container: str | None = None) -> dict[str, Any]:
+        """Read a non-executable cleanup assessment and its unresolved evidence."""
+        if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 20:
+            raise ValueError("limit must be an integer from 1 to 20")
+        arguments = ["resource", "cleanup-plan", path, "--limit", str(limit)]
+        if container is not None:
+            arguments.extend(["--container", container])
+        return self._request(arguments)
+
     def submit(self, action: str, path: str, argument: str | None = None,
                *, container: str | None = None) -> dict[str, Any]:
         arguments = ["file-job", "submit", action, path]

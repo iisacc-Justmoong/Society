@@ -86,14 +86,20 @@ SocietyBackendCommandReply societyBackendCommand(const QString &brokerDirectory,
     auto fail = [&](QString error, bool uncertain = false) {
         reply.error = std::move(error); reply.uncertain = uncertain; return reply;
     };
-    if (timeoutMs <= 0 || timeoutMs > 60000 || !QDir::isAbsolutePath(brokerDirectory)
+    const auto maximumTimeout=operation=="resourceCompareBytes" || operation=="resourceContentIndex" ||
+        operation=="resourceContentSearch" || operation=="resourceContentPolicyGet" ||
+        operation=="resourceContentPolicySet" ? 120000 : 60000;
+    if (timeoutMs <= 0 || timeoutMs > maximumTimeout || !QDir::isAbsolutePath(brokerDirectory)
         || (operation != "status" && operation != "fileOperation" && operation != "fileJobStatus"
             && operation != "import" && operation != "agentSubscribe" && operation != "agentSend"
             && operation != "agentSelect" && operation != "agentNew" && operation != "agentCancel"
             && operation != "spaceSubscribe" && operation != "spaceSend" && operation != "spaceCancel"
             && operation != "suggestedSubscribe" && operation != "suggestedRefresh"
             && operation != "recentSubscribe" && operation != "recentRefresh" && operation != "resourceInspect"
-            && operation != "resourceDuplicates")
+            && operation != "resourceDuplicates" && operation != "resourceSearch" && operation != "resourceLineage"
+            && operation != "resourceCleanupPlan" && operation != "resourceCompareBytes"
+            && operation != "resourceContentIndex" && operation != "resourceContentSearch"
+            && operation != "resourceContentPolicyGet" && operation != "resourceContentPolicySet")
         || arguments.contains("id") || arguments.contains("op") || arguments.contains("container"))
         return fail(QStringLiteral("Invalid Society backend command."));
     QElapsedTimer timer; timer.start();
@@ -118,6 +124,7 @@ SocietyBackendCommandReply societyBackendCommand(const QString &brokerDirectory,
     QByteArray frame(4, '\0'); qToBigEndian(quint32(body.size()), frame.data()); frame += body;
     const auto sent = socket.write(frame);
     const bool uncertain = (operation == "fileOperation" || operation == "import" || operation == "agentSend"
+                            || operation == "resourceContentIndex" || operation == "resourceContentPolicySet"
                             || operation == "agentSelect" || operation == "agentNew" || operation == "agentCancel"
                             || operation == "spaceSend" || operation == "spaceCancel") && sent > 0;
     if (sent != frame.size()) return fail(QStringLiteral("Could not send the Society request."), uncertain);

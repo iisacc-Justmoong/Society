@@ -1,0 +1,47 @@
+{
+  "feature": "error_notifications",
+  "presentation": {
+    "host": "current_content_view",
+    "position": "top_right_below_toolbar",
+    "component": "LVUI Popover",
+    "width": "clamped_to_content_view",
+    "height": "wrapped_content_bounded_by_content_view",
+    "overflow": "scroll_message",
+    "transparent_host_input": "pass_through",
+    "onboarding": "reanchor_to_visible_onboarding_content"
+  },
+  "behavior": {
+    "order": "FIFO",
+    "dismiss": "advance_only",
+    "preserve_notification_center": true
+  },
+  "sources": [
+    "existing notification center records",
+    "native Workspace operation errors",
+    "separate native Files window operation and backend errors"
+  ],
+  "qt_host": {
+    "shadow": "software rasterization",
+    "backdrop_blur": false,
+    "surface": "noncapturing, unmasked, non-scene-backed LVUI opaque fallback"
+  },
+  "limits": "The existing center deduplicates active errors, and unrelated native or pre-window errors may not be connected.",
+  "source": {
+    "path": "docs/ErrorNotifications.md",
+    "sha256": "3de1f66eb7291804233cec70c4e5430908968f02d96f10a2a3427fd88a6ebda6",
+    "line_start": 1,
+    "line_end": 9
+  },
+  "verification": {
+    "automated": "SocietyNativeWorkspaceSurfaceTests",
+    "checks": [
+      "content_anchor_resize",
+      "onboarding_transition",
+      "wrapped_text",
+      "bounded_scrolling",
+      "transparent_hit_testing",
+      "history_preserved"
+    ],
+    "actual_window_display": "not_verified_by_headless_test"
+  }
+}

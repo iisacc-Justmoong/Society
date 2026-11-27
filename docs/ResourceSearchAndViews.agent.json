@@ -10,9 +10,9 @@
   },
   "source": {
     "path": "docs/ResourceSearchAndViews.md",
-    "sha256": "7f3471dc82eab05178f5c558f49b3a9df29cc6b45973f6dd9171526bf4ac21fe",
-    "bytes": 10933,
-    "line_count": 137,
+    "sha256": "954909cf4d2e856de42bcb23b1540fbea569c264676da3bf5561acd500f3a48f",
+    "bytes": 16723,
+    "line_count": 195,
     "encoding": "utf-8",
     "language": "ko"
   },
@@ -23,13 +23,13 @@
   },
   "blocks": [
     {
+      "level": 1,
+      "title": "Society 자원 검색, 뷰와 비동기 색인",
       "id": "b000001",
       "kind": "heading",
       "start_line": 1,
       "end_line": 1,
-      "raw": "# Society 자원 검색, 뷰와 비동기 색인\n",
-      "level": 1,
-      "title": "Society 자원 검색, 뷰와 비동기 색인"
+      "raw": "# Society 자원 검색, 뷰와 비동기 색인\n"
     },
     {
       "id": "b000002",
@@ -39,13 +39,13 @@
       "raw": "\n"
     },
     {
+      "level": 2,
+      "title": "목적과 범위",
       "id": "b000003",
       "kind": "heading",
       "start_line": 3,
       "end_line": 3,
-      "raw": "## 목적과 범위\n",
-      "level": 2,
-      "title": "목적과 범위"
+      "raw": "## 목적과 범위\n"
     },
     {
       "id": "b000004",
@@ -83,13 +83,13 @@
       "raw": "\n"
     },
     {
+      "level": 2,
+      "title": "뷰와 필터",
       "id": "b000009",
       "kind": "heading",
       "start_line": 17,
       "end_line": 17,
-      "raw": "## 뷰와 필터\n",
-      "level": 2,
-      "title": "뷰와 필터"
+      "raw": "## 뷰와 필터\n"
     },
     {
       "id": "b000010",
@@ -155,13 +155,13 @@
       "raw": "\n"
     },
     {
+      "level": 2,
+      "title": "결과와 자원 정체성",
       "id": "b000019",
       "kind": "heading",
       "start_line": 43,
       "end_line": 43,
-      "raw": "## 결과와 자원 정체성\n",
-      "level": 2,
-      "title": "결과와 자원 정체성"
+      "raw": "## 결과와 자원 정체성\n"
     },
     {
       "id": "b000020",
@@ -213,13 +213,13 @@
       "raw": "\n"
     },
     {
+      "level": 2,
+      "title": "비동기 갱신과 최신성",
       "id": "b000027",
       "kind": "heading",
       "start_line": 64,
       "end_line": 64,
-      "raw": "## 비동기 갱신과 최신성\n",
-      "level": 2,
-      "title": "비동기 갱신과 최신성"
+      "raw": "## 비동기 갱신과 최신성\n"
     },
     {
       "id": "b000028",
@@ -299,13 +299,13 @@
       "raw": "\n"
     },
     {
+      "level": 2,
+      "title": "현재 구현과 경계",
       "id": "b000039",
       "kind": "heading",
       "start_line": 97,
       "end_line": 97,
-      "raw": "## 현재 구현과 경계\n",
-      "level": 2,
-      "title": "현재 구현과 경계"
+      "raw": "## 현재 구현과 경계\n"
     },
     {
       "id": "b000040",
@@ -315,11 +315,6 @@
       "raw": "\n"
     },
     {
-      "id": "b000041",
-      "kind": "list",
-      "start_line": 99,
-      "end_line": 119,
-      "raw": "- iiFileProvider Catalog는 텍스트·키워드·컬렉션 등 일부 필터와 저장된 필터를\n  제공한다. iiSocietyContainer `SharedStorage::searchFiles()`는 이를 이용한 파일\n  검색과 별도의 온톨로지 조회를 제공한다. 검색 모드의 조합, 페이지 크기 및\n  cursor 만료 제약은 [관리 파일 계약](../../../SDK/iiSocietyContainer/docs/ManagedFiles.md)을\n  따른다. 이를 모든 자원·기기·권한을 포괄하는 통합 검색으로 간주하지 않는다.\n- Society Dashboard의 현재 검색은 작업 스레드에서 이 저장소 검색을 사용한다.\n  Files 화면의 목록/격자와 검색은 기존 파일 화면의 기능이며, 이 문서의 저장된\n  자원 뷰와 모든 필터가 구현됐다는 뜻은 아니다. [Files](Files.md)\n- 컨테이너 모니터는 재생성 가능한 메타데이터 inventory를 비동기로 게시한다.\n  그 `key`는 컨테이너와 경로에서 만들며, `revision`은 메타데이터 기반 값이다.\n  각각 경로와 독립된 자원 ID나 내용 판본의 무결성 해시가 아니다. 불완전 영역과\n  모니터 heartbeat를 실제 원본의 존재·접근 승인으로 취급하지 않는다.\n  [InventoryIndex](../../../SDK/iiSocietyContainer/src/Index/InventoryIndex.h),\n  [모니터링 계약](../../../SDK/iiSocietyHelper/docs/Monitoring/Protocol.md)\n- 현재 Catalog 키, 관리 객체 키와 Projects 리소스 참조는 별도의 범위를 가진다.\n  이미 tombstone된 이전 객체와 새로 수집된 객체를 자동으로 같은 정체성으로\n  복구하거나, 모든 Node와 Replica에 하나의 자원 ID를 보장하지 않는다.\n  [이행 경계](ResourceIdentityAndProtection.md#기존-구현과-이행-경계)\n- iiGlobalSearch에는 별도 컨테이너 범위의 비동기 색인 API가 있다. 그 SDK의\n  존재만으로 Society가 위 전체 계약을 사용하거나 완성했다는 뜻은 아니다.\n  [iiGlobalSearch 색인](../../../SDK/iiGlobalSearch/docs/Indexing.md)\n",
       "items": [
         {
           "marker": "-",
@@ -346,7 +341,12 @@
           "text": "iiGlobalSearch에는 별도 컨테이너 범위의 비동기 색인 API가 있다. 그 SDK의",
           "checked": null
         }
-      ]
+      ],
+      "id": "b000041",
+      "kind": "list",
+      "start_line": 99,
+      "end_line": 119,
+      "raw": "- iiFileProvider Catalog는 텍스트·키워드·컬렉션 등 일부 필터와 저장된 필터를\n  제공한다. iiSocietyContainer `SharedStorage::searchFiles()`는 이를 이용한 파일\n  검색과 별도의 온톨로지 조회를 제공한다. 검색 모드의 조합, 페이지 크기 및\n  cursor 만료 제약은 [관리 파일 계약](../../../SDK/iiSocietyContainer/docs/ManagedFiles.md)을\n  따른다. 이를 모든 자원·기기·권한을 포괄하는 통합 검색으로 간주하지 않는다.\n- Society Dashboard의 현재 검색은 작업 스레드에서 이 저장소 검색을 사용한다.\n  Files 화면의 목록/격자와 검색은 기존 파일 화면의 기능이며, 이 문서의 저장된\n  자원 뷰와 모든 필터가 구현됐다는 뜻은 아니다. [Files](Files.md)\n- 컨테이너 모니터는 재생성 가능한 메타데이터 inventory를 비동기로 게시한다.\n  그 `key`는 컨테이너와 경로에서 만들며, `revision`은 메타데이터 기반 값이다.\n  각각 경로와 독립된 자원 ID나 내용 판본의 무결성 해시가 아니다. 불완전 영역과\n  모니터 heartbeat를 실제 원본의 존재·접근 승인으로 취급하지 않는다.\n  [InventoryIndex](../../../SDK/iiSocietyContainer/src/Index/InventoryIndex.h),\n  [모니터링 계약](../../../SDK/iiSocietyHelper/docs/Monitoring/Protocol.md)\n- 현재 Catalog 키, 관리 객체 키와 Projects 리소스 참조는 별도의 범위를 가진다.\n  이미 tombstone된 이전 객체와 새로 수집된 객체를 자동으로 같은 정체성으로\n  복구하거나, 모든 Node와 Replica에 하나의 자원 ID를 보장하지 않는다.\n  [이행 경계](ResourceIdentityAndProtection.md#기존-구현과-이행-경계)\n- iiGlobalSearch에는 별도 컨테이너 범위의 비동기 색인 API가 있다. 그 SDK의\n  존재만으로 Society가 위 전체 계약을 사용하거나 완성했다는 뜻은 아니다.\n  [iiGlobalSearch 색인](../../../SDK/iiGlobalSearch/docs/Indexing.md)\n"
     },
     {
       "id": "b000042",
@@ -356,13 +356,13 @@
       "raw": "\n"
     },
     {
+      "level": 2,
+      "title": "구현 시 수용 검증",
       "id": "b000043",
       "kind": "heading",
       "start_line": 121,
       "end_line": 121,
-      "raw": "## 구현 시 수용 검증\n",
-      "level": 2,
-      "title": "구현 시 수용 검증"
+      "raw": "## 구현 시 수용 검증\n"
     },
     {
       "id": "b000044",
@@ -372,11 +372,6 @@
       "raw": "\n"
     },
     {
-      "id": "b000045",
-      "kind": "list",
-      "start_line": 123,
-      "end_line": 137,
-      "raw": "1. 같은 자원의 이름과 위치를 바꾸어도 자원 ID와 프로젝트 참조가 유지되고, 같은\n   내용을 가진 독립 자원은 별도 검색 결과와 권한을 유지한다.\n2. 하나의 자원이 두 프로젝트와 여러 Replica에 속할 때 필터의 범위·결합 방식이\n   명시된 결과를 반환하며, 뷰를 열거나 바꾸어도 자원 판본은 바뀌지 않는다.\n3. 색인이 늦거나 일부 Node가 끊겨도 결과의 범위와 미확인 상태를 구분하고,\n   빈 결과를 전체 범위에서 일치 항목이 없다는 증거로 제시하지 않는다.\n4. 이전 판본의 색인 작업이 나중에 끝나거나 같은 이벤트가 반복돼도 새 판본과 삭제\n   상태가 유지되며, 실패한 후속 작업은 대상 자원에서 확인·재시도할 수 있다.\n5. 접근 권한이 철회된 뒤 남은 색인 행과 집계가 제한된 정보를 노출하지 않으며,\n   실제 열기에는 최신 권한·판본·가용성을 다시 확인한다.\n6. 검색 조건이나 정렬, 권한 문맥 또는 색인 상태가 바뀌어 cursor가 무효가 되면\n   잘못된 페이지를 이어 붙이지 않는다. 사용자의 선택은 동일 자원 ID로 복원한다.\n7. 파일 이동 후 이전 객체가 tombstone되고 새 객체가 만들어진 레거시 사례에서는\n   두 기록과 참조를 보존한다. 해시 일치만으로 자동 병합하지 않으며, 검증 가능한\n   이행 절차가 제공되기 전에는 기존 ID 복구를 완료로 표시하지 않는다.\n",
       "items": [
         {
           "marker": "1.",
@@ -413,7 +408,200 @@
           "text": "파일 이동 후 이전 객체가 tombstone되고 새 객체가 만들어진 레거시 사례에서는",
           "checked": null
         }
-      ]
+      ],
+      "id": "b000045",
+      "kind": "list",
+      "start_line": 123,
+      "end_line": 137,
+      "raw": "1. 같은 자원의 이름과 위치를 바꾸어도 자원 ID와 프로젝트 참조가 유지되고, 같은\n   내용을 가진 독립 자원은 별도 검색 결과와 권한을 유지한다.\n2. 하나의 자원이 두 프로젝트와 여러 Replica에 속할 때 필터의 범위·결합 방식이\n   명시된 결과를 반환하며, 뷰를 열거나 바꾸어도 자원 판본은 바뀌지 않는다.\n3. 색인이 늦거나 일부 Node가 끊겨도 결과의 범위와 미확인 상태를 구분하고,\n   빈 결과를 전체 범위에서 일치 항목이 없다는 증거로 제시하지 않는다.\n4. 이전 판본의 색인 작업이 나중에 끝나거나 같은 이벤트가 반복돼도 새 판본과 삭제\n   상태가 유지되며, 실패한 후속 작업은 대상 자원에서 확인·재시도할 수 있다.\n5. 접근 권한이 철회된 뒤 남은 색인 행과 집계가 제한된 정보를 노출하지 않으며,\n   실제 열기에는 최신 권한·판본·가용성을 다시 확인한다.\n6. 검색 조건이나 정렬, 권한 문맥 또는 색인 상태가 바뀌어 cursor가 무효가 되면\n   잘못된 페이지를 이어 붙이지 않는다. 사용자의 선택은 동일 자원 ID로 복원한다.\n7. 파일 이동 후 이전 객체가 tombstone되고 새 객체가 만들어진 레거시 사례에서는\n   두 기록과 참조를 보존한다. 해시 일치만으로 자동 병합하지 않으며, 검증 가능한\n   이행 절차가 제공되기 전에는 기존 ID 복구를 완료로 표시하지 않는다.\n"
+    },
+    {
+      "id": "b000046",
+      "kind": "blank",
+      "start_line": 138,
+      "end_line": 138,
+      "raw": "\n"
+    },
+    {
+      "level": 2,
+      "title": "에이전트의 기존 색인 조회 계약",
+      "id": "b000047",
+      "kind": "heading",
+      "start_line": 139,
+      "end_line": 139,
+      "raw": "## 에이전트의 기존 색인 조회 계약\n"
+    },
+    {
+      "id": "b000048",
+      "kind": "blank",
+      "start_line": 140,
+      "end_line": 140,
+      "raw": "\n"
+    },
+    {
+      "id": "b000049",
+      "kind": "paragraph",
+      "start_line": 141,
+      "end_line": 146,
+      "raw": "선택한 컨테이너의 관리 색인에서 `Files` 또는 `Models`의 텍스트, 키워드,\n컬렉션과 최소 평점을 조합해 페이지 단위로 찾는다. 별도 모드에서는 저장된 가상\n디렉터리의 조건을 사용하며 다른 조건을 조용히 합치지 않는다. 결과에는 각 자원의\n마지막 관찰 ID와 내용 판본, 현재 표시 경로를 함께 담는다. 각 결과는 저장된\n파일시스템 관찰과 현재 항목을 대조하고 일치하지 않으면 제외한다. 조회는 파일,\n분류와 가상 디렉터리를 변경하거나 색인을 새로 만들지 않는다.\n"
+    },
+    {
+      "id": "b000050",
+      "kind": "blank",
+      "start_line": 147,
+      "end_line": 147,
+      "raw": "\n"
+    },
+    {
+      "id": "b000051",
+      "kind": "paragraph",
+      "start_line": 148,
+      "end_line": 153,
+      "raw": "페이지 이어 읽기는 컨테이너, 검색 조건과 공급자 cursor에 묶고, 관리 객체나\n온톨로지의 관찰 세대가 바뀌면 거부한다. 공급자 색인도 자체 cursor 조건과\n리비전을 검사한다. 한 페이지에서 제외한 행이 있거나 색인이 아직 전체 파일을\n포함하지 않을 수 있으므로 빈 결과와 `skipped`만으로 전체 부재를 주장하지 않는다.\n이 검색은 파일명과 저장된 분류 메타데이터에 대한 검색이며 내용 임베딩이나\nAI의 의미 추론을 뜻하지 않는다. 파일을 실제로 사용할 때는 별도 접근 확인이 필요하다.\n"
+    },
+    {
+      "id": "b000052",
+      "kind": "blank",
+      "start_line": 154,
+      "end_line": 154,
+      "raw": "\n"
+    },
+    {
+      "id": "b000053",
+      "kind": "paragraph",
+      "start_line": 155,
+      "end_line": 161,
+      "raw": "이 조회는 `society-cli resource search --query JSON`, Python의\n`Client.resource_search(query, limit=5, cursor=..., container=...)`, 데몬 MCP와\nWorkspace 에이전트의 `resource_search`로 사용한다. 일반 조건의 `section`은\n`files` 또는 `models`이며 생략하면 `files`이다. `text`, `keywords`, `collections`,\n`minimumRating`을 조합할 수 있다. 키워드는 모두 일치하고 선택한 컬렉션은 하나\n이상 일치한다. 저장된 가상 디렉터리는 `directory`만 지정한다. 내용과 제목 등의\n최신성을 전역 스냅샷으로 보장하지 않는다.\n"
+    },
+    {
+      "id": "b000054",
+      "kind": "blank",
+      "start_line": 162,
+      "end_line": 162,
+      "raw": "\n"
+    },
+    {
+      "id": "b000055",
+      "kind": "paragraph",
+      "start_line": 163,
+      "end_line": 168,
+      "raw": "`limit`은 반환 항목 수가 아니라 공급자 색인에서 읽는 최대 행 수이며 1부터 20까지다.\n빈 `items`와 비어 있지 않은 `next`가 함께 올 수 있다. 마지막 페이지는 빈 `next`로\n표시한다. `skipped`는 이 서비스가 받은 행 중 제외한 수이며 공급자가 앞서 생략한\n항목은 세지 못한다. 에이전트 응답의 크기 한도를 넘으면 더 작은 페이지를 요청하고,\n한 행도 너무 길면 CLI를 사용한다. 색인·관계·권한·원격 위치의 전체 범위와 현재\n가용성은 `completeness: unknown`으로 남는다.\n"
+    },
+    {
+      "id": "b000056",
+      "kind": "blank",
+      "start_line": 169,
+      "end_line": 169,
+      "raw": "\n"
+    },
+    {
+      "level": 2,
+      "title": "파일 해시와 메타데이터 색인",
+      "id": "b000057",
+      "kind": "heading",
+      "start_line": 170,
+      "end_line": 170,
+      "raw": "## 파일 해시와 메타데이터 색인\n"
+    },
+    {
+      "id": "b000058",
+      "kind": "blank",
+      "start_line": 171,
+      "end_line": 171,
+      "raw": "\n"
+    },
+    {
+      "id": "b000059",
+      "kind": "paragraph",
+      "start_line": 172,
+      "end_line": 172,
+      "raw": "파일 색인은 원본 본문이나 내용 임베딩이 아니라 SHA-256과 파일별 메타데이터를 사용한다. iiFileProvider의 `DirectoryMetadataIndex.indexAsset`은 선택된 원본을 제한된 버퍼로 읽어 해시를 계산하고 파일 옆 문서에 저장한다. SQLite의 경로 색인에는 문서 주소만 기록한다. 파일이 바뀌면 이전 해시는 현재 해시로 취급하지 않으며 다시 요청할 때 갱신한다. 해시 일치는 두 자원의 정체성이나 삭제 승인이 아니다.\n"
+    },
+    {
+      "id": "b000060",
+      "kind": "blank",
+      "start_line": 173,
+      "end_line": 173,
+      "raw": "\n"
+    },
+    {
+      "id": "b000061",
+      "kind": "paragraph",
+      "start_line": 174,
+      "end_line": 178,
+      "raw": "이미 디렉터리 메타데이터에 등록된 파일을 `resource inspect`로 조회하면\n해시의 현재 상태와 해당 메타데이터를 반환한다. 원본을 복제하거나 레거시 객체\n저장소를 생성하지 않으며, 보관된 불변 내용 판본이 없으므로 `contentRevision`은\n비어 있다. 등록 후 파일이 바뀌었다면 `hashStatus`는 `stale`이고 이전 해시는\n현재 해시로 반환하지 않는다. 아직 해시가 없는 등록 항목은 `pending`이다.\n"
+    },
+    {
+      "id": "b000062",
+      "kind": "blank",
+      "start_line": 179,
+      "end_line": 179,
+      "raw": "\n"
+    },
+    {
+      "id": "b000063",
+      "kind": "paragraph",
+      "start_line": 180,
+      "end_line": 187,
+      "raw": "새 파일 등록과 일반 검색, 같은 볼륨의 복제·휴지통 이동·복원·최종 삭제는\n디렉터리 소유 메타데이터를 사용한다. 이전 카탈로그와 객체 이력은 보존하고\n소유자 충돌을 자동으로 병합하지 않는다. 데몬의 이벤트 루프는 `Files`를 제한된\n작업량으로 점진 관찰하고 파일 해시와 메타데이터만 기록한다. 모델 경로는 별도의\n모델 저장소가 메타데이터를 등록하며 자동 해시 스캔 범위에는 포함되지 않는다.\n볼륨 간 분류 파일 이동과 삭제 중 여러 저장소의 장애 복구는 아직 완성되지 않았다.\n고정 저장소가 없고 구형 이력이 발견된 컨테이너는 오프라인 이전 전까지 자동\n색인하지 않는다. 이로써 기존 파일에 두 번째 소유권을 임의로 만들지 않는다.\n"
+    },
+    {
+      "id": "b000064",
+      "kind": "blank",
+      "start_line": 188,
+      "end_line": 188,
+      "raw": "\n"
+    },
+    {
+      "level": 2,
+      "title": "기존 텍스트 내용 벡터 색인",
+      "id": "b000065",
+      "kind": "heading",
+      "start_line": 189,
+      "end_line": 189,
+      "raw": "## 기존 텍스트 내용 벡터 색인\n"
+    },
+    {
+      "id": "b000066",
+      "kind": "blank",
+      "start_line": 190,
+      "end_line": 190,
+      "raw": "\n"
+    },
+    {
+      "id": "b000067",
+      "kind": "paragraph",
+      "start_line": 191,
+      "end_line": 191,
+      "raw": "기존 텍스트 내용 임베딩은 해시·메타데이터 전용 정책에 따라 비활성이다. 자동 스케줄러는 이전에 활성화된 정책이 저장되어 있어도 내용 임베딩을 생성하지 않는다. 해시 계산을 위한 지연 파일 탐색은 별도로 수행한다. `resource content-index`, `resource content-search` 및 이에 대응하는 Python·MCP 호출은 비활성 오류를 반환한다.\n"
+    },
+    {
+      "id": "b000068",
+      "kind": "blank",
+      "start_line": 192,
+      "end_line": 192,
+      "raw": "\n"
+    },
+    {
+      "id": "b000069",
+      "kind": "paragraph",
+      "start_line": 193,
+      "end_line": 193,
+      "raw": "`resource content-policy status`와 MCP `resource_content_policy`는 실효 상태를 비활성으로 보고하며, 기존 프로필이 저장되어 있는지 `configured`로 표시한다. 활성화 요청은 거부한다. 비활성 요청과 상태 조회는 기존 프로필, 대기열, 벡터 데이터베이스를 삭제하지 않는다. 기존 벡터 데이터는 현재 검색 결과로 사용하지 않으며 파일의 휴지통 최종 삭제와 일괄 정리도 아직 연결되지 않았다.\n"
+    },
+    {
+      "id": "b000070",
+      "kind": "blank",
+      "start_line": 194,
+      "end_line": 194,
+      "raw": "\n"
+    },
+    {
+      "id": "b000071",
+      "kind": "paragraph",
+      "start_line": 195,
+      "end_line": 195,
+      "raw": "이 동작은 파일명과 분류 메타데이터를 대상으로 하는 기존 `resource search`와 구별된다. 이전 카탈로그도 새 메타데이터와 함께 검색되며 그 과거 이력은 유지한다. 설치된 앱, 실제 모델과 Windows·Linux 동작은 이 소스 변경만으로 검증되지 않는다.\n"
     }
   ],
   "outline": [
@@ -472,6 +660,30 @@
       "title": "구현 시 수용 검증",
       "anchor": "구현-시-수용-검증",
       "start_line": 121
+    },
+    {
+      "block_id": "b000047",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "에이전트의 기존 색인 조회 계약",
+      "anchor": "에이전트의-기존-색인-조회-계약",
+      "start_line": 139
+    },
+    {
+      "block_id": "b000057",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "파일 해시와 메타데이터 색인",
+      "anchor": "파일-해시와-메타데이터-색인",
+      "start_line": 170
+    },
+    {
+      "block_id": "b000065",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "기존 텍스트 내용 벡터 색인",
+      "anchor": "기존-텍스트-내용-벡터-색인",
+      "start_line": 189
     }
   ],
   "indexes": {
@@ -484,9 +696,44 @@
         "context": "paragraph"
       },
       {
+        "block_id": "b000007",
+        "line": 15,
+        "text": "것만으로 갱신 작업을 취소하거나 완료로 바꾸지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000011",
+        "line": 21,
+        "text": "다시 사용할 수 있도록 보존한다. 저장된 뷰의 정의와 검색 결과는 구분한다. 기본",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
         "block_id": "b000011",
         "line": 23,
         "text": "Release라고 가정하지 않는다. 이 정의가 특정 저장 형식이나 동기화 구현을",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000013",
+        "line": 30,
+        "text": "사용자 입력, 검증되지 않은 AI 제안을 같은 확정 사실로 합치지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000015",
+        "line": 33,
+        "text": "같은 조건에서 알 수 없는 값은 거짓 값이나 확인된 부재로 바꾸지 않는다. 여러",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000017",
+        "line": 39,
+        "text": "메타데이터 판본을 만들지 않는다. 프로젝트별 뷰에 자원이 표시되는 것은 그",
         "basis": "lexical_match",
         "context": "paragraph"
       },
@@ -519,6 +766,13 @@
         "context": "paragraph"
       },
       {
+        "block_id": "b000025",
+        "line": 60,
+        "text": "경우에는 기존 기록과 참조를 보존한다. Society 밖의 이동은 파일시스템 식별 정보",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
         "block_id": "b000029",
         "line": 69,
         "text": "가정하지 않는다. 로컬 작업 사본의 저장, 내용 판본 확정, 색인 갱신, 원격 Replica",
@@ -529,6 +783,13 @@
         "block_id": "b000031",
         "line": 75,
         "text": "오래된 결과를 최신이라고 표시하지 않는다. 사용자가 빈 결과를 보았을 때도 색인",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000033",
+        "line": 79,
+        "text": "동일 이벤트의 재전달은 중복 자원이나 중복 결과를 만들지 않는다. 게시 시에는",
         "basis": "lexical_match",
         "context": "paragraph"
       },
@@ -562,8 +823,29 @@
       },
       {
         "block_id": "b000045",
+        "line": 126,
+        "text": "명시된 결과를 반환하며, 뷰를 열거나 바꾸어도 자원 판본은 바뀌지 않는다.",
+        "basis": "lexical_match",
+        "context": "list"
+      },
+      {
+        "block_id": "b000045",
         "line": 128,
         "text": "빈 결과를 전체 범위에서 일치 항목이 없다는 증거로 제시하지 않는다.",
+        "basis": "lexical_match",
+        "context": "list"
+      },
+      {
+        "block_id": "b000045",
+        "line": 134,
+        "text": "잘못된 페이지를 이어 붙이지 않는다. 사용자의 선택은 동일 자원 ID로 복원한다.",
+        "basis": "lexical_match",
+        "context": "list"
+      },
+      {
+        "block_id": "b000045",
+        "line": 136,
+        "text": "두 기록과 참조를 보존한다. 해시 일치만으로 자동 병합하지 않으며, 검증 가능한",
         "basis": "lexical_match",
         "context": "list"
       },
@@ -573,6 +855,97 @@
         "text": "이행 절차가 제공되기 전에는 기존 ID 복구를 완료로 표시하지 않는다.",
         "basis": "lexical_match",
         "context": "list"
+      },
+      {
+        "block_id": "b000049",
+        "line": 143,
+        "text": "디렉터리의 조건을 사용하며 다른 조건을 조용히 합치지 않는다. 결과에는 각 자원의",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000049",
+        "line": 146,
+        "text": "분류와 가상 디렉터리를 변경하거나 색인을 새로 만들지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000051",
+        "line": 149,
+        "text": "온톨로지의 관찰 세대가 바뀌면 거부한다. 공급자 색인도 자체 cursor 조건과",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000051",
+        "line": 151,
+        "text": "포함하지 않을 수 있으므로 빈 결과와 `skipped`만으로 전체 부재를 주장하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000051",
+        "line": 153,
+        "text": "AI의 의미 추론을 뜻하지 않는다. 파일을 실제로 사용할 때는 별도 접근 확인이 필요하다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000053",
+        "line": 161,
+        "text": "최신성을 전역 스냅샷으로 보장하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000061",
+        "line": 178,
+        "text": "현재 해시로 반환하지 않는다. 아직 해시가 없는 등록 항목은 `pending`이다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000063",
+        "line": 182,
+        "text": "소유자 충돌을 자동으로 병합하지 않는다. 데몬의 이벤트 루프는 `Files`를 제한된",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000063",
+        "line": 184,
+        "text": "모델 저장소가 메타데이터를 등록하며 자동 해시 스캔 범위에는 포함되지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000063",
+        "line": 187,
+        "text": "색인하지 않는다. 이로써 기존 파일에 두 번째 소유권을 임의로 만들지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000067",
+        "line": 191,
+        "text": "기존 텍스트 내용 임베딩은 해시·메타데이터 전용 정책에 따라 비활성이다. 자동 스케줄러는 이전에 활성화된 정책이 저장되어 있어도 내용 임베딩을 생성하지 않는다. 해시 계산을 위한 지연 파일 탐색은 별도로 수행한다. `resource content-index`, `resource content-search` 및 이에 대응하는 Python·MCP 호출은 비활성 오류를 반환한다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000069",
+        "line": 193,
+        "text": "`resource content-policy status`와 MCP `resource_content_policy`는 실효 상태를 비활성으로 보고하며, 기존 프로필이 저장되어 있는지 `configured`로 표시한다. 활성화 요청은 거부한다. 비활성 요청과 상태 조회는 기존 프로필, 대기열, 벡터 데이터베이스를 삭제하지 않는다. 기존 벡터 데이터는 현재 검색 결과로 사용하지 않으며 파일의 휴지통 최종 삭제와 일괄 정리도 아직 연결되지 않았다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000071",
+        "line": 195,
+        "text": "이 동작은 파일명과 분류 메타데이터를 대상으로 하는 기존 `resource search`와 구별된다. 이전 카탈로그도 새 메타데이터와 함께 검색되며 그 과거 이력은 유지한다. 설치된 앱, 실제 모델과 Windows·Linux 동작은 이 소스 변경만으로 검증되지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
       }
     ],
     "commands": [],
@@ -645,7 +1018,7 @@
   },
   "provenance": {
     "generator": "workspace-docs",
-    "version": "1.0.0",
+    "version": "1.0.0+manual-sync",
     "profile": "lossless-blocks-v1",
     "derived": true
   }

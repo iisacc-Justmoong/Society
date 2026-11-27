@@ -12,6 +12,7 @@
 #include <stop_token>
 namespace iiMultimodalAgent::agent { class Model; struct DecisionOptions; }
 namespace iiLocalLLM { class Service; }
+namespace society::content { struct EmbedderAccess; }
 class ResidentGateway;
 struct WorkspaceAgentToolTransport;
 
@@ -34,6 +35,10 @@ public:
     void setBrokerDirectory(const QString &directory);
     QJsonObject snapshot() const;
     ResidentGateway *residentGateway() const { return m_resident.get(); }
+    /// Return the selected container's shared local embedding service, or an
+    /// empty access handle until that service is ready. Selection changes
+    /// cancel previously issued handles before they may publish an index.
+    [[nodiscard]] society::content::EmbedderAccess contentEmbedder() const;
     bool selectModel(const QString &id, QString *error);
     bool submit(const QString &prompt, QString *error);
     bool submit(const QString &prompt, const QJsonArray &attachments, QString *error);

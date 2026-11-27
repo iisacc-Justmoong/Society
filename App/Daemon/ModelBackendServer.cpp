@@ -1,10 +1,14 @@
 #include "ModelBackendServer.h"
+#include "ContentIndexScheduler.h"
 #include "WorkspaceAddService.h"
 #include "NativeDirectorySession.h"
 #include "RecentBackend.h"
 #include "Society/Resources/ResourceInspection.h"
+#include "Society/Cleanup/CleanupPolicy.h"
+#include "Society/Semantics/SemanticRepository.h"
 #include "Shared/LocalBackendAddress.h"
 #include "Shared/LocalBackendPeer.h"
+#include "Shared/CleanupAction.h"
 #ifdef SOCIETY_AGENT_BACKEND
 #include "WorkspaceAgentBackend.h"
 #include "SuggestedBackend.h"
@@ -53,8 +57,10 @@ bool sameUser(QLocalSocket *socket)
 }
 }
 
-ModelBackendServer::ModelBackendServer(QObject *parent, UiPeerVerifier uiPeerVerifier)
-    : QObject(parent), m_uiPeerVerifier(std::move(uiPeerVerifier))
+ModelBackendServer::ModelBackendServer(QObject *parent, UiPeerVerifier uiPeerVerifier,
+                                       ContentEmbedderFactory contentEmbedderFactory,int contentPollIntervalMs)
+    : QObject(parent), m_uiPeerVerifier(std::move(uiPeerVerifier)),
+      m_contentEmbedderFactory(std::move(contentEmbedderFactory))
 {
     if (!m_uiPeerVerifier) m_uiPeerVerifier=[](QLocalSocket *socket) {
         return societyBackendPeerMatchesExecutable(socket,QDir(QCoreApplication::applicationDirPath()).filePath("Society"));
@@ -100,6 +106,8 @@ ModelBackendServer::ModelBackendServer(QObject *parent, UiPeerVerifier uiPeerVer
             send(it.key(), {{"type","suggestedState"},{"container",m_selected},{"subscription",it.value()},{"suggested",suggested}});
     });
 #endif
+    m_contentScheduler=std::make_unique<ContentIndexScheduler>([this] { return contentEmbedder(); },
+        [this] { return m_contentQueries>0 || m_contentPolicyQueries>0; },contentPollIntervalMs);
     connect(&m_server, &QLocalServer::newConnection, this, &ModelBackendServer::accept);
     connect(&m_models, &iiSocietyContainer::ModelImportService::stateChanged, this, &ModelBackendServer::broadcastState);
     connect(&m_models, &iiSocietyContainer::ModelImportService::jobsChanged, this, &ModelBackendServer::broadcastState);
@@ -155,6 +163,7 @@ ModelBackendServer::ModelBackendServer(QObject *parent, UiPeerVerifier uiPeerVer
 
 ModelBackendServer::~ModelBackendServer()
 {
+    m_contentScheduler.reset();
 #ifdef SOCIETY_AGENT_BACKEND
     if (m_agent) disconnect(m_agent->residentGateway(), nullptr, this, nullptr);
 #endif
@@ -240,8 +249,17 @@ void ModelBackendServer::selectContainer(const QString &path)
     if (changed && m_suggested) m_suggested->selectContainer(m_selected);
 #endif
     if (changed) m_recent->selectContainer(m_selected);
+    if (changed && m_contentScheduler) m_contentScheduler->selectContainer(m_selected);
     reconcileContainer();
     if (changed) broadcastState();
+}
+
+society::content::EmbedderAccess ModelBackendServer::contentEmbedder() const {
+    if (m_contentEmbedderFactory) return m_contentEmbedderFactory();
+#ifdef SOCIETY_AGENT_BACKEND
+    if (m_agent) return m_agent->contentEmbedder();
+#endif
+    return {};
 }
 
 void ModelBackendServer::setSystemDriveState(const QJsonObject &state)
@@ -357,7 +375,96 @@ void ModelBackendServer::receive(QLocalSocket *socket, const QJsonObject &reques
     const auto id = request.value("id").toString();
     const auto operation = request.value("op").toString();
     if (id.isEmpty() || id.size() > 128 || operation.isEmpty() || operation.size() > 64) { socket->abort(); return; }
-    if (operation=="resourceInspect" || operation=="resourceDuplicates") {
+    if (operation=="resourceContentPolicyGet" || operation=="resourceContentPolicySet") {
+        QJsonObject reply{{"type","result"},{"id",id},{"accepted",false},{"operation",operation}};
+        const auto directory=QDir(QCoreApplication::applicationDirPath());
+        if (!m_uiPeerVerifier(socket) && societyBackendPeerPid(socket)!=QCoreApplication::applicationPid()
+            && !societyBackendPeerMatchesExecutable(socket,directory.filePath("society-cli"))
+            && !societyBackendPeerMatchesExecutable(socket,directory.filePath("bin/society-cli"))) {
+            reply.insert("error","The resource client could not be verified."); send(socket,reply); return;
+        }
+        if (m_selected.isEmpty() || m_selectedId.isEmpty() ||
+            !societySameBackendPath(QDir::cleanPath(request.value("container").toString()),m_selected)) {
+            reply.insert("error","The selected Society drive is unavailable or has changed."); send(socket,reply); return;
+        }
+        const bool setting=operation=="resourceContentPolicySet";
+        const auto enabled=request.value("enabled"),model=request.value("model"),
+                   document=request.value("documentPrefix"),query=request.value("queryPrefix");
+        const QSet<QString> permitted=setting ? QSet<QString>{"id","op","container","enabled","model","documentPrefix","queryPrefix"}
+                                               : QSet<QString>{"id","op","container"};
+        for (auto it=request.begin();it!=request.end();++it) if (!permitted.contains(it.key())) {
+            reply.insert("error","Invalid content policy field."); send(socket,reply); return;
+        }
+        if (m_contentPolicyQueries>=1 || (setting && !enabled.isBool()) ||
+            (setting && enabled.toBool() && (!model.isString() || model.toString().trimmed().isEmpty() || model.toString().size()>1024 ||
+                (!document.isUndefined() && (!document.isString() || document.toString().size()>256)) ||
+                (!query.isUndefined() && (!query.isString() || query.toString().size()>256)))) ||
+            (setting && !enabled.toBool() && (!model.isUndefined() || !document.isUndefined() || !query.isUndefined()))) {
+            reply.insert("error","Invalid or excessive content policy request."); send(socket,reply); return;
+        }
+        if (setting && enabled.toBool() && !society::content::fileContentEmbeddingEnabled()) {
+            reply.insert("error","File content indexing is disabled; file indexes use only hashes and metadata.");
+            send(socket,reply); return;
+        }
+        if (setting) {
+            // Cancel and finish the active queue batch before changing its
+            // persisted policy, avoiding a writer/read transaction race.
+            QPointer<QLocalSocket> waiting(socket);
+            const auto admission=m_contentScheduler->yieldTo([this,waiting,request] {
+                if (waiting && waiting->state()==QLocalSocket::ConnectedState) receive(waiting,request);
+            });
+            if (admission==ContentIndexScheduler::Admission::deferred) return;
+            if (admission==ContentIndexScheduler::Admission::full) {
+                reply.insert("error","Too many content requests are waiting for background indexing to yield."); send(socket,reply); return;
+            }
+        }
+        society::content::EmbedderAccess embedding;
+        if (setting && enabled.toBool()) {
+            try { embedding=contentEmbedder(); }
+            catch (const std::exception &failure) { reply.insert("error",QString::fromUtf8(failure.what())); send(socket,reply); return; }
+            catch (...) { reply.insert("error","The local embedding service is unavailable."); send(socket,reply); return; }
+            if (!embedding.embedder || embedding.cancellation.stop_requested()) {
+                reply.insert("error","The selected container's local embedding service is unavailable."); send(socket,reply); return;
+            }
+        }
+        const auto root=m_selected,selectedId=m_selectedId; const auto generation=m_resourceGeneration;
+        const auto selection=m_contentScheduler->selectionToken();
+        const auto profile=setting && enabled.toBool()
+            ? std::optional<society::content::Profile>(society::content::Profile{model.toString(),document.toString(),query.toString()})
+            : std::optional<society::content::Profile>{};
+        if (setting) m_contentScheduler->beginPolicyChange();
+        ++m_contentPolicyQueries; QPointer<QLocalSocket> client(socket);
+        auto *watcher=new QFutureWatcher<society::content::Result>(this);
+        connect(watcher,&QFutureWatcher<society::content::Result>::finished,this,
+                [this,watcher,client,id,generation,selectedId,operation,setting] {
+            const auto result=watcher->result(); watcher->deleteLater(); --m_contentPolicyQueries;
+            if (setting) m_contentScheduler->endPolicyChange();
+            if (!client) return;
+            QJsonObject response{{"type","result"},{"id",id},{"accepted",false},{"operation",operation}};
+            if (generation!=m_resourceGeneration) response.insert("error","The selected Society drive changed.");
+            else if (!result.error.isEmpty()) response.insert("error",result.error);
+            else if (selectedId!=m_selectedId || result.value.value("containerId")!=selectedId)
+                response.insert("error","The selected Society drive identity changed.");
+            else {
+                auto policy=result.value;
+                policy.insert("worker",m_contentScheduler->status());
+                response.insert("accepted",true); response.insert("policy",policy);
+            }
+            send(client,response);
+        });
+        watcher->setFuture(QtConcurrent::run([root,profile,embedding,selection,setting] {
+            std::stop_source linked;
+            std::stop_callback onSelection(selection,[&linked] { linked.request_stop(); });
+            std::stop_callback onProvider(embedding.cancellation,[&linked] { linked.request_stop(); });
+            const auto token=linked.get_token();
+            return setting ? society::content::setTrackedTextPolicy(root,profile,embedding.embedder.get(),token)
+                           : society::content::trackedTextPolicy(root,token);
+        }));
+        return;
+    }
+    if (operation=="resourceInspect" || operation=="resourceDuplicates" || operation=="resourceSearch" ||
+        operation=="resourceLineage" || operation=="resourceCleanupPlan" || operation=="resourceCompareBytes" ||
+        operation=="resourceContentIndex" || operation=="resourceContentSearch") {
         QJsonObject reply{{"type","result"},{"id",id},{"accepted",false},{"operation",operation}};
         const auto directory=QDir(QCoreApplication::applicationDirPath());
         if (!m_uiPeerVerifier(socket) && societyBackendPeerPid(socket)!=QCoreApplication::applicationPid()
@@ -368,39 +475,131 @@ void ModelBackendServer::receive(QLocalSocket *socket, const QJsonObject &reques
         if (m_selected.isEmpty() || !societySameBackendPath(QDir::cleanPath(request.value("container").toString()),m_selected)) {
             reply.insert("error","The selected Society drive is unavailable or has changed."); send(socket,reply); return;
         }
-        if (operation=="resourceDuplicates" && m_selectedId.isEmpty()) {
+        if ((operation=="resourceContentIndex" || operation=="resourceContentSearch") &&
+            !society::content::fileContentEmbeddingEnabled()) {
+            reply.insert("error","File content indexing is disabled; file indexes use only hashes and metadata.");
+            send(socket,reply); return;
+        }
+        if (operation!="resourceInspect" && m_selectedId.isEmpty()) {
             reply.insert("error","The selected Society drive identity is unavailable."); send(socket,reply); return;
         }
         const auto path=request.value("path");
-        if (!path.isString() || path.toString().isEmpty() || path.toString().size()>4096 || m_resourceQueries>=16) {
+        if ((operation!="resourceSearch" && operation!="resourceContentSearch" &&
+             (!path.isString() || path.toString().isEmpty() || path.toString().size()>4096)) ||
+            m_resourceQueries>=16) {
             reply.insert("error","Invalid or excessive resource inspection requests."); send(socket,reply); return;
         }
         const auto requestedLimit=request.value("limit");
-        const int limit=requestedLimit.isUndefined()?5:requestedLimit.toInt(-1);
+        const int limit=requestedLimit.isUndefined()?(operation=="resourceLineage" || operation=="resourceCleanupPlan"?10:5):requestedLimit.toInt(-1);
         const auto cursor=request.value("cursor");
-        if (operation=="resourceDuplicates" &&
+        if (operation!="resourceInspect" &&
             ((!requestedLimit.isUndefined() && (!requestedLimit.isDouble() || requestedLimit.toDouble()!=limit)) ||
              limit<1 || limit>20 || (!cursor.isUndefined() && !cursor.isObject()) ||
              QJsonDocument(cursor.toObject()).toJson(QJsonDocument::Compact).size()>4096)) {
-            reply.insert("error","Invalid duplicate candidate page or cursor."); send(socket,reply); return;
+            reply.insert("error","Invalid resource page or cursor."); send(socket,reply); return;
+        }
+        const auto query=request.value("query");
+        if (operation=="resourceSearch" && (!query.isObject() || QJsonDocument(query.toObject()).toJson(QJsonDocument::Compact).size()>8192)) {
+            reply.insert("error","Invalid indexed search query."); send(socket,reply); return;
+        }
+        const auto requestedDirection=request.value("direction"), requestedDepth=request.value("depth");
+        const auto direction=requestedDirection.isUndefined()?QStringLiteral("both"):requestedDirection.toString();
+        const int depth=requestedDepth.isUndefined()?2:requestedDepth.toInt(-1);
+        if (operation=="resourceLineage" && ((!requestedDirection.isUndefined() && !requestedDirection.isString()) ||
+            (direction!="incoming" && direction!="outgoing" && direction!="both") ||
+            (!requestedDepth.isUndefined() && (!requestedDepth.isDouble() || requestedDepth.toDouble()!=depth)) ||
+            depth<1 || depth>3 || !cursor.isUndefined())) {
+            reply.insert("error","Invalid resource lineage request."); send(socket,reply); return;
+        }
+        if (operation=="resourceCleanupPlan" && !cursor.isUndefined()) {
+            reply.insert("error","A cleanup assessment has no continuation cursor."); send(socket,reply); return;
+        }
+        const auto other=request.value("otherPath");
+        if (operation=="resourceCompareBytes" && (!other.isString() || other.toString().isEmpty() ||
+            other.toString().size()>4096 || !cursor.isUndefined() || !requestedLimit.isUndefined() || m_resourceComparisons>=1)) {
+            reply.insert("error","Invalid or excessive byte comparison request."); send(socket,reply); return;
+        }
+        const bool contentIndex=operation=="resourceContentIndex",contentSearch=operation=="resourceContentSearch";
+        society::content::Profile profile;
+        society::content::EmbedderAccess embedding;
+        if (contentIndex || contentSearch) {
+            const auto model=request.value("model"),documentPrefix=request.value("documentPrefix"),queryPrefix=request.value("queryPrefix");
+            if (!model.isString() || model.toString().trimmed().isEmpty() || model.toString().size()>1024 ||
+                (!documentPrefix.isUndefined() && (!documentPrefix.isString() || documentPrefix.toString().size()>256)) ||
+                (!queryPrefix.isUndefined() && (!queryPrefix.isString() || queryPrefix.toString().size()>256)) ||
+                !cursor.isUndefined() || (contentIndex && !requestedLimit.isUndefined()) ||
+                (contentSearch && (!query.isString() || query.toString().trimmed().isEmpty() || query.toString().size()>4096)) ||
+                m_contentQueries>=1) {
+                reply.insert("error","Invalid or excessive content embedding request."); send(socket,reply); return;
+            }
+            profile={model.toString(),documentPrefix.toString(),queryPrefix.toString()};
+            QPointer<QLocalSocket> waiting(socket);
+            const auto admission=m_contentScheduler->yieldTo([this,waiting,request] {
+                if (waiting && waiting->state()==QLocalSocket::ConnectedState) receive(waiting,request);
+            });
+            if (admission==ContentIndexScheduler::Admission::deferred) return;
+            if (admission==ContentIndexScheduler::Admission::full) {
+                reply.insert("error","Too many content requests are waiting for background indexing to yield."); send(socket,reply); return;
+            }
+            try { embedding=contentEmbedder(); }
+            catch (const std::exception &failure) { reply.insert("error",QString::fromUtf8(failure.what())); send(socket,reply); return; }
+            catch (...) { reply.insert("error","The local embedding service is unavailable."); send(socket,reply); return; }
+            if (!embedding.embedder || embedding.cancellation.stop_requested()) {
+                reply.insert("error","The selected container's local embedding service is unavailable."); send(socket,reply); return;
+            }
         }
         const auto root=m_selected, logical=path.toString(), selectedId=m_selectedId; const auto generation=m_resourceGeneration;
         QPointer<QLocalSocket> client(socket); ++m_resourceQueries;
+        if (operation=="resourceCompareBytes") ++m_resourceComparisons;
+        if (contentIndex || contentSearch) ++m_contentQueries;
         auto *watcher=new QFutureWatcher<society::resources::Inspection>(this);
         connect(watcher,&QFutureWatcher<society::resources::Inspection>::finished,this,[this,watcher,client,id,generation,operation,selectedId] {
             const auto result=watcher->result(); watcher->deleteLater(); --m_resourceQueries;
+            if (operation=="resourceCompareBytes") --m_resourceComparisons;
+            if (operation=="resourceContentIndex" || operation=="resourceContentSearch") --m_contentQueries;
             if (!client) return;
             QJsonObject response{{"type","result"},{"id",id},{"accepted",false},{"operation",operation}};
             if (generation!=m_resourceGeneration) response.insert("error","The selected Society drive changed.");
             else if (!result.error.isEmpty()) response.insert("error",result.error);
-            else if (operation=="resourceDuplicates" && (selectedId!=m_selectedId || result.snapshot.value("containerId")!=selectedId))
+            else if (operation!="resourceInspect" && (selectedId!=m_selectedId || result.snapshot.value("containerId")!=selectedId))
                 response.insert("error","The selected Society drive identity changed.");
-            else { response.insert("accepted",true); response.insert(operation=="resourceInspect"?"resource":"duplicates",result.snapshot); }
+            else { response.insert("accepted",true); response.insert(operation=="resourceInspect"?"resource"
+                    :operation=="resourceDuplicates"?"duplicates":operation=="resourceSearch"?"search"
+                    :operation=="resourceLineage"?"lineage":operation=="resourceCompareBytes"?"byteComparison"
+                    :operation=="resourceContentIndex" || operation=="resourceContentSearch"?"content":"cleanupPlan",result.snapshot); }
             send(client,response);
         });
-        watcher->setFuture(QtConcurrent::run([root,logical,operation,limit,pageCursor=cursor.toObject()] {
-            try { return operation=="resourceInspect" ? society::resources::inspect(root,logical)
-                : society::resources::duplicateCandidates(root,logical,limit,pageCursor); }
+        watcher->setFuture(QtConcurrent::run([root,logical,operation,limit,direction,depth,profile,embedding,
+                                             contentQuery=query.toString(),otherLogical=other.toString(),
+                                             pageCursor=cursor.toObject(),searchQuery=query.toObject()] {
+            try {
+                if (operation=="resourceInspect") return society::resources::inspect(root,logical);
+                if (operation=="resourceDuplicates") return society::resources::duplicateCandidates(root,logical,limit,pageCursor);
+                if (operation=="resourceSearch") return society::resources::searchIndexed(root,searchQuery,limit,pageCursor);
+                if (operation=="resourceCompareBytes") return society::resources::compareBytes(root,logical,otherLogical);
+                if (operation=="resourceContentIndex") {
+                    const auto value=society::content::indexText(root,logical,profile,*embedding.embedder,{},embedding.cancellation);
+                    return society::resources::Inspection{value.value,value.error};
+                }
+                if (operation=="resourceContentSearch") {
+                    const auto value=society::content::searchText(root,contentQuery,profile,*embedding.embedder,limit,embedding.cancellation);
+                    return society::resources::Inspection{value.value,value.error};
+                }
+                if (operation=="resourceCleanupPlan") {
+                    const auto assessed=society::cleanup::plan(root,logical,limit);
+                    return society::resources::Inspection{assessed.value,assessed.error};
+                }
+                QString address;
+                if (logical.startsWith("Files/")) address="files/"+logical.mid(6);
+                else if (logical.startsWith("Models/")) address="models/"+logical.mid(7);
+                else throw std::runtime_error("Use a visible Files or Models path for resource lineage");
+                QString error;
+                const auto selectedStorage=iiSocietyContainer::SharedStorage::inspect(root,&error);
+                if (!selectedStorage) throw std::runtime_error(error.isEmpty()
+                    ? "The selected Society storage is unavailable." : error.toStdString());
+                return society::resources::Inspection{SemanticRepository(root,"urn:iisacc:local:lineage").traceRelations(
+                    *selectedStorage,address,direction,depth,limit),{}};
+            }
             catch (const std::exception &error) { return society::resources::Inspection{{},QString::fromUtf8(error.what())}; }
             catch (...) { return society::resources::Inspection{{},QStringLiteral("Could not inspect the resource.")}; }
         }));
@@ -654,6 +853,8 @@ void ModelBackendServer::receive(QLocalSocket *socket, const QJsonObject &reques
         if (!actions.contains(action) || !request.value("path").isString()
             || (request.contains("argument") && !request.value("argument").isString()))
             error=QStringLiteral("Invalid file operation.");
+        else if (society::cleanup::requiresPolicy(action,request.value("argument").toString()) && !m_uiPeerVerifier(socket))
+            error=QStringLiteral("Automated cleanup is blocked until dependency, recovery and approval checks are available. Review resource_cleanup_plan in Society.");
         else jobId=m_fileJobs.submit(actions.value(action),m_selected,request.value("path").toString(),request.value("argument").toString(),&error);
         reply.insert("accepted",!jobId.isEmpty());
         if (jobId.isEmpty()) reply.insert("error",error);

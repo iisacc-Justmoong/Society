@@ -17,6 +17,7 @@
 #include <QUrl>
 #include <QUuid>
 #include <algorithm>
+#include <deque>
 #include <filesystem>
 #include <limits>
 #include <map>
@@ -149,9 +150,7 @@ Storage storageFor(const QString &path) {
 std::unique_ptr<Repository> openRepository(const Storage &storage, const QString &actor, bool write) {
     if (!write) {
         const auto &drive = storage.drive();
-        const auto identifier = drive.storageKind() == iiSocietyContainer::SocietyDrive::StorageKind::LogicalDisk
-            ? drive.storageIdentifier() : drive.identifier();
-        const auto path = Repository::packagePath(nativePath(drive.rootPath()), utf8(identifier)) / "objects.sqlite3";
+        const auto path = Repository::packagePath(nativePath(drive.rootPath())) / "objects.sqlite3";
         if (!fs::exists(path)) return {};
     }
     iiSocietyContainer::FileRepositoryContext context;
@@ -902,7 +901,8 @@ QJsonObject presentProjectLink(const Storage &storage, OntologyFileSystem *graph
     link.insert("owner", "project");
     return link;
 }
-QJsonArray projectLinks(const Storage &storage, const Project &project, const QString &address, OntologyFileSystem *graph) {
+QJsonArray projectLinks(const Storage &storage, const Project &project, const QString &address, OntologyFileSystem *graph,
+                        std::size_t limit = (std::numeric_limits<std::size_t>::max)(), bool *truncated = nullptr) {
     const auto snapshot = project.snapshot();
     const auto self = selfKey(snapshot.manifest.projectId);
     (void)selfData(snapshot);
@@ -912,11 +912,30 @@ QJsonArray projectLinks(const Storage &storage, const Project &project, const QS
         const auto extensions = jsonObject(relation.extensionsJson);
         if (!extensions.contains(linkMarker)) continue;
         if (!extensions.value(linkMarker).isObject()) throw std::runtime_error("Invalid project semantic relation");
+        if (static_cast<std::size_t>(result.size()) >= limit) {
+            if (truncated) *truncated = true;
+            break;
+        }
         auto link = extensions.value(linkMarker).toObject();
         validateProjectLink(snapshot, relation, link);
         result.append(presentProjectLink(storage, graph, link, address));
     }
     return result;
+}
+// Keep traversal within the visible sections of the selected container.
+// External endpoints remain reportable, but are never opened by this walk.
+bool visibleSemanticAddress(const QString &address) {
+    auto normalized=address;
+    if (normalized.endsWith('/') && normalized.left(normalized.size()-1).endsWith(".iiproject",Qt::CaseInsensitive))
+        normalized.chop(1);
+    const bool files=normalized.startsWith("files/"), models=normalized.startsWith("models/");
+    if ((!files && !models) || normalized.size()>4096 || normalized.contains(QChar::Null) ||
+        normalized.contains('\\') || QDir::cleanPath(normalized)!=normalized) return false;
+    const auto relative=normalized.mid(files?6:7);
+    for (const auto &part:relative.split('/'))
+        if (part.isEmpty() || part=="." || part==".." || part.startsWith('.') ||
+            iiFileProvider::native::Presentation::isControlFile(nativePath(part))) return false;
+    return true;
 }
 void appendUnique(QJsonArray &out, const QJsonObject &link, std::set<QString> &seen, bool &incomplete) {
     const auto id = link.value("id").toString();
@@ -1180,6 +1199,135 @@ QJsonObject SemanticRepository::relations(const QString &address) const {
     }
     return {{"address", address}, {"outgoing", outgoing}, {"incoming", incoming},
             {"incomplete", incomplete}, {"unavailableProjects", unavailable}};
+}
+
+QJsonObject SemanticRepository::traceRelations(const iiSocietyContainer::SharedStorage &storage,
+                                                const QString &address, const QString &direction,
+                                                int maxDepth, int maxEdges) const {
+    if (!visibleSemanticAddress(address) || (direction!="incoming" && direction!="outgoing" && direction!="both") ||
+        maxDepth<1 || maxDepth>3 || maxEdges<1 || maxEdges>20)
+        throw std::runtime_error("Invalid bounded resource lineage request");
+
+    // Keep a single read-only graph and cache each registered project's
+    // declared links once. None of the normal relocation recovery or catalog
+    // refresh functions is called from this observation path.
+    const auto &drive=storage.drive();
+    if (QDir::cleanPath(containerPath_).normalized(QString::NormalizationForm_C)!=
+        QDir::cleanPath(drive.rootPath()).normalized(QString::NormalizationForm_C) || !drive.isReady())
+        throw std::runtime_error("The selected Society storage is unavailable or changed");
+    const auto containerId=drive.storageKind()==iiSocietyContainer::SocietyDrive::StorageKind::LogicalDisk
+        ? drive.storageIdentifier() : drive.identifier();
+    if (containerId.isEmpty()) throw std::runtime_error("Society storage identity is unavailable");
+    const auto repository=openRepository(storage,actorId_,false);
+    auto *graph=repository ? &repository->ontology() : nullptr;
+    const auto initialRevision=graph ? std::optional(graph->revision()) : std::nullopt;
+    constexpr std::size_t maxProjects=64, maxProjectLinks=1024;
+    bool incomplete=false, truncated=false, reconciliationRequired=false, boundaryReached=false;
+    QJsonArray unavailable, edges;
+    std::set<QString> visitedProjects, unavailableSet;
+    std::vector<QJsonObject> projectEdges;
+
+    // An unavailable registered package is reported, not interpreted as a
+    // project with no references. The cap prevents a traversal from opening an
+    // unbounded number of packages or retaining an unbounded project graph.
+    const auto readProject=[&](const QString &projectAddress, const OntologyResource *registered) {
+        if (!visitedProjects.insert(projectAddress).second) return;
+        if (!visibleSemanticAddress(projectAddress)) { boundaryReached=true; incomplete=true; return; }
+        if (visitedProjects.size()>maxProjects) { truncated=true; incomplete=true; return; }
+        try {
+            const auto path=projectPath(storage,projectAddress);
+            if (!path) throw std::runtime_error("Registered project is unavailable");
+            const auto project=openProject(*path,actorId_,false);
+            if (registered && graph) (void)verifiedCurrentAddress(storage,*graph,*registered);
+            bool projectTruncated=false;
+            const auto links=projectLinks(storage,project,projectAddress,graph,
+                                          maxProjectLinks-projectEdges.size(),&projectTruncated);
+            for (const auto &value:links) projectEdges.push_back(value.toObject());
+            if (projectTruncated) { truncated=true; incomplete=true; }
+        } catch (const std::exception &) {
+            incomplete=true;
+            if (unavailableSet.insert(projectAddress).second) unavailable.append(projectAddress);
+        }
+    };
+
+    if (graph) {
+        const auto registry=OntologyResource::entity(registryKey);
+        if (graph->entity(registry.key) && graph->property(pendingProperty)) {
+            const auto pending=graph->traverse(registry,pendingProperty,OntologyDirection::Outgoing,1,1);
+            if (pending.truncated || !pending.nodes.empty()) { incomplete=true; reconciliationRequired=true; }
+        }
+        if (graph->entity(registry.key) && graph->property(projectProperty)) {
+            const auto projects=graph->traverse(registry,projectProperty,OntologyDirection::Outgoing,1,maxProjects);
+            if (projects.truncated) { truncated=true; incomplete=true; }
+            for (const auto &entry:projects.nodes) readProject(currentAddress(*graph,entry.resource),&entry.resource);
+        }
+    }
+
+    std::deque<std::pair<QString,int>> pending{{address,0}};
+    std::set<QString> visited{address}, emitted;
+    while (!pending.empty()) {
+        const auto [current,depth]=pending.front(); pending.pop_front();
+        if (depth>=maxDepth) continue;
+        std::optional<AddressResolution> resolved;
+        bool bindingUnsafe=false;
+        if (graph) {
+            try {
+                std::vector<OntologyChange> unapplied;
+                resolved=resolveAddress(storage,*graph,unapplied,current,false);
+                bindingUnsafe=!unapplied.empty() || (!resolved &&
+                    (graph->entity(lookupKey(current)) || graph->entity(addressKey(current))));
+            } catch (const std::exception &) { bindingUnsafe=true; }
+            if (bindingUnsafe) { incomplete=true; reconciliationRequired=true; continue; }
+        }
+
+        // A directly encountered package can have its own canonical graph even
+        // before it has been registered in the container's reverse index.
+        auto projectCandidate=current;
+        if (projectCandidate.endsWith('/')) projectCandidate.chop(1);
+        if (projectCandidate.endsWith(QStringLiteral(".iiproject"),Qt::CaseInsensitive)) readProject(current,nullptr);
+        std::vector<QJsonObject> links;
+        if (graph && resolved && graph->entity(resolved->resource.key)) {
+            for (const auto *property:{sourceProperty,targetProperty}) {
+                if (!graph->property(property)) continue;
+                const auto walk=graph->traverse(resolved->resource,property,OntologyDirection::Incoming,1,maxResults);
+                if (walk.truncated) { truncated=true; incomplete=true; }
+                for (const auto &entry:walk.nodes)
+                    links.push_back(presentContainerLink(storage,*graph,containerLink(entry.resource,facts(*graph,entry.resource))));
+            }
+        }
+        links.insert(links.end(),projectEdges.begin(),projectEdges.end());
+        std::sort(links.begin(),links.end(),[](const QJsonObject &a,const QJsonObject &b) {
+            return std::pair(a.value("owner").toString(),a.value("id").toString()) <
+                   std::pair(b.value("owner").toString(),b.value("id").toString());
+        });
+        for (const auto &link:links) {
+            const auto source=link.value("source").toString(), target=link.value("target").toString();
+            const bool outgoing=source==current && direction!="incoming";
+            const bool incoming=target==current && direction!="outgoing";
+            if (!outgoing && !incoming) continue;
+            const auto key=link.value("owner").toString()+'\n'+link.value("id").toString();
+            if (!emitted.insert(key).second) continue;
+            if (edges.size()>=maxEdges) { truncated=true; incomplete=true; break; }
+            QJsonObject edge{{"id",link.value("id")},{"source",source},{"predicate",link.value("predicate")},
+                             {"target",target},{"owner",link.value("owner")},{"depth",depth+1}};
+            for (const auto *name:{"recordedSource","recordedTarget"})
+                if (link.contains(name)) edge.insert(name,link.value(name));
+            edges.append(edge);
+            const auto next=outgoing ? target : source;
+            if (!visibleSemanticAddress(next)) { boundaryReached=true; incomplete=true; }
+            else if (depth+1<maxDepth && visited.insert(next).second) pending.emplace_back(next,depth+1);
+        }
+        if (edges.size()>=maxEdges && truncated) break;
+    }
+    if (!drive.isReady()) throw std::runtime_error("The selected Society storage changed during lineage observation");
+    if (graph && graph->revision()!=*initialRevision) incomplete=true;
+    return {{"containerId",containerId},{"address",address},{"direction",direction},{"maxDepth",maxDepth},
+            {"edges",edges},{"graphRevision",initialRevision ? QJsonValue(QString::number(*initialRevision)) : QJsonValue(QJsonValue::Null)},
+            {"incomplete",incomplete},{"truncated",truncated},{"reconciliationRequired",reconciliationRequired},
+            {"boundaryReached",boundaryReached},{"unavailableProjects",unavailable},
+            {"coverage","container_graph_and_registered_projects"},{"completeness","unknown"},
+            {"evidence","user_asserted_relations"},{"assertionAuthority","host_declared_not_authenticated"},
+            {"endpointsVerified",false},{"cleanupDecision","review_required"}};
 }
 
 void SemanticRepository::prepareRelocation(const QString &source, const QString &destination) const {

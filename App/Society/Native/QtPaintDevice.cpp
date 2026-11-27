@@ -6,6 +6,7 @@
 #include <QPainterPath>
 #include <algorithm>
 #include <cmath>
+#include <vector>
 
 namespace {
 QRectF rect(const ii::gui::Rect &value) { return {value.x, value.y, value.width, value.height}; }
@@ -19,6 +20,118 @@ QColor color(const ii::gui::Color &value) {
 }
 ii::core::Result<void> unsupported(const char *message) {
     return ii::core::fail(ii::core::ErrorCode::unsupported, message);
+}
+
+// Three separable box passes approximate the renderer's Gaussian shadow while
+// keeping work linear in the size of the affected image, even at high DPI.
+void blurShadow(std::vector<std::uint8_t> &pixels,int width,int height,int radius) {
+    if (radius<=0) return;
+    std::vector<std::uint8_t> scratch(pixels.size());
+    const int divisor=2*radius+1;
+    const auto pass=[&](const auto &source,auto &target,bool horizontal) {
+        const int lines=horizontal?height:width, length=horizontal?width:height;
+        for (int line=0;line<lines;++line) {
+            const auto index=[&](int p) {return horizontal?std::size_t(line)*width+p:std::size_t(p)*width+line;};
+            unsigned sum=0;
+            for (int p=0;p<=radius && p<length;++p) sum+=source[index(p)];
+            for (int p=0;p<length;++p) {
+                target[index(p)]=std::uint8_t((sum+divisor/2)/divisor);
+                if (p-radius>=0) sum-=source[index(p-radius)];
+                if (p+radius+1<length) sum+=source[index(p+radius+1)];
+            }
+        }
+    };
+    for (int i=0;i<3;++i) {pass(pixels,scratch,true);pass(scratch,pixels,false);}
+}
+
+// Rasterize the iiGUI shadow geometry in its own logical coordinate space.
+ii::core::Result<std::pair<QImage,QRectF>> shadowImage(const ii::gui::BoxShadow &shadow,double density) {
+    try {
+        if (!std::isfinite(density) || density<=0 || !std::isfinite(shadow.blur_radius) || shadow.blur_radius<0)
+            return ii::core::fail(ii::core::ErrorCode::invalid_argument,"Invalid shadow scale or blur");
+        const double sigma=shadow.blur_radius*density/3.0;
+        if (!std::isfinite(sigma) || sigma>8192)
+            return ii::core::fail(ii::core::ErrorCode::out_of_range,"Shadow blur exceeds the image budget");
+        const int radius=std::max(0,int(std::lround((std::sqrt(4*sigma*sigma+1)-1)/2)));
+        const double padding=double(3*radius+1)/density;
+        const auto outer=rect(shadow.bounds).adjusted(-padding,-padding,padding,padding);
+        const double wide=std::ceil(outer.width()*density),high=std::ceil(outer.height()*density);
+        if (!(wide>0 && high>0) || wide>8192 || high>8192 || wide*high>16.0*1024*1024)
+            return ii::core::fail(ii::core::ErrorCode::out_of_range,"Shadow raster exceeds the image budget");
+        const int width=int(wide),height=int(high);
+        QImage shape(width,height,QImage::Format_ARGB32_Premultiplied);
+        if (shape.isNull()) return ii::core::fail(ii::core::ErrorCode::full,"Cannot allocate shadow mask");
+        shape.setDevicePixelRatio(density);shape.fill(Qt::transparent);
+        {
+            QPainter painter(&shape);painter.setRenderHint(QPainter::Antialiasing);
+            painter.setRenderHint(QPainter::SmoothPixmapTransform);
+            painter.translate(-outer.x(),-outer.y());
+            if (shadow.mask) {
+                const auto bytes=shadow.mask->rgba();
+                QImage source(bytes.data(),int(shadow.mask->width()),int(shadow.mask->height()),
+                              qsizetype(shadow.mask->width())*4,QImage::Format_RGBA8888);
+                painter.drawImage(rect(shadow.bounds),source);
+            } else {
+                painter.setPen(Qt::NoPen);painter.setBrush(Qt::white);
+                painter.drawRoundedRect(rect(shadow.bounds),shadow.radius,shadow.radius);
+            }
+        }
+        std::vector<std::uint8_t> alpha(std::size_t(width)*height);
+        for (int y=0;y<height;++y) {
+            const auto *line=reinterpret_cast<const QRgb *>(shape.constScanLine(y));
+            for (int x=0;x<width;++x) alpha[std::size_t(y)*width+x]=std::uint8_t(qAlpha(line[x]));
+        }
+        blurShadow(alpha,width,height,radius);
+        const auto tint=color(shadow.color);
+        for (int y=0;y<height;++y) {
+            auto *line=reinterpret_cast<QRgb *>(shape.scanLine(y));
+            for (int x=0;x<width;++x) {
+                const int a=std::lround(alpha[std::size_t(y)*width+x]*tint.alphaF());
+                line[x]=qPremultiply(qRgba(tint.red(),tint.green(),tint.blue(),a));
+            }
+        }
+        return std::pair{std::move(shape),outer};
+    } catch (...) {
+        return ii::core::fail(ii::core::ErrorCode::failed,"Cannot rasterize popup shadow",std::current_exception());
+    }
+}
+
+// Paint LVUI's non-capturing, zero-blur fallback using the supplied material
+// values and underlay; effects requiring a native backdrop remain explicit errors.
+ii::core::Result<void> paintOpaqueMaterial(QPainter &painter,const ii::gui::BackdropMaterial &material) {
+    if (material.capture || material.blur_radius!=0 || material.mask || material.background_scene || material.content_scene)
+        return unsupported("Captured, blurred, masked or scene-backed materials require a native renderer");
+    const auto bounds=rect(material.bounds);
+    QPainterPath surface;surface.addRoundedRect(bounds,material.radius,material.radius);
+    painter.save();
+    painter.setClipPath(surface,Qt::IntersectClip);
+    painter.fillPath(surface,color(material.base));
+    if (material.underlay) {
+        const auto bytes=material.underlay->rgba();
+        QImage underlay(bytes.data(),int(material.underlay->width()),int(material.underlay->height()),
+                        qsizetype(material.underlay->width())*4,QImage::Format_RGBA8888);
+        if (material.underlay_tint) {
+            underlay=underlay.copy();
+            QPainter tint(&underlay);tint.setCompositionMode(QPainter::CompositionMode_SourceIn);
+            tint.fillRect(underlay.rect(),color(*material.underlay_tint));
+        }
+        painter.drawImage(rect(material.underlay_bounds),underlay);
+    }
+    if (material.tint.alpha>0) painter.fillPath(surface,color(material.tint));
+    if (material.inner_highlight_opacity>0 && material.inner_highlight_offset_y!=0) {
+        QTransform offset;offset.translate(0,material.inner_highlight_offset_y);
+        const auto highlight=surface.subtracted(offset.map(surface));
+        painter.fillPath(highlight,QColor::fromRgbF(1,1,1,std::clamp(double(material.inner_highlight_opacity),0.,1.)));
+    }
+    painter.restore();
+    if (material.border_width>0 && material.border.alpha>0) {
+        const auto half=material.border_width/2;
+        const auto border=bounds.adjusted(half,half,-half,-half);
+        painter.save();painter.setBrush(Qt::NoBrush);painter.setPen(QPen(color(material.border),material.border_width));
+        painter.drawRoundedRect(border,std::max(0.0,double(material.radius-half)),std::max(0.0,double(material.radius-half)));
+        painter.restore();
+    }
+    return {};
 }
 }
 
@@ -42,7 +155,7 @@ struct QtPaintDevice::TextRasters {
 
 QtPaintDevice::QtPaintDevice() = default;
 QtPaintDevice::~QtPaintDevice() = default;
-ii::gui::PaintCapabilities QtPaintDevice::capabilities() const noexcept { return {.content_transform = true}; }
+ii::gui::PaintCapabilities QtPaintDevice::capabilities() const noexcept { return {.backdrop = true, .shadow = true, .content_transform = true}; }
 
 ii::core::Result<void> QtPaintDevice::begin_frame(const ii::gui::PaintFrameInfo &info) {
     if (m_painter || !info.pixel_width || !info.pixel_height || info.pixel_width > 8192 || info.pixel_height > 8192)
@@ -62,7 +175,6 @@ ii::core::Result<void> QtPaintDevice::begin_scene(const ii::gui::PaintSceneInfo 
 }
 ii::core::Result<void> QtPaintDevice::end_scene() { return {}; }
 ii::core::Result<void> QtPaintDevice::begin_layer(const ii::gui::PaintLayerInfo &info) {
-    if (info.backdrop || info.shadow) return unsupported("Material and shadow layers require a native renderer");
     m_painter->save();
     if (info.clip) m_painter->setClipRect(rect(*info.clip), Qt::IntersectClip);
     const auto &t = info.transform;
@@ -70,6 +182,16 @@ ii::core::Result<void> QtPaintDevice::begin_layer(const ii::gui::PaintLayerInfo 
     m_painter->translate(t.origin_x + t.offset_x, t.origin_y + t.offset_y);
     m_painter->scale(t.scale, t.scale);
     m_painter->translate(-t.origin_x, -t.origin_y);
+    if (info.shadow && t.scale!=0) {
+        auto image=shadowImage(*info.shadow,m_pending.devicePixelRatio()*std::abs(t.scale));
+        if (!image) {m_painter->restore();return std::unexpected(image.error());}
+        m_painter->drawImage(image->second,image->first);
+    }
+    if (info.backdrop) {
+        if (auto result=paintOpaqueMaterial(*m_painter,*info.backdrop);!result) {
+            m_painter->restore();return result;
+        }
+    }
     return {};
 }
 ii::core::Result<void> QtPaintDevice::draw_panels(std::span<const ii::gui::Panel> panels) {

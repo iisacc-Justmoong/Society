@@ -1,4 +1,5 @@
 #include "FileJobTools.h"
+#include "Shared/CleanupAction.h"
 #include <QJsonArray>
 #include <utility>
 
@@ -29,10 +30,17 @@ QList<a::Tool> societyFileJobTools(SocietyFileJobInvoker invoke)
     const auto text=QJsonObject{{"type","string"},{"minLength",1},{"maxLength",4096}};
     a::Tool submit;
     submit.definition={"file_job_submit",
-        "Submit a Society container file operation. A queued acknowledgement is not completion; inspect its job ID.",
+        "Submit a Society container file operation. Automated trash, removal and moves into Deleted are blocked; use resource_cleanup_plan. "
+        "A queued acknowledgement is not completion; inspect its job ID.",
         schema({{"action",QJsonObject{{"type","string"},{"enum",QJsonArray{"duplicate","rename","trash","remove","restore","move","create-directory","copy"}}}},
                 {"path",text},{"argument",text}}, {"action","path"}),{},false,false,true};
     submit.execute=[invoke](const QJsonObject &args,const a::ToolContext &context) {
+        const auto action=args.value("action").toString();
+        // A model-provided approval flag cannot establish dependency coverage,
+        // recoverability or a user's approval bound to the current file.
+        if (society::cleanup::requiresPolicy(action,args.value("argument").toString()))
+            return a::ToolResult{QStringLiteral("Automated cleanup is blocked. Use resource_cleanup_plan to review the recorded evidence."),
+                                 {{"accepted",false},{"decision","blocked"}},true};
         return invokeJob(invoke,"fileOperation",args,context);
     };
     a::Tool status;

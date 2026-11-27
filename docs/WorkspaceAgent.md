@@ -174,21 +174,27 @@ The daemon records the app-selected model through iiSocietyContainer's private
 model cache and restores that preference when the same resource and revision
 are still available. iisaccson remains the default and the model used for
 uncalibrated routing assessments. Selecting another preference does not disable
-iiDecision or force every request to that model. The selected package is prepared
-on the agent worker before it is requested; the GUI and container file workers
-do not perform the conversion. Changing the selection or container cancels the
-previous preparation. The agent snapshot reports cache state, progress, reuse and
-errors. The selected cache is queued before separate resident model loading.
-Cache preparation does not run inference. The separate resident state
-reports whether iiLocalLLM actually loaded and pinned the weights.
+iiDecision or force every request to that model. Changing the selection or
+container cancels the previous preparation. The agent snapshot reports cache
+state, progress, reuse and errors; the separate resident state reports whether
+iiLocalLLM actually loaded and pinned the weights.
 
-The cache retains the existing private `agent/models` catalog so installed model
-entries are not lost. A valid prepared component is reused without extracting it
-again. The original Society model is never moved or replaced. A provider resource
-ID is used when available; otherwise the reference is explicitly path-scoped and
-is not treated as a stable resource identity. iiLocalLLM still verifies model
-contents before loading, and a cache on the same device does not guarantee faster
-physical reads. No automatic cache eviction or storage limit is currently set.
+For iisaccson, the private catalog contains only a small reference and manifest.
+The host checks the model's GGUF mapping inside the existing `Models/` package,
+verifies that component's SHA-256, and reads the bytes from the original file.
+It does not extract a second `model.gguf` into the agent runtime. A source that
+is missing, redirected, changed or has an invalid checksum fails explicitly.
+The SDK's embedded-GGUF loader requires allocated model buffers rather than
+mapping an independent GGUF file, so memory use and loading performance can
+differ from the former cache. Independently installed catalog entries and other
+model preparation paths are unchanged. After successful direct residency, a
+background task verifies the original component and the full legacy extraction,
+their identities and the exact generated manifest and file list. It removes only
+a matching old extraction; cancellation, changes, extra files or an unknown
+manifest leave it in place. This one-time check reads both copies and can take
+time. The original package is never removed or changed by this cleanup.
+A provider resource ID is used when available; otherwise the reference is
+explicitly path-scoped and is not treated as a stable resource identity.
 
 Building the workspace agent requires an iiSocietyContainer SDK that exports
 `iiSocietyContainer_HAS_MODEL_CACHE`; use matching headers and libraries from
@@ -196,6 +202,8 @@ the rebuilt SDK. A successful local build does not update an installed app.
 The iiLocalLLM runtime must also include the layer-aware GGUF KV reservation
 fix to avoid over-reserving iisaccson's per-layer head arrays. Older runtimes
 retain the conservative fallback and may continue waiting for more memory.
+It must also support bounded embedded GGUF reads; an older runtime reports the
+missing capability instead of creating an extracted fallback copy.
 
 A ready cache has an initialized inference-service delegate, but does not
 establish successful runtime loading. The resident status reports that result.

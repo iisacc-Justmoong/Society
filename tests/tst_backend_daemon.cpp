@@ -6,6 +6,8 @@
 #include "Shared/LocalBackendPeer.h"
 #include "Shared/BackendCommand.h"
 #include "Daemon/ModelBackendServer.h"
+#include "Society/Semantics/SemanticRepository.h"
+#include "ContentEmbeddingFixture.h"
 #ifdef SOCIETY_AGENT_BACKEND
 #include "Daemon/ResidentGateway.h"
 #endif
@@ -31,15 +33,38 @@
 #include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QTimer>
+#include <QThread>
 #include <QTest>
 #include <QUuid>
 #include <QtEndian>
 #include <chrono>
+#include <filesystem>
 #include <future>
+#include <atomic>
+
+// A cancellable stand-in pauses only document embeddings so the foreground
+// search can prove the scheduler yielded without running a real model.
+class PausingContentEmbedder final : public society::content::Embedder {
+public:
+    std::atomic_bool block=true,started=false,cancelled=false;
+    QString revision(const QString &,std::stop_token stop) override {
+        if (stop.stop_requested()) throw std::runtime_error("cancelled");
+        return QStringLiteral("pausing-fixture-v1");
+    }
+    QList<float> embed(const QString &,const QString &input,std::stop_token stop) override {
+        if (input.contains("example") && block) {
+            started=true;
+            while (block && !stop.stop_requested()) QThread::msleep(5);
+            if (stop.stop_requested()) { cancelled=true; throw std::runtime_error("cancelled"); }
+        }
+        if (stop.stop_requested()) throw std::runtime_error("cancelled");
+        return {1.0f,0.0f};
+    }
+};
 
 class BackendDaemonTests final : public QObject {
     Q_OBJECT
-    static QJsonObject request(QLocalSocket &socket, const QJsonObject &body)
+    static QJsonObject request(QLocalSocket &socket, const QJsonObject &body, int timeoutMs=10000)
     {
         const auto payload = QJsonDocument(body).toJson(QJsonDocument::Compact);
         QByteArray frame(4, '\0');
@@ -48,7 +73,7 @@ class BackendDaemonTests final : public QObject {
         socket.flush();
         QByteArray input;
         QElapsedTimer deadline; deadline.start();
-        while (deadline.elapsed() < 10000 && socket.state() == QLocalSocket::ConnectedState) {
+        while (deadline.elapsed() < timeoutMs && socket.state() == QLocalSocket::ConnectedState) {
             QTest::qWait(10);
             input += socket.readAll();
             while (input.size() >= 4) {
@@ -63,6 +88,297 @@ class BackendDaemonTests final : public QObject {
         return {};
     }
 private slots:
+    // The daemon must reject legacy content-index requests before obtaining an
+    // embedding provider, even when a caller requests explicit indexing.
+    void fileContentEmbeddingRequestsAreDisabled()
+    {
+        QTemporaryDir fixture(QDir::cleanPath(QStringLiteral(SOCIETY_TEST_DIRECTORY)+"/../../.hash-policy-XXXXXX"));
+        QVERIFY(fixture.isValid());
+        const auto root=fixture.filePath("drive.societycontainer"); QVERIFY(QDir().mkdir(root));
+        QVERIFY(iiSocietyContainer::SocietyDrive::create(root));
+        QFile file(root+"/Files/private.txt"); QVERIFY(file.open(QIODevice::WriteOnly));
+        QVERIFY(file.write("private file")>0); file.close();
+        const auto broker=fixture.filePath("broker"); QVERIFY(QDir().mkdir(broker));
+        QVERIFY(QFile::setPermissions(broker,QFileDevice::ReadOwner|QFileDevice::WriteOwner|QFileDevice::ExeOwner));
+        auto embedder=std::make_shared<ContentEmbeddingFixture>(); std::atomic_int providerCalls=0;
+        ModelBackendServer server(nullptr,{},[&] { ++providerCalls; return society::content::EmbedderAccess{embedder,{}}; },100);
+        server.selectContainer(root); QVERIFY(server.listen(broker));
+        QLocalSocket socket; socket.connectToServer(societyBackendAddress(broker)); QVERIFY(socket.waitForConnected(5000));
+        const auto enable=request(socket,{{"id","enable"},{"op","resourceContentPolicySet"},{"container",root},
+                                          {"enabled",true},{"model","model://fixture"}});
+        QVERIFY(!enable.value("accepted").toBool()); QVERIFY(!enable.value("error").toString().isEmpty());
+        const auto index=request(socket,{{"id","index"},{"op","resourceContentIndex"},{"container",root},
+                                         {"path","Files/private.txt"},{"model","model://fixture"}});
+        QVERIFY(!index.value("accepted").toBool()); QVERIFY(!index.value("error").toString().isEmpty());
+        const auto search=request(socket,{{"id","search"},{"op","resourceContentSearch"},{"container",root},
+                                          {"query","private"},{"model","model://fixture"}});
+        QVERIFY(!search.value("accepted").toBool()); QVERIFY(!search.value("error").toString().isEmpty());
+        const auto policy=request(socket,{{"id","status"},{"op","resourceContentPolicyGet"},{"container",root}});
+        QVERIFY2(policy.value("accepted").toBool(),qPrintable(policy.value("error").toString()));
+        QVERIFY(!policy.value("policy").toObject().value("enabled").toBool());
+        QCOMPARE(providerCalls.load(),0); QCOMPARE(embedder->embeddingCalls.load(),0);
+        QVERIFY(!QDir(root+"/.society-file-provider").exists());
+        QVERIFY(!QDir(root+"/.society-runtime/content-index").exists());
+    }
+    // Files created outside Society must enter the managed journal before the
+    // existing text index can see them; no test helper records them directly.
+    void automaticTextIndexingDiscoversExternalFiles()
+    {
+        if (!society::content::fileContentEmbeddingEnabled()) QSKIP("File-content embeddings are disabled by the hash-metadata-only policy.");
+        QTemporaryDir fixture(QDir::cleanPath(QStringLiteral(SOCIETY_TEST_DIRECTORY)+"/../../.content-discovery-XXXXXX"));
+        QVERIFY(fixture.isValid());
+        const auto root=fixture.filePath("drive.societycontainer");
+        QVERIFY(QDir().mkdir(root)); QVERIFY(iiSocietyContainer::SocietyDrive::create(root));
+        const auto storage=iiSocietyContainer::SharedStorage::open(root); QVERIFY(storage);
+        const auto initialPackage=iiSocietyContainer::FileRepository::packagePath(
+            std::filesystem::path(root.toStdU16String()),storage->drive().identifier().toStdString());
+        QVERIFY(QDir().mkpath(root+"/Files/notes"));
+        const auto write=[&](const QString &relative,const QByteArray &data) {
+            QFile file(root+"/Files/"+relative);
+            return file.open(QIODevice::WriteOnly|QIODevice::Truncate) && file.write(data)==data.size();
+        };
+        QVERIFY(write("notes/first.txt","example original"));
+        const auto tracked=[&](const char *logical) {
+            auto repository=storage->fileRepository({},iiSocietyContainer::FileRepository::Access::ReadOnly,
+                                                     iiSocietyContainer::FileRepository::Intent::Background);
+            const auto record=repository->objects().lookupPath(logical);
+            return record && !record->deleted;
+        };
+        const auto broker=fixture.filePath("broker"); QVERIFY(QDir().mkdir(broker));
+        QVERIFY(QFile::setPermissions(broker,QFileDevice::ReadOwner|QFileDevice::WriteOwner|QFileDevice::ExeOwner));
+        auto embedding=std::make_shared<ContentEmbeddingFixture>();
+        bool customPoll=false;
+        const int requestedPoll=qEnvironmentVariableIntValue("SOCIETY_TEST_DISCOVERY_POLL_MS",&customPoll);
+        const int poll=customPoll && requestedPoll>=100 && requestedPoll<=60000 ? requestedPoll : 100;
+        ModelBackendServer server(nullptr,{},[embedding] { return society::content::EmbedderAccess{embedding,{}}; },poll);
+        server.selectContainer(root); QVERIFY(server.listen(broker));
+        QLocalSocket socket; socket.connectToServer(societyBackendAddress(broker)); QVERIFY(socket.waitForConnected(5000));
+        QTest::qWait(400); QVERIFY(!std::filesystem::exists(initialPackage/"objects.sqlite3"));
+        QCOMPARE(embedding->embeddingCalls.load(),0);
+        const auto enabled=request(socket,{{"id","enable"},{"op","resourceContentPolicySet"},{"container",root},
+            {"enabled",true},{"model","model://fixture"}},30000);
+        QVERIFY2(enabled.value("accepted").toBool(),qPrintable(enabled.value("error").toString()));
+        QElapsedTimer watchWindow; watchWindow.start();
+        bool configured=false;
+        const int configuredMs=qEnvironmentVariableIntValue("SOCIETY_TEST_DISCOVERY_TIMEOUT_MS",&configured);
+        const int deadline=configured && configuredMs>0 ? configuredMs : 90000;
+        const society::content::Profile profile{"model://fixture",{}, {}};
+        const auto revision=[&](const QString &path) {
+            const auto found=society::content::searchText(root,"concept",profile,*embedding,10);
+            if (!found.error.isEmpty()) return QString{};
+            for (const auto &value:found.value.value("items").toArray()) {
+                const auto item=value.toObject();
+                if (item.value("path").toString()==path) return item.value("revisionId").toString();
+            }
+            return QString{};
+        };
+        QString firstRevision;
+        QTRY_VERIFY_WITH_TIMEOUT(!(firstRevision=revision("Files/notes/first.txt")).isEmpty(),deadline);
+        QVERIFY(tracked("files/notes/first.txt"));
+        if (qEnvironmentVariableIsSet("SOCIETY_TEST_REQUIRE_DISCOVERY_EVENT")) {
+            QTRY_VERIFY_WITH_TIMEOUT(([&] {
+                const auto state=request(socket,{{"id",QUuid::createUuid().toString(QUuid::WithoutBraces)},
+                                                  {"op","resourceContentPolicyGet"},{"container",root}},30000);
+                return state.value("policy").toObject().value("worker").toObject().value("discovery")
+                    .toObject().value("watchedPaths").toInt()>=3;
+            })(),deadline);
+        }
+        QVERIFY(write("notes/first.txt","example revised from outside"));
+        QTRY_VERIFY_WITH_TIMEOUT(([&] {
+            const auto next=revision("Files/notes/first.txt"); return !next.isEmpty() && next!=firstRevision;
+        })(),deadline);
+        if (qEnvironmentVariableIsSet("SOCIETY_TEST_REQUIRE_DISCOVERY_EVENT")) {
+            QVERIFY2(poll==60000 && watchWindow.elapsed()<55000,
+                     "The changed file must be indexed before the 60-second fallback poll.");
+        }
+        QVERIFY(QDir().mkpath(root+"/Files/new/subdir"));
+        QVERIFY(write("new/subdir/later.md","example later"));
+        QTRY_VERIFY_WITH_TIMEOUT(!revision("Files/new/subdir/later.md").isEmpty(),deadline);
+        const auto disabled=request(socket,{{"id","disable"},{"op","resourceContentPolicySet"},{"container",root},
+                                           {"enabled",false}},30000);
+        QVERIFY2(disabled.value("accepted").toBool(),qPrintable(disabled.value("error").toString()));
+        QVERIFY(write("off.txt","example while disabled"));
+        QTest::qWait(500); QVERIFY(!tracked("files/off.txt"));
+        const auto resumed=request(socket,{{"id","resume"},{"op","resourceContentPolicySet"},{"container",root},
+                                          {"enabled",true},{"model","model://fixture"}},30000);
+        QVERIFY2(resumed.value("accepted").toBool(),qPrintable(resumed.value("error").toString()));
+        QTRY_VERIFY_WITH_TIMEOUT(!revision("Files/off.txt").isEmpty(),deadline);
+        QVERIFY(QFile::remove(root+"/Files/notes/first.txt"));
+        QTRY_VERIFY_WITH_TIMEOUT(([&] {
+            const auto found=society::content::searchText(root,"concept",profile,*embedding,10);
+            if (!found.error.isEmpty()) return false;
+            bool missing=true,other=false;
+            for (const auto &value:found.value.value("items").toArray()) {
+                const auto path=value.toObject().value("path").toString();
+                if (path=="Files/notes/first.txt") missing=false;
+                if (path=="Files/off.txt") other=true;
+            }
+            return missing && other;
+        })(),deadline);
+        QVERIFY(tracked("files/notes/first.txt")); // a partial scan never tombstones an absent file
+    }
+
+    void automaticTextIndexingFollowsTheSelectedPolicyAndJournal()
+    {
+        if (!society::content::fileContentEmbeddingEnabled()) QSKIP("File-content embeddings are disabled by the hash-metadata-only policy.");
+        QTemporaryDir fixture(QDir::cleanPath(QStringLiteral(SOCIETY_TEST_DIRECTORY)+"/../../.content-auto-XXXXXX"));
+        QVERIFY(fixture.isValid());
+        const auto root=fixture.filePath("first.societycontainer"),other=fixture.filePath("second.societycontainer");
+        QVERIFY(QDir().mkdir(root)); QVERIFY(iiSocietyContainer::SocietyDrive::create(root));
+        QVERIFY(QDir().mkdir(other)); QVERIFY(iiSocietyContainer::SocietyDrive::create(other));
+        const auto storage=iiSocietyContainer::SharedStorage::open(root); QVERIFY(storage);
+        const auto otherStorage=iiSocietyContainer::SharedStorage::open(other); QVERIFY(otherStorage);
+        const auto write=[&](const QString &name,const QByteArray &bytes) {
+            QFile file(root+"/Files/"+name);
+            return file.open(QIODevice::WriteOnly|QIODevice::Truncate) && file.write(bytes)==bytes.size();
+        };
+        QVERIFY(write("a.txt","example first"));
+        { auto repository=storage->fileRepository(); (void)repository->observe("files/a.txt"); }
+        const auto broker=fixture.filePath("broker"); QVERIFY(QDir().mkdir(broker));
+        QVERIFY(QFile::setPermissions(broker,QFileDevice::ReadOwner|QFileDevice::WriteOwner|QFileDevice::ExeOwner));
+        auto embedding=std::make_shared<ContentEmbeddingFixture>();
+        ModelBackendServer server(nullptr,{},[embedding] { return society::content::EmbedderAccess{embedding,{}}; },100);
+        server.selectContainer(root); QVERIFY(server.listen(broker));
+        QLocalSocket socket; socket.connectToServer(societyBackendAddress(broker)); QVERIFY(socket.waitForConnected(5000));
+        QTest::qWait(400); QCOMPARE(embedding->embeddingCalls.load(),0);
+        const auto enabled=request(socket,{{"id","enable"},{"op","resourceContentPolicySet"},{"container",root},
+            {"enabled",true},{"model","model://fixture"},{"documentPrefix",""},{"queryPrefix",""}},30000);
+        QVERIFY2(enabled.value("accepted").toBool(),qPrintable(enabled.value("error").toString()));
+        QVERIFY(enabled.value("policy").toObject().value("enabled").toBool());
+        QTRY_VERIFY_WITH_TIMEOUT(embedding->embeddingCalls.load()>0,60000);
+        const society::content::Profile profile{"model://fixture",{}, {}};
+        const auto count=[&] {
+            const auto found=society::content::searchText(root,"concept",profile,*embedding,10);
+            return found.error.isEmpty()?found.value.value("items").toArray().size():-1;
+        };
+        QTRY_COMPARE_WITH_TIMEOUT(count(),1,90000);
+        QVERIFY(write("b.txt","example second"));
+        { auto repository=storage->fileRepository(); (void)repository->observe("files/b.txt"); }
+        QTRY_COMPARE_WITH_TIMEOUT(count(),2,90000);
+        QFile otherFile(other+"/Files/other.txt"); QVERIFY(otherFile.open(QIODevice::WriteOnly));
+        otherFile.write("example other"); otherFile.close();
+        { auto repository=otherStorage->fileRepository(); (void)repository->observe("files/other.txt"); }
+        server.selectContainer(other); QTest::qWait(500); embedding->embeddingCalls=0;
+        QTest::qWait(800); QCOMPARE(embedding->embeddingCalls.load(),0);
+        // Another authorized host may persist a policy while this daemon is
+        // running; polling must discover it without reselecting the drive.
+        const auto external=society::content::setTrackedTextPolicy(other,profile,embedding.get());
+        QVERIFY2(external.error.isEmpty(),qPrintable(external.error));
+        QTRY_VERIFY_WITH_TIMEOUT(([&] {
+            const auto found=society::content::searchText(other,"concept",profile,*embedding,10);
+            return found.error.isEmpty() && found.value.value("items").toArray().size()==1;
+        })(),90000);
+        QVERIFY(write("c.txt","example third"));
+        { auto repository=storage->fileRepository(); (void)repository->observe("files/c.txt"); }
+        server.selectContainer(root);
+        QTRY_COMPARE_WITH_TIMEOUT(count(),3,90000);
+        const auto disabled=request(socket,{{"id","disable"},{"op","resourceContentPolicySet"},{"container",root},{"enabled",false}},30000);
+        QVERIFY2(disabled.value("accepted").toBool(),qPrintable(disabled.value("error").toString()));
+        QVERIFY(!disabled.value("policy").toObject().value("enabled").toBool());
+        QVERIFY(write("d.txt","example fourth"));
+        { auto repository=storage->fileRepository(); (void)repository->observe("files/d.txt"); }
+        QTest::qWait(800); QCOMPARE(count(),3);
+        const auto resumed=request(socket,{{"id","resume"},{"op","resourceContentPolicySet"},{"container",root},
+            {"enabled",true},{"model","model://fixture"}},30000);
+        QVERIFY2(resumed.value("accepted").toBool(),qPrintable(resumed.value("error").toString()));
+        QTRY_COMPARE_WITH_TIMEOUT(count(),4,90000);
+    }
+    void automaticTextIndexingYieldsToForegroundSearch()
+    {
+        if (!society::content::fileContentEmbeddingEnabled()) QSKIP("File-content embeddings are disabled by the hash-metadata-only policy.");
+        QTemporaryDir fixture(QDir::cleanPath(QStringLiteral(SOCIETY_TEST_DIRECTORY)+"/../../.content-yield-XXXXXX"));
+        QVERIFY(fixture.isValid()); const auto root=fixture.filePath("drive.societycontainer");
+        QVERIFY(QDir().mkdir(root)); QVERIFY(iiSocietyContainer::SocietyDrive::create(root));
+        const auto storage=iiSocietyContainer::SharedStorage::open(root); QVERIFY(storage);
+        QFile file(root+"/Files/a.txt"); QVERIFY(file.open(QIODevice::WriteOnly)); file.write("example"); file.close();
+        { auto repository=storage->fileRepository(); (void)repository->observe("files/a.txt"); }
+        const auto broker=fixture.filePath("broker"); QVERIFY(QDir().mkdir(broker));
+        QVERIFY(QFile::setPermissions(broker,QFileDevice::ReadOwner|QFileDevice::WriteOwner|QFileDevice::ExeOwner));
+        auto embedding=std::make_shared<PausingContentEmbedder>();
+        ModelBackendServer server(nullptr,{},[embedding] { return society::content::EmbedderAccess{embedding,{}}; },100);
+        server.selectContainer(root); QVERIFY(server.listen(broker));
+        QLocalSocket socket; socket.connectToServer(societyBackendAddress(broker)); QVERIFY(socket.waitForConnected(5000));
+        const auto enabled=request(socket,{{"id","enable"},{"op","resourceContentPolicySet"},{"container",root},
+            {"enabled",true},{"model","model://fixture"}},30000);
+        QVERIFY2(enabled.value("accepted").toBool(),qPrintable(enabled.value("error").toString()));
+        QTRY_VERIFY_WITH_TIMEOUT(embedding->started.load(),90000);
+        embedding->started=false;
+        const auto search=request(socket,{{"id","search"},{"op","resourceContentSearch"},{"container",root},
+            {"model","model://fixture"},{"query","concept"}},30000);
+        QVERIFY2(search.value("accepted").toBool(),qPrintable(search.value("error").toString()));
+        QVERIFY(embedding->cancelled.load());
+        QVERIFY(search.value("content").toObject().value("items").toArray().isEmpty());
+        QTRY_VERIFY_WITH_TIMEOUT(embedding->started.load(),90000);
+        embedding->cancelled=false;
+        const auto disabled=request(socket,{{"id","disable"},{"op","resourceContentPolicySet"},
+            {"container",root},{"enabled",false}},30000);
+        QVERIFY2(disabled.value("accepted").toBool(),qPrintable(disabled.value("error").toString()));
+        QVERIFY(embedding->cancelled.load());
+        embedding->block=false;
+        const society::content::Profile profile{"model://fixture",{}, {}};
+        QTest::qWait(800);
+        const auto empty=society::content::searchText(root,"concept",profile,*embedding,10);
+        QVERIFY2(empty.error.isEmpty(),qPrintable(empty.error)); QVERIFY(empty.value.value("items").toArray().isEmpty());
+        const auto resumed=request(socket,{{"id","resume"},{"op","resourceContentPolicySet"},{"container",root},
+            {"enabled",true},{"model","model://fixture"}},30000);
+        QVERIFY2(resumed.value("accepted").toBool(),qPrintable(resumed.value("error").toString()));
+        QTRY_VERIFY_WITH_TIMEOUT(([&] {
+            const auto found=society::content::searchText(root,"concept",profile,*embedding,10);
+            return found.error.isEmpty() && found.value.value("items").toArray().size()==1;
+        })(),90000);
+    }
+    void cleanupRequiresTheVerifiedWindowAtTheDaemonBoundary()
+    {
+        QTemporaryDir fixture(QDir::cleanPath(QStringLiteral(SOCIETY_TEST_DIRECTORY)+"/../../.cleanup-boundary-XXXXXX"));
+        QVERIFY(fixture.isValid());
+        const auto previous=qgetenv("SOCIETY_JOB_STATE_ROOT"); const bool hadPrevious=qEnvironmentVariableIsSet("SOCIETY_JOB_STATE_ROOT");
+        qputenv("SOCIETY_JOB_STATE_ROOT",fixture.filePath("jobs").toUtf8());
+        const auto restore=qScopeGuard([&]{if(hadPrevious)qputenv("SOCIETY_JOB_STATE_ROOT",previous);else qunsetenv("SOCIETY_JOB_STATE_ROOT");});
+        const auto root=fixture.filePath("drive.societycontainer"); QVERIFY(QDir().mkdir(root));
+        QVERIFY(iiSocietyContainer::SocietyDrive::create(root));
+        QFile asset(root+"/Files/asset.txt"); QVERIFY(asset.open(QIODevice::WriteOnly)); asset.write("asset"); asset.close();
+        QFile deleted(root+"/Deleted/old.txt"); QVERIFY(deleted.open(QIODevice::WriteOnly)); deleted.write("old"); deleted.close();
+        const auto broker=fixture.filePath("broker"); QVERIFY(QDir().mkdir(broker));
+        QVERIFY(QFile::setPermissions(broker,QFileDevice::ReadOwner|QFileDevice::WriteOwner|QFileDevice::ExeOwner));
+        ModelBackendServer server; server.selectContainer(root); QVERIFY(server.listen(broker));
+        QLocalSocket socket; socket.connectToServer(societyBackendAddress(broker)); QVERIFY(socket.waitForConnected(5000));
+        for (const auto &item:QList<QPair<QString,QString>>{{"trash","Files/asset.txt"},{"remove","Deleted/old.txt"}}) {
+            const auto reply=request(socket,{{"id",item.first},{"op","fileOperation"},{"container",root},
+                {"action",item.first},{"path",item.second},{"approved",true},{"planDigest","forged"}});
+            QVERIFY(!reply.value("accepted").toBool());
+            QVERIFY(reply.value("error").toString().contains("cleanup",Qt::CaseInsensitive));
+        }
+        const auto moved=request(socket,{{"id","move-deleted"},{"op","fileOperation"},{"container",root},
+            {"action","move"},{"path","Files/asset.txt"},{"argument","Deleted"},{"approved",true}});
+        QVERIFY(!moved.value("accepted").toBool());
+        QVERIFY(QFileInfo::exists(asset.fileName())); QVERIFY(QFileInfo::exists(deleted.fileName()));
+        const auto uiBroker=fixture.filePath("ui-broker"); QVERIFY(QDir().mkdir(uiBroker));
+        QVERIFY(QFile::setPermissions(uiBroker,QFileDevice::ReadOwner|QFileDevice::WriteOwner|QFileDevice::ExeOwner));
+        ModelBackendServer uiServer(nullptr,[](QLocalSocket *) { return true; });
+        uiServer.selectContainer(root); QVERIFY(uiServer.listen(uiBroker));
+        QLocalSocket ui; ui.connectToServer(societyBackendAddress(uiBroker)); QVERIFY(ui.waitForConnected(5000));
+        const auto accepted=request(ui,{{"id","ui-trash"},{"op","fileOperation"},{"container",root},
+            {"action","trash"},{"path","Files/asset.txt"}});
+        QVERIFY2(accepted.value("accepted").toBool(),qPrintable(accepted.value("error").toString()));
+        const auto id=accepted.value("jobId").toString(); QVERIFY(!id.isEmpty());
+        QTRY_VERIFY_WITH_TIMEOUT(([&] {
+            const auto reply=request(ui,{{"id",QUuid::createUuid().toString(QUuid::WithoutBraces)},
+                {"op","fileJobStatus"},{"container",root},{"jobId",id}});
+            return reply.value("job").toObject().value("state").toString()=="succeeded";
+        })(),60000);
+        QVERIFY(!QFileInfo::exists(asset.fileName())); QVERIFY(QFileInfo::exists(root+"/Deleted/asset.txt"));
+        const auto removed=request(ui,{{"id","ui-remove"},{"op","fileOperation"},{"container",root},
+            {"action","remove"},{"path","Deleted/old.txt"}});
+        QVERIFY2(removed.value("accepted").toBool(),qPrintable(removed.value("error").toString()));
+        const auto removeId=removed.value("jobId").toString(); QVERIFY(!removeId.isEmpty());
+        QTRY_VERIFY_WITH_TIMEOUT(([&] {
+            const auto reply=request(ui,{{"id",QUuid::createUuid().toString(QUuid::WithoutBraces)},
+                {"op","fileJobStatus"},{"container",root},{"jobId",removeId}});
+            return reply.value("job").toObject().value("state").toString()=="succeeded";
+        })(),60000);
+        QVERIFY(!QFileInfo::exists(deleted.fileName()));
+    }
+
 #ifdef SOCIETY_AGENT_BACKEND
     /// Space operations are scoped to the selected container and a specific session.
     void spaceProtocolChecksSessionAndContainer()
@@ -135,7 +451,7 @@ private slots:
         QVERIFY(client.waitForConnected(5000));
         QTRY_VERIFY_WITH_TIMEOUT(server.hasPendingConnections(),5000);
         std::unique_ptr<QLocalSocket> peer(server.nextPendingConnection()); QVERIFY(peer);
-#if defined(Q_OS_DARWIN) || defined(Q_OS_LINUX)
+#if defined(Q_OS_DARWIN) || defined(Q_OS_LINUX) || defined(Q_OS_WIN)
         QVERIFY(societyBackendPeerSameUser(peer.get()));
         QCOMPARE(societyBackendPeerPid(peer.get()),QCoreApplication::applicationPid());
         QVERIFY(societyBackendPeerMatchesExecutable(peer.get(),QCoreApplication::applicationFilePath()));
@@ -876,13 +1192,25 @@ private slots:
         const auto storage=iiSocietyContainer::SharedStorage::open(root); QVERIFY(storage);
         { auto repository=storage->fileRepository(); (void)repository->observe("files/example.txt");
           (void)repository->observe("files/copy.txt"); }
+        { SemanticRepository semantic(root,"urn:user:fixture");
+          (void)semantic.putRelation("files/copy.txt","example:derivedFrom","files/example.txt",{},
+                                     semantic.read("files/copy.txt").value("revision").toString()); }
         const auto broker=fixture.filePath("broker"); QVERIFY(QDir().mkdir(broker));
         QVERIFY(QFile::setPermissions(broker,QFileDevice::ReadOwner|QFileDevice::WriteOwner|QFileDevice::ExeOwner));
-        ModelBackendServer server; server.selectContainer(root); QVERIFY(server.listen(broker));
+        auto embedding=std::make_shared<ContentEmbeddingFixture>();
+        ModelBackendServer server(nullptr,{},[embedding] { return society::content::EmbedderAccess{embedding,{}}; });
+        server.selectContainer(root); QVERIFY(server.listen(broker));
+        QLocalSocket invalid; invalid.connectToServer(societyBackendAddress(broker)); QVERIFY(invalid.waitForConnected(5000));
+        const auto missingOther=request(invalid,{{"id","compare-missing"},{"op","resourceCompareBytes"},
+            {"container",root},{"path","Files/example.txt"}});
+        QVERIFY(!missingOther.value("accepted").toBool());
+        const auto paged=request(invalid,{{"id","compare-paged"},{"op","resourceCompareBytes"},
+            {"container",root},{"path","Files/example.txt"},{"otherPath","Files/copy.txt"},{"limit",1}});
+        QVERIFY(!paged.value("accepted").toBool());
         QProcess python;
         python.start(QStringLiteral(SOCIETY_PYTHON_EXECUTABLE),{"-B",QStringLiteral(SOCIETY_SOURCE_DIRECTORY "/tests/resource_client_probe.py"),
             QStringLiteral(SOCIETY_SOURCE_DIRECTORY "/App/Society/Bindings/society.py"),QStringLiteral(SOCIETY_CLI_EXECUTABLE),broker,root});
-        QVERIFY(python.waitForStarted()); QTRY_COMPARE_WITH_TIMEOUT(python.state(),QProcess::NotRunning,90000);
+        QVERIFY(python.waitForStarted()); QTRY_COMPARE_WITH_TIMEOUT(python.state(),QProcess::NotRunning,180000);
         QVERIFY2(python.exitCode()==0,python.readAllStandardError().constData());
 #else
         QSKIP("Society CLI is unavailable in this build");

@@ -1,5 +1,6 @@
 #include "NativeFiles.generated.h"
 #include "NativeFilesClient.h"
+#include "NativeFilesNotification.h"
 #include "NativeFileOpen.h"
 #include <iiGUI>
 #include <cstdlib>
@@ -18,6 +19,17 @@ struct AppState final {
     std::shared_ptr<ii::gui::Host> host;
     std::shared_ptr<View> view=std::make_shared<View>();
     NativeFilesViewModel *model=nullptr;
+    // Present pending errors only after the generated view has been mounted.
+    void presentNotification(double width=-1) {
+        if (!model || !host) return;
+        if (width<0) {
+            const auto snapshot=host->snapshot();
+            if (!snapshot) return;
+            width=snapshot->size.width;
+        }
+        const auto popup=view->widgets().find("society-files-error-notification");
+        if (popup) society::native::presentFilesNotification(*popup,width,*model);
+    }
 };
 std::string socketPath() {
     if (const auto *root=std::getenv("SOCIETY_LOCAL_BROKER_DIR"); root && *root)
@@ -31,7 +43,7 @@ ii::core::Result<void> ii::runtime::configure_application(Application &app) {
     auto state=std::make_shared<AppState>();
     std::weak_ptr<AppState> weak=state;
     auto host=gui::attach_application(app,View::options(),{
-        .resized=[weak](gui::Size size){if(auto state=weak.lock();state && state->model)state->model->resize(size.width,size.height);},
+        .resized=[weak](gui::Size size){if(auto state=weak.lock();state && state->model){state->model->resize(size.width,size.height);state->presentNotification(size.width);}},
         .closed=[weak]{if(auto state=weak.lock())state->model=nullptr;}
     });
     if (!host) return std::unexpected(host.error());
@@ -41,6 +53,10 @@ ii::core::Result<void> ii::runtime::configure_application(Application &app) {
             auto &model=scope.backend_0; state->model=&model;
             model.onOpenFile=[](const std::string &path) { return society::native::openNativeFile(path); };
             const std::weak_ptr<AppState> weakState=state;
+            const auto sender=app.event_loop().sender();
+            model.onNotificationChanged=[weakState,sender] {
+                (void)sender.post([weakState] {if (auto owner=weakState.lock()) owner->presentNotification();});
+            };
             model.onChooseFiles=[weakState] {
                 const auto owner=weakState.lock(); if (!owner || !owner->model) return;
                 ii::gui::FileDialogOptions options;

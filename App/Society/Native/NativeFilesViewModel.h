@@ -1,4 +1,5 @@
 #pragma once
+#include "ErrorNotificationQueue.h"
 #include <LVUI>
 #include <iiJson>
 #include <iiSDKCore>
@@ -22,6 +23,9 @@ struct NativeFilesViewModel final {
     ii::core::Observable<std::string> path{"Files"}, status{"Connecting to Society"};
     ii::core::Observable<std::string> activity{""}, errors{""}, renameDraft{""}, folderDraft{""}, moveDraft{""}, removePrompt{""};
     ii::core::Observable<std::string> currentError{""}, errorCountLabel{""}, modelImportStatus{""};
+    ii::core::Observable<std::string> notificationMessage{""};
+    // The notification uses the same width as the application-level LVUI view.
+    const double notificationWidth=360;
     ii::core::Observable<std::string> searchDraft{""}, sortLabel{"Sort: Name (ascending)"};
     ii::core::Observable<bool> canUp{false}, canOpen{false}, canPrevious{false}, canNext{false};
     ii::core::Observable<bool> canRename{false}, canTrash{false}, canRestore{false};
@@ -35,6 +39,7 @@ struct NativeFilesViewModel final {
     std::function<void()> onReconnect;
     std::function<void()> onChooseModels;
     std::function<void()> onChooseFiles;
+    std::function<void()> onNotificationChanged;
     std::function<std::optional<std::string>(const std::string &)> onOpenFile;
 
     NativeFilesViewModel();
@@ -88,6 +93,8 @@ struct NativeFilesViewModel final {
     void clearErrors();
     void previousError();
     void nextError();
+    // Advance the transient notification without erasing the error history.
+    void dismissNotification();
     void resize(double width, double height);
     // Attach services only after the view has placed this model in its final scope.
     void retainServices(std::shared_ptr<void> services) { m_services = std::move(services); }
@@ -122,6 +129,7 @@ private:
     std::unordered_map<std::string,std::string> m_requestTargets, m_jobTargets;
     std::size_t m_omittedErrors = 0;
     std::size_t m_errorCursor = 0;
+    society::native::ErrorNotificationQueue m_notificationQueue;
     std::uint64_t m_sequence = 0;
     bool m_directoryReady = false;
     bool m_choosingModels = false, m_choosingFiles = false, m_modelBusy = false;

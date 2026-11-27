@@ -1,6 +1,7 @@
 #include "Society/Dashboard/ProjectRepository.h"
 #include "Society/Semantics/RelocationVerification.h"
 #include "Society/Semantics/SemanticRepository.h"
+#include "Society/Cleanup/CleanupPolicy.h"
 #include <iiFileProvider>
 #include <iiSocietyContainer>
 #include <ProviderPackage.h>
@@ -50,6 +51,184 @@ bool copyDirectory(const QString &source, const QString &destination) {
 class SemanticRelationsTests : public QObject {
     Q_OBJECT
 private slots:
+    void cleanupPolicyRequiresVerifiedEvidenceBeforeApproval() {
+        society::cleanup::Evidence evidence;
+        auto decision=society::cleanup::evaluate(evidence);
+        QCOMPARE(decision.value("decision").toString(),QStringLiteral("blocked"));
+        const auto reasons=decision.value("reasons").toArray();
+        QVERIFY(reasons.contains("target_unverified"));
+        QVERIFY(reasons.contains("dependency_coverage_unknown"));
+        QVERIFY(reasons.contains("recoverability_unverified"));
+        QVERIFY(!decision.value("executable").toBool());
+        evidence.targetObservationMatches=true; evidence.dependencyCoverageComplete=true;
+        evidence.recoverabilityVerified=true; evidence.hasRecordedRelations=true;
+        decision=society::cleanup::evaluate(evidence);
+        QCOMPARE(decision.value("decision").toString(),QStringLiteral("blocked"));
+        QVERIFY(decision.value("reasons").toArray().contains("recorded_relations_require_review"));
+        evidence.hasRecordedRelations=false;
+        decision=society::cleanup::evaluate(evidence);
+        QCOMPARE(decision.value("decision").toString(),QStringLiteral("approval_required"));
+        QVERIFY(!decision.value("executable").toBool());
+        evidence.relationshipObservationIncomplete=true;
+        QVERIFY(society::cleanup::evaluate(evidence).value("reasons").toArray().contains("relationship_observation_incomplete"));
+    }
+
+    void cleanupPlanUsesRecordedRelationsAndPreservesUnknowns() {
+        QTemporaryDir fixture(fixtureTemplate("cleanup-plan-XXXXXX.societycontainer"));
+        QVERIFY(fixture.isValid()); QVERIFY(iiSocietyContainer::SocietyDrive::create(fixture.path()));
+        const auto storage=iiSocietyContainer::SharedStorage::open(fixture.path()); QVERIFY(storage);
+        const auto path=QDir(fixture.path()).filePath("Files/asset.txt");
+        iiFileProvider::native::File::create(std::filesystem::path(path.toStdString()), "asset");
+        { auto repository=storage->fileRepository(); (void)repository->observe("files/asset.txt"); }
+        SemanticRepository semantic(fixture.path(),"urn:user:artist");
+        (void)semantic.putRelation("files/project.txt","example:uses","files/asset.txt",{},revision(semantic.read("files/project.txt")));
+        const auto plan=society::cleanup::plan(fixture.path(),"Files/asset.txt",10);
+        QVERIFY2(plan.error.isEmpty(),qPrintable(plan.error));
+        QCOMPARE(plan.value.value("target").toObject().value("status").toString(),QStringLiteral("last_observed"));
+        QVERIFY(!plan.value.value("target").toObject().value("bytesVerified").toBool());
+        QVERIFY(!plan.value.value("target").toObject().value("resourceId").toString().isEmpty());
+        const auto relations=plan.value.value("relations").toObject();
+        QCOMPARE(relations.value("edges").toArray().size(),1);
+        QCOMPARE(relations.value("completeness").toString(),QStringLiteral("unknown"));
+        const auto policy=plan.value.value("policy").toObject();
+        QCOMPARE(policy.value("decision").toString(),QStringLiteral("blocked"));
+        QVERIFY(policy.value("reasons").toArray().contains("recorded_relations_require_review"));
+        QVERIFY(policy.value("reasons").toArray().contains("dependency_coverage_unknown"));
+        QVERIFY(policy.value("reasons").toArray().contains("recoverability_unverified"));
+        QVERIFY(!policy.value("executable").toBool());
+        (void)semantic.putRelation("files/another.txt","example:uses","files/asset.txt",{},revision(semantic.read("files/another.txt")));
+        const auto truncated=society::cleanup::plan(fixture.path(),"Files/asset.txt",1);
+        QVERIFY(truncated.error.isEmpty());
+        QVERIFY(truncated.value.value("relations").toObject().value("truncated").toBool());
+        QVERIFY(truncated.value.value("policy").toObject().value("reasons").toArray().contains("relationship_observation_incomplete"));
+        const auto absent=society::cleanup::plan(fixture.path(),"Files/missing.txt",10);
+        QVERIFY(absent.error.isEmpty());
+        QVERIFY(absent.value.value("policy").toObject().value("reasons").toArray().contains("target_unverified"));
+        QVERIFY(absent.value.value("recoverability").toObject().value("recordedReplicas").isNull());
+        QVERIFY(!society::cleanup::plan(fixture.path(),"Files/../outside",10).error.isEmpty());
+        QVERIFY(!society::cleanup::plan(fixture.path(),"Files/asset.txt",21).error.isEmpty());
+        QVERIFY(QFileInfo::exists(path));
+        const auto original=QDir(fixture.path()).filePath("Files/original.txt");
+        QVERIFY(QFile::rename(path,original));
+        iiFileProvider::native::File::create(std::filesystem::path(path.toStdString()), "replacement");
+        const auto replaced=society::cleanup::plan(fixture.path(),"Files/asset.txt",10);
+        QVERIFY(replaced.error.isEmpty());
+        QVERIFY(replaced.value.value("policy").toObject().value("reasons").toArray().contains("target_unverified"));
+        QVERIFY(QFileInfo::exists(original)); QVERIFY(QFileInfo::exists(path));
+        QFile preserved(original); QVERIFY(preserved.open(QIODevice::ReadOnly)); QCOMPARE(preserved.readAll(),QByteArray("asset"));
+        QFile current(path); QVERIFY(current.open(QIODevice::ReadOnly)); QCOMPARE(current.readAll(),QByteArray("replacement"));
+    }
+
+    void lineageTracesAssertedRelationsWithoutChangingStorage() {
+        QTemporaryDir fixture(fixtureTemplate("semantic-lineage-XXXXXX.societycontainer"));
+        QVERIFY(fixture.isValid()); QVERIFY(iiSocietyContainer::SocietyDrive::create(fixture.path()));
+        const auto storage=iiSocietyContainer::SharedStorage::open(fixture.path()); QVERIFY(storage);
+        SemanticRepository repo(fixture.path(), "urn:user:artist");
+        const auto link = [&](const QString &source, const QString &target) {
+            (void)repo.putRelation(source, "example:derivedFrom", target, {}, revision(repo.read(source)));
+        };
+        link("files/a.txt", "files/b.txt");
+        link("files/b.txt", "files/c.txt");
+        link("files/c.txt", "files/a.txt");
+        const auto trace = repo.traceRelations(*storage, "files/c.txt", "incoming", 3, 20);
+        QCOMPARE(trace.value("evidence").toString(), QStringLiteral("user_asserted_relations"));
+        QCOMPARE(trace.value("assertionAuthority").toString(), QStringLiteral("host_declared_not_authenticated"));
+        QCOMPARE(trace.value("completeness").toString(), QStringLiteral("unknown"));
+        QCOMPARE(trace.value("cleanupDecision").toString(), QStringLiteral("review_required"));
+        QVERIFY(!trace.value("incomplete").toBool());
+        const auto edges = trace.value("edges").toArray();
+        QCOMPARE(edges.size(), 3);
+        QCOMPARE(edges.at(0).toObject().value("source").toString(), QStringLiteral("files/b.txt"));
+        QCOMPARE(edges.at(1).toObject().value("source").toString(), QStringLiteral("files/a.txt"));
+        QCOMPARE(edges.at(2).toObject().value("source").toString(), QStringLiteral("files/c.txt"));
+        for (int index=0; index<edges.size(); ++index) {
+            QCOMPARE(edges.at(index).toObject().value("depth").toInt(), index+1);
+            QCOMPARE(edges.at(index).toObject().value("owner").toString(), QStringLiteral("container"));
+        }
+        const auto limited = repo.traceRelations(*storage, "files/c.txt", "incoming", 3, 1);
+        QCOMPARE(limited.value("edges").toArray().size(), 1);
+        QVERIFY(limited.value("truncated").toBool());
+        QVERIFY(limited.value("incomplete").toBool());
+        QCOMPARE(limited.value("graphRevision"), trace.value("graphRevision"));
+        const auto both=repo.traceRelations(*storage,"files/a.txt","both",1,10);
+        QCOMPARE(both.value("edges").toArray().size(),2);
+        QTemporaryDir other(fixtureTemplate("semantic-lineage-other-XXXXXX.societycontainer"));
+        QVERIFY(other.isValid()); QVERIFY(iiSocietyContainer::SocietyDrive::create(other.path()));
+        const auto otherStorage=iiSocietyContainer::SharedStorage::inspect(other.path()); QVERIFY(otherStorage);
+        QVERIFY_THROWS_EXCEPTION(std::exception, (void)repo.traceRelations(*otherStorage,"files/a.txt","both",2,10));
+        QVERIFY_THROWS_EXCEPTION(std::exception, (void)repo.traceRelations(*storage, "../outside", "both", 2, 10));
+        QVERIFY_THROWS_EXCEPTION(std::exception, (void)repo.traceRelations(*storage, "files/a.txt", "sideways", 2, 10));
+        QVERIFY_THROWS_EXCEPTION(std::exception, (void)repo.traceRelations(*storage, "files/a.txt", "both", 4, 10));
+        QVERIFY_THROWS_EXCEPTION(std::exception, (void)repo.traceRelations(*storage, "files/a.txt", "both", 2, 0));
+    }
+
+    void lineageReportsExternalBoundaryAndChangedIdentity() {
+        QTemporaryDir fixture(fixtureTemplate("semantic-lineage-identity-XXXXXX.societycontainer"));
+        QVERIFY(fixture.isValid()); QVERIFY(iiSocietyContainer::SocietyDrive::create(fixture.path()));
+        const auto storage=iiSocietyContainer::SharedStorage::open(fixture.path()); QVERIFY(storage);
+        const auto path=QDir(fixture.path()).filePath("Files/asset.txt");
+        const auto saved=QDir(fixture.path()).filePath("Files/original.txt");
+        iiFileProvider::native::File::create(std::filesystem::path(path.toStdString()), "original");
+        SemanticRepository repo(fixture.path(), "urn:user:artist");
+        (void)repo.putRelation("files/asset.txt", "example:references", "https://example.test/item",
+                               {}, revision(repo.read("files/asset.txt")));
+        const auto boundary=repo.traceRelations(*storage, "files/asset.txt", "outgoing", 2, 10);
+        QCOMPARE(boundary.value("edges").toArray().size(), 1);
+        QVERIFY(boundary.value("boundaryReached").toBool());
+        QVERIFY(boundary.value("incomplete").toBool());
+        QVERIFY(QFile::rename(path,saved));
+        iiFileProvider::native::File::create(std::filesystem::path(path.toStdString()), "replacement");
+        const auto stale=repo.traceRelations(*storage, "files/asset.txt", "outgoing", 2, 10);
+        QVERIFY(stale.value("incomplete").toBool());
+        QVERIFY(stale.value("reconciliationRequired").toBool());
+        QVERIFY(stale.value("edges").toArray().isEmpty());
+        QCOMPARE(stale.value("graphRevision"),boundary.value("graphRevision"));
+        QVERIFY(QFileInfo::exists(path)); QVERIFY(QFileInfo::exists(saved));
+    }
+
+    void lineageLeavesPendingMoveAndUnavailableProjectUnchanged() {
+        QTemporaryDir fixture(fixtureTemplate("semantic-lineage-pending-XXXXXX.societycontainer"));
+        QVERIFY(fixture.isValid()); QVERIFY(iiSocietyContainer::SocietyDrive::create(fixture.path()));
+        const auto storage=iiSocietyContainer::SharedStorage::open(fixture.path()); QVERIFY(storage);
+        ProjectRepository projects(fixture.path(), "urn:user:artist");
+        const auto project=projectAddress(fixture.path(), projects.create({{"name", "Lineage"}, {"goal", "Trace"}}))+'/';
+        SemanticRepository repo(fixture.path(), "urn:user:artist");
+        (void)repo.putRelation(project, "example:uses", "files/asset.txt", {}, revision(repo.read(project)));
+        const auto available=repo.traceRelations(*storage,"files/asset.txt","incoming",1,10);
+        QCOMPARE(available.value("edges").toArray().size(),1);
+        QCOMPARE(available.value("edges").toArray().first().toObject().value("owner").toString(),QStringLiteral("project"));
+        QCOMPARE(available.value("edges").toArray().first().toObject().value("source").toString(),project);
+        const auto from=QDir(fixture.path()).filePath("Files/move.txt");
+        const auto to=QDir(fixture.path()).filePath("Files/moved.txt");
+        iiFileProvider::native::File::create(std::filesystem::path(from.toStdString()), "moving");
+        (void)repo.putRelation("files/move.txt", "example:references", "files/asset.txt", {}, revision(repo.read("files/move.txt")));
+        repo.prepareRelocation(from,to); QVERIFY(QFile::rename(from,to));
+        QVERIFY(QDir(QDir(fixture.path()).filePath("Files/"+project.mid(6))).removeRecursively());
+        const auto first=repo.traceRelations(*storage, "files/asset.txt", "incoming", 1, 10);
+        QVERIFY(first.value("incomplete").toBool());
+        QVERIFY(first.value("reconciliationRequired").toBool());
+        QVERIFY(first.value("unavailableProjects").toArray().contains(project));
+        const auto again=repo.traceRelations(*storage, "files/asset.txt", "incoming", 1, 10);
+        QCOMPARE(again.value("graphRevision"),first.value("graphRevision"));
+        QVERIFY(again.value("reconciliationRequired").toBool());
+        QVERIFY(!QFileInfo::exists(from)); QVERIFY(QFileInfo::exists(to));
+    }
+
+    void lineageDoesNotUpgradeAChangedLegacyLayout() {
+        QTemporaryDir fixture(fixtureTemplate("semantic-lineage-legacy-XXXXXX.societycontainer"));
+        QVERIFY(fixture.isValid()); QVERIFY(iiSocietyContainer::SocietyDrive::create(fixture.path()));
+        const auto storage=iiSocietyContainer::SharedStorage::inspect(fixture.path()); QVERIFY(storage);
+        SemanticRepository repo(fixture.path(), "urn:user:artist");
+        QFile manifest(QDir(fixture.path()).filePath(".society-drive.json"));
+        QVERIFY(manifest.open(QIODevice::ReadOnly));
+        auto data=QJsonDocument::fromJson(manifest.readAll()).object(); manifest.close();
+        data.remove("filesLayoutVersion"); const auto original=QJsonDocument(data).toJson();
+        QVERIFY(manifest.open(QIODevice::WriteOnly|QIODevice::Truncate));
+        QCOMPARE(manifest.write(original),original.size()); manifest.close();
+        QVERIFY_THROWS_EXCEPTION(std::exception, (void)repo.traceRelations(*storage,"files/a.txt","both",2,10));
+        QVERIFY(manifest.open(QIODevice::ReadOnly)); QCOMPARE(manifest.readAll(),original);
+    }
+
     void relocationVerificationRequiresAStableIdentity() {
         using society::semantics::DestinationObservation;
         using society::semantics::stabilizeDestination;

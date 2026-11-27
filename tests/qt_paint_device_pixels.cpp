@@ -81,6 +81,50 @@ bool preserves_native_label(double scale) {
     }
     return true;
 }
+
+// A non-blurred panel popup still supplies iiGUI's standard soft shadow.
+bool paints_soft_shadow(double scale) {
+    QtPaintDevice painter;
+    const auto width=unsigned(std::ceil(64*scale)),height=unsigned(std::ceil(64*scale));
+    const ii::gui::BoxShadow shadow{.bounds={20,20,24,24},.radius=4,.blur_radius=9,.color={0,0,0,.8f}};
+    if (!painter.capabilities().shadow ||
+        !painter.begin_frame({.viewport={0,0,64,64},.scale=scale,.pixel_width=width,.pixel_height=height}) ||
+        !painter.begin_layer({.shadow=shadow}) || !painter.end_layer() || !painter.present()) return false;
+    const auto image=painter.image();
+    auto alpha=[&](double x,double y) {return qAlpha(image.pixel(int(x*scale),int(y*scale)));};
+    return alpha(32,32)>alpha(17,32) && alpha(17,32)>0 && alpha(2,2)==0;
+}
+
+// LVUI's opaque fallback retains the panel's base and rounded clipping.
+bool paints_opaque_material(double scale) {
+    QtPaintDevice painter;
+    const auto width=unsigned(std::ceil(64*scale)),height=unsigned(std::ceil(64*scale));
+    auto source=ii::gui::device_rgba_image(1,1,{255,0,0,255});
+    if (!source) return false;
+    const ii::gui::BackdropMaterial material{.bounds={10,10,40,40},.radius=8,
+        .underlay=*source,.underlay_bounds={20,20,20,20},.base={.2f,.2f,.2f,1},.capture=false};
+    if (!painter.capabilities().backdrop ||
+        !painter.begin_frame({.viewport={0,0,64,64},.scale=scale,.pixel_width=width,.pixel_height=height}) ||
+        !painter.begin_layer({.backdrop=material}) || !painter.end_layer() || !painter.present()) return false;
+    const auto image=painter.image();
+    return qAlpha(image.pixel(int(30*scale),int(30*scale)))==255 &&
+           qRed(image.pixel(int(30*scale),int(30*scale)))>qGreen(image.pixel(int(30*scale),int(30*scale))) &&
+           qAlpha(image.pixel(int(3*scale),int(3*scale)))==0;
+}
+
+// Custom alpha masks must contribute their alpha rather than their RGB color.
+bool paints_masked_shadow(double scale) {
+    auto mask=ii::gui::device_rgba_image(2,1,{255,0,0,255,0,0,255,0});
+    if (!mask) return false;
+    QtPaintDevice painter;
+    const auto width=unsigned(std::ceil(64*scale)),height=unsigned(std::ceil(64*scale));
+    const ii::gui::BoxShadow shadow{.bounds={10,20,40,20},.blur_radius=0,.color={0,0,0,1},.mask=*mask};
+    if (!painter.begin_frame({.viewport={0,0,64,64},.scale=scale,.pixel_width=width,.pixel_height=height}) ||
+        !painter.begin_layer({.shadow=shadow}) || !painter.end_layer() || !painter.present()) return false;
+    const auto image=painter.image();
+    return qAlpha(image.pixel(int(15*scale),int(30*scale)))>200 &&
+           qAlpha(image.pixel(int(45*scale),int(30*scale)))<20;
+}
 }
 
 int main(int argc, char **argv) {
@@ -92,6 +136,18 @@ int main(int argc, char **argv) {
         }
         if (!preserves_native_label(scale)) {
             std::cerr << "The Society paint adapter did not preserve the shaped native label at scale " << scale << '\n';
+            return 1;
+        }
+        if (!paints_soft_shadow(scale)) {
+            std::cerr << "The Society paint adapter did not render a soft popup shadow at scale " << scale << '\n';
+            return 1;
+        }
+        if (!paints_opaque_material(scale)) {
+            std::cerr << "The Society paint adapter did not render opaque LVUI material at scale " << scale << '\n';
+            return 1;
+        }
+        if (!paints_masked_shadow(scale)) {
+            std::cerr << "The Society paint adapter did not preserve the shadow mask at scale " << scale << '\n';
             return 1;
         }
     }

@@ -17,3 +17,16 @@ resources/
 !/resources/space/
 /resources/space/*
 !/resources/space/minimal-cyan-orb.svg
+!/resources/navigation-icons/
+/resources/navigation-icons/*
+!/resources/navigation-icons/toolwindownewUI.svg
+!/resources/navigation-icons/application-alt.svg
+!/resources/navigation-icons/usd.svg
+!/resources/navigation-icons/ppWeb.svg
+!/resources/navigation-icons/kernel.svg
+
+# Release catalogues are source inputs, not generated build data.
+!/resources/distribution/
+/resources/distribution/*
+!/resources/distribution/windows-store.json
+!/resources/distribution/macos-arm64.json

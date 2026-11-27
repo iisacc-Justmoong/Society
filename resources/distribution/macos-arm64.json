@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "platform": "macos-arm64",
+  "products": [
+    {
+      "id": "congregation",
+      "version": "0.1.1",
+      "minimumSystemVersion": "12.0",
+      "sizeBytes": 42781857,
+      "sha256": "33e9b11d537b84dca800c26b2065daf0568118c3fe47312b856981feaa220dfa",
+      "url": "https://downloads.iisacc.com/archive/congregation/macos-arm64/0.1.1/iisacc-Congregation-Beta-0.1.1-20261124.pkg",
+      "published": true
+    },
+    {
+      "id": "dreamscapes",
+      "version": "0.1.1",
+      "minimumSystemVersion": "27.2",
+      "sizeBytes": 47629527,
+      "sha256": "e713ac69803aa63c556fe2a4dea0c860d0f2775a8f01199f1565cfa295522f5e",
+      "url": "https://downloads.iisacc.com/archive/dreamscapes/macos-arm64/0.1.1/iisacc-Dreamscapes-Beta-0.1.1-20261124.pkg",
+      "published": true
+    }
+  ]
+}

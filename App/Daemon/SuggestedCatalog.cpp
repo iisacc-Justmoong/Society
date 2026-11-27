@@ -48,8 +48,7 @@ std::optional<Reader> open(const std::string &container, std::string &error, boo
     const auto &drive=storage->drive();
     const auto root=fs::path(drive.rootPath().toStdU16String());
     const auto section=fs::path(drive.sectionPath(Section::Files).toStdU16String());
-    const auto id=drive.storageKind()==iiSocietyContainer::SocietyDrive::StorageKind::LogicalDisk ? drive.storageIdentifier() : drive.identifier();
-    if (!fs::exists(Repository::packagePath(root,bytes(id))) || !fs::exists(section/".iisacc-file-provider/catalog.sqlite3")) {
+    if (!fs::exists(Repository::packagePath(root)) || !fs::exists(section/".iisacc-file-provider/catalog.sqlite3")) {
         pending=true; return {};
     }
     auto repository=storage->fileRepository({},Repository::Access::ReadOnly,Repository::Intent::Background);

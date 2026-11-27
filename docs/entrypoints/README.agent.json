@@ -10,8 +10,8 @@
   },
   "source": {
     "path": "README.md",
-    "sha256": "adc953a0db6f827f2a1ef373fbadd70f032bb27d2b1f1a024828ee28d4ed38fe",
-    "bytes": 46168,
+    "sha256": "c84ed384c789705378c9e2b47c962f1a2bd81a5b183b537b362db13aa2bc6370",
+    "bytes": 46306,
     "line_count": 346,
     "encoding": "utf-8",
     "language": "ko"
@@ -285,7 +285,7 @@
       "kind": "paragraph",
       "start_line": 52,
       "end_line": 52,
-      "raw": "On desktop, the [Figma dashboard](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=18-14) is placed as `SocietyView` in the `content` slot of `LV.ApplicationWindow`. The header uses the [seven-item LVUI navigation](docs/NativeNavigation.md) and ends with the account Avatar. Tasks opens the existing Tools view, and Library opens Storage. Space opens the native [discovery view and session agent](docs/GraphNodes.md#space-discovery-view); People reports that its service is not connected. Open **Tools** also from the View menu or with Command+2 on macOS / Ctrl+2 on other desktop platforms. **Tools** provides the [model addition/subtraction merge tool](docs/ModelMerge.md) based on iiLocalDiffusion; base and additional checkpoints/LoRA are selected from the dropdown and context menu in the container's `Models/`. It provides weights, output, cache, the Python environment, and configuration validation. **Browse** browses files on connected devices. **Environment** displays [Overview, Devices, Apps, and four app collections](docs/Environment.md), and Hosting opens its hosting information. The device-pairing modal opens through Environment → Devices → Add device. Merge settings, the current folder, and prompts persist when switching tabs. Actual recent files and generation history, screen composition, and the scope of behavior are documented in the [Dashboard documentation](docs/Dashboard.md). The Storage sidebar has four groups: My storage, Other devices, Guild, and Organization. Actual device lists, per-account browsing objects, empty states, and scrolling behavior are documented in the [Storage navigation documentation](docs/StorageNavigation.md). Storage → Photos [connects bidirectionally to the device photo library](docs/Photos.md) and provides photo and video aliases, directly saved previews, and authenticated original transfers.\n"
+      "raw": "On desktop, the [Figma dashboard](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=18-14) is placed as `SocietyView` in the `content` slot of `LV.ApplicationWindow`. The header uses the [nine-item LVUI navigation](docs/NativeNavigation.md) and ends with the account Avatar. Tasks opens the existing Tools view, Library opens Storage, Space opens the native [discovery view and session agent](docs/GraphNodes.md#space-discovery-view), and Apps opens the All apps catalogue. Service, Community and Learning report that their services are not connected. Open **Tools** also from the View menu or with Command+2 on macOS / Ctrl+2 on other desktop platforms. **Tools** provides the [model addition/subtraction merge tool](docs/ModelMerge.md) based on iiLocalDiffusion; base and additional checkpoints/LoRA are selected from the dropdown and context menu in the container's `Models/`. It provides weights, output, cache, the Python environment, and configuration validation. Device navigation can still browse files on connected devices. The Environment segment returns to Workspace; the existing [Environment views](docs/Environment.md) provide Overview, Devices, Apps, and four app collections, and Hosting opens its hosting information. The device-pairing modal opens through Environment → Devices → Add device. Merge settings, the current folder, and prompts persist when switching tabs. Actual recent files and generation history, screen composition, and the scope of behavior are documented in the [Dashboard documentation](docs/Dashboard.md). The Storage sidebar has four groups: My storage, Other devices, Guild, and Organization. Actual device lists, per-account browsing objects, empty states, and scrolling behavior are documented in the [Storage navigation documentation](docs/StorageNavigation.md). Storage → Photos [connects bidirectionally to the device photo library](docs/Photos.md) and provides photo and video aliases, directly saved previews, and authenticated original transfers.\n"
     },
     {
       "id": "b000038",
@@ -888,10 +888,10 @@
     },
     {
       "id": "b000109",
+      "kind": "list",
       "start_line": 150,
       "end_line": 159,
       "raw": "- Required capability: Account UI and authentication; Owning SDK: iiAccountManager Quick\n- Required capability: Persistent calendar, events and tasks; Owning SDK: iiCalendarIntegration\n- Required capability: File creation, temporary leases and native presentation; Owning SDK: iiFileProvider\n- Required capability: Device pairing and authenticated LAN hosting; Owning SDK: iiWebServer\n- Required capability: Native container, previews and system-drive presentation; Owning SDK: iiSocietyContainer Gui\n- Required capability: Shared application presence and file mirror; Owning SDK: iiSocietyHelper 0.9.3 or later\n- Required capability: Bidirectional container replication; Owning SDK: iiSocietyHelper Sync\n- Required capability: Photo library and gallery; Owning SDK: iiPhotoLibrary\n- Required capability: Model packaging and desktop inference hosting; Owning SDK: iiLocalDiffusion ModelPackaging and iiSocietyHelper Generation Host\n- Required capability: Local desktop MCP endpoint and agent harness on supported Unix platforms; Owning SDK: iiMultimodalAgent 0.1 (iiLocalLLM 0.56 inference dependency)\n",
-      "kind": "list",
       "items": [
         {
           "marker": "-",
@@ -1088,9 +1088,9 @@
       "kind": "fenced_code",
       "start_line": 194,
       "end_line": 197,
-      "raw": "```sh\ncmake --preset debug \\\n  -DiiSocietyContainer_DIR=/Volumes/Storage/Workspace/SDK/iiSocietyContainer/build/install/lib/cmake/iiSocietyContainer\n```\n",
+      "raw": "```sh\ncmake --preset debug \\\n  -DiiSocietyContainer_DIR=/Volumes/Workspace/SDK/iiSocietyContainer/build/install/lib/cmake/iiSocietyContainer\n```\n",
       "language": "sh",
-      "code": "cmake --preset debug \\\n  -DiiSocietyContainer_DIR=/Volumes/Storage/Workspace/SDK/iiSocietyContainer/build/install/lib/cmake/iiSocietyContainer\n",
+      "code": "cmake --preset debug \\\n  -DiiSocietyContainer_DIR=/Volumes/Workspace/SDK/iiSocietyContainer/build/install/lib/cmake/iiSocietyContainer\n",
       "closed": true
     },
     {
@@ -1163,7 +1163,7 @@
       "kind": "list",
       "start_line": 207,
       "end_line": 225,
-      "raw": "- `App/`: application entry point, Society views and controllers, daemon, and platform-specific sources. Project headers are resolved relative to this directory.\n- `docs/SourceLayout.md`: source layout, stable QML resource paths, and verification commands.\n- `App/main.cpp`: LVRS runtime initialization and `Society.Main` QML load\n- `App/Society/Main.qml`: LVRS window, folder selection, 9 area, sidebar, path navigation, Finder connection UI\n- `App/Society/FileGridView.qml`: file list, preview, selection, empty state UI\n- `App/Society/Files/DirectoryLocation.h/.cpp`: local absolute path validation and file URL conversion\n- `App/Society/Files/ModelImporter.h/.cpp`: model classification, asynchronous copy, duplicate name handling, and progress status\n- `App/Society/Files/ModelImportSource.h`: contract for local files and Apple provider to maintain read access during copy\n- `App/Society/Files/AppleModelSource.h/.mm`: Apple file provider input maintaining security scope and file adjustment\n- `App/Society/Files/IosModelDrop.h/.mm`: iOS native drop across entire window and destination feedback\n- `App/Society/Drive/DriveController.h/.cpp`: SDK drive load, navigation within area boundaries, native connection status\n- `App/Society/AI/`: Empty initial skeleton of the Civitai·Hugging Face·Ollama integration class\n- `tests/tst_filegrid.cpp`: empty path, invalid path, sorting and image preview of actual temporary files, click, double-click, keyboard navigation and scroll, three kinds window size, path change, QML warning check\n- `tests/FileGridHarness.qml`: LVRS window that validates the file grid independently of the drive screen\n- `tests/tst_drive.cpp`: Checks persistent ID, retention of in-app file browsing for all 9 sections, rejection of boundary escapes, preservation of an existing container on conflicts, and section clicks, folder navigation, parent navigation, small-window layouts, and QML warnings in the actual drive screen. Also checks the window's URL drop, copy action, automatic section placement, and model-list updates.\n- `tests/tst_modelimporter.cpp` : two model extensions, preserve original, name conflict, duplicate input, prevent overwrite during simultaneous import, invalid input, reject region redirect, cancel and temporary file cleanup\n- `tests/tst_applemodelsource.mm`: Copy and delayed callback cancellation check through actual Foundation file providers\n- `Society.IosDropSyntax` : If the host SDK has a UIKit header, compile-check the iOS drop delegate's API ·type at iOS target. It is not app link or execution check.\n- `tests/tst_dependencies.cpp`: Check the final product link dependencies and real packaged Helper peer observation\n",
+      "raw": "- `App/`: application entry point, Society views and controllers, daemon, and platform-specific sources. Project headers are resolved relative to this directory.\n- `docs/SourceLayout.md`: source layout, stable QML resource paths, and verification commands.\n- `App/Society/main.cpp`: LVRS runtime initialization and `Society.Main` QML load\n- `App/Society/Main.qml`: LVRS window, folder selection, 9 area, sidebar, path navigation, Finder connection UI\n- `App/Society/FileGridView.qml`: file list, preview, selection, empty state UI\n- `App/Society/Files/DirectoryLocation.h/.cpp`: local absolute path validation and file URL conversion\n- `App/Society/Files/ModelImporter.h/.cpp`: model classification, asynchronous copy, duplicate name handling, and progress status\n- `App/Society/Files/ModelImportSource.h`: contract for local files and Apple provider to maintain read access during copy\n- `App/Society/Files/AppleModelSource.h/.mm`: Apple file provider input maintaining security scope and file adjustment\n- `App/Society/Files/IosModelDrop.h/.mm`: iOS native drop across entire window and destination feedback\n- `App/Society/Drive/DriveController.h/.cpp`: SDK drive load, navigation within area boundaries, native connection status\n- `App/Society/AI/`: Empty initial skeleton of the Civitai·Hugging Face·Ollama integration class\n- `tests/tst_filegrid.cpp`: empty path, invalid path, sorting and image preview of actual temporary files, click, double-click, keyboard navigation and scroll, three kinds window size, path change, QML warning check\n- `tests/FileGridHarness.qml`: LVRS window that validates the file grid independently of the drive screen\n- `tests/tst_drive.cpp`: Checks persistent ID, retention of in-app file browsing for all 9 sections, rejection of boundary escapes, preservation of an existing container on conflicts, and section clicks, folder navigation, parent navigation, small-window layouts, and QML warnings in the actual drive screen. Also checks the window's URL drop, copy action, automatic section placement, and model-list updates.\n- `tests/tst_modelimporter.cpp` : two model extensions, preserve original, name conflict, duplicate input, prevent overwrite during simultaneous import, invalid input, reject region redirect, cancel and temporary file cleanup\n- `tests/tst_applemodelsource.mm`: Copy and delayed callback cancellation check through actual Foundation file providers\n- `Society.IosDropSyntax` : If the host SDK has a UIKit header, compile-check the iOS drop delegate's API ·type at iOS target. It is not app link or execution check.\n- `tests/tst_dependencies.cpp`: Check the final product link dependencies and real packaged Helper peer observation\n",
       "items": [
         {
           "marker": "-",
@@ -1177,7 +1177,7 @@
         },
         {
           "marker": "-",
-          "text": "`App/main.cpp`: LVRS runtime initialization and `Society.Main` QML load",
+          "text": "`App/Society/main.cpp`: LVRS runtime initialization and `Society.Main` QML load",
           "checked": null
         },
         {
@@ -2286,6 +2286,69 @@
         "context": "list"
       },
       {
+        "block_id": "b000109",
+        "line": 151,
+        "text": "- Required capability: Persistent calendar, events and tasks; Owning SDK: iiCalendarIntegration",
+        "basis": "lexical_match",
+        "context": "list"
+      },
+      {
+        "block_id": "b000109",
+        "line": 152,
+        "text": "- Required capability: File creation, temporary leases and native presentation; Owning SDK: iiFileProvider",
+        "basis": "lexical_match",
+        "context": "list"
+      },
+      {
+        "block_id": "b000109",
+        "line": 153,
+        "text": "- Required capability: Device pairing and authenticated LAN hosting; Owning SDK: iiWebServer",
+        "basis": "lexical_match",
+        "context": "list"
+      },
+      {
+        "block_id": "b000109",
+        "line": 154,
+        "text": "- Required capability: Native container, previews and system-drive presentation; Owning SDK: iiSocietyContainer Gui",
+        "basis": "lexical_match",
+        "context": "list"
+      },
+      {
+        "block_id": "b000109",
+        "line": 155,
+        "text": "- Required capability: Shared application presence and file mirror; Owning SDK: iiSocietyHelper 0.9.3 or later",
+        "basis": "lexical_match",
+        "context": "list"
+      },
+      {
+        "block_id": "b000109",
+        "line": 156,
+        "text": "- Required capability: Bidirectional container replication; Owning SDK: iiSocietyHelper Sync",
+        "basis": "lexical_match",
+        "context": "list"
+      },
+      {
+        "block_id": "b000109",
+        "line": 157,
+        "text": "- Required capability: Photo library and gallery; Owning SDK: iiPhotoLibrary",
+        "basis": "lexical_match",
+        "context": "list"
+      },
+      {
+        "block_id": "b000109",
+        "line": 158,
+        "text": "- Required capability: Model packaging and desktop inference hosting; Owning SDK: iiLocalDiffusion ModelPackaging and iiSocietyHelper Generation Host",
+        "basis": "lexical_match",
+        "context": "list"
+      },
+      {
+        "block_id": "b000109",
+        "line": 159,
+        "text": "- Required capability: Local desktop MCP endpoint and agent harness on supported Unix platforms; Owning SDK: iiMultimodalAgent 0.1 (iiLocalLLM 0.56 inference dependency)",
+        "basis": "lexical_match",
+        "context": "list"
+      },
+      {
         "block_id": "b000113",
         "line": 168,
         "text": "capabilities they call. Transitive dependencies required by these SDKs remain.",
@@ -2351,7 +2414,7 @@
       {
         "block_id": "b000129",
         "language": "sh",
-        "code": "cmake --preset debug \\\n  -DiiSocietyContainer_DIR=/Volumes/Storage/Workspace/SDK/iiSocietyContainer/build/install/lib/cmake/iiSocietyContainer\n"
+        "code": "cmake --preset debug \\\n  -DiiSocietyContainer_DIR=/Volumes/Workspace/SDK/iiSocietyContainer/build/install/lib/cmake/iiSocietyContainer\n"
       },
       {
         "block_id": "b000151",
@@ -2472,7 +2535,7 @@
       },
       {
         "block_id": "b000037",
-        "label": "seven-item LVUI navigation",
+        "label": "nine-item LVUI navigation",
         "target": "docs/NativeNavigation.md",
         "kind": "relative",
         "line": 52
@@ -2493,7 +2556,7 @@
       },
       {
         "block_id": "b000037",
-        "label": "Overview, Devices, Apps, and four app collections",
+        "label": "Environment views",
         "target": "docs/Environment.md",
         "kind": "relative",
         "line": 52

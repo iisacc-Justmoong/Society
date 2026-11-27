@@ -10,8 +10,8 @@
   },
   "source": {
     "path": "docs/Account.md",
-    "sha256": "7dd0ee3d9062ba9d6eb867a1d66fea437c71c68adc62b9711a6370746bd2ac9a",
-    "bytes": 16168,
+    "sha256": "4955ddf968a7f6bfd7fb52ce35e5803eec408e2427ce5c7f035c29d20dda613b",
+    "bytes": 16169,
     "line_count": 167,
     "encoding": "utf-8",
     "language": "ko"
@@ -87,7 +87,7 @@
       "kind": "paragraph",
       "start_line": 14,
       "end_line": 19,
-      "raw": "`Main.qml`이 `objectName: societyAccount`인 `AccountController` 하나를 소유한다.\n이 컨트롤러가 `iisacc::accounts::AccountManager`와 전용 `QNetworkAccessManager`를 소유한다.\n`NetworkDriveController.accountSession`은 이를 `QPointer`로 참조하고 별도 계정을 만들지 않는다.\n공통 `App/main.cpp`는 루트 생성 후 같은 manager를 `iiSocietyHelper::Helper::setAccountManager()`에 연결한다.\n따라서 모든 플랫폼에서 계정 패널, 네트워크 드라이브, Helper가 같은 Account·AuthorDetails 객체를 읽는다.\n계정이 파괴되거나 교체되면 네트워크 연결을 해제하며 Helper의 비소유 참조도 자동 해제된다.\n"
+      "raw": "`Main.qml`이 `objectName: societyAccount`인 `AccountController` 하나를 소유한다.\n이 컨트롤러가 `iisacc::accounts::AccountManager`와 전용 `QNetworkAccessManager`를 소유한다.\n`NetworkDriveController.accountSession`은 이를 `QPointer`로 참조하고 별도 계정을 만들지 않는다.\n`App/Society/main.cpp`는 루트 생성 후 같은 manager를 `iiSocietyHelper::Helper::setAccountManager()`에 연결한다.\n따라서 모든 플랫폼에서 계정 패널, 네트워크 드라이브, Helper가 같은 Account·AuthorDetails 객체를 읽는다.\n계정이 파괴되거나 교체되면 네트워크 연결을 해제하며 Helper의 비소유 참조도 자동 해제된다.\n"
     },
     {
       "id": "b000010",

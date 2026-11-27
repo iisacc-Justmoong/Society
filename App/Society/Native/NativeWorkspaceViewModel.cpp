@@ -200,6 +200,7 @@ void NativeWorkspaceViewModel::selectRibbonTab(int index) {
 void NativeWorkspaceViewModel::refreshFiles() { if (onRefresh) onRefresh(); }
 void NativeWorkspaceViewModel::recordOperationError(const std::string &message) {
     if (message.empty()) return;
+    if (onOperationError) onOperationError(message);
     auto current=operationError.get();
     if (current.find(message)!=std::string::npos) return;
     if (!current.empty()) current+="\n";

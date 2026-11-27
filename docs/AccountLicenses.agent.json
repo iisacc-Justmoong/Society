@@ -10,9 +10,9 @@
   },
   "source": {
     "path": "docs/AccountLicenses.md",
-    "sha256": "ab02f8bdfb4c85827feb2604e905e06f72010b0f9e7401edbfb0c8909fdc7adb",
-    "bytes": 8371,
-    "line_count": 98,
+    "sha256": "a275c90dc98add4183d4680a6781e4fa5ff17eff65b150c4bcee7883633b5374",
+    "bytes": 9291,
+    "line_count": 108,
     "encoding": "utf-8",
     "language": "ko"
   },
@@ -270,53 +270,67 @@
     },
     {
       "id": "b000035",
-      "kind": "heading",
+      "kind": "paragraph",
+      "raw": "증분 패치 허가 요청은 설치된 기준 버전 `deltaFrom`과 형식 `deltaFormat: iiudlt1`을\n함께 전달한다. 이 두 필드는 제품·기기·계정 검증을 통과한 `grant` 요청에서만 허용한다.\n두 값 중 하나만 있거나 지원하지 않는 형식·잘못된 버전은 서버에 전달하지 않는다.\nmacOS의 브로커 검사는 선택된 `SOCIETY_MAC_RUNTIME_SEARCH_PATHS`를 사용해 보조\n라이브러리의 전이 의존성을 찾으며, 셸의 임의 라이브러리 경로에 의존하지 않는다.\n2026-11-23 로컬 검증에서는 기본 클라이언트 검사기가 선택된 iiSDKCore와 호환되지 않아\n`request_unavailable`로 실패했다. Congregation과 동일한 계정 SDK·Core 조합으로\n별도 검사기를 빌드하고 `SOCIETY_TEST_CLIENT_PROBE`로 지정한 재검사는 통과했다.\n기본 검사기의 SDK 선택은 아직 수정되지 않았다.\n",
       "start_line": 77,
-      "end_line": 77,
+      "end_line": 85
+    },
+    {
+      "id": "b000036",
+      "kind": "blank",
+      "raw": "\n",
+      "start_line": 86,
+      "end_line": 86
+    },
+    {
+      "id": "b000037",
+      "kind": "heading",
+      "start_line": 87,
+      "end_line": 87,
       "raw": "# 데몬 기반 앱 실행 허가\n",
       "level": 1,
       "title": "데몬 기반 앱 실행 허가"
     },
     {
-      "id": "b000036",
-      "kind": "blank",
-      "start_line": 78,
-      "end_line": 78,
-      "raw": "\n"
-    },
-    {
-      "id": "b000037",
-      "kind": "paragraph",
-      "start_line": 79,
-      "end_line": 85,
-      "raw": "데스크톱의 앱 라이선스 브로커는 Society 창이 아닌 SocietyDaemon의 수명을 따른다.\n요청은 현재 세션 리비전을 확인하고 재사용한 계정의 기기와 제품에 묶인\n서명 허가를 검증한다. 복원 실패·로그아웃·위조·미보유는 새 실행을 허가하지 않는다.\n사용자에게 이미 허가된 앱의 현재 실행을 데몬 연결 변화로 중단하지 않는다.\nSociety 창은 로그인·로그아웃을 제공하며 실행 허가를 제공하기 위해 열려 있을 필요가 없다.\n기본 로컬 소켓의 데몬이 꺼져 있으면 클라이언트가 라이선스 전용 데몬을 창 없이\n기동한다. 기동 실패 또는 계정·서명 검증 실패는 새 실행을 허가하지 않는다.\n"
-    },
-    {
       "id": "b000038",
       "kind": "blank",
-      "start_line": 86,
-      "end_line": 86,
+      "start_line": 88,
+      "end_line": 88,
       "raw": "\n"
     },
     {
       "id": "b000039",
       "kind": "paragraph",
-      "start_line": 87,
-      "end_line": 91,
-      "raw": "macOS 데몬은 `QCoreApplication`만 사용한다. iiAccountManager의 Keychain 완료\n신호는 Qt 이벤트 큐에서 처리하므로 GUI의 Cocoa 이벤트 루프를 기다리지 않는다.\n저장된 서명 허가를 먼저 검증하고 사용할 수 없으면 인증된 서버에서 갱신한다.\n헤드리스 저장소와 서명 라이선스의 오프라인 재사용은 별도 합성 계정 테스트로\n검사하며, 운영 계정의 실제 허가는 설치된 앱에서 별도로 확인한다.\n"
+      "start_line": 89,
+      "end_line": 95,
+      "raw": "데스크톱의 앱 라이선스 브로커는 Society 창이 아닌 SocietyDaemon의 수명을 따른다.\n요청은 현재 세션 리비전을 확인하고 재사용한 계정의 기기와 제품에 묶인\n서명 허가를 검증한다. 복원 실패·로그아웃·위조·미보유는 새 실행을 허가하지 않는다.\n사용자에게 이미 허가된 앱의 현재 실행을 데몬 연결 변화로 중단하지 않는다.\nSociety 창은 로그인·로그아웃을 제공하며 실행 허가를 제공하기 위해 열려 있을 필요가 없다.\n기본 로컬 소켓의 데몬이 꺼져 있으면 클라이언트가 라이선스 전용 데몬을 창 없이\n기동한다. 기동 실패 또는 계정·서명 검증 실패는 새 실행을 허가하지 않는다.\n"
     },
     {
-      "id": "b100001",
+      "id": "b000040",
       "kind": "blank",
-      "start_line": 92,
-      "end_line": 92,
+      "start_line": 96,
+      "end_line": 96,
       "raw": "\n"
     },
     {
-      "id": "b100002",
+      "id": "b000041",
       "kind": "paragraph",
-      "start_line": 93,
-      "end_line": 98,
+      "start_line": 97,
+      "end_line": 101,
+      "raw": "macOS 데몬은 `QCoreApplication`만 사용한다. iiAccountManager의 Keychain 완료\n신호는 Qt 이벤트 큐에서 처리하므로 GUI의 Cocoa 이벤트 루프를 기다리지 않는다.\n저장된 서명 허가를 먼저 검증하고 사용할 수 없으면 인증된 서버에서 갱신한다.\n헤드리스 저장소와 서명 라이선스의 오프라인 재사용은 별도 합성 계정 테스트로\n검사하며, 운영 계정의 실제 허가는 설치된 앱에서 별도로 확인한다.\n"
+    },
+    {
+      "id": "b000042",
+      "kind": "blank",
+      "start_line": 102,
+      "end_line": 102,
+      "raw": "\n"
+    },
+    {
+      "id": "b000043",
+      "kind": "paragraph",
+      "start_line": 103,
+      "end_line": 108,
       "raw": "`local-license-v2`는 같은 사용자와 기기를 확인한 뒤 이미 검증된 서명 토큰을\n반환한다. 소비 앱은 서명과 제품 권한을 직접 검증한다. 데몬은 세션 복원을\n공유하고 저장된 암호문이 바뀌거나 삭제되면 응답 직전에도 재확인한다.\n응답 제한은 750ms이고 유효한 토큰이 없으면 허가하지 않는다. 4초 넘게 끝나지 않는 공유 계정 복원은 폐기하고 다음 요청에서 다시 시작한다. 최초 토큰 발급과\n명시적 서버 갱신에는 네트워크가 필요하며 실패 또는 지연될 수 있다.\n합성 계정과 별도 네이티브 클라이언트의 측정은 실제 설치본·운영 계정 검증이 아니다.\n"
     }
   ],
@@ -354,12 +368,12 @@
       "start_line": 65
     },
     {
-      "block_id": "b000035",
+      "block_id": "b000037",
       "parent_id": null,
       "level": 1,
       "title": "데몬 기반 앱 실행 허가",
       "anchor": "데몬-기반-앱-실행-허가",
-      "start_line": 77
+      "start_line": 87
     }
   ],
   "indexes": {
@@ -442,22 +456,22 @@
         "context": "paragraph"
       },
       {
-        "block_id": "b000037",
-        "line": 81,
+        "block_id": "b000039",
+        "line": 91,
         "text": "서명 허가를 검증한다. 복원 실패·로그아웃·위조·미보유는 새 실행을 허가하지 않는다.",
         "basis": "lexical_match",
         "context": "paragraph"
       },
       {
-        "block_id": "b000037",
-        "line": 82,
+        "block_id": "b000039",
+        "line": 92,
         "text": "사용자에게 이미 허가된 앱의 현재 실행을 데몬 연결 변화로 중단하지 않는다.",
         "basis": "lexical_match",
         "context": "paragraph"
       },
       {
-        "block_id": "b000037",
-        "line": 85,
+        "block_id": "b000039",
+        "line": 95,
         "text": "기동한다. 기동 실패 또는 계정·서명 검증 실패는 새 실행을 허가하지 않는다.",
         "basis": "lexical_match",
         "context": "paragraph"

@@ -21,7 +21,7 @@ static void initializeNavigationIcons() { Q_INIT_RESOURCE(NavigationIcons); }
 namespace {
 using View = lvui_generated::NativeNavigation;
 using Action = NativeNavigationViewModel::Action;
-constexpr std::array<const char *, 7> ids{"environment", "tasks", "library", "space", "browse", "people", "hosting"};
+constexpr std::array<const char *, 9> ids{"environment", "tasks", "library", "space", "apps", "service", "community", "learning", "hosting"};
 
 QString destination(Action action) {
     switch (action) {
@@ -29,8 +29,10 @@ QString destination(Action action) {
     case Action::Tasks: return QStringLiteral("Tools");
     case Action::Library: return QStringLiteral("Storage");
     case Action::Space: return QStringLiteral("Space");
-    case Action::Browse: return QStringLiteral("Browse");
-    case Action::People: return QStringLiteral("People");
+    case Action::Apps: return QStringLiteral("Apps");
+    case Action::Service: return QStringLiteral("Service");
+    case Action::Community: return QStringLiteral("Community");
+    case Action::Learning: return QStringLiteral("Learning");
     case Action::Hosting: return QStringLiteral("Hosting");
     }
     return {};
@@ -168,7 +170,7 @@ NativeNavigationSurface::NativeNavigationSurface(QQuickItem *parent) : QQuickPai
     setAntialiasing(true);
     initializeNavigationIcons();
     std::vector<lvui::IconDefinition> icons;
-    for (const auto *name : {"toolwindowrun", "asset-library", "toolwindownewUI", "webApp", "cwmUsers", "webServer"}) {
+    for (const auto *name : {"toolwindowrun", "asset-library", "toolwindownewUI", "application-alt", "usd", "ppWeb", "cwmUsers", "kernel"}) {
         QFile file(QStringLiteral(":/society/navigation/") + QString::fromLatin1(name) + QStringLiteral(".svg"));
         if (!file.open(QIODevice::ReadOnly)) {
             m->error = tr("Could not load navigation icon: %1").arg(QString::fromLatin1(name));

@@ -10,9 +10,9 @@
   },
   "source": {
     "path": "docs/ResourceIdentityAndProtection.md",
-    "sha256": "52b2e0543487ba52c43f0e61975447f7cff1347fa75c2a2e3456f7c27ace4a90",
-    "bytes": 36971,
-    "line_count": 407,
+    "sha256": "5ca5eac6c504a0360ee2b30604779461eab4f8f9a1c82d9f0332bc76e736972d",
+    "bytes": 38781,
+    "line_count": 415,
     "encoding": "utf-8",
     "language": "ko"
   },
@@ -1408,6 +1408,64 @@
           "checked": null
         }
       ]
+    },
+    {
+      "id": "b000134",
+      "kind": "blank",
+      "start_line": 408,
+      "end_line": 408,
+      "raw": "\n"
+    },
+    {
+      "id": "b000135",
+      "kind": "heading",
+      "start_line": 409,
+      "end_line": 409,
+      "raw": "## 정리 계획과 자동 삭제 경계\n",
+      "level": 2,
+      "title": "정리 계획과 자동 삭제 경계"
+    },
+    {
+      "id": "b000136",
+      "kind": "blank",
+      "start_line": 410,
+      "end_line": 410,
+      "raw": "\n"
+    },
+    {
+      "id": "b000137",
+      "kind": "paragraph",
+      "start_line": 411,
+      "end_line": 411,
+      "raw": "`cleanup_plan`은 선택된 컨테이너의 `Files` 또는 `Models` 파일에 대해 마지막으로 관찰된 자원·판본과 저장된 직접 관계를 읽고 결정론적 정리 정책의 근거와 보류 사유를 반환한다. 관계의 유형은 그대로 표시하며 관계가 없다는 사실을 모든 프로젝트의 종속성이 없다는 증거로 바꾸지 않는다. 알려진 관계, 불완전한 관계 관찰, 미확인 대상, 미확인 종속성 범위와 검증되지 않은 복구 가능성은 각각 구별한다. 원본을 Deleted로 옮기기 전에는 이 계획만으로 복구가 가능하다고 판정하지 않으며, 현재 계획은 실행 권한이나 승인 토큰이 아니다.\n"
+    },
+    {
+      "id": "b000138",
+      "kind": "blank",
+      "start_line": 412,
+      "end_line": 412,
+      "raw": "\n"
+    },
+    {
+      "id": "b000139",
+      "kind": "paragraph",
+      "start_line": 413,
+      "end_line": 413,
+      "raw": "정책은 대상의 현재 관찰, 전체 종속성 범위, 알려진 관계의 검토 및 복구 가능성 근거를 모두 충족한 경우에만 사용자 승인 단계에 이를 수 있다. 현재 수집기는 전체 종속성과 복구 가능성을 검증하지 못하므로 자동 정리는 항상 보류한다. 에이전트와 헤드리스 클라이언트의 `trash`, `remove` 및 Deleted로 향하는 `move`는 데몬에서 거부하고, 사용자가 Society 화면에서 직접 요청하는 기존 작업은 유지한다. 헤드리스 영구 삭제나 자동 정리의 실행·승인 경로는 아직 제공하지 않는다.\n"
+    },
+    {
+      "id": "b000140",
+      "kind": "blank",
+      "start_line": 414,
+      "end_line": 414,
+      "raw": "\n"
+    },
+    {
+      "id": "b000141",
+      "kind": "paragraph",
+      "start_line": 415,
+      "end_line": 415,
+      "raw": "데몬의 화면 구분은 운영체제가 제공한 로컬 피어와 실행 파일 경로에 근거하며 사람의 신원이나 클릭 자체를 암호학적으로 인증하지 않는다. 직접 화면 작업의 확인 절차는 해당 화면이 담당한다. 이 경계는 에이전트의 승인된 실행 계획, 파일 내부 참조 검사 또는 외부 프로세스의 파일 변경을 대체하지 않는다.\n"
     }
   ],
   "outline": [
@@ -1546,6 +1604,14 @@
       "title": "구현 시 수용 검증",
       "anchor": "구현-시-수용-검증",
       "start_line": 359
+    },
+    {
+      "block_id": "b000135",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "정리 계획과 자동 삭제 경계",
+      "anchor": "정리-계획과-자동-삭제-경계",
+      "start_line": 409
     }
   ],
   "indexes": {
@@ -1992,7 +2058,7 @@
   },
   "provenance": {
     "generator": "workspace-docs",
-    "version": "1.0.0",
+    "version": "1.0.0+manual-append",
     "profile": "lossless-blocks-v1",
     "derived": true
   }

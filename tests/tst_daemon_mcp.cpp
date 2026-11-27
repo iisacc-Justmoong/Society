@@ -1,5 +1,7 @@
 #include "Daemon/DaemonMcp.h"
 #include "Daemon/ModelBackendServer.h"
+#include "Society/Semantics/SemanticRepository.h"
+#include "ContentEmbeddingFixture.h"
 #include <iiSocietyContainer>
 #include <SpaceStore.h>
 #include <iiMultimodalAgent>
@@ -35,17 +37,22 @@ private slots:
         const auto storage=iiSocietyContainer::SharedStorage::open(root); QVERIFY(storage);
         { auto repository=storage->fileRepository(); (void)repository->observe("files/example.txt");
           (void)repository->observe("files/copy.txt"); }
+        { SemanticRepository semantic(root,"urn:user:fixture");
+          (void)semantic.putRelation("files/copy.txt","example:derivedFrom","files/example.txt",{},
+                                     semantic.read("files/copy.txt").value("revision").toString()); }
         const auto broker=fixture.filePath("broker"), registry=fixture.filePath("endpoints");
         QVERIFY(QDir().mkdir(broker)); QVERIFY(QDir().mkdir(registry));
         const auto ownerOnly=QFileDevice::ReadOwner|QFileDevice::WriteOwner|QFileDevice::ExeOwner;
         QVERIFY(QFile::setPermissions(broker,ownerOnly)); QVERIFY(QFile::setPermissions(registry,ownerOnly));
-        ModelBackendServer backend; backend.selectContainer(root); QVERIFY(backend.listen(broker));
+        auto embedding=std::make_shared<ContentEmbeddingFixture>();
+        ModelBackendServer backend(nullptr,{},[embedding] { return society::content::EmbedderAccess{embedding,{}}; });
+        backend.selectContainer(root); QVERIFY(backend.listen(broker));
         DaemonMcp service(broker,registry); QVERIFY2(service.start(),qPrintable(service.errorString()));
         const auto found=m::discoverLocalApplications(registry); QCOMPARE(found.applications.size(),1);
         auto future=std::async(std::launch::async,[endpoint=found.applications.first()] {
             m::HttpOptions options; options.endpoint=endpoint.endpoint;
             options.bearerToken=[token=endpoint.bearerToken]{return token;};
-            options.initializeTimeoutMs=10000; options.requestTimeoutMs=30000;
+            options.initializeTimeoutMs=10000; options.requestTimeoutMs=120000;
             m::HttpClient client(options);
             const auto call=[&](const QString &name,QJsonObject args={}) {
                 return client.request("tools/call",{{"name",name},{"arguments",args}});
@@ -83,6 +90,48 @@ private slots:
                 throw std::runtime_error("headless duplicate discovery failed: "+QJsonDocument(duplicates).toJson(QJsonDocument::Compact).toStdString());
             if (!call("resource_duplicate_candidates",{{"path","Files/../outside"}}).value("isError").toBool())
                 throw std::runtime_error("duplicate discovery accepted traversal");
+            const auto compared=call("resource_compare_bytes",{{"path","Files/example.txt"},{"otherPath","Files/copy.txt"}});
+            const auto comparedData=compared.value("structuredContent").toObject();
+            if (compared.value("isError").toBool() || comparedData.value("comparison")!="equal" ||
+                comparedData.value("snapshot")!="non_atomic" || comparedData.value("deduplicationAuthorized").toBool())
+                throw std::runtime_error("headless byte comparison failed: "+QJsonDocument(compared).toJson(QJsonDocument::Compact).toStdString());
+            const auto indexed=call("resource_content_index",{{"path","Files/example.txt"},{"model","model://fixture"}});
+            if (!indexed.value("isError").toBool())
+                throw std::runtime_error("headless content indexing was not disabled");
+            const auto semantic=call("resource_content_search",{{"query","concept"},{"model","model://fixture"},{"limit",3}});
+            if (!semantic.value("isError").toBool())
+                throw std::runtime_error("headless content embedding search was not disabled");
+            const auto initialPolicy=call("resource_content_policy");
+            if (initialPolicy.value("isError").toBool() || initialPolicy.value("structuredContent").toObject().value("enabled").toBool())
+                throw std::runtime_error("content policy must initially be disabled");
+            const auto enabledPolicy=call("resource_content_policy_set",{{"enabled",true},{"model","model://fixture"},
+                                                                          {"documentPrefix","passage: "}});
+            if (!enabledPolicy.value("isError").toBool())
+                throw std::runtime_error("content embedding policy could be enabled");
+            const auto disabledPolicy=call("resource_content_policy_set",{{"enabled",false}});
+            if (disabledPolicy.value("isError").toBool() || disabledPolicy.value("structuredContent").toObject().value("enabled").toBool())
+                throw std::runtime_error("content policy disable failed: "+QJsonDocument(disabledPolicy).toJson(QJsonDocument::Compact).toStdString());
+            const auto search=call("resource_search",{{"query",QJsonObject{{"section","files"},{"text","copy"}}},{"limit",5}});
+            const auto searchData=search.value("structuredContent").toObject();
+            if (search.value("isError").toBool() || searchData.value("completeness")!="unknown" ||
+                searchData.value("items").toArray().size()!=1 ||
+                searchData.value("items").toArray().first().toObject().value("path")!="Files/copy.txt")
+                throw std::runtime_error("headless indexed search failed: "+QJsonDocument(search).toJson(QJsonDocument::Compact).toStdString());
+            if (!call("resource_search",{{"query",QJsonObject{{"directory","Projects/Launch"},{"text","ignored"}}}}).value("isError").toBool())
+                throw std::runtime_error("indexed search accepted mixed modes");
+            const auto lineage=call("resource_lineage",{{"path","Files/example.txt"},{"direction","incoming"},{"depth",2}});
+            const auto lineageData=lineage.value("structuredContent").toObject();
+            if (lineage.value("isError").toBool() || lineageData.value("cleanupDecision")!="review_required" ||
+                lineageData.value("completeness")!="unknown" || lineageData.value("edges").toArray().size()!=1 ||
+                lineageData.value("edges").toArray().first().toObject().value("source")!="files/copy.txt")
+                throw std::runtime_error("headless lineage failed: "+QJsonDocument(lineage).toJson(QJsonDocument::Compact).toStdString());
+            const auto plan=call("resource_cleanup_plan",{{"path","Files/example.txt"},{"limit",5}});
+            const auto planData=plan.value("structuredContent").toObject();
+            if (plan.value("isError").toBool() || planData.value("policy").toObject().value("decision")!="blocked" ||
+                planData.value("relations").toObject().value("edges").toArray().size()!=1)
+                throw std::runtime_error("headless cleanup plan failed: "+QJsonDocument(plan).toJson(QJsonDocument::Compact).toStdString());
+            const auto refused=call("file_job_submit",{{"action","trash"},{"path","Files/example.txt"}});
+            if (!refused.value("isError").toBool()) throw std::runtime_error("headless automated trash was accepted");
             if (!call("workspace_agent_send",{{"prompt","fixture"}}).value("isError").toBool())
                 throw std::runtime_error("an agent with no model must reject a prompt");
             const auto attachment=call("workspace_agent_send",{{"prompt","fixture"},{"attachments",QJsonArray{"Files/example.txt"}}});
@@ -93,8 +142,9 @@ private slots:
                 throw std::runtime_error("an unavailable agent model must be rejected");
             client.close(); return true;
         });
-        QTRY_VERIFY_WITH_TIMEOUT(future.wait_for(std::chrono::milliseconds(0))==std::future_status::ready,90000);
+        QTRY_VERIFY_WITH_TIMEOUT(future.wait_for(std::chrono::milliseconds(0))==std::future_status::ready,180000);
         try { QVERIFY(future.get()); } catch (const std::exception &error) { QFAIL(error.what()); }
+        QVERIFY(QFileInfo::exists(root+"/Files/example.txt"));
         service.stop();
     }
     void daemonOwnsEndpointForItsLifetime() {

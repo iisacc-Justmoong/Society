@@ -1,4 +1,5 @@
-#include <iiAccountManager>
+#include <iiAccountManager/NativeAccount.h>
+#include <iiAccountManager/SocietySession.h>
 #include "LicenseTokenFixture.h"
 #include <chrono>
 #include <iostream>

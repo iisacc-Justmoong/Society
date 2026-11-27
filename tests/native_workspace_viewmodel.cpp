@@ -9,6 +9,13 @@ static void check(bool condition, const char *message) {
 
 int main() {
     using Page = NativeWorkspaceViewModel::Page;
+    NativeWorkspaceViewModel errorModel;
+    std::vector<std::string> reportedErrors;
+    errorModel.onOperationError=[&](const std::string &message) { reportedErrors.push_back(message); };
+    errorModel.recordOperationError("File operation failed");
+    errorModel.recordOperationError("File operation failed");
+    check(reportedErrors.size()==2 && errorModel.operationError.get()=="File operation failed",
+          "workspace errors must reach the shell without replacing the original error state");
     NativeWorkspaceViewModel icons;
     NativeWorkspaceFile image{"/Files/photo.PNG", "photo.PNG", "", "Image", "1 B", false, 1, 1};
     image.previewSource="file:///preview.png";

@@ -60,6 +60,104 @@ class SocietyClientTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             client.resource_duplicates("Files/a.txt", cursor={})
 
+    def test_indexed_search_passes_a_structured_query(self):
+        client = society.Client(executable="society-cli")
+        query = {"section": "files", "text": "campaign", "keywords": ["approved"]}
+        result = subprocess.CompletedProcess([], 0, json.dumps({"accepted": True, "search": {"items": []}}), "")
+        with patch.object(society.subprocess, "run", return_value=result) as run:
+            response = client.resource_search(query, limit=5, container="/fixture/drive")
+        self.assertEqual(response["search"]["items"], [])
+        args = run.call_args.args[0]
+        self.assertEqual(args[:4], ["society-cli", "resource", "search", "--query"])
+        self.assertEqual(json.loads(args[4]), query)
+        self.assertEqual(args[-2:], ["--container", "/fixture/drive"])
+        with self.assertRaises(ValueError):
+            client.resource_search(query, limit=21)
+
+    def test_lineage_preserves_the_review_scope_and_limits(self):
+        client = society.Client(executable="society-cli")
+        result = subprocess.CompletedProcess([], 0, json.dumps({"accepted": True, "lineage": {
+            "edges": [], "completeness": "unknown", "cleanupDecision": "review_required"}}), "")
+        with patch.object(society.subprocess, "run", return_value=result) as run:
+            response = client.resource_lineage("Files/a b.txt", direction="incoming", depth=3, limit=7,
+                                               container="/fixture/drive")
+        self.assertEqual(response["lineage"]["cleanupDecision"], "review_required")
+        self.assertEqual(run.call_args.args[0], ["society-cli", "resource", "lineage", "Files/a b.txt",
+            "--direction", "incoming", "--depth", "3", "--limit", "7", "--container", "/fixture/drive"])
+        for depth in (0, 4, True, 1.5):
+            with self.assertRaises(ValueError):
+                client.resource_lineage("Files/a.txt", depth=depth)
+        for limit in (0, 21, True, 1.5):
+            with self.assertRaises(ValueError):
+                client.resource_lineage("Files/a.txt", limit=limit)
+        with self.assertRaises(ValueError):
+            client.resource_lineage("Files/a.txt", direction="sideways")
+
+    def test_cleanup_plan_is_a_bounded_read_only_request(self):
+        client = society.Client(executable="society-cli")
+        result = subprocess.CompletedProcess([], 0, json.dumps({"accepted": True, "cleanupPlan": {
+            "policy": {"decision": "blocked", "executable": False}}}), "")
+        with patch.object(society.subprocess, "run", return_value=result) as run:
+            response = client.resource_cleanup_plan("Files/a b.txt", limit=3, container="/fixture/drive")
+        self.assertEqual(response["cleanupPlan"]["policy"]["decision"], "blocked")
+        self.assertEqual(run.call_args.args[0], ["society-cli", "resource", "cleanup-plan", "Files/a b.txt",
+            "--limit", "3", "--container", "/fixture/drive"])
+        for limit in (0, 21, True, 1.5):
+            with self.assertRaises(ValueError):
+                client.resource_cleanup_plan("Files/a.txt", limit=limit)
+
+    def test_byte_comparison_preserves_both_paths(self):
+        client = society.Client(executable="society-cli")
+        result = subprocess.CompletedProcess([], 0, json.dumps({"accepted": True, "byteComparison": {
+            "comparison": "equal", "snapshot": "non_atomic", "deduplicationAuthorized": False}}), "")
+        with patch.object(society.subprocess, "run", return_value=result) as run:
+            response = client.resource_compare_bytes("Files/a b.txt", "Models/Other/copy.bin", container="/fixture/drive")
+        self.assertFalse(response["byteComparison"]["deduplicationAuthorized"])
+        self.assertEqual(run.call_args.args[0], ["society-cli", "resource", "compare-bytes", "Files/a b.txt",
+            "Models/Other/copy.bin", "--container", "/fixture/drive"])
+
+    def test_content_embedding_requests_preserve_model_and_prefixes(self):
+        client = society.Client(executable="society-cli")
+        result = subprocess.CompletedProcess([], 0, json.dumps({"accepted": True, "content": {
+            "evidence": "local_text_embeddings", "completeness": "unknown", "items": []}}), "")
+        with patch.object(society.subprocess, "run", return_value=result) as run:
+            client.resource_content_index("Files/a b.md", "model://fixture", document_prefix="passage: ",
+                                          query_prefix="query: ", container="/fixture/drive")
+            response = client.resource_content_search("waves", "model://fixture", limit=3,
+                document_prefix="passage: ", query_prefix="query: ", container="/fixture/drive")
+        self.assertEqual(response["content"]["completeness"], "unknown")
+        self.assertEqual(run.call_args_list[0].args[0], ["society-cli", "resource", "content-index", "Files/a b.md",
+            "--model", "model://fixture", "--document-prefix", "passage: ", "--query-prefix", "query: ",
+            "--container", "/fixture/drive"])
+        self.assertEqual(run.call_args_list[1].args[0], ["society-cli", "resource", "content-search", "--query", "waves",
+            "--model", "model://fixture", "--limit", "3", "--document-prefix", "passage: ",
+            "--query-prefix", "query: ", "--container", "/fixture/drive"])
+        for limit in (0, 21, True, 1.5):
+            with self.assertRaises(ValueError):
+                client.resource_content_search("waves", "model://fixture", limit=limit)
+
+    def test_content_policy_requires_an_explicit_model_and_preserves_prefixes(self):
+        client = society.Client(executable="society-cli")
+        result = subprocess.CompletedProcess([], 0, json.dumps({"accepted": True, "policy": {"enabled": True}}), "")
+        with patch.object(society.subprocess, "run", return_value=result) as run:
+            client.resource_content_policy(container="/fixture/drive")
+            client.set_resource_content_policy("model://fixture", document_prefix="passage: ",
+                                               query_prefix="query: ", container="/fixture/drive")
+            client.set_resource_content_policy(None, container="/fixture/drive")
+        self.assertEqual(run.call_args_list[0].args[0], ["society-cli", "resource", "content-policy", "status", "--container", "/fixture/drive"])
+        self.assertEqual(run.call_args_list[1].args[0], ["society-cli", "resource", "content-policy", "enable", "--model", "model://fixture",
+            "--document-prefix", "passage: ", "--query-prefix", "query: ", "--container", "/fixture/drive"])
+        self.assertEqual(run.call_args_list[2].args[0], ["society-cli", "resource", "content-policy", "disable", "--container", "/fixture/drive"])
+        for invalid in ("", "   ", 12):
+            with self.assertRaises(ValueError):
+                client.set_resource_content_policy(invalid)
+        with self.assertRaises(ValueError):
+            client.set_resource_content_policy(None, document_prefix="not allowed")
+        with patch.object(society.subprocess, "run", side_effect=subprocess.TimeoutExpired("society-cli", 1)):
+            with self.assertRaises(society.BackendError) as caught:
+                client.set_resource_content_policy("model://fixture")
+        self.assertTrue(caught.exception.uncertain)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -5,9 +5,9 @@
 
 Markdown is the maintained human source. Agent JSON is a structured, source-traceable projection.
 
-- Document: [`AGENT.md`](../AGENT.md); Agent JSON: [JSON](entrypoints/AGENT.agent.json)
-- Document: [`LICENSING.md`](../LICENSING.md); Agent JSON: [JSON](entrypoints/LICENSING.agent.json)
-- Document: [`README.md`](../README.md); Agent JSON: [JSON](entrypoints/README.agent.json)
+- Document: [`AGENT.md`](../AGENT.md); Agent JSON: [JSON](Entrypoints/AGENT.agent.json)
+- Document: [`LICENSING.md`](../LICENSING.md); Agent JSON: [JSON](Entrypoints/LICENSING.agent.json)
+- Document: [`README.md`](../README.md); Agent JSON: [JSON](Entrypoints/README.agent.json)
 - Document: [`docs/AIIntegrationNames.md`](AIIntegrationNames.md); Agent JSON: [JSON](AIIntegrationNames.agent.json)
 - Document: [`docs/Account.md`](Account.md); Agent JSON: [JSON](Account.agent.json)
 - Document: [`docs/AccountLicenses.md`](AccountLicenses.md); Agent JSON: [JSON](AccountLicenses.agent.json)
@@ -45,7 +45,7 @@ Markdown is the maintained human source. Agent JSON is a structured, source-trac
 - Document: [`docs/Models.md`](Models.md); Agent JSON: [JSON](Models.agent.json)
 - Document: [`docs/NativeAccountOverlay.md`](NativeAccountOverlay.md); Agent JSON: [JSON](NativeAccountOverlay.agent.json)
 - Document: [`docs/NativeMigrationBackend.md`](NativeMigrationBackend.md); Agent JSON: [JSON](NativeMigrationBackend.agent.json)
-- Document: [`docs/NativeNavigation.md`](NativeNavigation.md); Agent JSON: [JSON](NativeNavigation.agent.json)
+- Document: [`docs/NativeNavigation.md`](NativeNavigation.md); Agent JSON: [JSON](NativeNavigation.agent.json); Apps: [`docs/NativeApps.md`](NativeApps.md), [JSON](NativeApps.agent.json)
 - Document: [`docs/NativePhotoOverlay.md`](NativePhotoOverlay.md); Agent JSON: [JSON](NativePhotoOverlay.agent.json)
 - Document: [`docs/NativeQuestionOverlay.md`](NativeQuestionOverlay.md); Agent JSON: [JSON](NativeQuestionOverlay.agent.json)
 - Document: [`docs/NativeStorageView.md`](NativeStorageView.md); Agent JSON: [JSON](NativeStorageView.agent.json)
@@ -85,5 +85,5 @@ Markdown is the maintained human source. Agent JSON is a structured, source-trac
 - Document: [`docs/WorkspaceSuggested.md`](WorkspaceSuggested.md); Agent JSON: [JSON](WorkspaceSuggested.agent.json)
 - Document: [`docs/documentation-structure.md`](documentation-structure.md); Agent JSON: [JSON](documentation-structure.agent.json)
 - Document: [`docs/iOS.md`](iOS.md); Agent JSON: [JSON](iOS.agent.json)
-- Document: [`resources/Appicon/README.md`](../resources/Appicon/README.md); Agent JSON: [JSON](mirrors/resources/Appicon/README.agent.json)
+- Document: [`resources/Appicon/README.md`](../resources/Appicon/README.md); Agent JSON: [JSON](Mirrors/Resources/Appicon/README.agent.json)
 <!-- workspace-docs:document-map:end -->

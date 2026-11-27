@@ -432,6 +432,128 @@ def localize(app):
             run("install_name_tool", *changes, binary)
 
 
+def macho_sections(binary, architecture):
+    """Read one architecture's imports, exports and linked dylib load commands."""
+    output = run("xcrun", "dyld_info", "-arch", architecture, "-imports", "-exports",
+                 "-linked_dylibs", binary)
+    sections = {name: [] for name in ("imports", "exports", "linked_dylibs")}
+    current = None
+    seen = set()
+    for line in output.splitlines():
+        heading = re.match(r"\s+-([a-z_]+):\s*$", line)
+        if heading:
+            current = heading.group(1) if heading.group(1) in sections else None
+            if current:
+                seen.add(current)
+        elif current:
+            sections[current].append(line)
+    if seen != sections.keys():
+        raise RuntimeError(f"Incomplete Mach-O inspection for {binary} ({architecture})")
+    return sections
+
+
+def macho_library_label(link):
+    """Match the abbreviated install-name labels emitted by dyld_info."""
+    name = Path(link).name.removesuffix(".dylib")
+    base, dot, suffix = name.rpartition(".")
+    return base if dot and len(suffix) == 1 else name
+
+
+def verify_symbol_bindings(app):
+    """Reject required imports missing from their selected bundled provider.
+
+    This is a static, per-architecture check. System libraries, weak imports,
+    and dynamic or weak-coalesced lookup are left to the macOS loader; it does
+    not start the application or claim to validate runtime behavior.
+    """
+    executable = app / "Contents/MacOS" / app.stem
+    architectures = run("lipo", "-archs", executable).split()
+    images = binaries(app)
+    inspected = 0
+    for architecture in architectures:
+        tables = {binary.resolve(): macho_sections(binary, architecture) for binary in images}
+        exports = {}
+        links = {}
+        for binary, sections in tables.items():
+            exports[binary] = set()
+            for line in sections["exports"]:
+                match = re.match(r"\s*0x[0-9A-Fa-f]+\s+(\S+)", line)
+                if match:
+                    exports[binary].add(match.group(1))
+            linked = []
+            for line in sections["linked_dylibs"]:
+                match = re.match(r"\s*(?:(re-export|weak-link|upward)\s+)?((?:@|/)[^\s]+)\s*$", line)
+                if not match:
+                    continue
+                attribute, path = match.groups()
+                if path.startswith(SYSTEM_PREFIXES):
+                    target = None
+                elif path.startswith("@loader_path/"):
+                    target = (binary.parent / path[len("@loader_path/"):]).resolve()
+                elif path.startswith("@executable_path/"):
+                    target = (executable.parent / path[len("@executable_path/"):]).resolve()
+                else:
+                    raise RuntimeError(f"Cannot statically resolve bundled dependency: {binary} -> {path}")
+                if target is not None and target not in tables:
+                    raise RuntimeError(f"Bundled dependency is not an inspected Mach-O: {binary} -> {path}")
+                linked.append((macho_library_label(path), target, attribute, path))
+            links[binary] = linked
+
+        def available_symbols(binary, seen):
+            """Include symbols exposed through explicitly re-exported dylibs."""
+            if binary in seen:
+                return set(), False
+            seen = seen | {binary}
+            result = set(exports[binary])
+            unknown_system_export = False
+            for _, target, attribute, _ in links[binary]:
+                if attribute != "re-export":
+                    continue
+                if target is None:
+                    unknown_system_export = True
+                else:
+                    inherited, unknown = available_symbols(target, seen)
+                    result.update(inherited)
+                    unknown_system_export |= unknown
+            return result, unknown_system_export
+
+        provider_symbols = {binary: available_symbols(binary, set()) for binary in tables}
+        failures = []
+        for binary, sections in tables.items():
+            by_label = {}
+            for label, target, _, path in links[binary]:
+                by_label.setdefault(label, []).append((target, path))
+            for line in sections["imports"]:
+                match = re.match(r"\s*0x[0-9A-Fa-f]+\s+(\S+)((?:\s+\[[^]]+\])*)\s+\(from ([^)]+)\)", line)
+                if not match:
+                    if re.match(r"\s*0x[0-9A-Fa-f]+", line):
+                        raise RuntimeError(f"Cannot inspect Mach-O import in {binary}: {line.strip()}")
+                    continue
+                symbol, attributes, label = match.groups()
+                if "weak-import" in attributes or label in ("<weak-def-coalesce>", "<dynamic-lookup>"):
+                    continue
+                if label == "<this-image>":
+                    target, path = binary, label
+                elif label == "<main-executable>":
+                    target, path = executable.resolve(), label
+                else:
+                    candidates = by_label.get(label, [])
+                    if len({target for target, _ in candidates}) != 1:
+                        raise RuntimeError(f"Ambiguous or unknown Mach-O provider {label} in {binary}")
+                    target, path = candidates[0]
+                if target is None:
+                    continue
+                available, unknown_system_export = provider_symbols[target]
+                if symbol not in available:
+                    reason = "unverified system re-export" if unknown_system_export else "missing symbol"
+                    failures.append(f"{binary} -> {path}: {symbol} ({reason})")
+                inspected += 1
+        if failures:
+            details = "\n".join(failures[:25])
+            raise RuntimeError(f"Bundled Mach-O bindings failed for {architecture}:\n{details}")
+    return {"architectures": architectures, "images": len(images), "checkedImports": inspected}
+
+
 def remove_signing_temporaries(app):
     """Discard incomplete native-tool output inside the generated bundle only."""
     removed = []
@@ -569,6 +691,7 @@ def _deploy_locked(args, app):
         report["strippedBytes"] = strip_native(app)
     if list(app.rglob("*.app")):
         raise RuntimeError("Nested .app bundles violate the single application output contract")
+    report["symbolBindings"] = verify_symbol_bindings(app)
     sign(app, args.identity, args.entitlements)
     emit_report(report, args.log)
 

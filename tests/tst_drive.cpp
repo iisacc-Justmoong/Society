@@ -10,6 +10,7 @@
 #include <QNetworkProxy>
 #include "Society/Drive/StorageNavigation.h"
 #include "Society/Native/NativeNavigationSurface.h"
+#include "Society/Native/NativeNoticeSurface.h"
 #include "Society/Space/NativeSpaceSurface.h"
 #include "Society/Native/LegacyNavigationBridge.h"
 #include "Society/Notifications/NotificationCenter.h"
@@ -1022,7 +1023,7 @@ Window {
         QVERIFY(QFileInfo::exists(fixture.filePath("Society.societycontainer")));
     }
 
-    void noticeKeepsFigmaGeometryAndMaterial_data()
+    void noticeKeepsFigmaGeometry_data()
     {
         QTest::addColumn<QSize>("viewport");
         QTest::newRow("desktop") << QSize(1440, 900);
@@ -1030,7 +1031,7 @@ Window {
         QTest::newRow("mobile") << QSize(390, 844);
     }
 
-    void noticeKeepsFigmaGeometryAndMaterial()
+    void noticeKeepsFigmaGeometry()
     {
         QFETCH(QSize, viewport);
         QTemporaryDir fixture(SOCIETY_TEST_DIRECTORY "/alert-figma-XXXXXX.societycontainer");
@@ -1044,53 +1045,19 @@ Window {
         QCOMPARE(engine.rootObjects().size(), 1);
         auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first()); QVERIFY(window);
         QVERIFY(QTest::qWaitForWindowExposed(window));
-        auto *notice = window->findChild<QQuickItem *>("dashboardNotice"); QVERIFY(notice);
-        QVERIFY(notice->setProperty("motionEnabled", false));
+        auto *legacy = window->findChild<QQuickItem *>("dashboardNotice"); QVERIFY(legacy);
         QVERIFY(QMetaObject::invokeMethod(window, "showNotice", Q_ARG(QVariant, "Guild"),
             Q_ARG(QVariant, "Guild is not connected to a workspace service yet.")));
-        auto *card = notice->findChild<QQuickItem *>("alertCard");
-        auto *title = notice->findChild<QQuickItem *>("alertTitle");
-        auto *message = notice->findChild<QQuickItem *>("alertMessage");
-        auto *button = notice->findChild<QQuickItem *>("alertPrimarySingle");
-        QVERIFY(card && title && message && button);
-        QTRY_VERIFY(notice->property("open").toBool());
-        QTRY_COMPARE(notice->property("revealProgress").toReal(), 1.0);
-        QTRY_VERIFY(title->property("lineCount").toInt() > 0 && message->property("lineCount").toInt() > 0);
-        QTRY_COMPARE(card->height(), 46.0 + 26.0 * title->property("lineCount").toInt()
-            + 14.0 + 13.0 * message->property("lineCount").toInt() + 36.0 + 1.0 + 28.0 + 56.0 + 32.0);
-        const QJsonObject metrics{{"viewportWidth", window->width()}, {"viewportHeight", window->height()},
-            {"devicePixelRatio", window->devicePixelRatio()}, {"cardWidth", card->width()}, {"cardHeight", card->height()},
-            {"titleSize", title->property("font").value<QFont>().pixelSize()},
-            {"bodySize", message->property("font").value<QFont>().pixelSize()}, {"buttonHeight", button->height()},
-            {"buttonColor", button->property("backgroundColor").value<QColor>().name()},
-            {"glassActive", notice->property("glassActive").toBool()}};
-        qInfo().noquote() << QJsonDocument(metrics).toJson(QJsonDocument::Compact);
-        const auto captures = qEnvironmentVariable("SOCIETY_ALERT_CAPTURE_DIR");
-        if (!captures.isEmpty()) {
-            QVERIFY(QDir().mkpath(captures));
-            QTest::qWait(200);
-            const auto stem = QDir(captures).filePath(QString::fromLatin1(QTest::currentDataTag()));
-            QVERIFY(window->grabWindow().save(stem + ".png"));
-            QFile report(stem + ".json"); QVERIFY(report.open(QIODevice::WriteOnly));
-            report.write(QJsonDocument(metrics).toJson());
-        }
-        QCOMPARE(card->width(), qMin(500.0, window->width() - 48.0));
-        QCOMPARE(card->property("radius").toReal(), 36.0);
-        QCOMPARE(card->scale(), 1.0);
-        QCOMPARE(title->property("font").value<QFont>().pixelSize(), 26);
-        QCOMPARE(message->property("font").value<QFont>().pixelSize(), 13);
-        QCOMPARE(button->height(), 56.0);
-        QCOMPARE(button->property("cornerRadius").toReal(), 16.0);
-        QVERIFY(QRectF(QPointF(), window->size()).contains(card->mapRectToScene(card->boundingRect())));
-        const auto primaryColor = window->property("primaryColor").value<QColor>();
-        QCOMPARE(primaryColor, QColor("#00E71F"));
-        QCOMPARE(button->property("backgroundColor").value<QColor>(), primaryColor);
-        QVERIFY(notice->property("glassActive").toBool());
-        QCOMPARE(notice->property("resolvedBackdropSource").value<QQuickItem *>(),
-            window->property("materialBackdropSource").value<QQuickItem *>());
-        QTest::mouseClick(window, Qt::LeftButton, Qt::NoModifier,
-            button->mapToScene(button->boundingRect().center()).toPoint());
-        QTRY_VERIFY(!notice->property("open").toBool());
+        auto *notice=window->findChild<NativeNoticeSurface *>("societyNativeNotice");
+        QVERIFY(notice && notice->ready() && notice->isVisible());
+        QVERIFY(!legacy->property("open").toBool());
+        QCOMPARE(notice->title(),QStringLiteral("Guild"));
+        const auto card=notice->alertBounds();
+        QCOMPARE(card.width(),qMin(500.0,window->width()-48.0));
+        QVERIFY(card.height()>0 && card.height()<379.0);
+        QVERIFY(QRectF(QPointF(),window->size()).contains(card));
+        QVERIFY(notice->activatePrimary());
+        QTRY_VERIFY(!notice->isVisible());
     }
 
     void filesStartEmptyAndPhotosShowsImagesAndVideos()
@@ -1545,7 +1512,9 @@ Window {
         QVERIFY(QMetaObject::invokeMethod(organization, "clicked")); QCOMPARE(workspaces.size(), 1);
         QCOMPARE(workspaces.first(), QVariantList({"organization", "2", "Organization 2"}));
         auto *notice = window->findChild<QObject *>("dashboardNotice"); QVERIFY(notice);
-        QVERIFY(notice->setProperty("open", false));
+        if(auto *nativeNotice=window->findChild<NativeNoticeSurface *>("societyNativeNotice");nativeNotice&&nativeNotice->isVisible()) {
+            QVERIFY(nativeNotice->activatePrimary()); QTRY_VERIFY(!nativeNotice->isVisible());
+        }
         const auto screenshot = qEnvironmentVariable("SOCIETY_SIDEBAR_SCREENSHOT_PATH");
         if (!screenshot.isEmpty()) { QTest::qWait(200); QVERIFY(window->grabWindow().save(screenshot)); }
         window->resize(1120, 420);
@@ -3660,13 +3629,13 @@ Window {
         QTest::mouseMove(window, QPoint(2, window->height() - 2));
         auto *tabs = window->findChild<NativeNavigationSurface *>("dashboardTabs"); QVERIFY(tabs);
         auto *accessible = QAccessible::queryAccessibleInterface(tabs); QVERIFY(accessible);
-        QCOMPARE(accessible->childCount(), 7);
+        QCOMPARE(accessible->childCount(), 9);
         const QList<QPair<QString, int>> pages{{"Dashboard", 0}, {"Environment", 0},
-            {"Tools", 1}, {"Storage", 2}, {"Browse", 4}};
+            {"Tools", 1}, {"Storage", 2}, {"Browse", 0}};
         for (const auto &[page, selected] : pages) {
             QVERIFY(window->setProperty("selectedTab", page));
             QTRY_COMPARE(tabs->currentPage(), page);
-            for (int index = 0; index < 7; ++index)
+            for (int index = 0; index < 9; ++index)
                 QTRY_COMPARE(accessible->child(index)->state().selected, index == selected);
         }
         auto *legacy = window->findChild<QQuickItem *>("legacyNavigationSegments");
@@ -3799,8 +3768,8 @@ Window {
         QTRY_COMPARE(toolbar->height(), 56.0);
         QCOMPARE(surface->property("color").value<QColor>().alpha(), 0);
         auto *segments = QAccessible::queryAccessibleInterface(tabs); QVERIFY(segments);
-        QTRY_COMPARE(segments->childCount(), 7);
-        QTRY_COMPARE(tabs->size(), QSizeF(166, 22));
+        QTRY_COMPARE(segments->childCount(), 9);
+        QTRY_COMPARE(tabs->size(), QSizeF(214, 22));
         QTRY_VERIFY(qAbs(tabs->mapToItem(toolbar, QPointF()).x()
             - window->property("nativeTitleBarControlsRect").toRectF().right()
             - (window->property("nativeTitleBarControlsRect").toRectF().width() > 0 ? 8.0 : 12.0)) <= 0.5);
@@ -3834,18 +3803,23 @@ Window {
             QTest::mouseClick(window, Qt::LeftButton, Qt::NoModifier,
                 item->mapToScene(item->boundingRect().center()).toPoint());
         };
-        const QStringList labels{"Workspace", "Tasks", "Library", "Space", "Browse", "People", "Hosting"};
+        const QStringList labels{"Environment", "Tasks", "Library", "Space", "Apps", "Service", "Community", "Learning", "Hosting"};
         for (int index = 0; index < labels.size(); ++index) {
             auto *button = segments->child(index); QVERIFY(button);
             QCOMPARE(button->text(QAccessible::Name), labels[index]);
         }
-        for (const auto &[index, page] : QList<QPair<int, QString>>{{0, "Dashboard"}, {2, "Storage"}, {4, "Browse"}}) {
+        for (const auto &[index, page] : QList<QPair<int, QString>>{{0, "Dashboard"}, {2, "Storage"}}) {
             QVERIFY(clickNavigationSegment(window, index));
             QTRY_COMPARE(window->property("selectedTab").toString(), page);
             if (page == "Storage" || page == "Environment")
                 QTRY_COMPARE(window->findChild<QObject *>(page.toLower() + "Loader")->property("status").toInt(), 1);
             QTRY_VERIFY(segments->child(index)->state().selected);
         }
+        QVERIFY(clickNavigationSegment(window, 4));
+        QTRY_COMPARE(window->property("selectedTab").toString(), QString("Environment"));
+        QTRY_COMPARE(window->findChild<QObject *>("environmentLoader")->property("status").toInt(), 1);
+        QTRY_COMPARE(window->findChild<QObject *>("environmentView")->property("page").toString(), QString("Apps"));
+        QTRY_VERIFY(segments->child(4)->state().selected);
         auto *toolsAction = window->findChild<QObject *>("globalToolsAction"); QVERIFY(toolsAction);
         auto *nativeFilesAction = window->findChild<QObject *>("globalNativeFilesAction"); QVERIFY(nativeFilesAction);
         QCOMPARE(nativeFilesAction->property("text").toString(),QStringLiteral("Files (LVUI preview)"));
@@ -3874,12 +3848,13 @@ Window {
         QTRY_VERIFY(!space->isVisible());
         QTRY_VERIFY(segments->child(1)->state().selected);
         QVERIFY(clickNavigationSegment(window, 5));
-        QTRY_VERIFY(notice->property("open").toBool());
+        auto *nativeNotice=window->findChild<NativeNoticeSurface *>("societyNativeNotice");
+        QVERIFY(nativeNotice); QTRY_VERIFY(nativeNotice->isVisible());
         QCOMPARE(window->property("selectedTab").toString(), QString("Tools"));
-        QVERIFY(notice->setProperty("open", false));
-        QVERIFY(clickNavigationSegment(window, 6));
+        QVERIFY(nativeNotice->activatePrimary()); QTRY_VERIFY(!nativeNotice->isVisible());
+        QVERIFY(clickNavigationSegment(window, 8));
         QTRY_COMPARE(window->property("selectedTab").toString(), QString("Environment"));
-        QTRY_VERIFY(segments->child(6)->state().selected);
+        QTRY_VERIFY(segments->child(8)->state().selected);
         QQuickItem *environment = nullptr;
         QTRY_VERIFY((environment = visualItem(window->contentItem(), "environmentView")));
         auto *environmentScroll = visualItem(environment, "environmentScroll"); QVERIFY(environmentScroll);
@@ -4339,9 +4314,9 @@ Window {
         QVERIFY(generate); click(generate);
         QCOMPARE(submitted.size(), 1);
         QCOMPARE(submitted.first(), QVariantList({QString("A quiet lunar landscape"), QString("Video"), QString("1:1"), 1}));
-        auto *notice = window->findChild<QQuickItem *>("dashboardNotice");
-        QVERIFY(notice); QTRY_VERIFY(notice->property("open").toBool());
-        notice->setProperty("open", false);
+        auto *notice = window->findChild<NativeNoticeSurface *>("societyNativeNotice");
+        QVERIFY(notice); QTRY_VERIFY(notice->isVisible());
+        QVERIFY(notice->activatePrimary()); QTRY_VERIFY(!notice->isVisible());
         auto *accountButton = window->findChild<QQuickItem *>("dashboardAccount");
         auto *accountViews = window->findChild<QObject *>("accountViews");
         QVERIFY(accountViews);
@@ -4350,13 +4325,13 @@ Window {
         QTRY_VERIFY(accountPanel->property("visible").toBool());
         QVERIFY(QMetaObject::invokeMethod(accountPanel, "close"));
         QTRY_VERIFY(!accountPanel->property("visible").toBool());
-        QVERIFY(clickNavigationSegment(window, 0));
+        QVERIFY(window->setProperty("selectedTab", "Environment"));
         QTRY_COMPARE(window->findChild<QObject *>("environmentLoader")->property("status").toInt(), 1);
         auto *environment = window->findChild<QQuickItem *>("environmentView");
         QVERIFY(environment); QTRY_VERIFY(environment->isVisible());
         QVERIFY(!window->findChild<QQuickWindow *>("preferencesWindow"));
         auto *devices = window->findChild<QObject *>("networkDevices");
-        QVERIFY(devices); QVERIFY(clickNavigationSegment(window, 4));
+        QVERIFY(devices); QVERIFY(window->setProperty("selectedTab", "Browse"));
         QCOMPARE(window->property("selectedTab").toString(), QString("Browse"));
         QVERIFY(!devices->property("visible").toBool());
         openDashboard();
@@ -4386,7 +4361,7 @@ Window {
         QCOMPARE(engine.rootObjects().size(), 1);
         auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first()); QVERIFY(window);
         QVERIFY(QTest::qWaitForWindowExposed(window));
-        QVERIFY(clickNavigationSegment(window, 0));
+        QVERIFY(window->setProperty("selectedTab", "Environment"));
         QQuickItem *view = nullptr;
         QTRY_VERIFY((view = visualItem(window->contentItem(), "environmentView")));
         auto *apps = visualItem(view, "environmentApps"); QVERIFY(apps);
@@ -4426,10 +4401,10 @@ Window {
         QTRY_VERIFY(!devices->property("visible").toBool());
         QVERIFY(QMetaObject::invokeMethod(pairing, "close"));
         QTRY_VERIFY(!pairing->property("visible").toBool());
-        QVERIFY(clickNavigationSegment(window, 4));
+        QVERIFY(window->setProperty("selectedTab", "Browse"));
         QTRY_VERIFY(visualItem(window->contentItem(), "browseView")->isVisible());
         QVERIFY(!devices->property("visible").toBool());
-        QVERIFY(clickNavigationSegment(window, 0));
+        QVERIFY(window->setProperty("selectedTab", "Environment"));
         QTRY_VERIFY(view->isVisible());
         QVERIFY(click("environmentNavApps"));
         QTRY_VERIFY(apps->isVisible());

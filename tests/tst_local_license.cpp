@@ -342,6 +342,30 @@ private slots:
         result=request(account.localLicenseBrokerPath(),input);QVERIFY(!result.value("allowed").toBool());QVERIFY(!result.value("licenseToken").toString().isEmpty());
         QVERIFY(helper.write(frame({{"op","sync"}}))>0);helper.flush();QTRY_COMPARE(helper.state(),QLocalSocket::UnconnectedState);
     }
+    void localIncrementalGrantIsBound() {
+        AccountServer server;QVERIFY(server.server.listen(QHostAddress::LocalHost));MemorySessionStore tokenStore;
+        AccountController account(server.url());auto* licenses=account.manager()->licenseManager();
+        licenses->setTrustedKeys({{"fixture-owned-license",QByteArray::fromStdString(license_fixture::public_key())}});
+        QVERIFY(licenses->setTokenStore(&tokenStore));QVERIFY(account.login("builder@example.com","FixtureOnly1!"));QTRY_VERIFY(account.signedIn());
+        QVERIFY(licenses->ensure());QTRY_COMPARE(account.licensesCode(),QString("verified"));
+        QTemporaryDir dir(brokerTemplate());QVERIFY(dir.isValid());QVERIFY(account.startLocalLicenseBroker(dir.path(),false));
+        QJsonObject input{{"operation","update"},{"action","grant"},{"productId","congregation"},
+            {"appId","com.iisacc.congregation.painter"},{"deviceId",account.manager()->deviceInfo().value("id").toString()},
+            {"requestId","fa37a985-5c4d-48e7-8343-82cc7254536f"},{"platformKey","macos-arm64"},
+            {"version","1.3.0"},{"deltaFrom","1.2.3"},{"deltaFormat","iiudlt1"}};
+        QCOMPARE(request(account.localLicenseBrokerPath(),input).value("result").toObject().value("status").toString(),QString("release_unavailable"));
+        QCOMPARE(server.updateRequests.size(),1);QCOMPARE(server.updateRequests.last().value("deltaFrom").toString(),QString("1.2.3"));
+        QCOMPARE(server.updateRequests.last().value("deltaFormat").toString(),QString("iiudlt1"));
+        auto invalid=input;invalid.insert("deltaFormat","unknown");
+        QCOMPARE(request(account.localLicenseBrokerPath(),invalid).value("code").toString(),QString("invalid_update_delta"));
+        invalid=input;invalid.remove("deltaFormat");
+        QCOMPARE(request(account.localLicenseBrokerPath(),invalid).value("code").toString(),QString("invalid_update_delta"));
+        invalid=input;invalid.insert("deltaFrom","2147483648.2.3");
+        QCOMPARE(request(account.localLicenseBrokerPath(),invalid).value("code").toString(),QString("invalid_update_delta"));
+        invalid=input;invalid.insert("action","check");
+        QCOMPARE(request(account.localLicenseBrokerPath(),invalid).value("code").toString(),QString("invalid_update_delta"));
+        QCOMPARE(server.updateRequests.size(),1);
+    }
     void rejectsSharedDirectory() {
         QTemporaryDir dir(QStringLiteral(SOCIETY_TEST_RESOURCES)+"/shared-broker-XXXXXX");QVERIFY(dir.isValid());
         QVERIFY(::chmod(QFile::encodeName(dir.path()).constData(),0755)==0);

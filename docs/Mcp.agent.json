@@ -10,9 +10,9 @@
   },
   "source": {
     "path": "docs/Mcp.md",
-    "sha256": "043c0b9b6b57ff1dbdf6dade44c4fb2de35f742d6a76155170148a4b9c643226",
-    "bytes": 7128,
-    "line_count": 82,
+    "sha256": "67863cb5c7482c34ea8c6ae73b5af1d3f542645faa0dcb6f91fc2a6b9c5c5b03",
+    "bytes": 11266,
+    "line_count": 119,
     "encoding": "utf-8",
     "language": "ko"
   },
@@ -23,13 +23,13 @@
   },
   "blocks": [
     {
+      "level": 1,
+      "title": "로컬 MCP 앱 제어",
       "id": "b000001",
       "kind": "heading",
       "start_line": 1,
       "end_line": 1,
-      "raw": "# 로컬 MCP 앱 제어\n",
-      "level": 1,
-      "title": "로컬 MCP 앱 제어"
+      "raw": "# 로컬 MCP 앱 제어\n"
     },
     {
       "id": "b000002",
@@ -53,11 +53,6 @@
       "raw": "\n"
     },
     {
-      "id": "b000005",
-      "start_line": 8,
-      "end_line": 17,
-      "raw": "- 도구: `status`; 동작: 데몬 상태와 연결된 화면의 기존 탐색 상태\n- 도구: `ui_status`; 동작: 연결된 화면의 현재 경로·섹션과 가용 상태\n- 도구: `open_section(key)`, `navigate(path)`, `refresh`; 동작: 연결된 Society 화면의 탐색과 새로 고침\n- 도구: `list_entries(path, offset, limit)`; 동작: 현재 폴더 또는 지정 폴더의 최대 200개 항목\n- 도구: `file_job_submit`, `file_job_status`; 동작: 파일 작업 제출과 지속 작업 상태 조회\n- 도구: `model_import_submit`; 동작: 로컬 safetensors를 데몬 모델 작업에 제출\n- 도구: `semantic_read`, `semantic_relations`; 동작: 주소의 의미 정보와 관계 조회\n- 도구: `semantic_set_metadata`, `semantic_set_relation`, `semantic_remove_relation`, `semantic_rebind`; 동작: 명시적 의미 정보·관계 변경\n- 도구: `AskUserQuestion`; 동작: 연결된 화면에 사용자 질문 전달\n- 도구: `iiLocalLLM.agent.permissions.get`; 동작: SDK 호스트 권한 정책 조회\n",
-      "kind": "list",
       "items": [
         {
           "marker": "-",
@@ -109,7 +104,12 @@
           "text": "도구: `iiLocalLLM.agent.permissions.get`; 동작: SDK 호스트 권한 정책 조회",
           "checked": null
         }
-      ]
+      ],
+      "id": "b000005",
+      "kind": "list",
+      "start_line": 8,
+      "end_line": 17,
+      "raw": "- 도구: `status`; 동작: 데몬 상태와 연결된 화면의 기존 탐색 상태\n- 도구: `ui_status`; 동작: 연결된 화면의 현재 경로·섹션과 가용 상태\n- 도구: `open_section(key)`, `navigate(path)`, `refresh`; 동작: 연결된 Society 화면의 탐색과 새로 고침\n- 도구: `list_entries(path, offset, limit)`; 동작: 현재 폴더 또는 지정 폴더의 최대 200개 항목\n- 도구: `file_job_submit`, `file_job_status`; 동작: 파일 작업 제출과 지속 작업 상태 조회\n- 도구: `model_import_submit`; 동작: 로컬 safetensors를 데몬 모델 작업에 제출\n- 도구: `semantic_read`, `semantic_relations`; 동작: 주소의 의미 정보와 관계 조회\n- 도구: `semantic_set_metadata`, `semantic_set_relation`, `semantic_remove_relation`, `semantic_rebind`; 동작: 명시적 의미 정보·관계 변경\n- 도구: `AskUserQuestion`; 동작: 연결된 화면에 사용자 질문 전달\n- 도구: `iiLocalLLM.agent.permissions.get`; 동작: SDK 호스트 권한 정책 조회\n"
     },
     {
       "id": "b000006",
@@ -175,13 +175,13 @@
       "raw": "\n"
     },
     {
+      "level": 2,
+      "title": "로컬 질문 화면",
       "id": "b000015",
       "kind": "heading",
       "start_line": 51,
       "end_line": 51,
-      "raw": "## 로컬 질문 화면\n",
-      "level": 2,
-      "title": "로컬 질문 화면"
+      "raw": "## 로컬 질문 화면\n"
     },
     {
       "id": "b000016",
@@ -219,13 +219,13 @@
       "raw": "\n"
     },
     {
+      "level": 2,
+      "title": "과거 검증 기록",
       "id": "b000021",
       "kind": "heading",
       "start_line": 65,
       "end_line": 65,
-      "raw": "## 과거 검증 기록\n",
-      "level": 2,
-      "title": "과거 검증 기록"
+      "raw": "## 과거 검증 기록\n"
     },
     {
       "id": "b000022",
@@ -249,13 +249,13 @@
       "raw": "\n"
     },
     {
+      "level": 2,
+      "title": "2026-09-24 SDK 재설치 기준",
       "id": "b000025",
       "kind": "heading",
       "start_line": 69,
       "end_line": 69,
-      "raw": "## 2026-09-24 SDK 재설치 기준\n",
-      "level": 2,
-      "title": "2026-09-24 SDK 재설치 기준"
+      "raw": "## 2026-09-24 SDK 재설치 기준\n"
     },
     {
       "id": "b000026",
@@ -279,13 +279,13 @@
       "raw": "\n"
     },
     {
+      "level": 2,
+      "title": "동일 내용 후보 조회",
       "id": "b000029",
       "kind": "heading",
       "start_line": 76,
       "end_line": 76,
-      "raw": "## 동일 내용 후보 조회\n",
-      "level": 2,
-      "title": "동일 내용 후보 조회"
+      "raw": "## 동일 내용 후보 조회\n"
     },
     {
       "id": "b000030",
@@ -300,6 +300,256 @@
       "start_line": 78,
       "end_line": 82,
       "raw": "`resource_duplicate_candidates`는 선택된 컨테이너의 관찰된 파일을 기준으로 같은\nSHA-256 관찰값을 가진 색인 후보를 반환하는 읽기 전용 도구이다. 응답의 `next`를\n그대로 전달하여 페이지를 이어 읽으며 빈 페이지가 마지막 페이지라는 보장은 없다.\n색인의 전체 범위와 현재 바이트의 일치는 확인되지 않으며, 이 응답은 삭제 또는\n물리적 중복 제거의 승인이 아니다. 자세한 범위는 자원 저장소 연결 문서를 따른다.\n"
+    },
+    {
+      "id": "b000032",
+      "kind": "blank",
+      "start_line": 83,
+      "end_line": 83,
+      "raw": "\n"
+    },
+    {
+      "level": 2,
+      "title": "기존 색인 검색",
+      "id": "b000033",
+      "kind": "heading",
+      "start_line": 84,
+      "end_line": 84,
+      "raw": "## 기존 색인 검색\n"
+    },
+    {
+      "id": "b000034",
+      "kind": "blank",
+      "start_line": 85,
+      "end_line": 85,
+      "raw": "\n"
+    },
+    {
+      "id": "b000035",
+      "kind": "paragraph",
+      "start_line": 86,
+      "end_line": 89,
+      "raw": "`resource_search`는 현재 컨테이너의 파일명·분류 메타데이터 색인 또는 저장된 가상\n디렉터리를 읽는 도구이다. 결과의 자원 ID와 판본은 마지막 관찰이며, 내용 임베딩\n검색이나 전체 파일 범위의 완전성을 뜻하지 않는다. 조건과 cursor, 불완전 결과는\n자원 검색과 뷰 계약을 따른다.\n"
+    },
+    {
+      "id": "b000036",
+      "kind": "blank",
+      "start_line": 90,
+      "end_line": 90,
+      "raw": "\n"
+    },
+    {
+      "level": 2,
+      "title": "기록된 관계 계보",
+      "id": "b000037",
+      "kind": "heading",
+      "start_line": 91,
+      "end_line": 91,
+      "raw": "## 기록된 관계 계보\n"
+    },
+    {
+      "id": "b000038",
+      "kind": "blank",
+      "start_line": 92,
+      "end_line": 92,
+      "raw": "\n"
+    },
+    {
+      "id": "b000039",
+      "kind": "paragraph",
+      "start_line": 93,
+      "end_line": 93,
+      "raw": "로컬 MCP의 `resource_lineage`는 선택된 컨테이너의 `path`와 선택적인 `direction`, `depth`, `limit`으로 사용자 선언 관계를 제한적으로 추적한다. 같은 기능은 `society-cli resource lineage`와 Python `Client.resource_lineage`에서도 사용할 수 있다. 결과의 완전성은 미상이며, 관계의 끝점과 실제 종속성 또는 복구 가능성을 검증하거나 삭제를 승인하지 않는다. 이 조회는 의미 주소의 이동 복구와 Catalog 갱신을 수행하지 않는다.\n"
+    },
+    {
+      "id": "b000040",
+      "kind": "blank",
+      "start_line": 94,
+      "end_line": 94,
+      "raw": "\n"
+    },
+    {
+      "id": "b000041",
+      "kind": "paragraph",
+      "start_line": 95,
+      "end_line": 95,
+      "raw": "조회는 SDK의 관찰 전용 열기 경로를 사용하며 기존 유지 관리 작업을 중단하지 않는다.\n"
+    },
+    {
+      "id": "b000042",
+      "kind": "blank",
+      "start_line": 96,
+      "end_line": 96,
+      "raw": "\n"
+    },
+    {
+      "level": 2,
+      "title": "정리 계획과 삭제 제한",
+      "id": "b000043",
+      "kind": "heading",
+      "start_line": 97,
+      "end_line": 97,
+      "raw": "## 정리 계획과 삭제 제한\n"
+    },
+    {
+      "id": "b000044",
+      "kind": "blank",
+      "start_line": 98,
+      "end_line": 98,
+      "raw": "\n"
+    },
+    {
+      "id": "b000045",
+      "kind": "paragraph",
+      "start_line": 99,
+      "end_line": 99,
+      "raw": "`resource_cleanup_plan`과 `society-cli resource cleanup-plan`, Python `Client.resource_cleanup_plan`은 기록된 자원·관계와 정책 보류 사유를 읽는다. 계획은 실행되거나 승인되지 않는다. 현재 공용 MCP와 헤드리스 CLI의 `trash`, `remove` 및 Deleted로 향하는 `move` 제출은 데몬에서 거부한다. Society 화면에서 사용자가 직접 요청하는 기존 작업은 이 제한과 별도이며, 자동 삭제는 검증·승인·실행 시 재확인을 갖춘 후속 경로가 필요하다.\n"
+    },
+    {
+      "id": "b000046",
+      "kind": "blank",
+      "start_line": 100,
+      "end_line": 100,
+      "raw": "\n"
+    },
+    {
+      "id": "b000047",
+      "kind": "paragraph",
+      "start_line": 101,
+      "end_line": 101,
+      "raw": "Windows에서는 로컬 파이프의 양끝을 구분해 OS가 제공하는 상대 프로세스와 사용자 토큰, 실행 파일 경로를 확인한다. 경로를 확인하지 못하면 화면 요청으로 신뢰하지 않는다. 이 구현의 Windows 빌드와 실제 파이프 동작은 별도 플랫폼 검증이 필요하다.\n"
+    },
+    {
+      "id": "b000048",
+      "kind": "blank",
+      "start_line": 102,
+      "end_line": 102,
+      "raw": "\n"
+    },
+    {
+      "id": "b000049",
+      "kind": "paragraph",
+      "start_line": 103,
+      "end_line": 103,
+      "raw": "Windows 파이프 어댑터의 독립 소스는 `x86_64-w64-mingw32-g++ -std=c++23 -Wall -Wextra -Werror -fsyntax-only tests/windows_pipe_peer_compile.cpp`로 교차 컴파일할 수 있다. Windows에서 `Society.WindowsPipePeer`는 실제 로컬 파이프 양끝의 상대 프로세스와 실행 파일 조회를 시험한다. 교차 컴파일 성공은 Windows 실행 성공을 뜻하지 않는다.\n"
+    },
+    {
+      "id": "b000050",
+      "kind": "blank",
+      "start_line": 104,
+      "end_line": 104,
+      "raw": "\n"
+    },
+    {
+      "level": 2,
+      "title": "제한된 바이트 대조",
+      "id": "b000051",
+      "kind": "heading",
+      "start_line": 105,
+      "end_line": 105,
+      "raw": "## 제한된 바이트 대조\n"
+    },
+    {
+      "id": "b000052",
+      "kind": "blank",
+      "start_line": 106,
+      "end_line": 106,
+      "raw": "\n"
+    },
+    {
+      "id": "b000053",
+      "kind": "paragraph",
+      "start_line": 107,
+      "end_line": 107,
+      "raw": "`resource_compare_bytes`는 `path`와 `otherPath`의 두 관찰된 파일을 각각 최대 64 MiB의 임시 스냅샷으로 확보하여 바이트를 비교한다. 두 스냅샷은 별도 시점에 만들어지며, 결과는 삭제·병합·복구 승인이 아니다. 한 데몬에서 비교는 동시에 한 건만 진행한다. 클라이언트 시간 초과 뒤에도 데몬 작업이 완료될 때까지 임시 자료가 유지될 수 있다. CLI와 Python의 사용법 및 강제 종료 시 한계는 자원 저장소 연결 문서를 따른다.\n"
+    },
+    {
+      "id": "b000054",
+      "kind": "blank",
+      "start_line": 108,
+      "end_line": 108,
+      "raw": "\n"
+    },
+    {
+      "level": 2,
+      "title": "기존 텍스트 내용 색인과 검색",
+      "id": "b000055",
+      "kind": "heading",
+      "start_line": 109,
+      "end_line": 109,
+      "raw": "## 기존 텍스트 내용 색인과 검색\n"
+    },
+    {
+      "id": "b000056",
+      "kind": "blank",
+      "start_line": 110,
+      "end_line": 110,
+      "raw": "\n"
+    },
+    {
+      "id": "b000057",
+      "kind": "paragraph",
+      "start_line": 111,
+      "end_line": 111,
+      "raw": "기존 `resource_content_index`와 `resource_content_search` 호출은 파일 색인을 해시와 메타데이터로 제한하는 정책에 따라 명시적인 비활성 오류를 반환한다. 모델을 불러오거나 파일 본문을 읽어 새 임베딩을 만들지 않는다. 기존 파생 벡터 데이터는 이 정책 변경으로 지우지 않는다.\n"
+    },
+    {
+      "id": "b000058",
+      "kind": "blank",
+      "start_line": 112,
+      "end_line": 112,
+      "raw": "\n"
+    },
+    {
+      "id": "b000059",
+      "kind": "paragraph",
+      "start_line": 113,
+      "end_line": 113,
+      "raw": "파일 해시와 디렉터리 메타데이터의 SDK 계약과 Society 연동의 현재 한계는 `ResourceSearchAndViews.md`를 따른다.\n"
+    },
+    {
+      "id": "b000060",
+      "kind": "blank",
+      "start_line": 114,
+      "end_line": 114,
+      "raw": "\n"
+    },
+    {
+      "level": 2,
+      "title": "자동 내용 색인 정책",
+      "id": "b000061",
+      "kind": "heading",
+      "start_line": 115,
+      "end_line": 115,
+      "raw": "## 자동 내용 색인 정책\n"
+    },
+    {
+      "id": "b000062",
+      "kind": "blank",
+      "start_line": 116,
+      "end_line": 116,
+      "raw": "\n"
+    },
+    {
+      "id": "b000063",
+      "kind": "paragraph",
+      "start_line": 117,
+      "end_line": 117,
+      "raw": "`resource_content_policy`는 내용 임베딩이 비활성이라는 현재 상태를 반환하고, 이전에 설정된 프로필이 있으면 `configured`로 알린다. `resource_content_policy_set`의 활성화 요청은 거부한다. 비활성 요청은 현재 상태를 반환하며 기존 프로필이나 벡터를 삭제하지 않는다.\n"
+    },
+    {
+      "id": "b000064",
+      "kind": "blank",
+      "start_line": 118,
+      "end_line": 118,
+      "raw": "\n"
+    },
+    {
+      "id": "b000065",
+      "kind": "paragraph",
+      "start_line": 119,
+      "end_line": 119,
+      "raw": "이전 프로필이 남아 있어도 데몬의 내용 임베딩 작업은 다시 시작되지 않는다. 이 정책은 기존 객체 저장소의 모든 기록 경로와 휴지통 최종 삭제가 이미 전환되었다는 뜻은 아니다.\n"
     }
   ],
   "outline": [
@@ -342,10 +592,65 @@
       "title": "동일 내용 후보 조회",
       "anchor": "동일-내용-후보-조회",
       "start_line": 76
+    },
+    {
+      "block_id": "b000033",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "기존 색인 검색",
+      "anchor": "기존-색인-검색",
+      "start_line": 84
+    },
+    {
+      "block_id": "b000037",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "기록된 관계 계보",
+      "anchor": "기록된-관계-계보",
+      "start_line": 91
+    },
+    {
+      "block_id": "b000043",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "정리 계획과 삭제 제한",
+      "anchor": "정리-계획과-삭제-제한",
+      "start_line": 97
+    },
+    {
+      "block_id": "b000051",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "제한된 바이트 대조",
+      "anchor": "제한된-바이트-대조",
+      "start_line": 105
+    },
+    {
+      "block_id": "b000055",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "기존 텍스트 내용 색인과 검색",
+      "anchor": "기존-텍스트-내용-색인과-검색",
+      "start_line": 109
+    },
+    {
+      "block_id": "b000061",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "자동 내용 색인 정책",
+      "anchor": "자동-내용-색인-정책",
+      "start_line": 115
     }
   ],
   "indexes": {
     "directive_candidates": [
+      {
+        "block_id": "b000003",
+        "line": 6,
+        "text": "인증한다. `IILOCALLLM_DISABLE_APP_MCP=1`이면 공개 서버를 열지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
       {
         "block_id": "b000007",
         "line": 22,
@@ -368,9 +673,30 @@
         "context": "paragraph"
       },
       {
+        "block_id": "b000007",
+        "line": 28,
+        "text": "별도로 남으며 화면 미응답은 데몬 상태 조회를 막지 않는다. 화면이 연결된 경우",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000011",
+        "line": 41,
+        "text": "연결을 등록한다. GUI는 이 소켓 연결의 클라이언트이며 별도 MCP 서버를 열지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
         "block_id": "b000011",
         "line": 44,
         "text": "있으며 별도의 코드 서명 검증을 뜻하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000013",
+        "line": 48,
+        "text": "토큰을 로그나 모델 프롬프트에 넣지 않는다. 모바일과 Windows에는 공개 리스너를",
         "basis": "lexical_match",
         "context": "paragraph"
       },
@@ -382,23 +708,72 @@
         "context": "paragraph"
       },
       {
-        "block_id": "b000031",
-        "line": 80,
-        "text": "그대로 전달하여 페이지를 이어 읽으며 빈 페이지가 마지막 페이지라는 보장은 없다.",
+        "block_id": "b000023",
+        "line": 67,
+        "text": "2026-09-15 최종 SDK 조합으로 macOS 전체 CTest 21/21(272.48초)을 통과했다. 새 패키지의 서명과 번들 내부 의존성을 검사한 뒤, Qwen3 8B가 만든 질문에 에이전트가 네이티브 앱 화면으로 입력한 임의 코드를 모델이 2턴·98토큰으로 정확히 반환했다. 코드는 최초 모델 입력에 없으며 도구 선택과 응답 형식은 검증 호스트가 제한했다. 첫 모델 실행은 화면 입력 전에 서버의 60초 기한으로 실패했으며 재검사는 통과했다. 서비스 등록 명령의 최초 30초 시간 초과는 등록 상태를 조회하고 재등록하여 enabled로 복구했다. 일반 iOS Release도 iPad 설치 영수증과 실행 프로세스를 확인했다. 교차 저장소 증거는 `SDK/iiLocalLLM/build/question-ui-apps/`의 최종 검사·패키지·UI·iPad 보고서에 보존한다.",
         "basis": "lexical_match",
         "context": "paragraph"
       },
       {
-        "block_id": "b000031",
-        "line": 81,
-        "text": "색인의 전체 범위와 현재 바이트의 일치는 확인되지 않으며, 이 응답은 삭제 또는",
+        "block_id": "b000035",
+        "line": 88,
+        "text": "검색이나 전체 파일 범위의 완전성을 뜻하지 않는다. 조건과 cursor, 불완전 결과는",
         "basis": "lexical_match",
         "context": "paragraph"
       },
       {
-        "block_id": "b000031",
-        "line": 82,
-        "text": "물리적 중복 제거의 승인이 아니다. 자세한 범위는 자원 저장소 연결 문서를 따른다.",
+        "block_id": "b000039",
+        "line": 93,
+        "text": "로컬 MCP의 `resource_lineage`는 선택된 컨테이너의 `path`와 선택적인 `direction`, `depth`, `limit`으로 사용자 선언 관계를 제한적으로 추적한다. 같은 기능은 `society-cli resource lineage`와 Python `Client.resource_lineage`에서도 사용할 수 있다. 결과의 완전성은 미상이며, 관계의 끝점과 실제 종속성 또는 복구 가능성을 검증하거나 삭제를 승인하지 않는다. 이 조회는 의미 주소의 이동 복구와 Catalog 갱신을 수행하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000041",
+        "line": 95,
+        "text": "조회는 SDK의 관찰 전용 열기 경로를 사용하며 기존 유지 관리 작업을 중단하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000045",
+        "line": 99,
+        "text": "`resource_cleanup_plan`과 `society-cli resource cleanup-plan`, Python `Client.resource_cleanup_plan`은 기록된 자원·관계와 정책 보류 사유를 읽는다. 계획은 실행되거나 승인되지 않는다. 현재 공용 MCP와 헤드리스 CLI의 `trash`, `remove` 및 Deleted로 향하는 `move` 제출은 데몬에서 거부한다. Society 화면에서 사용자가 직접 요청하는 기존 작업은 이 제한과 별도이며, 자동 삭제는 검증·승인·실행 시 재확인을 갖춘 후속 경로가 필요하다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000047",
+        "line": 101,
+        "text": "Windows에서는 로컬 파이프의 양끝을 구분해 OS가 제공하는 상대 프로세스와 사용자 토큰, 실행 파일 경로를 확인한다. 경로를 확인하지 못하면 화면 요청으로 신뢰하지 않는다. 이 구현의 Windows 빌드와 실제 파이프 동작은 별도 플랫폼 검증이 필요하다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000049",
+        "line": 103,
+        "text": "Windows 파이프 어댑터의 독립 소스는 `x86_64-w64-mingw32-g++ -std=c++23 -Wall -Wextra -Werror -fsyntax-only tests/windows_pipe_peer_compile.cpp`로 교차 컴파일할 수 있다. Windows에서 `Society.WindowsPipePeer`는 실제 로컬 파이프 양끝의 상대 프로세스와 실행 파일 조회를 시험한다. 교차 컴파일 성공은 Windows 실행 성공을 뜻하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000057",
+        "line": 111,
+        "text": "기존 `resource_content_index`와 `resource_content_search` 호출은 파일 색인을 해시와 메타데이터로 제한하는 정책에 따라 명시적인 비활성 오류를 반환한다. 모델을 불러오거나 파일 본문을 읽어 새 임베딩을 만들지 않는다. 기존 파생 벡터 데이터는 이 정책 변경으로 지우지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000063",
+        "line": 117,
+        "text": "`resource_content_policy`는 내용 임베딩이 비활성이라는 현재 상태를 반환하고, 이전에 설정된 프로필이 있으면 `configured`로 알린다. `resource_content_policy_set`의 활성화 요청은 거부한다. 비활성 요청은 현재 상태를 반환하며 기존 프로필이나 벡터를 삭제하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000065",
+        "line": 119,
+        "text": "이전 프로필이 남아 있어도 데몬의 내용 임베딩 작업은 다시 시작되지 않는다. 이 정책은 기존 객체 저장소의 모든 기록 경로와 휴지통 최종 삭제가 이미 전환되었다는 뜻은 아니다.",
         "basis": "lexical_match",
         "context": "paragraph"
       }
@@ -409,7 +784,7 @@
   },
   "provenance": {
     "generator": "workspace-docs",
-    "version": "1.0.0+manual-append",
+    "version": "1.0.0+manual-sync",
     "profile": "lossless-blocks-v1",
     "derived": true
   }

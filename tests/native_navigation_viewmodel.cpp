@@ -13,13 +13,14 @@ int main() {
     NativeNavigationViewModel vm;
     std::vector<Action> requests;
     vm.onNavigate = [&](Action action) { requests.push_back(action); };
-    vm.environment(); vm.tasks(); vm.library(); vm.space(); vm.browse(); vm.people(); vm.hosting();
+    vm.environment(); vm.tasks(); vm.library(); vm.space(); vm.apps(); vm.service(); vm.community(); vm.learning(); vm.hosting();
     check(requests == std::vector<Action>{Action::Environment, Action::Tasks, Action::Library,
-        Action::Space, Action::Browse, Action::People, Action::Hosting}, "each Figma segment must emit its own destination");
+        Action::Space, Action::Apps, Action::Service, Action::Community, Action::Learning, Action::Hosting}, "each Figma segment must emit its own destination");
 
-    const std::array<std::pair<const char *, Action>, 7> states{{
+    const std::array<std::pair<const char *, Action>, 9> states{{
         {"Environment", Action::Environment}, {"Tools", Action::Tasks}, {"Storage", Action::Library},
-        {"Space", Action::Space}, {"Browse", Action::Browse}, {"People", Action::People},
+        {"Space", Action::Space}, {"Apps", Action::Apps}, {"Service", Action::Service},
+        {"Community", Action::Community}, {"Learning", Action::Learning},
         {"Hosting", Action::Hosting}}};
     for (const auto &[page, selected] : states) {
         check(vm.setCurrent(page), "known destination accepted");
@@ -29,8 +30,9 @@ int main() {
         }
     }
     check(vm.setCurrent("Dashboard") && vm.isSelected(Action::Environment), "workspace is within Environment");
+    check(vm.setCurrent("Browse") && vm.isSelected(Action::Environment), "device browsing is within Environment");
     check(!vm.setCurrent("unknown") && vm.isSelected(Action::Environment), "unknown destination preserves selection");
     vm.onNavigate = {};
-    vm.people();
+    vm.community();
     check(vm.isSelected(Action::Environment), "unhandled requests cannot change selection");
 }

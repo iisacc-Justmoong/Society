@@ -10,9 +10,9 @@
   },
   "source": {
     "path": "docs/WorkspaceAgent.md",
-    "sha256": "a5b4f382a7315f439628debc474f9a1c6871a54a1d37b8d66b1c29d8eb963e44",
-    "bytes": 15837,
-    "line_count": 233,
+    "sha256": "78c827618986f26ad9c35a4727db34cbe8857d53deecbfb9ad9ac997a67ef686",
+    "bytes": 16405,
+    "line_count": 241,
     "encoding": "utf-8",
     "language": "en"
   },
@@ -242,77 +242,77 @@
       "id": "b000031",
       "kind": "paragraph",
       "start_line": 173,
-      "end_line": 183,
-      "raw": "The daemon records the app-selected model through iiSocietyContainer's private\nmodel cache and restores that preference when the same resource and revision\nare still available. iisaccson remains the default and the model used for\nuncalibrated routing assessments. Selecting another preference does not disable\niiDecision or force every request to that model. The selected package is prepared\non the agent worker before it is requested; the GUI and container file workers\ndo not perform the conversion. Changing the selection or container cancels the\nprevious preparation. The agent snapshot reports cache state, progress, reuse and\nerrors. The selected cache is queued before separate resident model loading.\nCache preparation does not run inference. The separate resident state\nreports whether iiLocalLLM actually loaded and pinned the weights.\n"
+      "end_line": 180,
+      "raw": "The daemon records the app-selected model through iiSocietyContainer's private\nmodel cache and restores that preference when the same resource and revision\nare still available. iisaccson remains the default and the model used for\nuncalibrated routing assessments. Selecting another preference does not disable\niiDecision or force every request to that model. Changing the selection or\ncontainer cancels the previous preparation. The agent snapshot reports cache\nstate, progress, reuse and errors; the separate resident state reports whether\niiLocalLLM actually loaded and pinned the weights.\n"
     },
     {
       "id": "b000032",
       "kind": "blank",
-      "start_line": 184,
-      "end_line": 184,
+      "start_line": 181,
+      "end_line": 181,
       "raw": "\n"
     },
     {
       "id": "b000033",
       "kind": "paragraph",
-      "start_line": 185,
-      "end_line": 191,
-      "raw": "The cache retains the existing private `agent/models` catalog so installed model\nentries are not lost. A valid prepared component is reused without extracting it\nagain. The original Society model is never moved or replaced. A provider resource\nID is used when available; otherwise the reference is explicitly path-scoped and\nis not treated as a stable resource identity. iiLocalLLM still verifies model\ncontents before loading, and a cache on the same device does not guarantee faster\nphysical reads. No automatic cache eviction or storage limit is currently set.\n"
+      "start_line": 182,
+      "end_line": 197,
+      "raw": "For iisaccson, the private catalog contains only a small reference and manifest.\nThe host checks the model's GGUF mapping inside the existing `Models/` package,\nverifies that component's SHA-256, and reads the bytes from the original file.\nIt does not extract a second `model.gguf` into the agent runtime. A source that\nis missing, redirected, changed or has an invalid checksum fails explicitly.\nThe SDK's embedded-GGUF loader requires allocated model buffers rather than\nmapping an independent GGUF file, so memory use and loading performance can\ndiffer from the former cache. Independently installed catalog entries and other\nmodel preparation paths are unchanged. After successful direct residency, a\nbackground task verifies the original component and the full legacy extraction,\ntheir identities and the exact generated manifest and file list. It removes only\na matching old extraction; cancellation, changes, extra files or an unknown\nmanifest leave it in place. This one-time check reads both copies and can take\ntime. The original package is never removed or changed by this cleanup.\nA provider resource ID is used when available; otherwise the reference is\nexplicitly path-scoped and is not treated as a stable resource identity.\n"
     },
     {
       "id": "b000034",
       "kind": "blank",
-      "start_line": 192,
-      "end_line": 192,
+      "start_line": 198,
+      "end_line": 198,
       "raw": "\n"
     },
     {
       "id": "b000035",
       "kind": "paragraph",
-      "start_line": 193,
-      "end_line": 198,
-      "raw": "Building the workspace agent requires an iiSocietyContainer SDK that exports\n`iiSocietyContainer_HAS_MODEL_CACHE`; use matching headers and libraries from\nthe rebuilt SDK. A successful local build does not update an installed app.\nThe iiLocalLLM runtime must also include the layer-aware GGUF KV reservation\nfix to avoid over-reserving iisaccson's per-layer head arrays. Older runtimes\nretain the conservative fallback and may continue waiting for more memory.\n"
+      "start_line": 199,
+      "end_line": 206,
+      "raw": "Building the workspace agent requires an iiSocietyContainer SDK that exports\n`iiSocietyContainer_HAS_MODEL_CACHE`; use matching headers and libraries from\nthe rebuilt SDK. A successful local build does not update an installed app.\nThe iiLocalLLM runtime must also include the layer-aware GGUF KV reservation\nfix to avoid over-reserving iisaccson's per-layer head arrays. Older runtimes\nretain the conservative fallback and may continue waiting for more memory.\nIt must also support bounded embedded GGUF reads; an older runtime reports the\nmissing capability instead of creating an extracted fallback copy.\n"
     },
     {
       "id": "b000036",
-      "kind": "blank",
-      "start_line": 199,
-      "end_line": 199,
-      "raw": "\n"
-    },
-    {
-      "id": "b000037",
-      "kind": "paragraph",
-      "start_line": 200,
-      "end_line": 206,
-      "raw": "A ready cache has an initialized inference-service delegate, but does not\nestablish successful runtime loading. The resident status reports that result.\nIf the model cannot be loaded, the daemon reports the error; preparation itself\ndoes not run inference. On desktop Windows and Linux the backend requires the\nmatching iiLocalDiffusion model-packaging, iiMultimodalAgent and iiLocalLLM SDK\npackages. Their native build and runtime behavior must be verified separately.\nThe local desktop broker is not a mobile background-service implementation.\n"
-    },
-    {
-      "id": "b000038",
       "kind": "blank",
       "start_line": 207,
       "end_line": 207,
       "raw": "\n"
     },
     {
-      "id": "b000039",
+      "id": "b000037",
       "kind": "paragraph",
       "start_line": 208,
+      "end_line": 214,
+      "raw": "A ready cache has an initialized inference-service delegate, but does not\nestablish successful runtime loading. The resident status reports that result.\nIf the model cannot be loaded, the daemon reports the error; preparation itself\ndoes not run inference. On desktop Windows and Linux the backend requires the\nmatching iiLocalDiffusion model-packaging, iiMultimodalAgent and iiLocalLLM SDK\npackages. Their native build and runtime behavior must be verified separately.\nThe local desktop broker is not a mobile background-service implementation.\n"
+    },
+    {
+      "id": "b000038",
+      "kind": "blank",
+      "start_line": 215,
       "end_line": 215,
+      "raw": "\n"
+    },
+    {
+      "id": "b000039",
+      "kind": "paragraph",
+      "start_line": 216,
+      "end_line": 223,
       "raw": "The daemon reacts to Society model-import, organization and recategorization\nevents affecting `iisaccson.safetensors`. A background metadata check keeps\nthe current loaded model when the component digest is unchanged. A new or\nunavailable component reinitializes the selected drive agent and cancels its\nin-flight requests; an import can also retry an earlier load failure. Society\nretains the workspace conversation and its persisted session when the same\ndrive is refreshed. Interrupted workspace responses remain visible and retryable.\nArbitrary external filesystem changes are not observed by this import-event path.\n"
     },
     {
       "id": "b000040",
       "kind": "blank",
-      "start_line": 216,
-      "end_line": 216,
+      "start_line": 224,
+      "end_line": 224,
       "raw": "\n"
     },
     {
       "id": "b000041",
       "kind": "heading",
-      "start_line": 217,
-      "end_line": 217,
+      "start_line": 225,
+      "end_line": 225,
       "raw": "### Per-device llama execution policy\n",
       "level": 3,
       "title": "Per-device llama execution policy"
@@ -320,15 +320,15 @@
     {
       "id": "b000042",
       "kind": "blank",
-      "start_line": 218,
-      "end_line": 218,
+      "start_line": 226,
+      "end_line": 226,
       "raw": "\n"
     },
     {
       "id": "b000043",
       "kind": "paragraph",
-      "start_line": 219,
-      "end_line": 233,
+      "start_line": 227,
+      "end_line": 241,
       "raw": "The backend optionally reads `iisacc/Society/agent-runtime.json` from the\nplatform's per-user generic configuration directory when creating its local\ninference service. The optional `llama.maxGpuLayers` integer is `-1` for\nautomatic device selection, `0` for CPU, or a positive GPU layer limit. If the\nfile or field is absent, the existing automatic policy remains unchanged. An\nunreadable, malformed, or invalid policy is reported as a preparation error.\nFor example, `{\"llama\":{\"maxGpuLayers\":0}}` selects CPU for this device.\nThe policy belongs to this device and user, not to the Society container or a\nmodel manifest. It changes neither model routing nor the memory and integrity\nchecks. Restart the backend after changing it. CPU execution is a recovery\noption when the native GPU runtime cannot complete a request; it can be slower.\nWhen this policy explicitly selects CPU, the resident model disables llama.cpp's\noptional CPU weight repacking. This keeps the existing mapped weights instead of\ncreating a second, eagerly repacked copy. Other execution policies keep their\nexisting defaults; CPU token generation may be slower without the optimized copy.\n"
     }
   ],
@@ -363,7 +363,7 @@
       "level": 3,
       "title": "Per-device llama execution policy",
       "anchor": "per-device-llama-execution-policy",
-      "start_line": 217
+      "start_line": 225
     }
   ],
   "indexes": {
@@ -397,13 +397,6 @@
         "context": "paragraph"
       },
       {
-        "block_id": "b000019",
-        "line": 95,
-        "text": "turns, `standard` 256 / 8, and `high` 512 / 16. These limits do not guarantee",
-        "basis": "lexical_match",
-        "context": "paragraph"
-      },
-      {
         "block_id": "b000023",
         "line": 122,
         "text": "model will never make an incorrect claim.",
@@ -418,36 +411,29 @@
         "context": "paragraph"
       },
       {
-        "block_id": "b000029",
-        "line": 157,
-        "text": "and its legacy roles do not uniquely identify the language model. The adapter",
-        "basis": "lexical_match",
-        "context": "paragraph"
-      },
-      {
-        "block_id": "b000031",
-        "line": 179,
-        "text": "do not perform the conversion. Changing the selection or container cancels the",
-        "basis": "lexical_match",
-        "context": "paragraph"
-      },
-      {
         "block_id": "b000033",
-        "line": 187,
-        "text": "again. The original Society model is never moved or replaced. A provider resource",
+        "line": 195,
+        "text": "time. The original package is never removed or changed by this cleanup.",
         "basis": "lexical_match",
         "context": "paragraph"
       },
       {
         "block_id": "b000035",
-        "line": 196,
+        "line": 202,
         "text": "The iiLocalLLM runtime must also include the layer-aware GGUF KV reservation",
         "basis": "lexical_match",
         "context": "paragraph"
       },
       {
-        "block_id": "b000037",
+        "block_id": "b000035",
         "line": 205,
+        "text": "It must also support bounded embedded GGUF reads; an older runtime reports the",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000037",
+        "line": 213,
         "text": "packages. Their native build and runtime behavior must be verified separately.",
         "basis": "lexical_match",
         "context": "paragraph"
@@ -481,7 +467,7 @@
   },
   "provenance": {
     "generator": "workspace-docs",
-    "version": "1.0.0",
+    "version": "1.0.0+manual-sync",
     "profile": "lossless-blocks-v1",
     "derived": true
   }

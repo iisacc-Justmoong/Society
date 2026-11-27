@@ -1,12 +1,15 @@
 #include "WorkspaceAgentBackend.h"
 #include "WorkspaceAgentRouter.h"
 #include "WorkspaceAgentModels.h"
+#include "EmbeddedModelRuntime.h"
 #include "WorkspaceAgentRuntimePolicy.h"
 #include "WorkspaceAgentTools.h"
 #include "UiToolBridge.h"
 #include "SuggestedModel.h"
 #include "ResidentGateway.h"
+#include "ServiceContentEmbedder.h"
 #include "Shared/LocalBackendAddress.h"
+#include "Society/Content/ContentIndex.h"
 
 #include <iiSocietyContainer>
 #include <SpaceStore.h>
@@ -33,9 +36,12 @@
 #include <QTimer>
 #include <QUuid>
 #include <QtEndian>
+#include <QtConcurrent/QtConcurrentRun>
 #include <algorithm>
 #include <atomic>
+#include <cmath>
 #include <filesystem>
+#include <limits>
 #include <mutex>
 #include <optional>
 #include <stdexcept>
@@ -158,6 +164,7 @@ void boundMessages(QJsonArray &messages) {
 struct AgentSource {
     QString path, kind, role, digest;
     iiSocietyContainer::ModelCacheKey cacheKey;
+    quint64 offset=0,size=0;
 };
 
 a::DecisionOptions readDecisionOptions(const QString &path) {
@@ -209,6 +216,46 @@ QJsonObject embeddedModel(const QString &path, const QString &role) {
 
 bool prepareModel(const AgentSource &source, iiSocietyContainer::ModelCache &cache,
                   const std::stop_token &stop, const iild::ModelPackagingObserver &observer) {
+    if (source.kind==QStringLiteral("iisaccson")) {
+        const auto item=inspectWorkspaceAgentModelRange(source.path,source.role);
+        if (item.value("sha256").toString()!=source.digest || item.value("offset").toInteger(-1)!=qint64(source.offset) ||
+            item.value("size").toInteger(-1)!=qint64(source.size))
+            throw std::runtime_error("The source model changed; restart the Society background service before continuing");
+        const auto id=QString::fromStdString(source.cacheKey.entry);
+        const auto architecture=item.value("metadata").toObject().value("general.architecture").toString();
+        const QJsonObject reference{{"format","society.embedded-gguf"},{"schema",1},
+            {"sha256",source.digest},{"offset",qint64(source.offset)},{"size",qint64(source.size)}};
+        const auto bytes=QJsonDocument(reference).toJson(QJsonDocument::Compact);
+        const auto checksum=QString::fromLatin1(QCryptographicHash::hash(bytes,QCryptographicHash::Sha256).toHex());
+        const QJsonObject manifest{{"schema_version",1},{"id",id},{"architecture",architecture},
+            {"format","society-embedded-gguf"},{"quantization","unknown"},{"context_length",2048},
+            {"capabilities",QJsonArray{"chat"}},{"entry_point","reference.json"},
+            {"files",QJsonArray{QJsonObject{{"path","reference.json"},{"size",bytes.size()},{"sha256",checksum}}}}};
+        const auto valid=[bytes,manifest](const std::filesystem::path &directory) {
+            const auto path=QString::fromStdU16String(directory.u16string());
+            const auto entries=QDir(path).entryList(QDir::AllEntries|QDir::Hidden|QDir::System|QDir::NoDotAndDotDot);
+            if (entries.size()!=2 || !entries.contains("manifest.json") || !entries.contains("reference.json")) return false;
+            QFile ref(QDir(path).filePath("reference.json")),info(QDir(path).filePath("manifest.json"));
+            if (!ref.open(QIODevice::ReadOnly) || ref.size()!=bytes.size() || ref.readAll()!=bytes ||
+                !info.open(QIODevice::ReadOnly) || info.size()>1024*1024) return false;
+            return QJsonDocument::fromJson(info.readAll()).object()==manifest;
+        };
+        const auto build=[bytes,manifest](const std::filesystem::path &directory,std::stop_token token)
+                -> iiSocietyContainer::ModelCache::Result<void> {
+            if (token.stop_requested()) return std::unexpected("Model reference preparation was cancelled");
+            const auto path=QString::fromStdU16String(directory.u16string());
+            const auto write=[&](const QString &name,const QByteArray &content) {
+                QSaveFile file(QDir(path).filePath(name));
+                return file.open(QIODevice::WriteOnly) && file.write(content)==content.size() && file.commit();
+            };
+            if (!write("reference.json",bytes) || !write("manifest.json",QJsonDocument(manifest).toJson(QJsonDocument::Compact)))
+                return std::unexpected("Cannot write the model reference");
+            return {};
+        };
+        const auto result=cache.ensure(source.cacheKey,build,valid,stop);
+        if (!result) throw std::runtime_error(result.error());
+        return result->hit;
+    }
     const auto item = embeddedModel(source.path,source.role);
     const auto digest = item.value("sha256").toString();
     if (digest != source.digest) throw std::runtime_error("The source model changed; restart the Society background service before continuing");
@@ -262,8 +309,8 @@ bool prepareModel(const AgentSource &source, iiSocietyContainer::ModelCache &cac
 class PreparedServiceModel final : public a::Model {
 public:
     using Prepare = std::function<bool(const AgentSource &, const iiMultimodalAgent::CancellationToken &, std::stop_token)>;
-    PreparedServiceModel(QString catalog, QHash<QString,AgentSource> sources, Prepare prepare)
-        : m_catalog(std::move(catalog)),m_sources(std::move(sources)),m_prepare(std::move(prepare)) {}
+    PreparedServiceModel(QString catalog,QString modelsRoot,QHash<QString,AgentSource> sources,Prepare prepare)
+        : m_catalog(std::move(catalog)),m_modelsRoot(std::move(modelsRoot)),m_sources(std::move(sources)),m_prepare(std::move(prepare)) {}
     a::ModelReply generate(const a::ModelRequest &request,const iiMultimodalAgent::CancellationToken &token,
                            const std::function<bool(const QString &)> &delta) override {
         ensure(request.model,token,{}); return m_delegate->generate(request,token,delta);
@@ -291,6 +338,31 @@ public:
         if (stop.stop_requested()) throw std::runtime_error("Model loading was cancelled.");
         return service;
     }
+    /// Reclaim only a verified former extraction, independently of the worker.
+    /// The cleanup retains no service or worker and stops on drive cancellation.
+    void cleanLegacyCache(const QString &model,std::stop_token stop) const {
+        const auto it=m_sources.constFind(model);
+        if (it==m_sources.cend() || it->kind!=QStringLiteral("iisaccson")) return;
+        const EmbeddedModelSource source{it->path,it->digest,it->offset,it->size};
+        (void)QtConcurrent::run([catalog=m_catalog,modelsRoot=m_modelsRoot,source,stop] {
+            (void)removeVerifiedLegacyModelCache(modelsRoot,catalog,source,stop);
+        });
+    }
+    // Make the existing scheduler available to the replaceable embedding
+    // adapter without creating a second, uncoordinated model service.
+    std::pair<std::shared_ptr<iiLocalLLM::Service>,QJsonObject> embeddingService(const QString &model,std::stop_token stop) {
+        if (stop.stop_requested()) throw std::runtime_error("Content embedding was cancelled.");
+        // These prepared sources are chat-only and their preparation callback
+        // belongs to the worker. An embedding task can outlive selection, so
+        // only independently installed catalog models may enter this adapter.
+        if (m_sources.contains(model)) throw std::runtime_error("This prepared chat model does not declare embedding support.");
+        iiMultimodalAgent::CancellationToken cancellation;
+        std::stop_callback onStop(stop,[cancellation] { cancellation.cancel(); });
+        ensure(model,cancellation,stop);
+        std::lock_guard lock(m_mutex);
+        if (!m_service || stop.stop_requested()) throw std::runtime_error("The local embedding service is unavailable.");
+        return {m_service,m_modelLoadOptions};
+    }
 private:
     bool ensure(const QString &model,const iiMultimodalAgent::CancellationToken &token,std::stop_token stop) {
         std::lock_guard lock(m_mutex);
@@ -312,6 +384,16 @@ private:
             llama.runtime.maxGpuLayers=workspaceAgentMaxGpuLayers(workspaceAgentRuntimeConfigPath());
             m_modelLoadOptions=workspaceAgentModelLoadOptions(llama.runtime.maxGpuLayers);
             auto service=std::make_shared<iiLocalLLM::Service>(options,iiLocalLLM::MlxRuntimeOptions{},llama);
+            QHash<QString,EmbeddedModelSource> direct;
+            for (auto it=m_sources.cbegin();it!=m_sources.cend();++it) {
+                const auto &source=it.value();
+                if (source.kind==QStringLiteral("iisaccson"))
+                    direct.insert(QString::fromStdString(source.cacheKey.entry),{source.path,source.digest,source.offset,source.size});
+            }
+            if (!direct.isEmpty()) {
+                auto delegate=iiLocalLLM::createLlamaRuntime(llama.runtime,llama.kvCache);
+                service->registerRuntime(createEmbeddedModelRuntime(m_modelsRoot,std::move(direct),std::move(delegate))).get();
+            }
             auto delegate=std::make_unique<a::ServiceModel>(*service);
             m_service=std::move(service);
             m_delegate=std::move(delegate);
@@ -320,6 +402,7 @@ private:
         return hit;
     }
     QString m_catalog;
+    QString m_modelsRoot;
     std::mutex m_mutex;
     std::shared_ptr<iiLocalLLM::Service> m_service;
     std::unique_ptr<a::ServiceModel> m_delegate;
@@ -334,12 +417,61 @@ QJsonObject inspectWorkspaceAgentModelPackage(const QString &path,const QString 
     return embeddedModel(path,role);
 }
 
+QJsonObject inspectWorkspaceAgentModelRange(const QString &path,const QString &role) {
+    const auto native=std::filesystem::path(path.toStdU16String());
+    const auto before=iiFileProvider::ObjectSource::inspect(native);
+    const auto item=embeddedModel(path,role);
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly)) throw std::runtime_error("Cannot read the selected model package");
+    const auto prefix=file.read(8);
+    if (prefix.size()!=8) throw std::runtime_error("The model package header is incomplete");
+    const auto length=qFromLittleEndian<quint64>(prefix.constData());
+    if (!length || length>quint64(maxHeader) || before.size<8 || length>before.size-8)
+        throw std::runtime_error("The model package header is invalid or too large");
+    QJsonParseError parse;
+    const auto header=QJsonDocument::fromJson(file.read(qint64(length)),&parse);
+    if (parse.error!=QJsonParseError::NoError || !header.isObject()) throw std::runtime_error("The model package header is invalid");
+    const auto mappings=item.value("tensors").toArray();
+    if (mappings.size()!=1 || !mappings.first().isObject()) throw std::runtime_error("The embedded GGUF has no unique byte mapping");
+    const auto mapping=mappings.first().toObject();
+    const auto key=mapping.value("output_key").toString();
+    const auto expectedKey=QStringLiteral("__iild_assets__/")+role+'/'+item.value("path").toString();
+    const auto integer=[](const QJsonValue &value) {
+        const auto n=value.toDouble(-1);
+        return value.isDouble() && n>=0 && n<=9007199254740991.0 && std::trunc(n)==n;
+    };
+    const auto size=item.value("size").toInteger(-1);
+    if (!integer(item.value("size")) || !integer(mapping.value("begin")) || !integer(mapping.value("end")) ||
+        key!=expectedKey || size<=0 || mapping.value("begin").toInteger(-1)!=0 ||
+        mapping.value("end").toInteger(-1)!=size || mapping.value("sha256")!=item.value("sha256"))
+        throw std::runtime_error("The embedded GGUF mapping does not match its manifest");
+    const auto tensor=header.object().value(key).toObject();
+    const auto offsets=tensor.value("data_offsets").toArray(),shape=tensor.value("shape").toArray();
+    if (tensor.value("dtype")!="U8" || offsets.size()!=2 || shape.size()!=1 ||
+        !integer(offsets[0]) || !integer(offsets[1]) || !integer(shape[0]))
+        throw std::runtime_error("The embedded GGUF tensor descriptor is invalid");
+    const auto first=offsets[0].toInteger(-1),last=offsets[1].toInteger(-1);
+    if (first<0 || last<first || last-first!=size || shape[0].toInteger(-1)!=size ||
+        quint64(last)>before.size-8-length || quint64(first)>quint64(std::numeric_limits<qint64>::max())-8-length ||
+        !file.seek(qint64(8+length)+first) || file.read(4)!="GGUF")
+        throw std::runtime_error("The embedded GGUF range is unavailable or invalid");
+    const auto after=iiFileProvider::ObjectSource::inspect(native);
+    if (before.stamp!=after.stamp) throw std::runtime_error("The model package changed during inspection");
+    auto result=item;
+    result.insert("offset",qint64(8+length)+first);
+    return result;
+}
+
 struct WorkspaceAgentBackend::Worker {
     QPointer<WorkspaceAgentBackend> owner;
     std::mutex mutex;
     std::stop_source stop;
     std::stop_source cacheStop;
     std::stop_source residentStop;
+    std::stop_source contentStop;
+    std::shared_ptr<society::content::Embedder> contentProvider;
+    QString contentRoot;
+    quint64 contentEpoch=0;
     iiMultimodalAgent::CancellationToken assessmentCancellation;
     iiMultimodalAgent::CancellationToken suggestionCancellation;
     std::optional<a::RunHandle> run;
@@ -372,9 +504,20 @@ struct WorkspaceAgentBackend::Worker {
     void reset() {
         cancelResident();
         cancel();
+        cancelContent();
         spaceEngine.reset(); engine.reset(); model.reset(); modelCache.reset(); cacheKeys.clear();
         session.clear(); spaceSessions.clear(); modelsPath.clear(); root.clear(); primaryModel.clear(); suggestionRouting={};
         std::lock_guard lock(mutex); run.reset(); routeNames.clear(); activeDefault.clear();
+    }
+    // Revocation is immediate even while an old worker task is finishing.
+    void cancelContent() {
+        std::lock_guard lock(mutex);
+        contentStop.request_stop(); contentProvider.reset(); contentRoot.clear(); contentEpoch=0;
+    }
+    society::content::EmbedderAccess contentAccess(const QString &container,quint64 generation) {
+        std::lock_guard lock(mutex);
+        if (contentEpoch!=generation || contentRoot!=container || contentStop.stop_requested()) return {};
+        return {contentProvider,contentStop.get_token()};
     }
     void cancelResident() { std::lock_guard lock(mutex); residentStop.request_stop(); }
     std::stop_token replaceResidentRequest() {
@@ -384,6 +527,7 @@ struct WorkspaceAgentBackend::Worker {
     void initialize(QString container, quint64 generation, bool preserveSession) {
         const auto previousSession=preserveSession && root==container ? session : QString{};
         reset(); epoch = generation; root = std::move(container);
+        { std::lock_guard lock(mutex); contentStop=std::stop_source{}; }
         QJsonObject result{{"models",QJsonArray{}},{"model",QString{}},{"busy",false},{"messages",QJsonArray{}}};
         try {
             QString error;
@@ -396,8 +540,9 @@ struct WorkspaceAgentBackend::Worker {
             const auto catalog=modelCache->catalog();
             if (!catalog) throw std::runtime_error(catalog.error());
             modelsPath=QString::fromStdU16String(catalog->u16string());
+            const auto modelsRoot=storage->filePath(iiSocietyContainer::StoreSection::Models,{},&error);
             const auto sessions = storage->ensureRuntimeDirectory("agent/sessions", &error);
-            if (modelsPath.isEmpty() || sessions.isEmpty()) throw std::runtime_error(error.toStdString());
+            if (modelsPath.isEmpty() || modelsRoot.isEmpty() || sessions.isEmpty()) throw std::runtime_error(error.toStdString());
             iiLocalLLM::ModelListing listing;
             if (!modelOverride) {
                 iiLocalLLM::ModelCatalog catalog(modelsPath);
@@ -438,16 +583,18 @@ struct WorkspaceAgentBackend::Worker {
                     const auto path=storage->filePath(iiSocietyContainer::StoreSection::Models,matches.front().id,&error);
                     if (path.isEmpty()) { issues.append(kind+QStringLiteral(": ")+error); continue; }
                     QJsonObject component;
-                    try { component=embeddedModel(path,role); }
+                    try { component=kind==QStringLiteral("iisaccson") ? inspectWorkspaceAgentModelRange(path,role) : embeddedModel(path,role); }
                     catch (const std::exception &failure) { issues.append(kind+QStringLiteral(": ")+QString::fromUtf8(failure.what())); continue; }
                     const auto digest=component.value("sha256").toString();
-                    const auto uri=QStringLiteral("model://")+kind+'-'+digest;
+                    const auto entry=kind+(kind==QStringLiteral("iisaccson") ? QStringLiteral("-ref-") : QStringLiteral("-"))+digest;
+                    const auto uri=QStringLiteral("model://")+entry;
                     const auto tracking=storage->fileTracking(iiSocietyContainer::StoreSection::Models,matches.front().id);
                     const auto stableId=tracking.value("resource").toObject().value("id").toString();
                     const auto resource=stableId.isEmpty()?QStringLiteral("path:")+matches.front().id:QStringLiteral("resource:")+stableId;
-                    const iiSocietyContainer::ModelCacheKey key{resource.toStdString(),digest.toStdString(),(kind+'-'+digest).toStdString()};
+                    const iiSocietyContainer::ModelCacheKey key{resource.toStdString(),digest.toStdString(),entry.toStdString()};
                     cacheKeys.insert(uri,key);
-                    sources.insert(uri,{path,kind,role,digest,key});
+                    sources.insert(uri,{path,kind,role,digest,key,quint64(component.value("offset").toInteger(0)),
+                                        quint64(component.value("size").toInteger(0))});
                     routeNames.insert(uri,kind);
                     routeEvidence.insert(kind,QJsonObject{{"name",kind},{"architecture",component.value("metadata").toObject().value("general.architecture")},
                         {"bytes",component.value("size")},{"provenance","package manifest"}});
@@ -478,7 +625,7 @@ struct WorkspaceAgentBackend::Worker {
                     }
                     agentOptions.decision.modelRoutes.push_back({record.manifest.id.toStdString(),record.uri.toStdString(),modalities});
                 }
-                model=std::make_shared<PreparedServiceModel>(modelsPath,sources,[this](const AgentSource &source,const iiMultimodalAgent::CancellationToken &cancel,std::stop_token warmStop) {
+                model=std::make_shared<PreparedServiceModel>(modelsPath,modelsRoot,sources,[this](const AgentSource &source,const iiMultimodalAgent::CancellationToken &cancel,std::stop_token warmStop) {
                     std::stop_token token; quint64 number;
                     { std::lock_guard lock(mutex); token=warmStop.stop_possible()?warmStop:stop.get_token(); number=activeNumber; }
                     const auto last=std::make_shared<std::atomic<int>>(-1);
@@ -525,8 +672,13 @@ struct WorkspaceAgentBackend::Worker {
             result.insert("residentModel",primaryModel);
             const auto saved=modelCache->primary();
             if (!saved) issues.append(QStringLiteral("Model cache: ")+QString::fromStdString(saved.error()));
-            else if (*saved) for (auto it=cacheKeys.cbegin();it!=cacheKeys.cend();++it)
-                if (it.value()==**saved) { result.insert("model",it.key()); break; }
+            else if (*saved) for (auto it=cacheKeys.cbegin();it!=cacheKeys.cend();++it) {
+                const auto &key=it.value();
+                const bool migrated=key.resource==(**saved).resource && key.revision==(**saved).revision &&
+                    key.entry==std::string("iisaccson-ref-")+key.revision &&
+                    (**saved).entry==std::string("iisaccson-")+key.revision;
+                if (key==**saved || migrated) { result.insert("model",it.key()); break; }
+            }
             suggestionRouting=agentOptions.decision;
             if (!modelOverride && !QFileInfo::exists(decisionPath)) {
                 // Background recommendation routing uses a separate assessment
@@ -545,7 +697,9 @@ struct WorkspaceAgentBackend::Worker {
                 auto live=std::make_shared<WorkspaceAgentToolTransport>();
                 live->command=[this](const QString &container,const QString &operation,const QJsonObject &args) {
                     QString broker; { std::lock_guard lock(mutex); broker=brokerDirectory; }
-                    return societyBackendCommand(broker,operation,args,container,30000);
+                    const bool longOperation=operation=="resourceCompareBytes" || operation=="resourceContentIndex" ||
+                        operation=="resourceContentSearch" || operation=="resourceContentPolicySet";
+                    return societyBackendCommand(broker,operation,args,container,longOperation?120000:30000);
                 };
                 live->directory=[this](const QString &container,const QString &path,int offset,int limit) {
                     QString broker; { std::lock_guard lock(mutex); broker=brokerDirectory; }
@@ -569,6 +723,15 @@ struct WorkspaceAgentBackend::Worker {
             agentOptions.sessionsDirectory=storage->ensureRuntimeDirectory("agent/space-sessions", &error);
             if (agentOptions.sessionsDirectory.isEmpty()) throw std::runtime_error(error.toStdString());
             spaceEngine=std::make_unique<a::Engine>(model,workspaceAgentTools(pinnedRoot,transport),std::make_shared<a::RulePolicy>(),agentOptions);
+            if (const auto prepared=std::dynamic_pointer_cast<PreparedServiceModel>(model)) {
+                std::lock_guard lock(mutex);
+                if (!contentStop.stop_requested()) {
+                    contentProvider=std::make_shared<ServiceContentEmbedder>([prepared](const QString &model,std::stop_token stop) {
+                        return prepared->embeddingService(model,stop);
+                    });
+                    contentRoot=root; contentEpoch=generation;
+                }
+            }
             // The previous session is stored independently of the engine.
             // Its next run validates and resumes the existing transcript.
             session=previousSession;
@@ -612,13 +775,14 @@ struct WorkspaceAgentBackend::Worker {
         bool waitForMemory=false, fixtureReady=false;
         quint64 availableMemory=0;
         std::shared_ptr<iiLocalLLM::Service> service;
+        std::shared_ptr<PreparedServiceModel> prepared;
         try {
             if (residentPrepareOverride) {
                 residentPrepareOverride(primary,token);
                 if (token.stop_requested()) throw std::runtime_error("Model loading was cancelled.");
                 fixtureReady=true;
             } else {
-                const auto prepared=std::dynamic_pointer_cast<PreparedServiceModel>(model);
+                prepared=std::dynamic_pointer_cast<PreparedServiceModel>(model);
                 if (primary.isEmpty() || !prepared) throw std::runtime_error("The iisaccson model is unavailable.");
                 service=prepared->pin(primary,token);
             }
@@ -633,6 +797,7 @@ struct WorkspaceAgentBackend::Worker {
         if (owner) QMetaObject::invokeMethod(owner,[owner=owner,generation,primary,service,error,waitForMemory,availableMemory,fixtureReady] {
             if (owner) owner->residentInitialized(generation,primary,service,error,waitForMemory,availableMemory,fixtureReady);
         },Qt::QueuedConnection);
+        if (error.isEmpty() && service && prepared && !token.stop_requested()) prepared->cleanLegacyCache(primary,token);
     }
     void observeResidentModel(quint64 generation) {
         if (epoch!=generation) return;
@@ -648,7 +813,7 @@ struct WorkspaceAgentBackend::Worker {
                 if (matches.size()==1) {
                     const auto path=storage->filePath(iiSocietyContainer::StoreSection::Models,matches.front().id,&error);
                     if (!path.isEmpty())
-                        observed=QStringLiteral("model://iisaccson-")+embeddedModel(path,QStringLiteral("model")).value("sha256").toString();
+                        observed=QStringLiteral("model://iisaccson-ref-")+inspectWorkspaceAgentModelRange(path,QStringLiteral("model")).value("sha256").toString();
                 }
             }
         } catch (const std::exception &) {
@@ -846,9 +1011,13 @@ void WorkspaceAgentBackend::setBrokerDirectory(const QString &directory) {
 WorkspaceAgentBackend::~WorkspaceAgentBackend() {
     m_resident->clear(QStringLiteral("The daemon is stopping."));
     m_worker->cancelResident();
+    m_worker->cancelContent();
     m_worker->cancel();
     QMetaObject::invokeMethod(m_dispatch,[worker=m_worker] { worker->reset(); },Qt::BlockingQueuedConnection);
     m_thread.quit(); m_thread.wait();
+}
+society::content::EmbedderAccess WorkspaceAgentBackend::contentEmbedder() const {
+    return m_worker->contentAccess(m_container,m_epoch);
 }
 void WorkspaceAgentBackend::publish() {
     emit changed(m_state);
@@ -936,6 +1105,7 @@ void WorkspaceAgentBackend::beginSelection(QString container,bool preserveConver
     m_resident->clear(preserveConversation ? QStringLiteral("The resident model changed.")
                                            : QStringLiteral("The selected Society drive changed."));
     m_worker->cancelResident();
+    m_worker->cancelContent();
     m_worker->cancel(); m_container = container; ++m_epoch; ++m_run; ++m_suggestionSequence;
     m_suggestionBusy=false; m_suggestionTicket.clear(); m_busy = false; m_deltaScheduled=false; m_model.clear(); m_pending.reset();
     if (!preserveConversation) m_spaceStates.clear();

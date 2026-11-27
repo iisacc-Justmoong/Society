@@ -14,7 +14,7 @@ LVRS 입력 필드·버튼·라벨과 화면 크기에 맞는 스크롤 패널�
 `Main.qml`이 `objectName: societyAccount`인 `AccountController` 하나를 소유한다.
 이 컨트롤러가 `iisacc::accounts::AccountManager`와 전용 `QNetworkAccessManager`를 소유한다.
 `NetworkDriveController.accountSession`은 이를 `QPointer`로 참조하고 별도 계정을 만들지 않는다.
-공통 `App/main.cpp`는 루트 생성 후 같은 manager를 `iiSocietyHelper::Helper::setAccountManager()`에 연결한다.
+`App/Society/main.cpp`는 루트 생성 후 같은 manager를 `iiSocietyHelper::Helper::setAccountManager()`에 연결한다.
 따라서 모든 플랫폼에서 계정 패널, 네트워크 드라이브, Helper가 같은 Account·AuthorDetails 객체를 읽는다.
 계정이 파괴되거나 교체되면 네트워크 연결을 해제하며 Helper의 비소유 참조도 자동 해제된다.
 

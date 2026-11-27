@@ -1,0 +1,122 @@
+{
+  "format": "iisacc.agent-document",
+  "schema_version": 1,
+  "document_id": "urn:iisacc:document:2bb91d5cbc3ca95fa60645c3162be703f2a88a85bf3b2c233a8eb6138a8d6767",
+  "project": {
+    "id": "urn:iisacc:project:Product%2FSociety",
+    "name": "Society",
+    "root": "Product/Society",
+    "kind": "application"
+  },
+  "source": {
+    "path": "docs/BetaAppIcons.md",
+    "sha256": "7ff7072a01981477720d37fd7e16a1159593d47d2d91e5ef3f791c7a3b65152e",
+    "bytes": 1454,
+    "line_count": 23,
+    "encoding": "utf-8",
+    "language": "ko"
+  },
+  "document": {
+    "title": "Society 베타 앱 아이콘",
+    "role": "guide",
+    "authority": "markdown_source"
+  },
+  "blocks": [
+    {
+      "id": "b000001",
+      "kind": "heading",
+      "start_line": 1,
+      "end_line": 1,
+      "raw": "# Society 베타 앱 아이콘\n",
+      "level": 1,
+      "title": "Society 베타 앱 아이콘"
+    },
+    {
+      "id": "b000002",
+      "kind": "blank",
+      "start_line": 2,
+      "end_line": 2,
+      "raw": "\n"
+    },
+    {
+      "id": "b000003",
+      "kind": "paragraph",
+      "start_line": 3,
+      "end_line": 6,
+      "raw": "베타 아이콘은 정식 아이콘을 대체하지 않는 별도 빌드 입력이다. 원본 시안은\n`resources/Appicon/Beta/Society-beta-concept.png`, 플랫폼별 결과는\n`resources/Appicon/Beta/generated/`에 둔다. 시안은 기존 아이콘을 바탕으로\n이미지 생성 도구가 다시 그린 것이므로 원본 벡터와 선·비율이 완전히 같지는 않다.\n"
+    },
+    {
+      "id": "b000004",
+      "kind": "blank",
+      "start_line": 7,
+      "end_line": 7,
+      "raw": "\n"
+    },
+    {
+      "id": "b000005",
+      "kind": "paragraph",
+      "start_line": 8,
+      "end_line": 10,
+      "raw": "`tools/generate_app_icons.py`는 `--source`와 `--output`으로 정식과 베타\n리소스를 각각 생성한다. 매니페스트는 실제 입력 파일의 이름과 SHA-256을 기록한다.\n베타 빌드는 다음과 같이 선택한다.\n"
+    },
+    {
+      "id": "b000006",
+      "kind": "blank",
+      "start_line": 11,
+      "end_line": 11,
+      "raw": "\n"
+    },
+    {
+      "id": "b000007",
+      "kind": "fenced_code",
+      "start_line": 12,
+      "end_line": 17,
+      "raw": "```sh\npython3 tools/generate_app_icons.py --source resources/Appicon/Beta/Society-beta-concept.png --output resources/Appicon/Beta/generated\ncmake -S . -B build -DSOCIETY_APP_ICON_DIRECTORY=\"$PWD/resources/Appicon/Beta/generated\"\ncmake --build build --target Society\nctest --test-dir build -R 'Society.(AppIcons|BetaAppIcons)' --output-on-failure\n```\n",
+      "language": "sh",
+      "code": "python3 tools/generate_app_icons.py --source resources/Appicon/Beta/Society-beta-concept.png --output resources/Appicon/Beta/generated\ncmake -S . -B build -DSOCIETY_APP_ICON_DIRECTORY=\"$PWD/resources/Appicon/Beta/generated\"\ncmake --build build --target Society\nctest --test-dir build -R 'Society.(AppIcons|BetaAppIcons)' --output-on-failure\n",
+      "closed": true
+    },
+    {
+      "id": "b000008",
+      "kind": "blank",
+      "start_line": 18,
+      "end_line": 18,
+      "raw": "\n"
+    },
+    {
+      "id": "b000009",
+      "kind": "paragraph",
+      "start_line": 19,
+      "end_line": 23,
+      "raw": "`SOCIETY_APP_ICON_DIRECTORY`를 지정하지 않은 새 구성은\n`resources/Appicon/generated/`를 사용한다. 기존 캐시에서 정식 아이콘으로\n돌아가려면 구성할 때 `-U SOCIETY_APP_ICON_DIRECTORY`를 사용한다. 선택한\n세트는 macOS 번들·런타임 브랜딩과 Windows 실행 파일 리소스에 적용된다.\n패키지 서명, Apple 공증, Microsoft Store 제출은 아이콘 선택과 별도로 검증한다.\n"
+    }
+  ],
+  "outline": [
+    {
+      "block_id": "b000001",
+      "parent_id": null,
+      "level": 1,
+      "title": "Society 베타 앱 아이콘",
+      "anchor": "society-베타-앱-아이콘",
+      "start_line": 1
+    }
+  ],
+  "indexes": {
+    "directive_candidates": [],
+    "commands": [
+      {
+        "block_id": "b000007",
+        "language": "sh",
+        "code": "python3 tools/generate_app_icons.py --source resources/Appicon/Beta/Society-beta-concept.png --output resources/Appicon/Beta/generated\ncmake -S . -B build -DSOCIETY_APP_ICON_DIRECTORY=\"$PWD/resources/Appicon/Beta/generated\"\ncmake --build build --target Society\nctest --test-dir build -R 'Society.(AppIcons|BetaAppIcons)' --output-on-failure\n"
+      }
+    ],
+    "links": [],
+    "tables": []
+  },
+  "provenance": {
+    "generator": "workspace-docs",
+    "version": "1.0.0",
+    "profile": "lossless-blocks-v1",
+    "derived": true
+  }
+}

@@ -1,0 +1,18 @@
+import vm NativeErrorNotificationViewModel
+
+Window {
+    Popover(id: "society-error-notification", width: vm.popupWidth, height: vm.popupHeight, focus: false,
+            clip: true, closeOnEscape: false, closeOnPressOutside: false, motionEnabled: false, blurEnabled: false,
+            accessibilityName: "Error notification") {
+        HStack(id: "error-notification-content", spacing: Metric.space8, alignment: .top) {
+            VStack(spacing: Metric.space4, alignment: .stretch, flex: 1) {
+                Label(text: "Error", style: .body)
+                ScrollView(id: "error-message-scroll", height: vm.messageHeight) {
+                    Label(id: "error-message", text: vm.message, style: .caption)
+                }
+            }
+            IconButton(id: "dismiss-error-notification", iconName: "generalclose", iconSource: vm.iconSource, tone: .borderless,
+                       accessibilityName: "Dismiss notification", onClick: vm.dismiss)
+        }
+    }
+}

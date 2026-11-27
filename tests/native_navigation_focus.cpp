@@ -70,8 +70,10 @@ constexpr std::array segments{
     Segment{"tasks", "Tools", Action::Tasks},
     Segment{"library", "Storage", Action::Library},
     Segment{"space", "Space", Action::Space},
-    Segment{"browse", "Browse", Action::Browse},
-    Segment{"people", "People", Action::People},
+    Segment{"apps", "Apps", Action::Apps},
+    Segment{"service", "Service", Action::Service},
+    Segment{"community", "Community", Action::Community},
+    Segment{"learning", "Learning", Action::Learning},
     Segment{"hosting", "Hosting", Action::Hosting},
 };
 }

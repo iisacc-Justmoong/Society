@@ -148,9 +148,22 @@ bool AccountController::startLocalLicenseBroker(const QString &directory, bool s
                         if(!allowed || (action!="check" && action!="grant")) {
                             respond(socket,{{"code","update_not_authorized"},{"requestId",requestId}});return;
                         }
+                        // Forward only the bounded, paired incremental grant capability.
+                        const bool hasDelta=input.contains("deltaFrom") || input.contains("deltaFormat");
+                        const auto base=input.value("deltaFrom").toString();
+                        static const QRegularExpression version("\\A(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\z");
+                        bool validBase=base.size()<=32 && version.match(base).hasMatch();
+                        for(const auto &component:base.split('.')) {
+                            bool ok=false;const auto number=component.toULongLong(&ok);
+                            if(!ok||number>2147483647ULL)validBase=false;
+                        }
+                        if(hasDelta && (action!="grant" || !validBase || input.value("deltaFormat")!="iiudlt1")) {
+                            respond(socket,{{"code","invalid_update_delta"},{"requestId",requestId}});return;
+                        }
                         QJsonObject request{{"productId",product},{"deviceId",input.value("deviceId")},
                             {"platformKey",input.value("platformKey")},{"action",action},{"requestId",requestId},
                             {"currentVersion",input.value("currentVersion")},{"version",input.value("version")}};
+                        if(hasDelta) {request.insert("deltaFrom",base);request.insert("deltaFormat","iiudlt1");}
                         const auto body=QJsonDocument(QJsonObject{{"query","mutation AccountUpdates($input: JSON!) { accountUpdates(input: $input) }"},
                             {"variables",QJsonObject{{"input",request}}}}).toJson(QJsonDocument::Compact);
                         auto* reply=manager->postAuthenticated(manager->serviceUrl().resolved(QUrl("/Account/GraphQL")),body);

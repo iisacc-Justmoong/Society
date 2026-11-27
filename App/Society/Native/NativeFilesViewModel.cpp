@@ -483,10 +483,19 @@ bool NativeFilesViewModel::submitOperation(const std::string &action,const std::
 }
 void NativeFilesViewModel::recordError(const std::string &path,const std::string &message) {
     const auto entry=path.empty()?message:path+": "+message;
+    if (entry.empty()) return;
     if (std::find(m_errors.begin(),m_errors.end(),entry)==m_errors.end()) m_errors.push_back(entry);
     if (m_errors.size()>128) { m_errors.erase(m_errors.begin()); ++m_omittedErrors; }
     m_errorCursor=m_errors.size()-1;
     updateErrors();
+    m_notificationQueue.push(entry);
+    notificationMessage.set(std::string(m_notificationQueue.current()));
+    if (onNotificationChanged) onNotificationChanged();
+}
+void NativeFilesViewModel::dismissNotification() {
+    m_notificationQueue.dismiss();
+    notificationMessage.set(std::string(m_notificationQueue.current()));
+    if (onNotificationChanged) onNotificationChanged();
 }
 void NativeFilesViewModel::updateErrors() {
     std::string joined=m_omittedErrors ? std::to_string(m_omittedErrors)+" older errors omitted" : std::string{};
@@ -531,7 +540,9 @@ void NativeFilesViewModel::disconnected() {
     clearRows(); updateControls(); canReconnect.set(true); status.set("Society backend disconnected");
 }
 void NativeFilesViewModel::backendError(std::string message) {
-    disconnected(); status.set(message.empty() ? "Society backend error" : std::move(message));
+    disconnected();
+    if (message.empty()) message="Society backend error";
+    status.set(message);recordError({},message);
 }
 void NativeFilesViewModel::resize(double width, double height) {
     const auto &tokens=lvui::default_style_tokens();

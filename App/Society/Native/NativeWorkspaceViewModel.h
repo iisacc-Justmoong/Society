@@ -102,6 +102,8 @@ struct NativeWorkspaceViewModel final {
     std::function<void(const std::string &)> onSelectModel;
     std::function<void()> onNewConversation, onStopAgent;
     std::function<void()> onRefresh;
+    // Report each explicit workspace operation error to the owning shell.
+    std::function<void(const std::string &)> onOperationError;
     std::function<void(const std::vector<std::string> &)> onGridSetSelection;
     std::function<void(const std::vector<std::string> &)> onCopyPaths;
     std::function<void(const std::vector<std::string> &)> onCopyFiles;

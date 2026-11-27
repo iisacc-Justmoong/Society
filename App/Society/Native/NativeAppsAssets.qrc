@@ -1,0 +1,11 @@
+<RCC>
+  <qresource prefix="/society/apps">
+    <file alias="congregation.png">../../../resources/apps/congregation.png</file>
+    <file alias="dreamscapes.png">../../../resources/apps/dreamscapes.png</file>
+    <file alias="application-alt.svg">../../../resources/apps/application-alt.svg</file>
+    <file alias="user.svg">../../../resources/apps/user.svg</file>
+    <file alias="ppWeb.svg">../../../resources/apps/ppWeb.svg</file>
+    <file alias="extension.svg">../../../resources/apps/extension.svg</file>
+    <file alias="grid.svg">../../../resources/apps/grid.svg</file>
+  </qresource>
+</RCC>

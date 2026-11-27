@@ -1,9 +1,14 @@
 # Society 소스 배치
 
-앱 진입점은 `App/main.cpp`이고 기능별 C++·QML 소스는 `App/Society/`에 있다.
-데몬은 `App/Daemon/`, 운영체제별 앱 리소스와 Android Java 소스는
-`App/platform/`에 있다. 프로젝트 헤더 검색 기준은 `App/`이므로 앱 기능은
-`Society/...`, 데몬은 `Daemon/...` 경로로 포함한다.
+제품의 `App/`에는 여섯 디렉터리와 각 진입점이 보존되어 있다. 배포 대상은
+`Society`, `Daemon`, `Uninstaller` 세 앱이다. `Shared`와 `platform`은 공용
+코드와 플랫폼 자원이며, `SocietyCommunity`의 자리 표시자와 함께 설치 대상에서
+제외한다. iiSDKBuilder의 통합 앱 트리에서 세 앱 외의 독립 CMake 앱이
+발견되면 빌드를 중단한다. Uninstaller는 아직 실제 파일을 제거하지 않는 자리 표시자이다.
+
+기존 운영체제별 앱 리소스와 Android Java 소스는 `App/platform/`, 기존 공통
+지원 코드는 `App/Shared/`에 계속 있다. 프로젝트 헤더 검색 기준은 `App/`이므로
+Society 기능은 `Society/...`, 데몬은 `Daemon/...` 경로로 포함한다.
 
 실제 QML 파일이 `App/Society/`에 있더라도 Qt 리소스 별칭은 기존의
 `qrc:/qt/qml/Society/App/`을 유지한다. 이 경로는 실행 중인 앱과 번들 리소스

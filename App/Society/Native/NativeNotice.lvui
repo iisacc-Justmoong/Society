@@ -1,0 +1,10 @@
+import vm NativeNoticeViewModel
+
+Window(accent: .green) {
+    ZStack {
+        Alert(id: "society-notice", title: vm.title, message: vm.message,
+              primaryText: vm.primaryText, buttonCount: 1, showIcon: false,
+              motionEnabled: false, open: vm.open,
+              onPrimaryClicked: vm.dismiss, onDismissed: vm.dismiss)
+    }
+}

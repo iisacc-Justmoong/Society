@@ -11,6 +11,23 @@ namespace m = iiMultimodalAgent::mcp;
 class FileJobToolsTests final : public QObject {
     Q_OBJECT
 private slots:
+    void rejectsAutomatedDeletionBeforeTransport() {
+        int calls=0;
+        const auto tools=societyFileJobTools([&](const QString &,QJsonObject,const a::ToolContext &) {
+            ++calls; return SocietyBackendCommandReply{{{"accepted",true}},{},false};
+        });
+        for (const auto &action:{"trash","remove"}) {
+            const auto result=tools.first().execute({{"action",action},{"path","Files/a.txt"},{"approved",true}},{});
+            QVERIFY(result.isError); QVERIFY(result.text.contains("cleanup",Qt::CaseInsensitive));
+        }
+        for (const auto &destination:{"Deleted","deleted/subfolder"}) {
+            const auto result=tools.first().execute({{"action","move"},{"path","Files/a.txt"},{"argument",destination}},{});
+            QVERIFY(result.isError);
+        }
+        QCOMPARE(calls,0);
+        const auto ordinary=tools.first().execute({{"action","move"},{"path","Files/a.txt"},{"argument","Files/Deleted"}},{});
+        QVERIFY(!ordinary.isError); QCOMPARE(calls,1);
+    }
     void forwardsJobsAndReportsUncertainResults() {
         int calls=0; QString operation; QJsonObject arguments;
         a::ToolRegistry registry;
@@ -58,7 +75,7 @@ private slots:
             options.initializeTimeoutMs=5000; options.requestTimeoutMs=10000;
             m::HttpClient client(options);
             auto response=client.request("tools/call",{{"name","file_job_submit"},
-                {"arguments",QJsonObject{{"action","trash"},{"path","Files/a.txt"}}}});
+                {"arguments",QJsonObject{{"action","rename"},{"path","Files/a.txt"},{"argument","b.txt"}}}});
             client.close(); return response;
         });
         QTRY_VERIFY_WITH_TIMEOUT(future.wait_for(std::chrono::milliseconds(0))==std::future_status::ready,20000);

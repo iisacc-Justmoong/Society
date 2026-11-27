@@ -1,0 +1,109 @@
+import vm NativeAppsViewModel
+
+Window(accent: .green) {
+    HStack(id: "apps-root", width: vm.viewportWidth, height: vm.viewportHeight, spacing: 0, alignment: .top) {
+        VStack(id: "apps-sidebar", visible: !vm.compact, width: 220, height: vm.viewportHeight, padding: Metric.space12, spacing: Metric.space4, alignment: .leading) {
+            Label(text: "Apps", style: .body)
+            Label(text: "Manage your creative apps.", style: .caption)
+            ListItem(id: "apps-all", type: .Navigation, label: "All apps", iconName: "application-alt", iconSource: vm.iconSource, width: 196, height: 36, selected: vm.allActive, showChevron: false, onClick: vm.showAllApps)
+            ListItem(id: "apps-mine", type: .Navigation, label: "My apps", iconName: "user", iconSource: vm.iconSource, width: 196, height: 36, selected: vm.myActive, showChevron: false, onClick: vm.showMyApps)
+            ListItem(id: "apps-web", type: .Navigation, label: "Web apps", iconName: "ppWeb", iconSource: vm.iconSource, width: 196, height: 36, selected: vm.webActive, showChevron: false, onClick: vm.showWebApps)
+            ListItem(id: "apps-extensions", type: .Navigation, label: "Extension", iconName: "extension", iconSource: vm.iconSource, width: 196, height: 36, selected: vm.extensionActive, showChevron: false, onClick: vm.showExtensions)
+            ListItem(id: "apps-elements", type: .Navigation, label: "Elements", iconName: "grid", iconSource: vm.iconSource, width: 196, height: 36, selected: vm.elementsActive, showChevron: false, onClick: vm.showElements)
+        }
+        VStack(id: "apps-content", width: vm.contentWidth + Metric.space24 + Metric.space24, leftPadding: Metric.space24, rightPadding: Metric.space24, topPadding: Metric.space24, spacing: Metric.space24, alignment: .leading) {
+            ScrollView(id: "apps-compact-nav", visible: vm.compact, width: vm.contentWidth, height: 36, horizontal: true) {
+                HStack(spacing: Metric.space4) {
+                    LabelButton(text: "All apps", onClick: vm.showAllApps)
+                    LabelButton(text: "My apps", onClick: vm.showMyApps)
+                    LabelButton(text: "Web apps", onClick: vm.showWebApps)
+                    LabelButton(text: "Extension", onClick: vm.showExtensions)
+                    LabelButton(text: "Elements", onClick: vm.showElements)
+                }
+            }
+            HStack(width: vm.contentWidth, spacing: Metric.space16, alignment: .center) {
+                VStack(spacing: Metric.space8, alignment: .leading) {
+                    Label(text: "Apps", style: .caption)
+                    Label(id: "apps-heading", text: vm.heading, style: .title)
+                    Label(text: vm.subtitle, style: .caption)
+                }
+                Spacer()
+                LabelButton(id: "apps-check-updates", visible: vm.allActive, text: "Check for updates", enabled: false)
+            }
+            HStack(width: vm.contentWidth, spacing: Metric.space24, alignment: .top) {
+                VStack(id: "apps-catalog", width: vm.catalogWidth, spacing: Metric.space16, alignment: .leading) {
+                    HStack(width: vm.catalogWidth, spacing: Metric.space8) {
+                        InputField(id: "apps-search", text: vm.query, placeholder: vm.searchPlaceholder, surface: .flat, clearButtonVisible: true, width: vm.searchWidth, onEdited: vm.searchEdited)
+                        Spacer()
+                        DropdownButton(id: "apps-device", visible: vm.showDevice, text: "This device", enabled: false)
+                    }
+                    VStack(visible: vm.nativeCollection && !vm.showDetail && vm.hasSelection, width: vm.catalogWidth, spacing: Metric.space4, alignment: .leading) {
+                        Label(text: vm.detailName, style: .body)
+                        Label(text: vm.detailDescription, style: .caption)
+                        Label(text: vm.detailStatus, style: .caption)
+                        LabelButton(text: vm.detailAction, enabled: vm.actionEnabled, onClick: vm.performAction)
+                    }
+                    Label(text: vm.count, style: .body)
+                    Label(id: "apps-unavailable", text: "This collection is not connected yet.", style: .caption, visible: !vm.collectionAvailable)
+                    Label(text: "No apps match this view.", style: .caption, visible: vm.collectionAvailable && !vm.hasApps)
+                    Label(id: "apps-notice", text: vm.notice, style: .caption, visible: vm.hasNotice)
+                    ScrollView(id: "apps-cards-scroll", width: vm.catalogWidth, height: vm.listHeight) {
+                        VStack(spacing: Metric.space16, alignment: .leading) {
+                            for (row in vm.rows, key: row.id, id: "apps-rows", spacing: Metric.space16) {
+                                HStack(spacing: Metric.space16, alignment: .top) {
+                                    for (app in row.items, key: app.id, id: "apps-cards", horizontal: true, spacing: Metric.space16) {
+                                        if (vm.nativeCollection) {
+                                            EventListener(id: "apps-card-hit", width: vm.cardWidth, height: 200, onClick: callback(vm.selectApp(app.id))) {
+                                                VStack(width: vm.cardWidth, height: 200, padding: Metric.space16, spacing: Metric.space8, alignment: .leading,
+                                                       backgroundColor: app.selected ? Color.green.subtle : Color.transparent, cornerRadius: Metric.radius8) {
+                                                    Image(id: "apps-card-icon", source: app.icon, width: 64, height: 64, fit: .Contain, allowEmpty: true, accessibilityName: app.name)
+                                                    ListItem(id: "apps-card-select", type: .Navigation, label: app.name, width: vm.cardWidth - Metric.space32, height: 32, selected: app.selected, showChevron: false, onClick: callback(vm.selectApp(app.id)))
+                                                    Label(text: app.status, style: .caption)
+                                                    LabelButton(id: "apps-card-action", text: app.action, enabled: app.available && !vm.busy, onClick: callback(vm.actionFor(app.id)))
+                                                }
+                                            }
+                                        } else {
+                                            EventListener(id: "apps-web-card-hit", width: vm.cardWidth, height: 168, onClick: callback(vm.selectApp(app.id))) {
+                                                VStack(width: vm.cardWidth, height: 168, padding: Metric.space16, spacing: Metric.space8, alignment: .leading) {
+                                                    Image(id: "apps-web-icon", source: app.icon, width: 64, height: 64, fit: .Contain, allowEmpty: true, accessibilityName: app.name)
+                                                    HStack(width: vm.cardWidth - Metric.space32, spacing: Metric.space8) {
+                                                        VStack(spacing: Metric.space4, alignment: .leading) {
+                                                            Label(text: app.name, style: .body)
+                                                            Label(text: app.description, style: .caption)
+                                                        }
+                                                        Spacer()
+                                                        LabelButton(text: app.action, enabled: app.available && !vm.busy, onClick: callback(vm.actionFor(app.id)))
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    Label(text: "This device", style: .caption, visible: vm.nativeCollection)
+                    Label(text: "Installation activity", style: .body, visible: vm.nativeCollection)
+                    Label(id: "apps-activity", text: vm.activity, style: .caption, visible: vm.nativeCollection)
+                    Label(text: "Keep this device online while an installation is in progress.", style: .caption, visible: vm.nativeCollection)
+                }
+                VStack(id: "apps-detail", visible: vm.showDetail && vm.hasSelection, width: vm.detailWidth, padding: Metric.space16, spacing: Metric.space12, alignment: .leading) {
+                    Image(id: "apps-detail-icon", source: vm.detailIcon, width: 48, height: 48, fit: .Contain, allowEmpty: true, accessibilityName: vm.detailName)
+                    Label(id: "apps-detail-name", text: vm.detailName, style: .body)
+                    Label(text: vm.detailDescription, style: .caption)
+                    Label(text: vm.detailStatus, style: .caption)
+                    LabelButton(id: "apps-detail-action", text: vm.detailAction, enabled: vm.actionEnabled, onClick: vm.performAction)
+                    Label(text: "Provider", style: .body)
+                    Label(text: vm.detailPublisher, style: .caption)
+                    Label(text: "Installed on", style: .body)
+                    Label(text: vm.detailLocation, style: .caption)
+                    Label(text: "Storage access", style: .body)
+                    Label(text: "Not connected", style: .caption)
+                    Label(text: "Automatic updates", style: .body)
+                    Label(text: "Not available", style: .caption)
+                    LabelButton(id: "apps-uninstall", text: "Uninstall app", enabled: false)
+                }
+            }
+        }
+    }
+}

@@ -40,7 +40,8 @@ class SourceLayoutTests(unittest.TestCase):
                            cache_text, re.MULTILINE)
         self.assertIsNotNone(option, "The application launch check must be an explicit build option")
         build = ninja.read_text(encoding="utf-8")
-        block = re.search(r'^build bin/Society\.app/Contents/MacOS/Society:.*?\n(?=\S)',
+        # A direct CMake build uses bin/, while iiSDKBuilder groups app targets.
+        block = re.search(r'^build (?:bin|iiSDKBuilderApps)/Society\.app/Contents/MacOS/Society:.*?\n(?=\S)',
                           build, re.MULTILINE | re.DOTALL)
         self.assertIsNotNone(block, "Society's app link rule must exist")
         post_build = re.search(r'^  POST_BUILD = (.*)$', block.group(), re.MULTILINE)

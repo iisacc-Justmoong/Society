@@ -1,6 +1,7 @@
 #include "WorkspaceAgentTools.h"
 #include "Society/Mcp/FileJobTools.h"
 #include "Society/Mcp/ResourceTools.h"
+#include "Shared/CleanupAction.h"
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <utility>
@@ -62,6 +63,35 @@ std::shared_ptr<a::ToolRegistry> workspaceAgentTools(
         if (!transport || !transport->command) return SocietyBackendCommandReply{{},"The Society resource service is unavailable.",false};
         return transport->command(container,operation,args);
     }));
+    registry->add(societyCompareBytesTool([container,transport](const QString &operation,QJsonObject args,const a::ToolContext &context) {
+        context.cancellation.throwIfCancelled();
+        if (!transport || !transport->command) return SocietyBackendCommandReply{{},"The Society resource service is unavailable.",false};
+        return transport->command(container,operation,args);
+    }));
+    const auto contentTransport=[container,transport](const QString &operation,QJsonObject args,const a::ToolContext &context) {
+        context.cancellation.throwIfCancelled();
+        if (!transport || !transport->command) return SocietyBackendCommandReply{{},"The Society content service is unavailable.",false};
+        return transport->command(container,operation,args);
+    };
+    registry->add(societyContentIndexTool(contentTransport));
+    registry->add(societyContentSearchTool(contentTransport));
+    registry->add(societyContentPolicyTool(contentTransport));
+    registry->add(societySetContentPolicyTool(contentTransport));
+    registry->add(societyIndexedSearchTool([container,transport](const QString &operation,QJsonObject args,const a::ToolContext &context) {
+        context.cancellation.throwIfCancelled();
+        if (!transport || !transport->command) return SocietyBackendCommandReply{{},"The Society resource service is unavailable.",false};
+        return transport->command(container,operation,args);
+    }));
+    registry->add(societyLineageTool([container,transport](const QString &operation,QJsonObject args,const a::ToolContext &context) {
+        context.cancellation.throwIfCancelled();
+        if (!transport || !transport->command) return SocietyBackendCommandReply{{},"The Society resource service is unavailable.",false};
+        return transport->command(container,operation,args);
+    }));
+    registry->add(societyCleanupPlanTool([container,transport](const QString &operation,QJsonObject args,const a::ToolContext &context) {
+        context.cancellation.throwIfCancelled();
+        if (!transport || !transport->command) return SocietyBackendCommandReply{{},"The Society resource service is unavailable.",false};
+        return transport->command(container,operation,args);
+    }));
     for (auto &tool:societyFileJobTools([container,transport](const QString &operation,QJsonObject args,const a::ToolContext &context) {
         context.cancellation.throwIfCancelled();
         if (!transport || !transport->command) return SocietyBackendCommandReply{{},"The Society file service is unavailable.",false};
@@ -71,7 +101,8 @@ std::shared_ptr<a::ToolRegistry> workspaceAgentTools(
             tool.definition.description=QStringLiteral("Queue a Society file operation. Except for copy, path is relative to the container, "
                 "for example Files/example.txt or Models/LLM/model.safetensors. For rename or create-directory, argument is the new name; "
                 "for move, argument is the container-relative destination directory; for copy, path is the absolute external source "
-                "and argument is the container-relative destination directory. Duplicate, trash, remove and restore use path. "
+                "and argument is the container-relative destination directory. Duplicate and restore use path. "
+                "Automated trash, remove and moves into Deleted are blocked; use resource_cleanup_plan for review. "
                 "A queued acknowledgment is not completion; call file_job_status with the returned jobId.");
         registry->add(std::move(tool));
     }
@@ -123,6 +154,9 @@ a::PermissionResponse workspaceAgentPermission(const QString &container,
     const a::ToolCall &call,const a::PermissionDecision &,const a::ToolContext &context)
 {
     const a::PermissionResponse denied{a::PermissionBehavior::Deny,"The requested action was not approved."};
+    if (call.name=="file_job_submit" && society::cleanup::requiresPolicy(
+        call.arguments.value("action").toString(),call.arguments.value("argument").toString()))
+        return {a::PermissionBehavior::Deny,"Automated cleanup is blocked; inspect resource_cleanup_plan first."};
     if (!transport || !transport->question || container.isEmpty()) return denied;
     context.cancellation.throwIfCancelled();
     const auto arguments=QString::fromUtf8(QJsonDocument(call.arguments).toJson(QJsonDocument::Indented));

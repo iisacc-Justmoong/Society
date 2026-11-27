@@ -10,9 +10,9 @@
   },
   "source": {
     "path": "docs/WorkspaceAgentTools.md",
-    "sha256": "c5942fcfa8297dcf6544aac87b5ebbc379ffa04b89bb560723abdce660fe625b",
-    "bytes": 3708,
-    "line_count": 46,
+    "sha256": "7aca2fe1d567ab20ba9009bc931caae8ceb37bb97faed512e328e1f1869b1de8",
+    "bytes": 8019,
+    "line_count": 79,
     "encoding": "utf-8",
     "language": "ko"
   },
@@ -130,6 +130,228 @@
       "start_line": 41,
       "end_line": 46,
       "raw": "`resource_duplicate_candidates`는 선택된 컨테이너에 고정된 읽기 전용 도구이다.\n관찰된 SHA-256이 같은 `Files`와 `Models`의 관리 자원을 페이지 단위로 찾는다.\n현재 바이트 비교나 삭제 판단은 수행하지 않고, 색인 범위의 완전성은 알 수 없다.\n빈 결과에도 다음 페이지가 있을 수 있으며 응답의 `next`를 그대로 전달한다.\n각 페이지와 응답 크기는 제한되고 너무 큰 응답은 더 작은 `limit`으로 다시 요청한다.\n경로가 매우 길어 `limit`이 1인 응답도 제한을 넘으면 CLI를 사용한다.\n"
+    },
+    {
+      "id": "b000016",
+      "kind": "blank",
+      "start_line": 47,
+      "end_line": 47,
+      "raw": "\n"
+    },
+    {
+      "id": "b000017",
+      "kind": "heading",
+      "start_line": 48,
+      "end_line": 48,
+      "raw": "## 기존 색인 검색\n",
+      "level": 2,
+      "title": "기존 색인 검색"
+    },
+    {
+      "id": "b000018",
+      "kind": "blank",
+      "start_line": 49,
+      "end_line": 49,
+      "raw": "\n"
+    },
+    {
+      "id": "b000019",
+      "kind": "paragraph",
+      "start_line": 50,
+      "end_line": 53,
+      "raw": "`resource_search`는 컨테이너의 기존 텍스트·분류 색인이나 저장된 가상 디렉터리를\n읽는다. 색인을 새로 만들지 않으며, 내용 임베딩 검색이나 전체 파일 범위의 완료를\n주장하지 않는다. 검색 조건, 페이지·응답 제한과 cursor의 유효 범위는 자원 검색\n계약을 따른다.\n"
+    },
+    {
+      "id": "b000020",
+      "kind": "blank",
+      "start_line": 54,
+      "end_line": 54,
+      "raw": "\n"
+    },
+    {
+      "id": "b000021",
+      "kind": "heading",
+      "start_line": 55,
+      "end_line": 55,
+      "raw": "## 기록된 관계의 계보 조회\n",
+      "level": 2,
+      "title": "기록된 관계의 계보 조회"
+    },
+    {
+      "id": "b000022",
+      "kind": "blank",
+      "start_line": 56,
+      "end_line": 56,
+      "raw": "\n"
+    },
+    {
+      "id": "b000023",
+      "kind": "paragraph",
+      "start_line": 57,
+      "end_line": 57,
+      "raw": "작업 공간 에이전트의 `resource_lineage`는 선택된 컨테이너의 `Files` 또는 `Models` 경로, 방향 `incoming`·`outgoing`·`both`, 깊이 1–3, 관계 수 1–20을 받아 명시적으로 기록된 관계를 읽는다. 응답이 에이전트의 8 KiB 상한을 넘으면 더 작은 관계 수로 다시 요청하거나 CLI를 사용한다. 등록되지 않은 외부 프로젝트와 파일 내부의 참조는 전체 조사되지 않으며, 응답의 `incomplete`, `truncated`, `reconciliationRequired`, `boundaryReached` 및 `unavailableProjects`를 함께 확인해야 한다. 빈 결과는 삭제 가능이나 복구 가능의 근거가 아니고 이 명령은 이동 복구나 파일 수정을 하지 않는다.\n"
+    },
+    {
+      "id": "b000024",
+      "kind": "blank",
+      "start_line": 58,
+      "end_line": 58,
+      "raw": "\n"
+    },
+    {
+      "id": "b000025",
+      "kind": "paragraph",
+      "start_line": 59,
+      "end_line": 59,
+      "raw": "이 조회는 SDK의 관찰 전용 열기 경로를 사용한다. 선택 과정이나 다른 작업에서 이미 시작한 유지 관리는 별도로 계속될 수 있다.\n"
+    },
+    {
+      "id": "b000026",
+      "kind": "blank",
+      "start_line": 60,
+      "end_line": 60,
+      "raw": "\n"
+    },
+    {
+      "id": "b000027",
+      "kind": "heading",
+      "start_line": 61,
+      "end_line": 61,
+      "raw": "## 정리 계획과 삭제 제한\n",
+      "level": 2,
+      "title": "정리 계획과 삭제 제한"
+    },
+    {
+      "id": "b000028",
+      "kind": "blank",
+      "start_line": 62,
+      "end_line": 62,
+      "raw": "\n"
+    },
+    {
+      "id": "b000029",
+      "kind": "paragraph",
+      "start_line": 63,
+      "end_line": 63,
+      "raw": "`resource_cleanup_plan`은 파일의 마지막 관찰과 기록된 직접 관계를 바탕으로 정리 보류 사유를 반환한다. 이는 읽기 전용 검토 자료이며 승인이나 삭제 요청이 아니다. 현재 종속성 범위와 복구 가능성은 미확인이므로 `file_job_submit`의 `trash`, `remove` 및 Deleted로 향하는 `move`는 사용자 질문을 표시하기 전에 거부하고 `resource_cleanup_plan`을 안내한다. 다른 파일 작업은 기존 승인 절차를 따른다.\n"
+    },
+    {
+      "id": "b000030",
+      "kind": "blank",
+      "start_line": 64,
+      "end_line": 64,
+      "raw": "\n"
+    },
+    {
+      "id": "b000031",
+      "kind": "heading",
+      "start_line": 65,
+      "end_line": 65,
+      "raw": "## 제한된 바이트 대조\n",
+      "level": 2,
+      "title": "제한된 바이트 대조"
+    },
+    {
+      "id": "b000032",
+      "kind": "blank",
+      "start_line": 66,
+      "end_line": 66,
+      "raw": "\n"
+    },
+    {
+      "id": "b000033",
+      "kind": "paragraph",
+      "start_line": 67,
+      "end_line": 67,
+      "raw": "`resource_compare_bytes`는 선택된 컨테이너의 `path`와 `otherPath`를 각각 최대 64 MiB로 제한해 별도로 캡처한 스냅샷을 비교한다. `comparison`이 `equal`이어도 두 원본의 공동 시점·현재 상태·삭제 가능성·복구 가능성을 보장하지 않으며 파일 내용을 변경하거나 중복 제거하지 않는다. 이미 진행 중인 비교가 있으면 새 요청은 거부된다.\n"
+    },
+    {
+      "id": "b000034",
+      "kind": "blank",
+      "start_line": 68,
+      "end_line": 68,
+      "raw": "\n"
+    },
+    {
+      "id": "b000035",
+      "kind": "heading",
+      "start_line": 69,
+      "end_line": 69,
+      "raw": "## 텍스트 내용 의미 색인과 검색\n",
+      "level": 2,
+      "title": "텍스트 내용 의미 색인과 검색"
+    },
+    {
+      "id": "b000036",
+      "kind": "blank",
+      "start_line": 70,
+      "end_line": 70,
+      "raw": "\n"
+    },
+    {
+      "id": "b000037",
+      "kind": "paragraph",
+      "start_line": 71,
+      "end_line": 71,
+      "raw": "Workspace 에이전트의 `resource_content_index`는 선택 컨테이너의 관찰된 텍스트 한 건과 명시한 로컬 임베딩 모델을 사용해 파생 벡터를 쓴다. 쓰기 도구이므로 기존 호출별 사용자 승인 정책을 따른다. `resource_content_search`는 같은 모델과 접두어의 벡터를 조회하는 읽기 도구이다. 컨테이너나 모델 서비스 선택이 바뀌면 이전 제공자를 취소하고 이전 요청의 결과를 다른 컨테이너에 전달하지 않는다.\n"
+    },
+    {
+      "id": "b000038",
+      "kind": "blank",
+      "start_line": 72,
+      "end_line": 72,
+      "raw": "\n"
+    },
+    {
+      "id": "b000039",
+      "kind": "paragraph",
+      "start_line": 73,
+      "end_line": 73,
+      "raw": "관찰된 텍스트는 명시적으로 켠 정책으로 자동 색인할 수 있지만 외부 변경의 완전한 감지와 다른 미디어 형식은 아직 제공하지 않으며, 결과의 `completeness`는 `unknown`이다. 벡터 유사도와 빈 결과를 파일 동일성, 정사, 권한 또는 삭제 가능성으로 해석하지 않는다. 지원 형식, 크기, 모델 로딩, 임시 파일과 보안 경계는 `ResourceSearchAndViews.md`의 현재 구현을 따른다.\n"
+    },
+    {
+      "id": "b000040",
+      "kind": "blank",
+      "start_line": 74,
+      "end_line": 74,
+      "raw": "\n"
+    },
+    {
+      "id": "b000041",
+      "kind": "heading",
+      "start_line": 75,
+      "end_line": 75,
+      "raw": "## 자동 내용 색인의 에이전트 정책\n",
+      "level": 2,
+      "title": "자동 내용 색인의 에이전트 정책"
+    },
+    {
+      "id": "b000042",
+      "kind": "blank",
+      "start_line": 76,
+      "end_line": 76,
+      "raw": "\n"
+    },
+    {
+      "id": "b000043",
+      "kind": "paragraph",
+      "start_line": 77,
+      "end_line": 77,
+      "raw": "`resource_content_policy`는 선택된 컨테이너의 정책과 최근 작업 상태를 읽는다. `resource_content_policy_set`은 `enabled: true`, 설치된 임베딩 `model`, 선택적인 `documentPrefix`·`queryPrefix`로 자동 작업을 켜며 `enabled: false`로 끌 때는 모델과 접두어를 전달하지 않는다. 이 변경은 쓰기 도구이며 기존 호출별 사용자 승인과 선택된 컨테이너의 고정 검증을 거친다. 거부된 호출은 정책을 바꾸지 않는다.\n"
+    },
+    {
+      "id": "b000044",
+      "kind": "blank",
+      "start_line": 78,
+      "end_line": 78,
+      "raw": "\n"
+    },
+    {
+      "id": "b000045",
+      "kind": "paragraph",
+      "start_line": 79,
+      "end_line": 79,
+      "raw": "자동 작업은 지원 텍스트를 관찰한 뒤 관리 저널에서 색인하며, 외부 변경의 완전한 감지는 보장하지 않는다. 상태의 `worker`는 최근 관찰값이며 `idle`은 전체 파일에 대한 완전성을 뜻하지 않는다. 자세한 대기열, 재시도, 임시 원문과 모델 공간의 제약은 `ResourceSearchAndViews.md`를 따른다.\n"
     }
   ],
   "outline": [
@@ -148,6 +370,54 @@
       "title": "동일 내용 후보 조회",
       "anchor": "동일-내용-후보-조회",
       "start_line": 39
+    },
+    {
+      "block_id": "b000017",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "기존 색인 검색",
+      "anchor": "기존-색인-검색",
+      "start_line": 48
+    },
+    {
+      "block_id": "b000021",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "기록된 관계의 계보 조회",
+      "anchor": "기록된-관계의-계보-조회",
+      "start_line": 55
+    },
+    {
+      "block_id": "b000027",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "정리 계획과 삭제 제한",
+      "anchor": "정리-계획과-삭제-제한",
+      "start_line": 61
+    },
+    {
+      "block_id": "b000031",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "제한된 바이트 대조",
+      "anchor": "제한된-바이트-대조",
+      "start_line": 65
+    },
+    {
+      "block_id": "b000035",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "텍스트 내용 의미 색인과 검색",
+      "anchor": "텍스트-내용-의미-색인과-검색",
+      "start_line": 69
+    },
+    {
+      "block_id": "b000041",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "자동 내용 색인의 에이전트 정책",
+      "anchor": "자동-내용-색인의-에이전트-정책",
+      "start_line": 75
     }
   ],
   "indexes": {
@@ -198,6 +468,41 @@
         "block_id": "b000015",
         "line": 43,
         "text": "현재 바이트 비교나 삭제 판단은 수행하지 않고, 색인 범위의 완전성은 알 수 없다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000019",
+        "line": 52,
+        "text": "주장하지 않는다. 검색 조건, 페이지·응답 제한과 cursor의 유효 범위는 자원 검색",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000037",
+        "line": 71,
+        "text": "Workspace 에이전트의 `resource_content_index`는 선택 컨테이너의 관찰된 텍스트 한 건과 명시한 로컬 임베딩 모델을 사용해 파생 벡터를 쓴다. 쓰기 도구이므로 기존 호출별 사용자 승인 정책을 따른다. `resource_content_search`는 같은 모델과 접두어의 벡터를 조회하는 읽기 도구이다. 컨테이너나 모델 서비스 선택이 바뀌면 이전 제공자를 취소하고 이전 요청의 결과를 다른 컨테이너에 전달하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000039",
+        "line": 73,
+        "text": "관찰된 텍스트는 명시적으로 켠 정책으로 자동 색인할 수 있지만 외부 변경의 완전한 감지와 다른 미디어 형식은 아직 제공하지 않으며, 결과의 `completeness`는 `unknown`이다. 벡터 유사도와 빈 결과를 파일 동일성, 정사, 권한 또는 삭제 가능성으로 해석하지 않는다. 지원 형식, 크기, 모델 로딩, 임시 파일과 보안 경계는 `ResourceSearchAndViews.md`의 현재 구현을 따른다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000043",
+        "line": 77,
+        "text": "`resource_content_policy`는 선택된 컨테이너의 정책과 최근 작업 상태를 읽는다. `resource_content_policy_set`은 `enabled: true`, 설치된 임베딩 `model`, 선택적인 `documentPrefix`·`queryPrefix`로 자동 작업을 켜며 `enabled: false`로 끌 때는 모델과 접두어를 전달하지 않는다. 이 변경은 쓰기 도구이며 기존 호출별 사용자 승인과 선택된 컨테이너의 고정 검증을 거친다. 거부된 호출은 정책을 바꾸지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000045",
+        "line": 79,
+        "text": "자동 작업은 지원 텍스트를 관찰한 뒤 관리 저널에서 색인하며, 외부 변경의 완전한 감지는 보장하지 않는다. 상태의 `worker`는 최근 관찰값이며 `idle`은 전체 파일에 대한 완전성을 뜻하지 않는다. 자세한 대기열, 재시도, 임시 원문과 모델 공간의 제약은 `ResourceSearchAndViews.md`를 따른다.",
         "basis": "lexical_match",
         "context": "paragraph"
       }

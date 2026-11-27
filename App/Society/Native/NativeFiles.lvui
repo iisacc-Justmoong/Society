@@ -109,5 +109,17 @@ ApplicationWindow(title: "Society Files", width: 1100, height: 720,
                 PushButton(text: "Clear errors", tone: .default, onClick: vm.clearErrors)
             }
         }
+        Popover(id: "society-files-error-notification", width: vm.notificationWidth, focus: false,
+                closeOnEscape: false, closeOnPressOutside: false, motionEnabled: false, blurEnabled: false,
+                accessibilityName: "Error notification") {
+            HStack(spacing: Metric.space8, alignment: .center) {
+                VStack(spacing: Metric.space4, alignment: .stretch, flex: 1) {
+                    Label(text: "Error", style: .body)
+                    Label(id: "files-notification-message", text: vm.notificationMessage, style: .caption)
+                }
+                IconButton(id: "dismiss-files-error-notification", iconName: "generalclose", tone: .borderless,
+                           accessibilityName: "Dismiss notification", onClick: vm.dismissNotification)
+            }
+        }
     }
 }

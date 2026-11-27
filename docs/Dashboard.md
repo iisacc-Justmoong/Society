@@ -26,13 +26,13 @@ Metal 픽셀 검사로 별도 검증하며, 호스트의 좁은 창 검사는 �
 
 Society 데스크톱의 기본 화면은 [Figma 18:14](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=18-14)의 대시보드 디자인이다. `Main.qml`의 `LV.ApplicationWindow`가 창과 컨트롤러·대화상자를 소유하고, `SocietyView.qml`을 공개 `content` 슬롯에 전달한다. 창의 프레임·닫기·최소화·최대화와 이동·크기 조절은 LVRS가 소유하며 앱이 창 제어 버튼을 직접 그리지 않는다.
 
-앱 전역 상단 바는 높이 56 px의 한 행이다. 기본 `LV.ApplicationWindow` 배경 위에 [Figma 739:15698](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=739-15698)의 LVUI 아이콘 세그먼트 7개, 300×22 px 검색창, 22×22 px 알림, 맨 오른쪽 40×40 px 원형 `LV.Avatar`를 배치한다. 세그먼트는 Environment·Tasks·Library·Space·Browse·People·Hosting 순서다. 오른쪽 항목 간 간격은 8 px이며 창 오른쪽에 12 px를 남긴다. 로그인 상태에서 iiAccountManager `Account.avatarUrl`을 표시하며 이미지가 없거나 아직 로드되지 않았거나 로드에 실패하면 Figma의 20×20 px 기본 사용자 실루엣을 표시한다. Avatar는 버튼으로 키보드와 포인터로 계정 창을 연다. 검색과 알림은 기존 실제 조회와 오류·빈 상태 안내를 유지한다. Tasks는 기존 Tools 화면을 열며 View → Tools 메뉴와 Command+2(macOS) 또는 Ctrl+2, 모바일의 기존 Tools 탭도 유지한다. Space와 People은 아직 연결된 서비스가 없음을 알린다.
+앱 전역 상단 바는 높이 56 px의 한 행이다. 기본 `LV.ApplicationWindow` 배경 위에 [Figma 940:8700](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=940-8700)의 LVUI 아이콘 세그먼트 9개, 300×22 px 검색창, 22×22 px 알림, 맨 오른쪽 40×40 px 원형 `LV.Avatar`를 배치한다. 세그먼트는 Environment·Tasks·Library·Space·Apps·Service·Community·Learning·Hosting 순서다. 오른쪽 항목 간 간격은 8 px이며 창 오른쪽에 12 px를 남긴다. 로그인 상태에서 iiAccountManager `Account.avatarUrl`을 표시하며 이미지가 없거나 아직 로드되지 않았거나 로드에 실패하면 Figma의 20×20 px 기본 사용자 실루엣을 표시한다. Avatar는 버튼으로 키보드와 포인터로 계정 창을 연다. 검색과 알림은 기존 실제 조회와 오류·빈 상태 안내를 유지한다. Tasks는 기존 Tools 화면을 열며 View → Tools 메뉴와 Command+2(macOS) 또는 Ctrl+2, 모바일의 기존 Tools 탭도 유지한다. Apps는 기존 All apps를 열고, Service·Community·Learning은 아직 연결된 서비스가 없음을 알린다.
 
-상단 세그먼트는 LVUI의 무테 버튼과 Society의 녹색 선택 토큰을 사용하며 현재 화면만 선택한다. 기존 Tools 화면에서는 Tasks, Storage에서는 Library를 선택하고 대시보드는 Environment에 포함한다. `Society.ToolbarSegmentAppearance`는 단일 선택 상태를, `Society.TasksNavigation`은 Tasks의 포인터·키보드 접근, 기존 도구 진입과 화면 전환 후 상태 유지를 검사한다. 생성된 위젯과 Qt 창의 연결 경계는 [네이티브 내비게이션](NativeNavigation.md)에 설명한다.
+상단 세그먼트는 LVUI의 무테 버튼과 녹색 선택 상태를 사용하며 현재 화면만 선택한다. 기존 Tools 화면에서는 Tasks, Storage에서는 Library, 앱 카탈로그에서는 Apps를 선택하고 대시보드와 기기 파일 탐색은 Environment에 포함한다. `Society.ToolbarSegmentAppearance`는 단일 선택 상태를, `Society.TasksNavigation`은 Tasks의 포인터·키보드 접근, 기존 도구 진입과 화면 전환 후 상태 유지를 검사한다. 생성된 위젯과 Qt 창의 연결 경계는 [네이티브 내비게이션](NativeNavigation.md)에 설명한다.
 
-데스크톱 콘텐츠를 창 위쪽에서 바로 시작하고, `nativeTitleBarHeight`를 상단 바 높이에 연결해 macOS의 실제 창 버튼과 탭·검색·알림·계정 버튼의 중심을 맞춘다. 166×22 px 세그먼트는 행의 세로 중앙에 배치한다. `nativeTitleBarControlsRect` 오른쪽에 8 px 여백을 두어 탭과 창 버튼이 겹치지 않도록 한다. 전체 화면에서는 네이티브 버튼 예약 폭을 없애며, 복귀와 크기 변경은 LVRS가 처리한다. `windowDragHandleHeight`는 같은 행 전체를 덮고 `windowDragExclusionItems`로 탭·검색·알림·계정·Storage actions 영역을 제외하여 클릭과 입력을 보존한다. 좁은 창에서는 검색창이 숨겨진다. 모바일은 기존 안전 영역과 내비게이션 구조를 유지한다. [모바일 레이아웃](MobileViews.md)을 참조한다.
+데스크톱 콘텐츠를 창 위쪽에서 바로 시작하고, `nativeTitleBarHeight`를 상단 바 높이에 연결해 macOS의 실제 창 버튼과 탭·검색·알림·계정 버튼의 중심을 맞춘다. 214×22 px 세그먼트는 행의 세로 중앙에 배치한다. `nativeTitleBarControlsRect` 오른쪽에 8 px 여백을 두어 탭과 창 버튼이 겹치지 않도록 한다. 전체 화면에서는 네이티브 버튼 예약 폭을 없애며, 복귀와 크기 변경은 LVRS가 처리한다. `windowDragHandleHeight`는 같은 행 전체를 덮고 `windowDragExclusionItems`로 탭·검색·알림·계정·Storage actions 영역을 제외하여 클릭과 입력을 보존한다. 좁은 창에서는 검색창이 숨겨진다. 모바일은 기존 안전 영역과 내비게이션 구조를 유지한다. [모바일 레이아웃](MobileViews.md)을 참조한다.
 
-`SocietyDriveTests globalToolbarMatchesFigmaAndRoutesActions toolbarSharesWindowControlsRow toolbarAvatarTracksAccountProfileAndFallback`는 헤더·7개 세그먼트·검색·알림·Avatar의 위치와 치수, Tools 메뉴와 단축키, 계정 창과 드래그 충돌, 프로필 이미지와 기본 실루엣 전환을 검사한다. Cocoa 전용 검사는 AppKit 창 버튼의 실제 위치도 비교한다. `SOCIETY_GLOBAL_TOOLBAR_CAPTURE_DIR`로 테스트 창과 헤더 캡처를 저장할 수 있다. 과거 `mobileViewsShareDesktopContentAndKeepState`의 iOS·Android 모의 레이아웃 검색 닫기 터치 실패는 `build/global-toolbar/mobile-baseline.log`에 기록되어 있다.
+`SocietyDriveTests globalToolbarMatchesFigmaAndRoutesActions toolbarSharesWindowControlsRow toolbarAvatarTracksAccountProfileAndFallback`는 헤더·9개 세그먼트·검색·알림·Avatar의 위치와 치수, Tools 메뉴와 단축키, 계정 창과 드래그 충돌, 프로필 이미지와 기본 실루엣 전환을 검사한다. Cocoa 전용 검사는 AppKit 창 버튼의 실제 위치도 비교한다. `SOCIETY_GLOBAL_TOOLBAR_CAPTURE_DIR`로 테스트 창과 헤더 캡처를 저장할 수 있다. 과거 `mobileViewsShareDesktopContentAndKeepState`의 iOS·Android 모의 레이아웃 검색 닫기 터치 실패는 `build/global-toolbar/mobile-baseline.log`에 기록되어 있다.
 
 대시보드 콘텐츠는 [Figma 18:14](https://www.figma.com/design/vzGhdYpJ2GeyNfwXADJeAu/Society?node-id=18-14)를 기준으로 한다. 왼쪽 170 px 사이드바와 가운데 Workspace에는 에이전트 입력, Recent files, Files 목록, Generation history를 순서대로 배치하고 넓은 화면 오른쪽에 Activity와 Approvals를 표시한다. 좁은 화면에서는 상태 패널이 본문 아래로 이동한다. 최근 파일과 생성 이력은 기존 `LV.Card.File` Small/Brief와 비동기 데이터 모델을 사용하며, Files는 기존 `FilesBrowser`와 준비된 컨테이너의 Files 경로를 재사용한다. 폴더 진입은 DriveController의 경계 확인을 거치며 초기 복제가 미완료일 때 목록을 열지 않는다. 홈에는 캘린더를 표시하지 않고 Calendar와 Activity 사이드바 경로에서 각각 별도 화면을 연다. 패널은 공용 ApplicationWindow 배경을 드러내고 LVRS 토큰으로 경계를 그린다.
 
@@ -42,7 +42,7 @@ Society 데스크톱의 기본 화면은 [Figma 18:14](https://www.figma.com/des
 - `View all files`는 각각 Storage의 Files와 Generation History를 연다. 카드 클릭과 키보드 활성화는 기존 DriveController의 경계 검사를 거쳐 파일을 연다. 우클릭 또는 호버·키보드 포커스 시 나타나는 카드 메뉴에서 `Open`과 `Reveal in Storage`를 선택할 수 있으며, 후자는 파일의 부모 폴더를 Storage에서 연다.
 - Recent files의 `View all files`로 여는 Storage Files 목록은 수정 시각 오름차순으로 배치한다. 오래된 파일은 위쪽, 최신 파일은 아래쪽에 있고 최초 조회와 레이아웃 완료 후 최하단을 표시한다. Files의 하위 폴더에도 같은 동작을 적용하며 폴더를 먼저 표시한다. 자동 갱신 시 과거 파일을 탐색하던 위치와 선택을 보존하고, 최하단에 있으면 새 최신 파일을 따라간다.
 - 사이드바는 Workspace·Projects·Calendar·Activity·People과 실제 Guilds·Organization 목록으로 구성한다. Workspace는 대시보드 맨 위로, Calendar는 월간 캘린더로, Activity는 선택 날짜의 전체 활동 목록으로 이동한다.
-- `Browse`는 기존 계정의 네트워크 기기 탐색을 열고 `Environment`는 기기·앱 화면을 연다. Environment의 Society 항목으로 대시보드에 돌아가고 Hosting은 같은 화면의 호스팅 정보를 연다. Preferences의 `Ctrl+,`(macOS의 Command+,)도 유지한다.
+- 기기 탐색의 `Browse`는 기존 계정의 네트워크 기기 파일을 연다. `Environment` 세그먼트는 대시보드로 돌아가고, `Apps`는 기존 앱 카탈로그의 All apps를, `Hosting`은 환경 화면의 호스팅 정보를 연다. Preferences의 `Ctrl+,`(macOS의 Command+,)도 유지한다.
 - Search는 이름·Society 내부 경로를 대소문자 구분 없이 검색하고 Dashboard를 표시한다. 빈 입력은 전체 최근 목록으로 돌아간다.
 - 탐색 항목은 실제 접근성 이름을 제공하며 라이브러리의 임시 상세 설명을 화면 읽기 프로그램에 노출하지 않는다.
 - 760 px 미만에서는 사이드바를 숨기고, 카드는 크기를 유지하며 각 목록 안에서 가로 스크롤한다. 목록은 영역 밖을 클리핑하고 방향키·Home/End 탐색을 지원한다. 700 px 미만에서는 도구 모음의 검색을 숨긴다. 모바일도 Dashboard로 시작하고 같은 데이터 모델로 검색한다. 760 px 미만에서는 5개 탭을 하단에, 검색·계정·탐색 패널 버튼을 상단에 표시한다. 숨겨진 사이드바는 탐색 시트에서 사용할 수 있으며 호스트 모드는 제공하지 않는다.
@@ -176,8 +176,8 @@ ICU·SQLite·iiCalendarIntegration 설치본을 사용해야 한다).
 
 ```sh
 cmake -S . -B build \
-  -DiiCalendarIntegration_DIR=/Volumes/Storage/Workspace/SDK/iiCalendarIntegration/build/install/lib/cmake/iiCalendarIntegration \
-  -DICU_ROOT=/Volumes/Storage/Workspace/SDK/iiCalendarIntegration/resources/dependencies/icu/install
+  -DiiCalendarIntegration_DIR=/Volumes/Workspace/SDK/iiCalendarIntegration/build/install/lib/cmake/iiCalendarIntegration \
+  -DICU_ROOT=/Volumes/Workspace/SDK/iiCalendarIntegration/resources/dependencies/icu/install
 cmake --build build --target Society SocietyCalendarTests SocietyDriveTests Society_qmllint --parallel 8
 ctest --test-dir build -R '^Society.Calendar$' --output-on-failure
 ```

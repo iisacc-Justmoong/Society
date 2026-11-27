@@ -1,5 +1,8 @@
+set(SOCIETY_APP_ICON_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/resources/Appicon/generated"
+    CACHE PATH "Directory containing Society's generated platform app icons")
+
 function(society_add_app_icons target)
-    set(icons "${CMAKE_CURRENT_SOURCE_DIR}/resources/Appicon/generated")
+    set(icons "${SOCIETY_APP_ICON_DIRECTORY}")
     if(NOT EXISTS "${icons}/manifest.json")
         message(FATAL_ERROR "Society icons are missing. Run tools/generate_app_icons.py with Pillow.")
     endif()

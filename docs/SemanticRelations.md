@@ -50,3 +50,15 @@ Society의 지원되는 Unix 데스크톱 로컬 MCP는 현재 열린 컨테이�
 - 명령: `semantic_rebind`; 입력: `source`, `target`, `actor`; 결과: 사용자가 명시적으로 확인한 외부 이동 또는 같은 주소의 파일 교체에 대한 결합 갱신
 
 예를 들어 `files/cover.png`의 revision을 읽은 뒤 `semantic_set_relation`에 주체 `files/cover.png`, 관계 유형 `example:references`, 대상 `files/Projects/example.iiproject`를 전달할 수 있다. 같은 대상을 프로젝트 쪽에서 별도로 선언하려면 프로젝트 주소를 주체로 사용한다. 이 인터페이스는 파일 내용, 프로젝트의 권리 또는 외부 주소의 가용성을 검증하지 않는다. 이번 변경은 전용 GUI 편집기를 추가하지 않으며 다른 플랫폼의 MCP 노출은 검증하지 않았다.
+
+## 읽기 전용 관계 계보
+
+`SemanticRepository::traceRelations`와 `society-cli resource lineage`는 컨테이너 `Files` 또는 `Models`의 주소에서 시작하여 사용자가 기록한 방향 관계를 최대 3단계, 최대 20개 관계까지 너비 우선으로 따라간다. `incoming`, `outgoing`, `both` 방향을 선택할 수 있으며 관계 유형은 그대로 표시한다. 관계마다 ID, 소유자, 주체, 유형, 대상 및 탐색 깊이를 반환한다. 컨테이너 밖 주소는 관계의 끝점으로 표시하되 그 밖을 탐색하지 않는다. `resource_lineage` MCP와 작업 공간 에이전트, Python 클라이언트는 같은 관찰 결과를 사용한다.
+
+이 조회는 이동 복구, 주소 재결합, Catalog 갱신 또는 파일 변경을 수행하지 않는다. 준비 중인 이동, 확인할 수 없는 결합, 등록된 프로젝트의 부재, 동시 컨테이너 그래프 변경, 경계 또는 결과 상한은 결과의 불완전성으로 드러낸다. 결과는 컨테이너 그래프와 등록된 프로젝트에 기록된 사용자 선언이며, 외부 프로젝트나 파일 내부 참조의 전체 검사가 아니고 끝점의 현재 동일성이나 관계의 사실 여부도 보증하지 않는다. 범위의 완전성은 항상 미상이고 프로젝트 간 전역 스냅샷이 아니며, 관계가 없더라도 삭제 가능이나 복구 가능 판정, 삭제 권한을 제공하지 않는다.
+
+탐색 한 번에 프로젝트 패키지는 최대 64개, 프로젝트 관계는 최대 1,024개까지 살핀다. 직접 도달한 미등록 프로젝트 패키지도 이 한도 안에서 읽을 수 있다. 한도에 도달하여 결과가 잘렸으면 `truncated`와 `incomplete`를 표시한다. `graphRevision`은 컨테이너 그래프의 관찰값이며, 프로젝트 패키지와 묶인 전역 revision이 아니다. `endpointsVerified`는 거짓이고 `cleanupDecision`은 언제나 `review_required`이다.
+
+관찰 API에는 `SharedStorage::inspect`로 연 핸들을 전달한다. 이 경로는 레거시 이관과 유지 관리 감시 등록을 수행하지 않는다. 이미 실행 중인 유지 관리 작업은 이 조회와 독립적으로 계속될 수 있다. 이 보장은 관찰 API와 부작용 없는 핸들 검증이 반영된 iiSocietyContainer가 연결된 경우에 성립한다.
+
+결과의 `assertionAuthority`는 `host_declared_not_authenticated`이다. 저장 API의 선언 유형은 기록 방식이며, 그 자체로 사람이 직접 작성하거나 승인했음을 인증하지 않는다.

@@ -2,8 +2,13 @@
 #include "Society/Native/LegacyNavigationBridge.h"
 #include "Society/Native/LegacyWorkspaceBridge.h"
 #include "Society/Native/NativeNavigationSurface.h"
+#include "Society/Native/NativeNoticeSurface.h"
+#include "Society/Native/NativeErrorNotificationSurface.h"
+#include <LVUI/Popover.h>
+#include <QAbstractListModel>
 #include <iiGUI>
 #include <QGuiApplication>
+#include <QAccessible>
 #include <QClipboard>
 #include <QImage>
 #include <QDir>
@@ -18,12 +23,15 @@
 #include <QWheelEvent>
 #include <QMimeData>
 #include <QPainter>
+#include <QQmlComponent>
+#include <QQmlEngine>
 #include <QSignalSpy>
 #include <QQuickWindow>
 #include <QTemporaryDir>
 #include <QUrl>
 #include <QUuid>
 #include <QScopeGuard>
+#include <QScopedPointer>
 #include <QtEndian>
 #include <QtMath>
 #include <QtTest>
@@ -45,6 +53,50 @@ public:
 signals:
     void selectedTabChanged();
     void tabRequested(const QString &page);
+    void featureRequested(const QString &feature);
+};
+
+// Represents the asynchronously loaded Environment page and its public app route.
+class EnvironmentFixture final : public QQuickItem {
+    Q_OBJECT
+    Q_PROPERTY(QString page READ page WRITE setPage NOTIFY pageChanged)
+public:
+    using QQuickItem::QQuickItem;
+    QString page() const { return m_page; }
+    void setPage(const QString &page) { if (m_page != page) { m_page = page; emit pageChanged(); } }
+    Q_INVOKABLE void showApps(const QVariant &collection) { appCollection = collection.toInt(); setPage(QStringLiteral("Apps")); }
+    int appCollection = -1;
+signals:
+    void pageChanged();
+private:
+    QString m_page = QStringLiteral("Overview");
+};
+
+// Provides the same completion signal as the shell's Environment loader.
+class EnvironmentLoaderFixture final : public QQuickItem {
+    Q_OBJECT
+public:
+    using QQuickItem::QQuickItem;
+signals:
+    void loaded();
+};
+
+// A legacy notice transport for exercising the shell bridge without launching the app.
+class LegacyNoticeFixture final : public QQuickItem {
+    Q_OBJECT
+    Q_PROPERTY(bool open READ isOpen WRITE setOpen NOTIFY openChanged)
+    Q_PROPERTY(QString title MEMBER title)
+    Q_PROPERTY(QString message MEMBER message)
+    Q_PROPERTY(QString primaryText MEMBER primaryText)
+public:
+    using QQuickItem::QQuickItem;
+    bool isOpen() const { return m_open; }
+    void setOpen(bool value) { if (m_open != value) { m_open = value; emit openChanged(); } }
+    QString title, message, primaryText;
+signals:
+    void openChanged();
+private:
+    bool m_open = false;
 };
 
 class WorkspaceDashboard final : public QQuickItem {
@@ -84,9 +136,137 @@ signals:
     void containerPathChanged(); void filesChanged(); void loadingChanged();
 };
 
+// Supplies recorded errors using the same role contract as the notification center.
+class ErrorNotificationFixture final : public QAbstractListModel {
+    Q_OBJECT
+public:
+    using QAbstractListModel::QAbstractListModel;
+    int rowCount(const QModelIndex &parent = {}) const override { return parent.isValid() ? 0 : int(rows.size()); }
+    QVariant data(const QModelIndex &index,int role) const override {
+        if (!index.isValid() || index.row()<0 || index.row()>=int(rows.size())) return {};
+        if (role==Qt::UserRole+1) return rows[index.row()].first;
+        if (role==Qt::UserRole+2) return rows[index.row()].second;
+        return {};
+    }
+    QHash<int,QByteArray> roleNames() const override {
+        return {{Qt::UserRole+1,"source"},{Qt::UserRole+2,"message"}};
+    }
+    void append(QString source,QString message) {
+        const auto row=int(rows.size());beginInsertRows({},row,row);
+        rows.emplace_back(std::move(source),std::move(message));endInsertRows();
+    }
+    Q_INVOKABLE void record(const QVariant &source,const QVariant &message) { append(source.toString(),message.toString()); }
+    std::vector<std::pair<QString,QString>> rows;
+};
+
 class NativeWorkspaceTest final : public QObject {
     Q_OBJECT
 private slots:
+    void recordedErrorsAppearInUpperRightWithoutDeletingHistory() {
+        QQuickWindow window;window.resize(1000,700);window.contentItem()->setSize({1000,700});
+        WorkspaceShell shell(window.contentItem());shell.setObjectName(QStringLiteral("societyContent"));
+        shell.setSize({1000,700});
+        QQuickItem viewport(&shell);viewport.setObjectName(QStringLiteral("dashboardTabViewport"));
+        QQuickItem legacy(&viewport);legacy.setObjectName(QStringLiteral("dashboardTabs"));
+        QQuickItem body(&shell);body.setPosition({35,70});body.setSize({920,610});
+        WorkspaceDashboard dashboard(&body);dashboard.setObjectName(QStringLiteral("dashboardView"));dashboard.setSize(body.size());
+        QQuickItem sidebar(&dashboard);sidebar.setObjectName(QStringLiteral("dashboardSidebar"));
+        QQuickItem content(&dashboard);QQuickItem scroll(&content);scroll.setObjectName(QStringLiteral("dashboardScroll"));
+        ErrorNotificationFixture center(&window);center.setObjectName(QStringLiteral("notificationCenter"));
+        center.append(QStringLiteral("Storage"),QStringLiteral("First failure"));
+        QVERIFY(LegacyNavigationBridge::install(&window));
+        auto *notice=window.findChild<NativeErrorNotificationSurface *>(QStringLiteral("societyErrorNotification"));
+        QVERIFY(notice);QVERIFY2(notice->ready(),qPrintable(notice->errorString()));
+        QVERIFY(notice->isVisible());QCOMPARE(notice->message(),QStringLiteral("Storage: First failure"));
+        QCOMPARE(notice->parentItem(),&body);
+        const auto margin=lvui::PopoverConfiguration{}.margins;
+        QVERIFY(notice->x()>=0 && notice->x()+notice->width()<=dashboard.width());
+        QCOMPARE(notice->y(),margin);
+        auto *accessible=QAccessible::queryAccessibleInterface(notice);QVERIFY(accessible);
+        QCOMPARE(accessible->role(),QAccessible::AlertMessage);
+        QCOMPARE(accessible->text(QAccessible::Description),QStringLiteral("Storage: First failure"));
+        center.append(QStringLiteral("Account"),QStringLiteral("Second failure"));
+        QVERIFY(notice->dismiss());
+        QTRY_COMPARE(notice->message(),QStringLiteral("Account: Second failure"));
+        QCOMPARE(center.rowCount(),2);
+        const auto popup=notice->controlBounds(QStringLiteral("society-error-notification"));
+        const auto close=notice->controlBounds(QStringLiteral("dismiss-error-notification"));
+        QVERIFY2(popup.contains(close) && !close.isEmpty(),"The close control must stay inside the notification.");
+        const auto closePos=close.center();
+        QMouseEvent press(QEvent::MouseButtonPress,closePos,closePos,Qt::LeftButton,Qt::LeftButton,Qt::NoModifier);
+        QMouseEvent release(QEvent::MouseButtonRelease,closePos,closePos,Qt::LeftButton,Qt::NoButton,Qt::NoModifier);
+        QCoreApplication::sendEvent(notice,&press);QCoreApplication::sendEvent(notice,&release);
+        QTRY_VERIFY(!notice->isVisible());
+        QCOMPARE(center.rowCount(),2);
+        auto *workspace=LegacyWorkspaceBridge::install(&window);QVERIFY(workspace);
+        workspace->model()->recordOperationError("Native file failure");
+        QTRY_VERIFY(notice->isVisible());
+        QCOMPARE(notice->message(),QStringLiteral("Workspace: Native file failure"));
+        QCOMPARE(center.rowCount(),3);
+    }
+    // Exercise the actual retained controls, including a resize and a message
+    // that exceeds the available content height, without launching Society.
+    void errorNotificationTracksContentAndWrapsLongMessages() {
+        QQuickWindow window;window.resize(1100,800);window.contentItem()->setSize({1100,800});
+        WorkspaceShell shell(window.contentItem());shell.setObjectName(QStringLiteral("societyContent"));
+        shell.setPosition({30,20});shell.setSize({1030,740});
+        QQuickItem navigation(&shell);navigation.setObjectName(QStringLiteral("dashboardTabViewport"));
+        QQuickItem legacy(&navigation);legacy.setObjectName(QStringLiteral("dashboardTabs"));
+        QQuickItem body(&shell);body.setPosition({25,75});body.setSize({900,600});
+        WorkspaceDashboard anchor(&body);anchor.setObjectName(QStringLiteral("dashboardView"));
+        anchor.setPosition({20,10});anchor.setSize({850,540});
+        QQuickItem onboarding(window.contentItem());onboarding.setObjectName(QStringLiteral("containerOnboarding"));
+        onboarding.setPosition({40,65});onboarding.setSize({760,610});onboarding.setVisible(false);
+        ErrorNotificationFixture center(&window);center.setObjectName(QStringLiteral("notificationCenter"));
+        center.append(QStringLiteral("Storage"),QStringLiteral("The Society source must be an existing, unredirected .societycontainer directory package without legacy disk-image markers."));
+        QVERIFY(LegacyNavigationBridge::install(&window));
+        auto *notice=window.findChild<NativeErrorNotificationSurface *>(QStringLiteral("societyErrorNotification"));
+        QVERIFY(notice);QVERIFY2(notice->ready(),qPrintable(notice->errorString()));
+        QCOMPARE(notice->parentItem(),&body);
+        const auto margin=lvui::PopoverConfiguration{}.margins;
+        QCOMPARE(notice->y(),anchor.y()+margin);
+        QCOMPARE(notice->x()+notice->width(),anchor.x()+anchor.width()-margin);
+        auto popup=notice->controlBounds(QStringLiteral("society-error-notification"));
+        auto text=notice->controlBounds(QStringLiteral("error-message"));
+        auto viewport=notice->controlBounds(QStringLiteral("error-message-scroll"));
+        QVERIFY2(!popup.isEmpty() && !text.isEmpty() && !viewport.isEmpty(),"Notification controls must have layout bounds.");
+        QVERIFY2(text.height()>15,"The supplied error must wrap onto multiple lines.");
+        QVERIFY2(viewport.contains(text),"The complete wrapped message must fit its viewport when space is available.");
+        QVERIFY2(popup.contains(viewport),"The message viewport must stay inside the notification panel.");
+        QVERIFY(notice->contains(popup.center()));
+        QVERIFY2(!notice->contains(QPointF(popup.center().x(),notice->height()-1)),"The transparent host must not intercept content input.");
+
+        shell.setVisible(false);onboarding.setVisible(true);
+        QTRY_COMPARE(notice->parentItem(),window.contentItem());
+        QTRY_COMPARE(notice->y(),onboarding.y()+margin);
+        QVERIFY2(notice->isVisible(),"Errors must remain visible on the onboarding content view.");
+        onboarding.setVisible(false);shell.setVisible(true);
+        QTRY_COMPARE(notice->parentItem(),&body);
+        QTRY_COMPARE(notice->y(),anchor.y()+margin);
+
+        anchor.setPosition({55,35});anchor.setSize({250,150});
+        QTRY_COMPARE(notice->y(),anchor.y()+margin);
+        QTRY_COMPARE(notice->x()+notice->width(),anchor.x()+anchor.width()-margin);
+        QVERIFY(notice->width()<=anchor.width() && notice->height()<=anchor.height());
+        popup=notice->controlBounds(QStringLiteral("society-error-notification"));
+        viewport=notice->controlBounds(QStringLiteral("error-message-scroll"));
+        QVERIFY(popup.right()<=notice->width() && popup.bottom()<=notice->height());
+        QVERIFY(popup.contains(viewport));
+
+        center.append(QStringLiteral("Storage"),QStringLiteral("A very long error message that must remain readable. ").repeated(30));
+        QVERIFY(notice->dismiss());
+        QTRY_VERIFY(notice->message().contains(QStringLiteral("very long")));
+        viewport=notice->controlBounds(QStringLiteral("error-message-scroll"));
+        const auto before=notice->controlScrollPosition(QStringLiteral("error-message-scroll"));
+        QVERIFY2(before.y()>0,"A message taller than the available area must be scrollable.");
+        const auto pos=viewport.center();
+        QWheelEvent wheel(pos,pos,QPoint{},QPoint{0,-120},Qt::NoButton,Qt::NoModifier,Qt::NoScrollPhase,false);
+        QCoreApplication::sendEvent(notice,&wheel);
+        QTRY_VERIFY(notice->controlScrollPosition(QStringLiteral("error-message-scroll")).x()>before.x());
+        QVERIFY(notice->dismiss());
+        QTRY_VERIFY(!notice->isVisible());
+        QCOMPARE(center.rowCount(),2);
+    }
     void agentTranscriptFollowsNewMessagesUntilUserScrollsUp() {
         NativeWorkspaceSurface surface; surface.setSize({1440,772}); surface.refresh();
         auto *vm=surface.model(); QVERIFY(vm);
@@ -662,7 +842,7 @@ private slots:
         QQuickItem legacy(&viewport); legacy.setObjectName(QStringLiteral("dashboardTabs"));
         auto *surface = LegacyNavigationBridge::install(&window);
         QVERIFY(surface);
-        QCOMPARE(surface->accessibleItemName(0), QStringLiteral("Workspace"));
+        QCOMPARE(surface->accessibleItemName(0), QStringLiteral("Environment"));
         QSignalSpy requested(&shell, &WorkspaceShell::tabRequested);
         surface->requested(QStringLiteral("Environment"));
         QCOMPARE(requested.size(), 1);
@@ -670,6 +850,158 @@ private slots:
         surface->requested(QStringLiteral("Hosting"));
         QCOMPARE(requested.size(), 1);
         QCOMPARE(requested.takeFirst().at(0).toString(), QStringLiteral("Environment"));
+    }
+    void appsSegmentWaitsForEnvironmentAndTracksItsSubpage() {
+        QQuickWindow window;
+        WorkspaceShell shell(window.contentItem()); shell.setObjectName(QStringLiteral("societyContent"));
+        QQuickItem viewport(&shell); viewport.setObjectName(QStringLiteral("dashboardTabViewport"));
+        QQuickItem legacy(&viewport); legacy.setObjectName(QStringLiteral("dashboardTabs"));
+        EnvironmentLoaderFixture loader(&shell); loader.setObjectName(QStringLiteral("environmentLoader"));
+        connect(&shell, &WorkspaceShell::tabRequested, &shell, [&](const QString &page) {
+            if (shell.selectedTab != page) { shell.selectedTab = page; emit shell.selectedTabChanged(); }
+        });
+        auto *surface = LegacyNavigationBridge::install(&window); QVERIFY(surface);
+        surface->requested(QStringLiteral("Apps"));
+        QCOMPARE(shell.selectedTab, QStringLiteral("Environment"));
+        EnvironmentFixture environment(&shell); environment.setObjectName(QStringLiteral("environmentView"));
+        emit loader.loaded();
+        QCOMPARE(environment.page(), QStringLiteral("Apps"));
+        QCOMPARE(environment.appCollection, 1);
+        QCOMPARE(surface->currentPage(), QStringLiteral("Apps"));
+        environment.setPage(QStringLiteral("Devices"));
+        QCOMPARE(surface->currentPage(), QStringLiteral("Environment"));
+        environment.setPage(QStringLiteral("Apps"));
+        QCOMPARE(surface->currentPage(), QStringLiteral("Apps"));
+        surface->requested(QStringLiteral("Environment"));
+        QCOMPARE(shell.selectedTab, QStringLiteral("Dashboard"));
+        surface->requested(QStringLiteral("Apps"));
+        QCOMPARE(surface->currentPage(), QStringLiteral("Apps"));
+        surface->requested(QStringLiteral("Hosting"));
+        QCOMPARE(environment.page(), QStringLiteral("Overview"));
+        QCOMPARE(surface->currentPage(), QStringLiteral("Hosting"));
+        environment.setPage(QStringLiteral("Devices"));
+        QCOMPARE(surface->currentPage(), QStringLiteral("Environment"));
+    }
+    void pendingAppsRequestIsCancelledWhenAnotherPageIsSelected() {
+        QQuickWindow window;
+        WorkspaceShell shell(window.contentItem()); shell.setObjectName(QStringLiteral("societyContent"));
+        QQuickItem viewport(&shell); viewport.setObjectName(QStringLiteral("dashboardTabViewport"));
+        QQuickItem legacy(&viewport); legacy.setObjectName(QStringLiteral("dashboardTabs"));
+        EnvironmentLoaderFixture loader(&shell); loader.setObjectName(QStringLiteral("environmentLoader"));
+        connect(&shell, &WorkspaceShell::tabRequested, &shell, [&](const QString &page) {
+            if (shell.selectedTab != page) { shell.selectedTab = page; emit shell.selectedTabChanged(); }
+        });
+        auto *surface = LegacyNavigationBridge::install(&window); QVERIFY(surface);
+        surface->requested(QStringLiteral("Apps"));
+        surface->requested(QStringLiteral("Tools"));
+        EnvironmentFixture environment(&shell); environment.setObjectName(QStringLiteral("environmentView"));
+        emit loader.loaded();
+        QCOMPARE(environment.appCollection, -1);
+        QCOMPARE(surface->currentPage(), QStringLiteral("Tools"));
+    }
+    void appsRouteInvokesAnUntypedQmlFunction() {
+        QQuickWindow window;
+        WorkspaceShell shell(window.contentItem()); shell.setObjectName(QStringLiteral("societyContent"));
+        QQuickItem viewport(&shell); viewport.setObjectName(QStringLiteral("dashboardTabViewport"));
+        QQuickItem legacy(&viewport); legacy.setObjectName(QStringLiteral("dashboardTabs"));
+        EnvironmentLoaderFixture loader(&shell); loader.setObjectName(QStringLiteral("environmentLoader"));
+        connect(&shell, &WorkspaceShell::tabRequested, &shell, [&](const QString &page) {
+            if (shell.selectedTab != page) { shell.selectedTab = page; emit shell.selectedTabChanged(); }
+        });
+        auto *surface = LegacyNavigationBridge::install(&window); QVERIFY(surface);
+        surface->requested(QStringLiteral("Apps"));
+        QQmlEngine engine;
+        QQmlComponent component(&engine);
+        component.setData(R"qml(import QtQuick
+Item {
+    objectName: "environmentView"
+    property string page: "Overview"
+    property int appCollection: -1
+    function showApps(collection) { page = "Apps"; appCollection = collection }
+})qml", QUrl());
+        QScopedPointer<QObject> environment(component.create());
+        QVERIFY2(environment, qPrintable(component.errorString()));
+        environment->setParent(&shell);
+        emit loader.loaded();
+        QCOMPARE(environment->property("page").toString(), QStringLiteral("Apps"));
+        QCOMPARE(environment->property("appCollection").toInt(), 1);
+        QCOMPARE(surface->currentPage(), QStringLiteral("Apps"));
+    }
+    void unavailableSegmentsKeepTheCurrentPage() {
+        QQuickWindow window;
+        WorkspaceShell shell(window.contentItem()); shell.setObjectName(QStringLiteral("societyContent"));
+        QQuickItem viewport(&shell); viewport.setObjectName(QStringLiteral("dashboardTabViewport"));
+        QQuickItem legacy(&viewport); legacy.setObjectName(QStringLiteral("dashboardTabs"));
+        auto *surface = LegacyNavigationBridge::install(&window); QVERIFY(surface);
+        QSignalSpy features(&shell, &WorkspaceShell::featureRequested);
+        QSignalSpy tabs(&shell, &WorkspaceShell::tabRequested);
+        for (const auto &feature : {QStringLiteral("Service"), QStringLiteral("Community"), QStringLiteral("Learning")}) {
+            surface->requested(feature);
+            QCOMPARE(features.takeFirst().at(0).toString(), feature);
+            QCOMPARE(surface->currentPage(), QStringLiteral("Tools"));
+        }
+        QVERIFY(tabs.isEmpty());
+    }
+    void unavailableViewUsesNativeFigmaAlert_data() {
+        QTest::addColumn<QSize>("viewportSize");
+        QTest::newRow("desktop") << QSize(1440, 900);
+        QTest::newRow("compact") << QSize(800, 600);
+        QTest::newRow("mobile") << QSize(390, 844);
+        QTest::newRow("short") << QSize(360, 320);
+    }
+    void unavailableViewUsesNativeFigmaAlert() {
+        QFETCH(QSize, viewportSize);
+        QQuickWindow window; window.resize(viewportSize); window.contentItem()->setSize(viewportSize);
+        WorkspaceShell shell(window.contentItem()); shell.setObjectName(QStringLiteral("societyContent"));
+        QQuickItem viewport(&shell); viewport.setObjectName(QStringLiteral("dashboardTabViewport"));
+        QQuickItem legacyNavigation(&viewport); legacyNavigation.setObjectName(QStringLiteral("dashboardTabs"));
+        LegacyNoticeFixture legacy(window.contentItem()); legacy.setObjectName(QStringLiteral("dashboardNotice"));
+        legacy.primaryText = QStringLiteral("OK");
+        connect(&shell,&WorkspaceShell::featureRequested,&legacy,[&](const QString &feature) {
+            legacy.title=feature;
+            legacy.message=feature+QStringLiteral(" is not connected to a workspace service yet.");
+            legacy.setOpen(true);
+        });
+        auto *navigation=LegacyNavigationBridge::install(&window);QVERIFY(navigation);
+        const auto selected=navigation->currentPage();
+        window.contentItem()->setSize({0,0});
+        navigation->requested(QStringLiteral("Community"));
+        QVERIFY2(legacy.isOpen(),"The legacy notice must remain available when the native surface cannot be shown.");
+        legacy.setOpen(false);window.contentItem()->setSize(viewportSize);
+        navigation->requested(QStringLiteral("Community"));
+        auto *notice = window.findChild<NativeNoticeSurface *>(QStringLiteral("societyNativeNotice"));
+        QVERIFY(notice);
+        QVERIFY2(notice->ready(),qPrintable(notice->errorString()));
+        QVERIFY(notice->isVisible());
+        QVERIFY(!legacy.isOpen());
+        QCOMPARE(notice->title(), legacy.title);
+        QCOMPARE(notice->message(), legacy.message);
+        const QRectF bounds = notice->alertBounds();
+        QCOMPARE(bounds.width(), qMin(500.0, double(viewportSize.width())-48.0));
+        QVERIFY(bounds.height() > 0 && bounds.height() < 379.0);
+        QVERIFY(QRectF(QPointF(), window.size()).contains(bounds));
+        QCOMPARE(navigation->currentPage(),selected);
+        auto *accessible=QAccessible::queryAccessibleInterface(notice);QVERIFY(accessible);
+        QCOMPARE(accessible->role(),QAccessible::AlertMessage);
+        QCOMPARE(accessible->text(QAccessible::Name),QStringLiteral("Community"));
+        const auto point=notice->primaryActionBounds().center();QVERIFY(!notice->primaryActionBounds().isEmpty());
+        QMouseEvent press(QEvent::MouseButtonPress,point,point,point,Qt::LeftButton,Qt::LeftButton,Qt::NoModifier);
+        QCoreApplication::sendEvent(notice,&press);
+        QMouseEvent release(QEvent::MouseButtonRelease,point,point,point,Qt::LeftButton,Qt::NoButton,Qt::NoModifier);
+        QCoreApplication::sendEvent(notice,&release);
+        QTRY_VERIFY(!notice->isVisible());
+        legacy.title = QStringLiteral("Another view");
+        legacy.setOpen(true);
+        QVERIFY(notice->isVisible());
+        QCOMPARE(notice->title(), legacy.title);
+        auto *action=accessible->actionInterface();QVERIFY(action);
+        action->doAction(QAccessibleActionInterface::pressAction());
+        legacy.title=QStringLiteral("Newest view");legacy.setOpen(true);
+        QCoreApplication::processEvents();
+        QVERIFY2(notice->isVisible(),"An older queued dismissal hid a newer notice.");
+        QCOMPARE(notice->title(),legacy.title);
+        QVERIFY(notice->activatePrimary());
+        QTRY_VERIFY(!notice->isVisible());
     }
     void workspaceBridgeConnectsSidebarAndEmptyDrive() {
         QQuickWindow window;

@@ -2,6 +2,7 @@
 #include <iiGUI>
 #include <algorithm>
 #include <array>
+#include <cstdint>
 #include <memory>
 #include <stdexcept>
 #include <string_view>
@@ -28,6 +29,14 @@ struct Device final : ii::gui::PaintDevice {
     ii::core::Result<void> present() override { return {}; }
     void abort_frame() noexcept override {}
 };
+class NavigationIcons final : public lvui::IconSource {
+public:
+    lvui::IconResult<std::shared_ptr<const lvui::IconAsset>> resolve(std::string_view) const override { return icon; }
+    std::uint64_t revision() const noexcept override { return 1; }
+private:
+    const std::shared_ptr<const lvui::IconAsset> icon = std::make_shared<const lvui::IconAsset>(
+        lvui::IconAsset{R"svg(<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1"><rect width="1" height="1"/></svg>)svg"});
+};
 }
 
 int main() {
@@ -38,16 +47,18 @@ int main() {
     std::vector<Action> requests;
     auto view = take(ii::gui::PaintView::create(device, [&](auto &builder) {
         return View::build(builder, {}, [&](auto &value) {
+            value.backend_0.iconSource = std::make_shared<NavigationIcons>();
             value.backend_0.onNavigate = [&](Action action) { requests.push_back(action); };
         }, &scope);
     }, View::appearance()));
-    good(view->paint({166, 22}));
-    require(device->images == 7, "all seven LVUI icons render");
+    good(view->paint({214, 22}));
+    require(device->images == 9, "all nine LVUI icons render");
     const auto group = take(take(view->find("society-navigation")).snapshot());
-    require(group.bounds.width == 166 && group.bounds.height == 22, "seven buttons use LVUI Figma geometry");
-    const std::array<std::pair<std::string_view, Action>, 7> items{{
+    require(group.bounds.width == 214 && group.bounds.height == 22, "nine buttons use LVUI Figma geometry");
+    const std::array<std::pair<std::string_view, Action>, 9> items{{
         {"environment", Action::Environment}, {"tasks", Action::Tasks}, {"library", Action::Library},
-        {"space", Action::Space}, {"browse", Action::Browse}, {"people", Action::People}, {"hosting", Action::Hosting}}};
+        {"space", Action::Space}, {"apps", Action::Apps}, {"service", Action::Service},
+        {"community", Action::Community}, {"learning", Action::Learning}, {"hosting", Action::Hosting}}};
     double nextX = group.bounds.x;
     for (const auto &[name, action] : items) {
         auto widget = take(view->find(name));

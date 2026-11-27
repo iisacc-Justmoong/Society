@@ -13,6 +13,11 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QString>
+#ifdef Q_OS_WIN
+#include "WindowsPipePeer.h"
+// Shared with the Windows named-pipe peer verification below.
+inline bool societyBackendSameWindowsUser(QLocalSocket *socket, bool serverSide);
+#endif
 
 #if defined(Q_OS_DARWIN)
 #include <libproc.h>
@@ -40,6 +45,10 @@ inline qint64 societyBackendPeerPid(QLocalSocket *socket)
     struct ucred peer{}; socklen_t size = sizeof(peer);
     return ::getsockopt(int(socket->socketDescriptor()), SOL_SOCKET, SO_PEERCRED, &peer, &size) == 0
         && size == sizeof(peer) && peer.pid > 0 ? qint64(peer.pid) : -1;
+#elif defined(Q_OS_WIN)
+    const auto pipe=reinterpret_cast<HANDLE>(socket->socketDescriptor());
+    const auto pid=society::peer::pipePeerProcessId(pipe);
+    return pid ? qint64(pid) : -1;
 #else
     return -1;
 #endif
@@ -55,6 +64,11 @@ inline bool societyBackendPeerSameUser(QLocalSocket *socket)
     struct ucred peer{}; socklen_t size = sizeof(peer);
     return ::getsockopt(int(socket->socketDescriptor()), SOL_SOCKET, SO_PEERCRED, &peer, &size) == 0
         && peer.uid == ::geteuid();
+#elif defined(Q_OS_WIN)
+    const auto pipe=reinterpret_cast<HANDLE>(socket->socketDescriptor());
+    DWORD flags=0;
+    return pipe && pipe!=INVALID_HANDLE_VALUE && GetNamedPipeInfo(pipe,&flags,nullptr,nullptr,nullptr)
+        && societyBackendSameWindowsUser(socket,(flags&PIPE_SERVER_END)!=0);
 #else
     return false;
 #endif
@@ -72,15 +86,26 @@ inline bool societyBackendPeerMatchesExecutable(QLocalSocket *socket, const QStr
     actual = QFile::decodeName(buffer.constData());
 #elif defined(Q_OS_LINUX)
     actual = QFile::symLinkTarget(QStringLiteral("/proc/%1/exe").arg(pid));
+#elif defined(Q_OS_WIN)
+    const auto path=society::peer::processImagePath(DWORD(pid));
+    if (path.empty()) return false;
+    actual=QString::fromStdWString(path);
 #else
     Q_UNUSED(expected); return false;
 #endif
-    const auto target = QFileInfo(expected).canonicalFilePath();
+    auto expectedPath=expected;
+#ifdef Q_OS_WIN
+    if (!QFileInfo::exists(expectedPath) && !expectedPath.endsWith(QStringLiteral(".exe"),Qt::CaseInsensitive)) expectedPath+=".exe";
+#endif
+    const auto target = QFileInfo(expectedPath).canonicalFilePath();
+#ifdef Q_OS_WIN
+    return !target.isEmpty() && QFileInfo(actual).canonicalFilePath().compare(target,Qt::CaseInsensitive)==0;
+#else
     return !target.isEmpty() && QFileInfo(actual).canonicalFilePath() == target;
+#endif
 }
 
 #ifdef Q_OS_WIN
-#include <windows.h>
 #include <QByteArray>
 #include <QString>
 
